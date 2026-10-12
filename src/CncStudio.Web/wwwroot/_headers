@@ -1,7 +1,6 @@
 # Cabeçalhos do Cloudflare Pages
-# Arquivos do .NET têm o "hash" no nome: podem ficar guardados para sempre no navegador
-/_framework/*
-  Cache-Control: no-cache
+# Os .wasm do .NET têm o "hash" no nome: podem ficar guardados para sempre no navegador
+# (dotnet.js e avalonia.js não têm hash e seguem o cache padrão, com revalidação)
 /_framework/*.wasm
   Cache-Control: public, max-age=31536000, immutable
 # A página e o service worker precisam ser conferidos a cada visita (para chegar a versão nova)
