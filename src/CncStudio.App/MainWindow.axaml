@@ -49,6 +49,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="4">
                   <Button x:Name="FanucSampleButton" Content="Fanuc" ToolTip.Tip="Abrir EXEMPLO.nc" />
                   <Button x:Name="SiemensSampleButton" Content="Siemens" ToolTip.Tip="Abrir EXEMPLO.mpf" />
+                  <Button x:Name="MoreSamplesButton" Content="Outros…" ToolTip.Tip="Abrir a pasta de exemplos (furação, macros)" />
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Exemplos" />
               </StackPanel>

@@ -2,8 +2,8 @@
 
 Editor e simulador de programas CNC (FANUC e Siemens), leve e rápido, no estilo do CIMCO Edit.
 
-> **Status:** Etapa 1 — protótipo para validar a stack (C# / .NET 10 + Avalonia, que desenha via Skia, + AvaloniaEdit).
-> Os 4 incrementos do protótipo estão prontos e aguardam validação.
+> **Status:** Etapa 2 — produto final (C# / .NET 10 + Avalonia + AvaloniaEdit).
+> Fase 1 (comandos de fresa do MVP) concluída. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
 
 ## Testar sem instalar nada (executável pronto)
 
@@ -58,15 +58,16 @@ samples/                     EXEMPLO.nc (Fanuc) e EXEMPLO.mpf (Siemens)
 tools/                       Script para gerar arquivo grande de teste
 ```
 
-## Escopo de G-code do protótipo
+## G-code suportado (Fase 1)
 
-- **Comandos:** G00, G01, G02, G03 (centro por I/J), M03/M04/M05, M30/M02, F, S.
-- **Condições assumidas:** milímetros, plano XY, coordenadas absolutas, sem compensação de raio.
-- **Aceitos e ignorados sem aviso:** G17, G21, G40, G49, G54–G59, G64, G80, G90, G94, T, D, H, M06–M09
-  (Siemens: também G60, G71, G500).
-- **Geram aviso:** outros G/M, ciclos (CYCLE81...), CR=, R.
-- **Geram erro:** G91, G20, G18/G19, arco sem I/J, texto não reconhecido.
-- Números sem ponto decimal (ex.: `X10`) são lidos como milímetros.
+- **Movimento:** G00, G01, G02, G03 nos planos G17/G18/G19, por centro (I/J/K) ou raio (R no Fanuc, CR= no Siemens).
+- **Modos:** G90/G91, G20/G21 (G70/G71 no Siemens), G54–G59 (G500 no Siemens), TRANS/ATRANS.
+- **Furação:** G81, G82, G83 com G98/G99, Q e repetição K; CYCLE81, CYCLE82, CYCLE83, inclusive com MCALL.
+- **Ferramentas:** T + M06; diâmetro por ferramenta em *Máquina → Ferramentas e zeros de peça*.
+- **Sem desenho de movimento:** G04 (espera), G53 (coordenada de máquina), G28/G30.
+- **Fase 1B (interpretador):** variáveis, expressões, IF/GOTO/WHILE, subprogramas (M98/L),
+  cantos `,R`/`,C` e compensação G41/G42 — por enquanto essas linhas são puladas com aviso.
+- Números sem ponto no Fanuc (`X10`): 10 mm por padrão; configurável para 0,010 mm.
 
 ## Licença
 

@@ -61,6 +61,7 @@ public partial class MainWindow : Window
         };
 
         OpenButton.Click += async (_, _) => await OpenFileAsync();
+        MoreSamplesButton.Click += async (_, _) => await OpenFileAsync(Path.Combine(AppContext.BaseDirectory, "samples"));
         SaveButton.Click += async (_, _) => await SaveFileAsync(saveAs: false);
         SaveAsButton.Click += async (_, _) => await SaveFileAsync(saveAs: true);
 
@@ -107,10 +108,15 @@ public partial class MainWindow : Window
 
     // ───────────────────────── Arquivos ─────────────────────────
 
-    private async Task OpenFileAsync()
+    private async Task OpenFileAsync(string? startFolder = null)
     {
+        IStorageFolder? start = startFolder is not null && Directory.Exists(startFolder)
+            ? await StorageProvider.TryGetFolderFromPathAsync(startFolder)
+            : null;
+
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
+            SuggestedStartLocation = start,
             Title = "Abrir programa CNC",
             AllowMultiple = false,
             FileTypeFilter =
