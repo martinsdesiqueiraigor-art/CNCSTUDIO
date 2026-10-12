@@ -25,7 +25,6 @@ public partial class GraphicsPanel : UserControl
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(30) };
     private readonly Stopwatch _clock = new();
     private TimeSpan _lastTick;
-    private double _distanceBudget;
 
     private ToolPath? _path;
     private int[] _passStarts = [];
@@ -239,7 +238,6 @@ public partial class GraphicsPanel : UserControl
             Enqueue(s => s.Reset()); // terminou: recomeça do bruto
         }
 
-        _distanceBudget = 0;
         _clock.Restart();
         _lastTick = TimeSpan.Zero;
         _timer.Start();

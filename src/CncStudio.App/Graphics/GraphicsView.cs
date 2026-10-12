@@ -524,7 +524,7 @@ public sealed class GraphicsView : ZoomPanControl
                 _measure.Clear();
             }
 
-            Point3? snapped = PathHitTest.NearestPoint(_path.Moves, view.ProjectTuple, world.X, world.Y, PixelsToWorld(10));
+            Point3? snapped = PathHitTest.NearestPoint(_path.Moves, point => view.ProjectTuple(point), world.X, world.Y, PixelsToWorld(10));
             _measure.Add(new MeasurePoint(snapped is { } p ? view.Project(p) : world, snapped));
             MeasureText = BuildMeasureText();
             MeasureChanged?.Invoke(this, EventArgs.Empty);
@@ -532,7 +532,7 @@ public sealed class GraphicsView : ZoomPanControl
             return;
         }
 
-        int index = PathHitTest.NearestMove(_path.Moves, view.ProjectTuple, world.X, world.Y,
+        int index = PathHitTest.NearestMove(_path.Moves, point => view.ProjectTuple(point), world.X, world.Y,
             PixelsToWorld(6), PathPolylineBuilder.ScreenTolerance(_path));
         if (index >= 0)
         {

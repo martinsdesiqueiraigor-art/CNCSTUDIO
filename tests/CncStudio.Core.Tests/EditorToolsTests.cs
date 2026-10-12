@@ -11,7 +11,7 @@ public class TextSearchTests
     public void BuscaSimplesIgnoraMaiusculasPorPadrao()
     {
         Assert.Equal(4, TextSearch.FindAll(Program, "x10", new SearchOptions()).Count); // X10, X100, x10, X10
-        Assert.Equal(1, TextSearch.FindAll(Program, "x10", new SearchOptions(MatchCase: true)).Count);
+        Assert.Single(TextSearch.FindAll(Program, "x10", new SearchOptions(MatchCase: true)));
     }
 
     [Fact]
