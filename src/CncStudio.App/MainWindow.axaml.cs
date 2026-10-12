@@ -266,6 +266,7 @@ public partial class MainWindow : Window
     {
         CurrentAnalysis = analysis;
         Backplot.SetToolPath(analysis.ToolPath, figures, _fitOnNextAnalysis);
+        Simulation.SetToolPath(analysis.ToolPath);
         Backplot.SetHighlightedLine(Editor.TextArea.Caret.Line);
         _fitOnNextAnalysis = false;
 

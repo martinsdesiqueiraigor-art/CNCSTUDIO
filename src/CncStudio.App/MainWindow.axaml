@@ -58,7 +58,7 @@
           </DockPanel>
         </TabItem>
         <TabItem Header="Simulação">
-          <TextBlock Text="Simulação: incremento 4" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
+          <views:SimulationPanel x:Name="Simulation" />
         </TabItem>
       </TabControl>
     </Grid>
