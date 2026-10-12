@@ -18,7 +18,7 @@ Decisões tomadas com o dono do produto:
 | Fase | Entrega | Status |
 |---|---|---|
 | 9 | Identidade visual no desktop: nome, ícones (.ico/.png gerados dos SVGs), instalador, README | ✅ |
-| 10 | **Web — protótipo**: projeto `CncStudio.Web` (Avalonia no navegador), editor básico + backplot do torno (X×Z). CI compila e publica. Teste do teclado virtual no celular | |
+| 10 | **Web — protótipo**: projeto `CncStudio.Web` (Avalonia no navegador), editor básico + backplot do torno (X×Z) e da fresa (topo XY). CI compila e publica no ramo `ci-web`. Falta: teste do teclado virtual num celular de verdade | 🔶 |
 | 11 | **Web — fresa 2,5D** (vista XY com profundidade por cor), animação linha a linha com pausa, estatísticas, folha de setup | |
 | 12 | **PWA**: instalável, funciona offline, ícones; hospedagem com deploy automático (Cloudflare Pages ou Netlify) | |
 | 13 | **Contas e licenças**: Supabase (login e-mail/Google), trial de 14 dias, limite de dispositivos, restrições pós-trial; no desktop, licença assinada (Ed25519) com tolerância offline | |

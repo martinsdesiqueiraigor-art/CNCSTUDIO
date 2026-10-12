@@ -25,6 +25,18 @@ As configurações ficam em `%APPDATA%\CncStudio\config.json` (valem para as dua
 
 O programa abre já com o `EXEMPLO.nc` carregado.
 
+## Versão web (protótipo)
+
+`src/CncStudio.Web` é a versão para navegador (PC e celular), com o mesmo Core. Fica fora da solução porque
+precisa do workload de WebAssembly:
+
+```bash
+dotnet workload install wasm-tools
+dotnet publish src/CncStudio.Web -c Release -o publish/web   # site estático em publish/web/wwwroot
+```
+
+O CI publica o resultado no ramo `ci-web` a cada commit.
+
 ## Compilar e rodar a partir do código (Windows 11)
 
 1. Instale o **.NET 10 SDK**: https://dotnet.microsoft.com/download/dotnet/10.0
