@@ -7,7 +7,7 @@ namespace CncStudio.Core.Execution;
 
 /// <summary>
 /// Parte do executor para torno: X em diâmetro, U/W, avanço por rotação, velocidade de corte
-/// constante (G96), rosca (G32/G33) e os ciclos G90/G92/G94, G70/G71/G72 e G76 do Fanuc.
+/// constante (G96), rosca (G32/G33) e os ciclos G90/G92/G94, G70/G71/G72, G74/G75 e G76 do Fanuc.
 ///
 /// Coordenadas internas: X guarda o RAIO (distância ao eixo de rotação) e Z o comprimento.
 /// A conversão de diâmetro → raio acontece na leitura do X (ver ResolveX / XFactor).
@@ -38,6 +38,7 @@ public sealed partial class MachineExecutor
     private int _threadFinishPasses = 1;       // m
     private double _threadMinDepth;            // Δdmin
     private double _threadAllowance;           // d
+    private double _peckRetract = 0.5;         // e do G74/G75
 
     // ── Leitura do perfil (blocos P..Q) sem gerar movimentos ──
     private bool _capturing;
@@ -72,12 +73,12 @@ public sealed partial class MachineExecutor
                 w.Motion = MotionMode.Linear;
                 w.Thread = true;
                 return true;
-            case 70 or 71 or 72 or 76:
+            case 70 or 71 or 72 or 74 or 75 or 76:
                 w.LatheCycle = code;
                 return true;
-            case 73 or 74 or 75:
+            case 73:
                 w.SuppressMotion = true;
-                Warning(line, word, $"Ciclo G{code} do torno ainda não é suportado (só G70, G71, G72, G76, G90, G92 e G94).");
+                Warning(line, word, "Ciclo G73 (repetição de padrão) ainda não é suportado.");
                 return true;
             case 90 or 92 or 94:
                 w.SimpleCycle = code;
@@ -276,6 +277,98 @@ public sealed partial class MachineExecutor
             case 76:
                 ExecuteFanucThreading(line, w);
                 break;
+            case 74 or 75:
+                ExecuteFanucGrooving(line, w, code);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// G74 (furação/canal de face, bicadas em Z) e G75 (canal externo/interno, bicadas em X),
+    /// formato de dois blocos: G74 R(e) — G74 X(U) Z(W) P(Δi) Q(Δk) R(Δd) F..
+    /// G74: bicadas de Δk em Z; entre colunas, desloca Δi em X. G75: bicadas de Δi em X;
+    /// entre canais, desloca Δk em Z. Depois de cada bicada recua "e" (quebra-cavaco);
+    /// no fundo volta ao início do eixo de bicada. P e Q sem ponto decimal são em mícrons.
+    /// Δd (alívio no fundo) não é desenhado.
+    /// </summary>
+    private void ExecuteFanucGrooving(int line, BlockWords w, int code)
+    {
+        bool hasTarget = w.X.HasValue || w.U.HasValue || w.Z.HasValue || w.W.HasValue;
+        if (!hasTarget)
+        {
+            if (Length(w.R) is { } retract)
+            {
+                _peckRetract = Math.Abs(retract);
+            }
+
+            return;
+        }
+
+        Point3 start = ProgramPosition;
+        Point3 target = TargetPosition(w) - Offset;
+        double x1 = w.X.HasValue || w.U.HasValue ? target.X : start.X;
+        double z1 = w.Z.HasValue || w.W.HasValue ? target.Z : start.Z;
+        double xStep = Math.Abs(Micron(w.P) ?? 0); // Δi (raio)
+        double zStep = Math.Abs(Micron(w.Q) ?? 0); // Δk
+
+        bool face = code == 74;
+        double peckFrom = face ? start.Z : start.X;
+        double peckTo = face ? z1 : x1;
+        double peckStep = face ? zStep : xStep;
+        double shiftFrom = face ? start.X : start.Z;
+        double shiftTo = face ? x1 : z1;
+        double shiftStep = face ? xStep : zStep;
+
+        if (Math.Abs(shiftTo - shiftFrom) > 1e-9 && shiftStep <= 0)
+        {
+            Error(line, 0, 0, $"G{code}: falta o deslocamento entre {(face ? "colunas (P)" : "canais (Q)")}.");
+            return;
+        }
+
+        Point3 Point(double peck, double shift) => face ? LathePoint(shift, peck) : LathePoint(peck, shift);
+
+        foreach (double position in Steps(shiftFrom, shiftTo, shiftStep))
+        {
+            AddLine(line, Point(peckFrom, position), MotionMode.Rapid);
+
+            double direction = Math.Sign(peckTo - peckFrom);
+            double reached = peckFrom;
+            for (int guard = 0; Math.Abs(peckTo - reached) > 1e-9 && guard < 100_000; guard++)
+            {
+                double next = peckStep > 0 && Math.Abs(peckTo - reached) > peckStep ? reached + direction * peckStep : peckTo;
+                AddLine(line, Point(next, position), MotionMode.Linear);
+                reached = next;
+                if (Math.Abs(peckTo - reached) > 1e-9)
+                {
+                    AddLine(line, Point(reached - direction * _peckRetract, position), MotionMode.Rapid); // quebra-cavaco
+                }
+            }
+
+            AddLine(line, Point(peckFrom, position), MotionMode.Rapid);
+        }
+
+        AddLine(line, LathePoint(start.X, start.Z), MotionMode.Rapid);
+    }
+
+    /// <summary>Posições de "from" até "to" (inclusive) com passo "step"; a última é sempre "to".</summary>
+    private static IEnumerable<double> Steps(double from, double to, double step)
+    {
+        yield return from;
+        if (Math.Abs(to - from) < 1e-9)
+        {
+            yield break;
+        }
+
+        double direction = Math.Sign(to - from);
+        double position = from;
+        for (int guard = 0; guard < 100_000; guard++)
+        {
+            position = Math.Abs(to - position) > step + 1e-9 ? position + direction * step : to;
+            yield return position;
+            if (position == to)
+            {
+                yield break;
+            }
         }
     }
 
@@ -681,9 +774,9 @@ public sealed partial class MachineExecutor
         }
 
         var normalized = points.Select(p => (A: sa * A(p), D: sd * D(p))).ToList();
-        if (!IsMonotonic(normalized))
+        if (!AdvancesAlongCut(normalized))
         {
-            Warning(line, 0, 0, $"{cycleName}: perfil com rebaixo (não monotônico); o desbaste segue só até o primeiro ponto em que o perfil sobe (tipo I).");
+            Warning(line, 0, 0, $"{cycleName}: o perfil volta para trás na direção do corte; o desbaste usa a parte que avança (o comando daria alarme).");
         }
 
         double a0 = sa * A(a);
@@ -735,56 +828,161 @@ public sealed partial class MachineExecutor
     /// <summary>
     /// Passes de desbaste no sistema normalizado: o perfil começa no ponto mais fundo e
     /// avança em +a; o material fica acima (d maior), até o nível d0 do ponto inicial.
-    /// Cada passe: rápido até o nível, corte em +a até encontrar o perfil, recuo a 45°
-    /// (retract) e rápido de volta ao a0.
+    ///
+    /// Em cada nível, o corte vai por todos os trechos em que o perfil está abaixo do nível.
+    /// Sem rebaixo há um trecho só (tipo I): rápido até o nível, corte até o perfil, recuo a 45°
+    /// e volta. Com rebaixo (tipo II) há mais trechos: depois de cada um a ferramenta recua,
+    /// passa por cima do ressalto e mergulha no rebaixo seguinte com avanço de corte.
     /// </summary>
     internal static List<RoughingStep> PlanRoughing(IReadOnlyList<(double A, double D)> profile,
         double a0, double d0, double depthStep, double retract)
     {
         var steps = new List<RoughingStep>();
         double deepest = profile.Min(p => p.D);
-        double profileEnd = profile[^1].A;
-
+        double previousLevel = d0;
         double level = d0 - depthStep;
-        for (int guard = 0; level > deepest + 1e-6 && guard < 100_000; guard++, level -= depthStep)
+
+        for (int guard = 0; level > deepest + 1e-6 && guard < 100_000; guard++)
         {
-            double end = FirstCrossing(profile, level) ?? profileEnd;
-            if (end <= a0 + 1e-6)
+            List<(double Start, double End)> spans = SpansBelow(profile, level, a0);
+            double current = a0; // a ferramenta está em a0, acima do nível anterior
+            bool atStart = true;
+
+            // Altura segura sobre um ressalto: o primeiro nível já desbastado acima dele
+            // (abaixo desse nível, em cima do ressalto, ainda há material para o passe de contorno)
+            double SafeAbove(double height)
             {
-                continue; // o perfil já está acima deste nível logo no início
+                double v = level;
+                while (v <= height + 1e-9 && v < d0 - 1e-9)
+                {
+                    v += depthStep;
+                }
+
+                return Math.Min(v, d0) + retract;
             }
 
-            steps.Add(new RoughingStep(a0, level, true));
-            steps.Add(new RoughingStep(end, level, false));
-            steps.Add(new RoughingStep(Math.Max(a0, end - retract), level + retract, false));
-            steps.Add(new RoughingStep(a0, level + retract, true));
+            foreach ((double start, double end) in spans)
+            {
+                if (atStart && start <= a0 + 1e-6)
+                {
+                    steps.Add(new RoughingStep(a0, level, true)); // entra pelo lado livre (face)
+                }
+                else
+                {
+                    // Sobe acima do ressalto, atravessa e mergulha no rebaixo com avanço de corte
+                    double clear = SafeAbove(MaxBetween(profile, current, start));
+                    steps.Add(new RoughingStep(current, clear, true));
+                    steps.Add(new RoughingStep(start, clear, true));
+                    double approach = Math.Min(clear, previousLevel + retract);
+                    if (approach < clear - 1e-9)
+                    {
+                        steps.Add(new RoughingStep(start, approach, true));
+                    }
+
+                    steps.Add(new RoughingStep(start, level, false));
+                }
+
+                steps.Add(new RoughingStep(end, level, false));
+                current = Math.Max(start, end - retract);
+                steps.Add(new RoughingStep(current, level + retract, false));
+                atStart = false;
+            }
+
+            if (!atStart)
+            {
+                // Volta ao a0 por cima de qualquer ressalto do caminho
+                double back = SafeAbove(MaxBetween(profile, a0, current));
+                if (back > level + retract + 1e-9)
+                {
+                    steps.Add(new RoughingStep(current, back, true));
+                }
+
+                steps.Add(new RoughingStep(a0, back, true));
+            }
+
+            previousLevel = level;
+            level -= depthStep;
         }
 
         return steps;
     }
 
-    /// <summary>Primeiro "a" em que o perfil sobe até o nível (null se nunca chega).</summary>
-    private static double? FirstCrossing(IReadOnlyList<(double A, double D)> profile, double level)
+    /// <summary>Trechos [início, fim] em "a" onde o perfil fica abaixo do nível (material a remover).</summary>
+    internal static List<(double Start, double End)> SpansBelow(IReadOnlyList<(double A, double D)> profile, double level, double a0)
     {
+        var spans = new List<(double, double)>();
+        bool below = profile[0].D < level;
+        double start = Math.Min(a0, profile[0].A);
+
         for (int i = 1; i < profile.Count; i++)
         {
             (double a1, double d1) = profile[i - 1];
             (double a2, double d2) = profile[i];
-            if (d1 < level && d2 >= level)
+            if (a2 < a1 - 1e-9)
             {
-                double t = (level - d1) / (d2 - d1);
-                return a1 + (a2 - a1) * t;
+                continue; // trecho que volta para trás: ignorado
+            }
+
+            if (below && d2 >= level)
+            {
+                spans.Add((start, Cross(a1, d1, a2, d2, level)));
+                below = false;
+            }
+            else if (!below && d2 < level)
+            {
+                start = Cross(a1, d1, a2, d2, level);
+                below = true;
             }
         }
 
-        return null;
+        if (below)
+        {
+            spans.Add((start, profile[^1].A));
+        }
+
+        spans.RemoveAll(s => s.Item2 - s.Item1 < 1e-6);
+        return spans;
     }
 
-    private static bool IsMonotonic(List<(double A, double D)> points)
+    private static double Cross(double a1, double d1, double a2, double d2, double level) =>
+        Math.Abs(d2 - d1) < 1e-12 ? a2 : a1 + (a2 - a1) * (level - d1) / (d2 - d1);
+
+    /// <summary>Maior altura do perfil entre dois valores de "a" (inclui os pontos das pontas).</summary>
+    private static double MaxBetween(IReadOnlyList<(double A, double D)> profile, double from, double to)
+    {
+        if (to < from)
+        {
+            (from, to) = (to, from);
+        }
+
+        double max = double.MinValue;
+        for (int i = 1; i < profile.Count; i++)
+        {
+            (double a1, double d1) = profile[i - 1];
+            (double a2, double d2) = profile[i];
+            if (a2 < from || a1 > to || a2 < a1)
+            {
+                continue;
+            }
+
+            // Altura do segmento recortado ao intervalo [from, to]
+            double lo = Math.Max(a1, from);
+            double hi = Math.Min(a2, to);
+            double span = a2 - a1;
+            double dLo = span < 1e-12 ? Math.Max(d1, d2) : d1 + (d2 - d1) * (lo - a1) / span;
+            double dHi = span < 1e-12 ? Math.Max(d1, d2) : d1 + (d2 - d1) * (hi - a1) / span;
+            max = Math.Max(max, Math.Max(dLo, dHi));
+        }
+
+        return max;
+    }
+
+    /// <summary>O perfil precisa avançar sempre na direção do corte (pode subir e descer).</summary>
+    private static bool AdvancesAlongCut(List<(double A, double D)> points)
     {
         for (int i = 1; i < points.Count; i++)
         {
-            if (points[i].D < points[i - 1].D - 1e-6 || points[i].A < points[i - 1].A - 1e-6)
+            if (points[i].A < points[i - 1].A - 1e-6)
             {
                 return false;
             }

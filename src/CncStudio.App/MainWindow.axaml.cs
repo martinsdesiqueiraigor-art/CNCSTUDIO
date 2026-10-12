@@ -101,12 +101,7 @@ public partial class MainWindow : Window
         DialectCombo.SelectionChanged += OnDialectComboChanged;
         DiagnosticsList.SelectionChanged += OnDiagnosticSelected;
 
-        BackplotXY.IsCheckedChanged += (_, _) => { if (BackplotXY.IsChecked == true) Backplot.Plane = ViewPlane.XY; };
-        BackplotXZ.IsCheckedChanged += (_, _) => { if (BackplotXZ.IsChecked == true) Backplot.Plane = ViewPlane.XZ; };
-        BackplotYZ.IsCheckedChanged += (_, _) => { if (BackplotYZ.IsChecked == true) Backplot.Plane = ViewPlane.YZ; };
-        BackplotIso.IsCheckedChanged += (_, _) => { if (BackplotIso.IsChecked == true) Backplot.Plane = ViewPlane.Iso; };
-        BackplotLathe.IsCheckedChanged += (_, _) => { if (BackplotLathe.IsChecked == true) Backplot.Plane = ViewPlane.Lathe; };
-        BackplotFitButton.Click += (_, _) => Backplot.FitToContent();
+        Backplot.LineReached += (_, line) => ShowLine(line); // passe a passe: o editor acompanha
 
         // Atalhos capturados antes do editor (rota "tunnel")
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
@@ -324,7 +319,7 @@ public partial class MainWindow : Window
         bool wasLathe = CurrentAnalysis?.ToolPath.Machine == MachineKind.Lathe;
         if (CurrentAnalysis is null || lathe != wasLathe)
         {
-            (lathe ? BackplotLathe : BackplotXY).IsChecked = true;
+            Backplot.ShowPlane(lathe ? ViewPlane.Lathe : ViewPlane.XY);
             _fitOnNextAnalysis = true;
         }
 
@@ -387,6 +382,19 @@ public partial class MainWindow : Window
         Editor.Select(line.Offset + column, length);
         Editor.ScrollToLine(lineNumber);
         Editor.TextArea.Focus();
+    }
+
+    /// <summary>Mostra a linha no editor (cursor no início) sem tirar o foco de onde está.</summary>
+    private void ShowLine(int lineNumber)
+    {
+        TextDocument document = Editor.Document;
+        if (lineNumber < 1 || lineNumber > document.LineCount)
+        {
+            return;
+        }
+
+        Editor.TextArea.Caret.Offset = document.GetLineByNumber(lineNumber).Offset;
+        Editor.ScrollToLine(lineNumber);
     }
 
     // ───────────────────────── Atalhos e status ─────────────────────────

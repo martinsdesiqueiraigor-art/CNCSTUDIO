@@ -268,6 +268,98 @@ public class LatheTests
         Assert.Equal(10.2, minRadius, 6); // Δu 0,4 no diâmetro = 0,2 no raio
     }
 
+    /// <summary>Perfil com rebaixo: Ø30 até Z-10, desce a Ø20 (Z-15 a Z-25), sobe a Ø30 até Z-40.</summary>
+    private static double UndercutRadius(double z) => z switch
+    {
+        >= -10 => 15,
+        >= -15 => 15 - (-10 - z),       // rampa 15 → 10
+        >= -25 => 10,
+        >= -30 => 10 + (-25 - z),       // rampa 10 → 15
+        >= -40 => 15,
+        _ => 26,
+    };
+
+    [Fact]
+    public void G71ComRebaixoDesbastaDentroDoRebaixoSemInvadirAPeca()
+    {
+        ToolPath path = Fanuc("""
+            G97 S1000
+            G00 X52 Z2
+            G71 U2 R0.5
+            G71 P10 Q20 U0 W0 F0.2
+            N10 G00 X30 Z2
+            G01 Z-10
+            X20 Z-15
+            Z-25
+            X30 Z-30
+            Z-40
+            N20 X52
+            G00 X100 Z100
+            """);
+
+        AssertNoErrors(path);
+        Assert.DoesNotContain(path.Diagnostics, d => d.Severity == DiagnosticSeverity.Warning);
+
+        var cycle = path.Moves.Where(m => m.LineNumber == 4).ToList();
+
+        // Cortes dentro do rebaixo (raio 12 entre Z-13 e Z-27)
+        Assert.Contains(cycle, m => !m.IsRapid && Math.Abs(m.Start.X - 12) < 1e-6 && Math.Abs(m.End.X - 12) < 1e-6
+                                    && m.End.Z < -26 && m.End.Z > -28);
+
+        // Nenhum movimento (corte ou rápido) entra na peça
+        foreach (Move m in cycle)
+        {
+            for (int k = 0; k <= 20; k++)
+            {
+                var p = m.PointAt(k / 20.0);
+                if (p.Z <= 0 && p.Z >= -40)
+                {
+                    Assert.True(p.X >= UndercutRadius(p.Z) - 1e-6, $"linha {m.LineNumber}: ponto X{p.X:0.###} Z{p.Z:0.###} dentro da peça");
+                }
+            }
+        }
+
+        // Rápidos não passam pelo material ainda não removido acima do ressalto (raio 15 → 16 limpo)
+        Assert.All(cycle.Where(m => m.IsRapid && Math.Abs(m.Start.X - m.End.X) < 1e-9 && m.Start.Z < -1 && m.End.Z < -1),
+            m => Assert.True(m.Start.X >= 16 - 1e-6, $"rápido em X{m.Start.X:0.###} atravessando material"));
+    }
+
+    [Fact]
+    public void G74FuraEmBicadasNaFace()
+    {
+        ToolPath path = Fanuc("""
+            G97 S500
+            G00 X0 Z2
+            G74 R1
+            G74 Z-20 Q5000 F0.1
+            """);
+
+        AssertNoErrors(path);
+        var feeds = path.Moves.Where(m => m.LineNumber == 4 && !m.IsRapid).ToList();
+        Assert.Equal([-3.0, -8, -13, -18, -20], feeds.Select(m => Math.Round(m.End.Z, 6)));
+        Assert.All(feeds, m => Assert.Equal(0, m.End.X, 9));
+        Assert.Equal(2, path.Moves[^1].End.Z, 6); // volta ao ponto inicial
+    }
+
+    [Fact]
+    public void G75FazCanaisDeslocandoEmZ()
+    {
+        ToolPath path = Fanuc("""
+            G97 S500
+            G00 X42 Z-20
+            G75 R0.5
+            G75 X30 Z-26 P2000 Q3000 F0.05
+            """);
+
+        AssertNoErrors(path);
+        var feeds = path.Moves.Where(m => m.LineNumber == 4 && !m.IsRapid).ToList();
+        Assert.Equal(9, feeds.Count); // 3 canais × bicadas 21 → 19 → 17 → 15
+        Assert.Equal([-20.0, -23, -26], feeds.Select(m => Math.Round(m.End.Z, 6)).Distinct());
+        Assert.Equal(15, feeds.Min(m => m.End.X), 6);
+        Assert.Equal(21, path.Moves[^1].End.X, 6);
+        Assert.Equal(-20, path.Moves[^1].End.Z, 6);
+    }
+
     [Fact]
     public void G71SemBlocoDoPerfilDaErro()
     {

@@ -87,14 +87,14 @@ public partial class SimulationPanel : UserControl
     {
         if (path.Machine == MachineKind.Lathe)
         {
-            // Remoção de material do torno (bruto cilíndrico) chega na Fase 4
+            // Torno: só backplot (a simulação de remoção de material é de fresa)
             Pause();
             _path = null;
             _simulator = null;
             _generation++;
             _fitOnNextFrame = true;
             View.Clear();
-            StatusText.Text = "Simulação de torno ainda não disponível (próxima fase). Use o Backplot na vista Torno (ZX).";
+            StatusText.Text = "Programa de torno: use o Backplot (vista Torno ZX, com o passe a passe). A simulação 2.5D é só para fresa.";
             return;
         }
 

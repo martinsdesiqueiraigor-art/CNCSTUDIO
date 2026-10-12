@@ -68,11 +68,17 @@ para que backplot e simulação sigam saltos, repetições e variáveis.
 - Exemplos EXEMPLO_TORNO.nc e .mpf, com testes.
 - Extras: G72 (desbaste de face), G90/G92/G94, G32/G33, U/W, G50 S / LIMS=, G98/G99 e G94/G95
   (avanço por rotação convertido com a rotação no ponto), vista "Torno (ZX)" no backplot.
-- Limites: G71/G72 só tipo I (perfil monotônico; rebaixos geram aviso); G73/G74/G75 ainda não.
+- G71/G72 com rebaixo (tipo II): o desbaste entra em cada rebaixo, passando por cima dos ressaltos.
+- G74 (furação/canal de face em bicadas) e G75 (canais em X), formato de dois blocos.
+- G73 (repetição de padrão) ainda não.
 
-### Fase 4 — Torno: simulação
-- Bruto cilíndrico; remoção de material no perfil.
-- Vista 2D em meia seção XZ (como no painel do CNC) e peça 3D por revolução em vista isométrica fixa.
+### Fase 4 — Backplot passe a passe (substitui a simulação do torno)
+A simulação de remoção de material do torno saiu do escopo; o torno usa o backplot. ✅
+- Cores por movimento: G00 vermelho (tracejado), G01 verde, G02 azul-claro, G03 azul-escuro.
+- Barra passe a passe: início, passe anterior/próximo (Page Up/Down), executar com velocidade,
+  régua para qualquer ponto e fim. O passe atual fica em destaque, o resto apagado, e o editor
+  acompanha a linha.
+- Vale para fresa e torno (um passe = rápidos de aproximação + cortes seguintes).
 
 ### Fase 5 — Interface da simulação (inspirada no CIMCO)
 - Barra de reprodução embaixo, com régua para arrastar a qualquer ponto do programa e "ir para linha".
