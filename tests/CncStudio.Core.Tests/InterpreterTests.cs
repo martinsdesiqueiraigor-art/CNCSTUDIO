@@ -294,6 +294,35 @@ public class InterpreterTests
     }
 
     [Fact]
+    public void Fanuc_ExemploSubprogramaEMacro()
+    {
+        ToolPath path = Fanuc(Samples("macros/SUBPROGRAMA.nc"));
+
+        Assert.Empty(path.Diagnostics);
+        // 3 bolsões (Z-3) e 6 furos em círculo (Z-4)
+        Assert.Equal(3, path.Moves.Count(m => Math.Abs(m.End.Z + 3) < 1e-6 && m.Start.Z > m.End.Z));
+        Assert.Equal(6, path.Moves.Count(m => Math.Abs(m.End.Z + 4) < 1e-6));
+        Assert.Contains(path.Moves, m => Math.Abs(m.End.X - 60) < 1e-6 && Math.Abs(m.End.Y - 45) < 1e-6); // furo a 0°
+    }
+
+    [Fact]
+    public void Siemens_ExemploChamadaPorNome()
+    {
+        string folder = Path.Combine(AppContext.BaseDirectory, "samples", "macros");
+        var settings = new MachineSettings
+        {
+            LoadSubprogram = name => File.Exists(Path.Combine(folder, name + ".SPF")) ? File.ReadAllText(Path.Combine(folder, name + ".SPF")) : null,
+        };
+
+        ToolPath path = Siemens(Samples("macros/CHAMA_FURO.mpf"), settings);
+
+        Assert.Empty(path.Diagnostics);
+        Assert.Equal(5, path.Moves.Count(m => Math.Abs(m.End.Z + 6) < 1e-6));
+        Assert.Equal(5, path.Messages.Count(m => m.Text.StartsWith("FURO")));
+        Assert.Equal("FURO 3 DE 5", path.Messages[2].Text);
+    }
+
+    [Fact]
     public void Siemens_ExemploChaveta()
     {
         ToolPath path = Siemens(Samples("macros/CHAVETA.mpf"));

@@ -269,7 +269,10 @@ public partial class MainWindow : Window
 
         string text = Editor.Text;
         Dialect dialect = CurrentDialect;
-        MachineSettings machine = _settings.ToMachineSettings();
+        string? folder = _currentFilePath is not null
+            ? Path.GetDirectoryName(_currentFilePath)
+            : Path.Combine(AppContext.BaseDirectory, "samples", "macros");
+        MachineSettings machine = _settings.ToMachineSettings(folder);
         AnalysisStatus.Text = "Analisando…";
 
         try

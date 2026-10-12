@@ -3,7 +3,7 @@
 Editor e simulador de programas CNC (FANUC e Siemens), leve e rápido, no estilo do CIMCO Edit.
 
 > **Status:** Etapa 2 — produto final (C# / .NET 10 + Avalonia + AvaloniaEdit).
-> Fase 1 (comandos de fresa do MVP) concluída. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
+> Fases 1 (comandos de fresa) e 1B (interpretador de macros) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
 
 ## Testar sem instalar nada (executável pronto)
 
@@ -65,9 +65,20 @@ tools/                       Script para gerar arquivo grande de teste
 - **Furação:** G81, G82, G83 com G98/G99, Q e repetição K; CYCLE81, CYCLE82, CYCLE83, inclusive com MCALL.
 - **Ferramentas:** T + M06; diâmetro por ferramenta em *Máquina → Ferramentas e zeros de peça*.
 - **Sem desenho de movimento:** G04 (espera), G53 (coordenada de máquina), G28/G30.
-- **Fase 1B (interpretador):** variáveis, expressões, IF/GOTO/WHILE, subprogramas (M98/L),
-  cantos `,R`/`,C` e compensação G41/G42 — por enquanto essas linhas são puladas com aviso.
 - Números sem ponto no Fanuc (`X10`): 10 mm por padrão; configurável para 0,010 mm.
+
+## Programação paramétrica (Fase 1B)
+
+- **Fanuc (Macro B):** variáveis `#1`–`#999`, `#[...]`, contas e funções (SIN, COS, TAN, ATAN, SQRT,
+  ABS, ROUND, FIX, FUP...), `IF [...] GOTO`, `IF [...] THEN`, `WHILE [...] DOn` / `ENDn`, `GOTO`,
+  `M98 P.. L..`, `M99` (com `P`), `G65 P.. A.. B..` (argumentos em #1–#26), alarme `#3000`.
+- **Siemens:** parâmetros `R`, `DEF`, `IF/ELSEIF/ELSE/ENDIF`, `WHILE`, `FOR`, `REPEAT/UNTIL`, `LOOP`,
+  `GOTOF/GOTOB/GOTO`, rótulos, `REPEAT rótulo [rótulo] P=n`, `L10 P2`, chamada por nome, `IC()`/`AC()`, `MSG`.
+- **Subprogramas:** no mesmo arquivo (O-number / `%_N_..._SPF`) ou na pasta do programa aberto
+  (`O1234.nc`, `L10.SPF`, `FURO.SPF`...).
+- **Cantos e compensação:** `,R` / `,C` (Fanuc) e G41/G42 com o diâmetro da tabela de ferramentas.
+- **Proteção:** laço infinito e chamadas aninhadas demais interrompem a simulação com erro na linha.
+- Exemplos em `samples/macros/`: ESPIRAL_WHILE.nc, SUBPROGRAMA.nc, CHAVETA.mpf, CHAMA_FURO.mpf + FURO.SPF.
 
 ## Licença
 

@@ -26,7 +26,8 @@ public sealed partial class MachineExecutor
 
     private readonly MachineSettings _settings;
     private readonly Dialect _dialect;
-    private readonly List<Move> _moves = [];
+    private List<Move> _moves = [];
+    private readonly List<MoveTag> _tags = [];
     private readonly List<ParseDiagnostic> _diagnostics = [];
     private readonly HashSet<(int Line, int Column, string Message)> _reported = [];
 
@@ -40,7 +41,9 @@ public sealed partial class MachineExecutor
     private double _feed;
     private int _selectedTool;
     private int _activeTool;
-    private bool _compensationWarned;
+    private sbyte _compensationSide;          // 0 = G40, +1 = G41, −1 = G42
+    private double _compensationRadius;
+    private readonly HashSet<int> _toolsWithoutDiameter = [];
     private bool _feedWarned;
 
     // ── Posição atual (com zero de peça e TRANS aplicados) ──
@@ -68,6 +71,7 @@ public sealed partial class MachineExecutor
     {
         var executor = new MachineExecutor(parse.Dialect, settings ?? MachineSettings.Default);
         executor.Run(parse);
+        executor.PostProcess();
         executor._moves.TrimExcess();
         return new ToolPath(executor._moves, executor._diagnostics, executor._messages);
     }
@@ -127,10 +131,9 @@ public sealed partial class MachineExecutor
             _activeTool = _selectedTool;
         }
 
-        if (words.CompensationOn && !_compensationWarned)
+        if (words.CompensationSide is { } side)
         {
-            _compensationWarned = true;
-            Warning(line, 0, 0, "Compensação de raio (G41/G42) ainda não é aplicada: o desenho mostra a trajetória programada.");
+            SetCompensation(line, side);
         }
 
         ApplyCycleModes(words);
@@ -142,7 +145,17 @@ public sealed partial class MachineExecutor
         }
         else if (!words.SuppressMotion)
         {
+            int before = _moves.Count;
             ExecuteMotion(block, words, keywords);
+
+            // ,R / ,C valem para o canto no fim do movimento deste bloco
+            if (_moves.Count > before && (keywords.CornerRadius > 0 || keywords.CornerChamfer > 0))
+            {
+                MoveTag tag = _tags[^1];
+                tag.CornerRadius = keywords.CornerRadius ?? 0;
+                tag.CornerChamfer = keywords.CornerChamfer ?? 0;
+                _tags[^1] = tag;
+            }
         }
 
         if (keywords.CycleCall is { } cycle && !keywords.IsModalCall)
@@ -276,7 +289,7 @@ public sealed partial class MachineExecutor
         public double? Feed { get; set; }
         public int? Tool { get; set; }
         public bool ToolChange { get; set; }
-        public bool CompensationOn { get; set; }
+        public sbyte? CompensationSide { get; set; }   // G40 = 0, G41 = +1, G42 = −1
         public bool SuppressMotion { get; set; }     // G04, G53, G28...: eixos do bloco não são destino
         public bool EndsProgram { get; set; }
         public bool CallSubprogram { get; set; }     // M98
@@ -388,8 +401,9 @@ public sealed partial class MachineExecutor
             case 21 when !siemens: w.Units = 1; return;
             case 70 when siemens: w.Units = 25.4; return;
             case 71 when siemens: w.Units = 1; return;
-            case 40: return;
-            case 41 or 42: w.CompensationOn = true; return;
+            case 40: w.CompensationSide = 0; return;
+            case 41: w.CompensationSide = 1; return;
+            case 42: w.CompensationSide = -1; return;
             case 53:
                 w.SuppressMotion = true; // coordenada de máquina: posição real desconhecida, não desenhada
                 return;
@@ -584,7 +598,7 @@ public sealed partial class MachineExecutor
             CheckRapidBelowZero(line, target);
         }
 
-        _moves.Add(new Move(_position, target, motion, line, _feed, _activeTool));
+        AddMove(new Move(_position, target, motion, line, _feed, _activeTool));
         _position = target;
     }
 
@@ -668,7 +682,7 @@ public sealed partial class MachineExecutor
         }
 
         CheckFeed(line);
-        _moves.Add(new Move(_position, target, _motion, line, _feed, _activeTool)
+        AddMove(new Move(_position, target, _motion, line, _feed, _activeTool)
         {
             Plane = _plane,
             CenterU = centerU,
@@ -679,6 +693,46 @@ public sealed partial class MachineExecutor
             Sweep = sweep,
         });
         _position = target;
+    }
+
+    /// <summary>Guarda o movimento junto com o estado da compensação.</summary>
+    private void AddMove(Move move)
+    {
+        _moves.Add(move);
+        _tags.Add(new MoveTag { CompensationSide = _compensationSide, CompensationRadius = _compensationRadius });
+    }
+
+    private void SetCompensation(int line, sbyte side)
+    {
+        _compensationSide = side;
+        if (side == 0)
+        {
+            _compensationRadius = 0;
+            return;
+        }
+
+        double diameter = _settings.ToolDiameterOf?.Invoke(_activeTool) ?? 0;
+        _compensationRadius = diameter / 2;
+        if (diameter <= 0 && _toolsWithoutDiameter.Add(_activeTool))
+        {
+            Warning(line, 0, 0, $"Compensação G41/G42 sem diâmetro da ferramenta T{_activeTool}: o desenho mostra a trajetória programada.");
+        }
+    }
+
+    /// <summary>Cantos ,R/,C e compensação de raio, que dependem dos movimentos seguintes.</summary>
+    private void PostProcess()
+    {
+        if (_tags.Exists(t => t.CornerRadius > 0 || t.CornerChamfer > 0))
+        {
+            PathPostProcessing.ApplyCorners(_moves, _tags, (line, message) => Warning(line, 0, 0, message));
+        }
+
+        if (_tags.Exists(t => t.CompensationSide != 0 && t.CompensationRadius > 0))
+        {
+            _moves = PathPostProcessing.ApplyCompensation(_moves, _tags,
+                (line, message) => Warning(line, 0, 0, message),
+                (line, message) => Error(line, 0, 0, message));
+        }
     }
 
     // ───────────────────────── Zero de peça ─────────────────────────

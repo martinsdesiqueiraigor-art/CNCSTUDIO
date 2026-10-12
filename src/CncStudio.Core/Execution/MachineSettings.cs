@@ -50,4 +50,10 @@ public sealed class MachineSettings
     /// A interface procura na pasta do programa aberto.
     /// </summary>
     public Func<string, string?>? LoadSubprogram { get; init; }
+
+    /// <summary>
+    /// Diâmetro de cada ferramenta (T → mm), usado na compensação G41/G42.
+    /// Null ou valor ≤ 0: a compensação não é aplicada (o desenho mostra o programado).
+    /// </summary>
+    public Func<int, double>? ToolDiameterOf { get; init; }
 }

@@ -39,6 +39,9 @@ public sealed class SimulationFrame
     public required int LineNumber { get; init; }
     public required bool IsFinished { get; init; }
 
+    /// <summary>Mensagem do programa (MSG) válida neste ponto, se houver.</summary>
+    public string? Message { get; init; }
+
     /// <summary>Vista superior: Columns × Rows pixels.</summary>
     public uint[]? TopPixels { get; init; }
 
@@ -53,7 +56,7 @@ public sealed class SimulationFrame
     public double ToolDrawLength => Math.Max(20, ToolDiameter * 3);
 
     /// <summary>Captura o estado atual. Deve rodar na mesma thread que mexe no simulador.</summary>
-    public static SimulationFrame Capture(MaterialSimulator simulator, SimulationViewMode mode, int generation)
+    public static SimulationFrame Capture(MaterialSimulator simulator, SimulationViewMode mode, int generation, string? message = null)
     {
         HeightMap map = simulator.Map;
         uint[]? top = null;
@@ -106,6 +109,7 @@ public sealed class SimulationFrame
             Tool = simulator.CurrentTool,
             LineNumber = simulator.CurrentLineNumber,
             IsFinished = simulator.IsFinished,
+            Message = message,
             TopPixels = top,
             Iso = iso,
             Silhouette = silhouette,

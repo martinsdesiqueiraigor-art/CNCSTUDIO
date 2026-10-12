@@ -21,7 +21,7 @@ Ao fim de cada fase eu mostro o resultado antes de seguir.
 
 ## Fases
 
-### Fase 1 — Fresa: comandos do MVP
+### Fase 1 — Fresa: comandos do MVP ✅
 - G90/G91, G54–G59 (com tabela de zeros editável), G17/G18/G19.
 - Furação: G81, G83 (Fanuc) e CYCLE81, CYCLE83 (Siemens).
 - Ferramentas: T, M06, M04, tabela de ferramentas (diâmetro por T) usada na simulação.
@@ -29,7 +29,7 @@ Ao fim de cada fase eu mostro o resultado antes de seguir.
 - Opção para números sem ponto decimal no Fanuc (`X10` = 10 mm ou 0,010 mm).
 - Validador: avisos de avanço zero em G01, rápido dentro do material, etc.
 
-### Fase 1B — Interpretador: ciclos, repetições e programação paramétrica
+### Fase 1B — Interpretador: ciclos, repetições e programação paramétrica ✅
 O parser deixa de ler linha a linha e passa a **executar** o programa como o comando faz,
 para que backplot e simulação sigam saltos, repetições e variáveis.
 

@@ -176,6 +176,7 @@ public partial class SimulationPanel : UserControl
 
         SimulationViewMode mode = Mode;
         int generation = _generation;
+        ToolPath? path = _path;
         Interlocked.Increment(ref _pendingWork);
 
         _workQueue = _workQueue.ContinueWith(_ =>
@@ -183,7 +184,8 @@ public partial class SimulationPanel : UserControl
             try
             {
                 action?.Invoke(simulator);
-                SimulationFrame frame = SimulationFrame.Capture(simulator, mode, generation);
+                string? message = path?.MessageAt(simulator.CurrentMoveIndex);
+                SimulationFrame frame = SimulationFrame.Capture(simulator, mode, generation, message);
                 Dispatcher.UIThread.Post(() => ShowFrame(frame));
             }
             catch (Exception ex)
@@ -210,6 +212,10 @@ public partial class SimulationPanel : UserControl
 
         var p = frame.ToolPosition;
         string state = frame.IsFinished ? " · concluído" : "";
+        if (frame.Message is { } message)
+        {
+            state += $" · MSG: {message}";
+        }
         string tool = frame.Tool == 0 ? "" : $"T{frame.Tool} Ø{frame.ToolDiameter:0.##} · ";
         StatusText.Text = $"{tool}Linha {frame.LineNumber} · X {p.X:0.###}  Y {p.Y:0.###}  Z {p.Z:0.###}" +
                           $" · bruto {frame.Width:0.#} × {frame.Height:0.#} mm, grade {frame.Columns} × {frame.Rows}{state}";

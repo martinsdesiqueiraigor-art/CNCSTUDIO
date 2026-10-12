@@ -96,12 +96,24 @@ public sealed class AppSettings
         return DefaultToolDiameter;
     }
 
-    /// <summary>Configuração usada pelo executor do Core.</summary>
-    public MachineSettings ToMachineSettings() => new()
+    /// <summary>
+    /// Configuração usada pelo executor do Core. "programFolder" é a pasta do programa aberto,
+    /// onde os subprogramas externos (O1234.nc, L10.SPF, FURO.SPF...) são procurados.
+    /// </summary>
+    public MachineSettings ToMachineSettings(string? programFolder)
     {
-        WorkOffsets = WorkOffsets.ToDictionary(o => o.Code, o => new Point3(o.X, o.Y, o.Z)),
-        FanucIntegers = FanucIntegersAsThousandths ? FanucIntegerMode.Thousandths : FanucIntegerMode.Millimeters,
-    };
+        // Cópia dos diâmetros: a análise roda em outra thread e não deve ver edições no meio
+        var diameters = Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.Last().Diameter);
+        double defaultDiameter = DefaultToolDiameter;
+
+        return new MachineSettings
+        {
+            WorkOffsets = WorkOffsets.ToDictionary(o => o.Code, o => new Point3(o.X, o.Y, o.Z)),
+            FanucIntegers = FanucIntegersAsThousandths ? FanucIntegerMode.Thousandths : FanucIntegerMode.Millimeters,
+            ToolDiameterOf = tool => diameters.TryGetValue(tool, out double d) ? d : defaultDiameter,
+            LoadSubprogram = programFolder is null ? null : name => SubprogramFiles.Load(programFolder, name),
+        };
+    }
 
     /// <summary>Cópia independente (para o diálogo editar sem mexer no original até confirmar).</summary>
     public AppSettings Clone() =>
