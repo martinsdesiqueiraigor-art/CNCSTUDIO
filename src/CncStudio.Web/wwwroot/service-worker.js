@@ -1,5 +1,5 @@
 // Service worker do Casillas Code: faz o app abrir sem internet depois da primeira visita.
-//  - Arquivos do _framework (nome com hash, nunca mudam): cópia guardada primeiro.
+//  - Arquivos do _framework com hash no nome (nunca mudam): cópia guardada primeiro.
 //  - Todo o resto (página, web.js, main.js, css, ícones): rede primeiro, para as atualizações
 //    chegarem; sem internet, usa a cópia guardada.
 // Ao publicar uma versão nova, os arquivos .wasm mudam de nome, então não há risco de misturar versões.
@@ -25,7 +25,9 @@ self.addEventListener('fetch', event => {
     if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
     const url = new URL(request.url);
-    const immutable = url.pathname.includes('/_framework/');
+    // Só os arquivos com hash no nome (ex.: CncStudio.Core.mapcqfpkrd.wasm) nunca mudam;
+    // dotnet.js e avalonia.js não têm hash e mudam a cada versão
+    const immutable = /\/_framework\/.+\.[a-z0-9]{8,}\.(wasm|js|dat)$/.test(url.pathname);
 
     event.respondWith((async () => {
         const cache = await caches.open(CACHE);
