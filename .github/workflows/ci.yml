@@ -63,7 +63,7 @@ jobs:
       - name: Anexar executável ao resultado do CI
         uses: actions/upload-artifact@v4
         with:
-          name: CncStudio-win-x64
+          name: CasillasCode-win-x64
           path: publish/CncStudio-win-x64
           retention-days: 30
 
@@ -76,7 +76,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: CncStudio-win-x64
+          name: CasillasCode-win-x64
           path: publish/CncStudio-win-x64
 
       - name: Gerar instalador
@@ -92,6 +92,6 @@ jobs:
       - name: Anexar instalador ao resultado do CI
         uses: actions/upload-artifact@v4
         with:
-          name: CncStudio-Setup
+          name: CasillasCode-Setup
           path: installer-output/*.exe
           retention-days: 30

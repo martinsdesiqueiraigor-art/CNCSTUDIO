@@ -1,17 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Interface desktop do CncStudio (Avalonia). Toda a lógica de G-code fica no Core. -->
+  <!-- Interface desktop do Casillas Code (Avalonia; nome interno do código: CncStudio). Toda a lógica de G-code fica no Core. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <RootNamespace>CncStudio.App</RootNamespace>
-    <AssemblyName>CncStudio</AssemblyName>
+    <AssemblyName>CasillasCode</AssemblyName>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- Cópia direta de pixels para o WriteableBitmap da simulação -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <ApplicationIcon>Assets\cncstudio.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\casillas-code.ico</ApplicationIcon>
     <Version>1.0.0</Version>
-    <Product>CncStudio</Product>
+    <Product>Casillas Code</Product>
+    <AssemblyTitle>Casillas Code</AssemblyTitle>
+    <Company>Casillas</Company>
     <Description>Editor e simulador de programas CNC (Fanuc e Siemens)</Description>
 
     <!-- Executável menor: arquivo único compactado e só os idiomas usados.

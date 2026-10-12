@@ -1,9 +1,13 @@
-# CncStudio
+<p align="center"><img src="branding/assinatura-claro.svg" width="460" alt="Casillas Code"></p>
+
+# Casillas Code
 
 Editor e simulador de programas CNC (FANUC e Siemens), leve e rápido, no estilo do CIMCO Edit.
+Faz parte do ecossistema **Casillas** (produto complementar ao Casillas, a calculadora técnica de usinagem).
+O nome interno do código continua `CncStudio` (pastas, namespaces e solução).
 
 > **Status:** Etapa 2 — produto final (C# / .NET 10 + Avalonia + AvaloniaEdit).
-> Fases 1 (comandos de fresa), 1B (interpretador de macros), 2 (estatísticas), 3 (torno) 4 (backplot passe a passe), 5 (interface da simulação), 6 (editor e funções NC), 6B (bruto, comparação, folha de setup) e 7 (polimento) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
+> Fases 1 (comandos de fresa), 1B (interpretador de macros), 2 (estatísticas), 3 (torno) 4 (backplot passe a passe), 5 (interface da simulação), 6 (editor e funções NC), 6B (bruto, comparação, folha de setup) e 7 (polimento) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md). Próxima etapa (produto comercial e versão web): [docs/PLANO-ETAPA3.md](docs/PLANO-ETAPA3.md).
 
 ## Testar sem instalar nada (executável pronto)
 
@@ -11,9 +15,9 @@ A cada commit, o GitHub Actions compila, roda os testes e gera o executável par
 
 1. No GitHub, abra a aba **Actions** → clique na execução mais recente com ✅.
 2. Em **Artifacts**, baixe:
-   - **CncStudio-Setup** → instalador (atalho no menu Iniciar/área de trabalho e, se quiser,
+   - **CasillasCode-Setup** → instalador (atalho no menu Iniciar/área de trabalho e, se quiser,
      abrir .nc/.mpf/.spf com duplo clique); ou
-   - **CncStudio-win-x64** → versão portátil: extraia o .zip e rode **CncStudio.exe**.
+   - **CasillasCode-win-x64** → versão portátil: extraia o .zip e rode **CasillasCode.exe**.
 3. Se o Windows SmartScreen avisar (o programa não é assinado), clique em
    **Mais informações → Executar assim mesmo**.
 

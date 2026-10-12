@@ -1080,7 +1080,7 @@ public partial class MainWindow : Window
     }
 
     private void UpdateTitle() =>
-        Title = $"CncStudio — {_active.DisplayName}{(_active.IsDirty ? " •" : "")}";
+        Title = $"Casillas Code — {_active.DisplayName}{(_active.IsDirty ? " •" : "")}";
 
     private void OnCaretMoved()
     {

@@ -1,33 +1,47 @@
-"""Gera o ícone do CncStudio (Assets/cncstudio.ico e .png) com Pillow.
+"""Gera os ícones do Casillas Code a partir dos SVGs de branding/.
 
-Desenho: fresa de topo (laranja) sobre uma trajetória (verde, com arco azul), fundo escuro.
-Rodar: python tools/gerar-icone.py
+Saídas em src/CncStudio.App/Assets/:
+  casillas-code.ico  (16–256 px; 16–32 usam o desenho simplificado)
+  casillas-code.png  (256 px, ícone do app)
+  simbolo.png        (símbolo sem fundo, usado na faixa de comandos)
+Requer: pip install pillow playwright  (o Chromium do Playwright desenha os SVGs)
+Rodar na raiz do repositório: python tools/gerar-icone.py
 """
-from PIL import Image, ImageDraw
+import io
+import re
+from pathlib import Path
 
-S = 1024  # desenha grande e reduz (bordas suaves)
-img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-d = ImageDraw.Draw(img)
+from PIL import Image
+from playwright.sync_api import sync_playwright
 
-# Fundo arredondado
-d.rounded_rectangle([40, 40, S - 40, S - 40], radius=200, fill=(30, 36, 46, 255), outline=(70, 82, 98, 255), width=16)
+ROOT = Path(__file__).resolve().parent.parent
+BRAND = ROOT / "branding"
+ASSETS = ROOT / "src" / "CncStudio.App" / "Assets"
 
-# Trajetória: G01 verde em degraus e um G02 azul
-w = 46
-d.line([(170, 800), (400, 800), (400, 640), (680, 640)], fill=(61, 220, 106, 255), width=w, joint="curve")
-d.arc([520, 640 - w // 2, 840 + w // 2, 960], start=270, end=360, fill=(127, 216, 255, 255), width=w)
-# Rápido G00 tracejado vermelho
-for x in range(170, 560, 90):
-    d.line([(x, 300), (x + 50, 300)], fill=(255, 77, 77, 255), width=30)
 
-# Fresa: suporte cinza + corpo laranja com canais
-d.rectangle([600, 110, 760, 230], fill=(138, 146, 156, 255))
-d.rectangle([630, 230, 730, 560], fill=(255, 176, 64, 255))
-for y in range(260, 540, 70):
-    d.line([(630, y), (730, y + 45)], fill=(200, 120, 20, 255), width=18)
-d.polygon([(630, 560), (730, 560), (705, 615), (655, 615)], fill=(255, 176, 64, 255))
+def render(browser, svg_name: str, size: int) -> Image.Image:
+    """Desenha o SVG com fundo transparente na largura pedida (altura proporcional)."""
+    svg = (BRAND / svg_name).read_text(encoding="utf-8")
+    w, h = map(int, re.search(r'width="(\d+)" height="(\d+)"', svg).groups())
+    page = browser.new_page(viewport={"width": w, "height": h}, device_scale_factor=size / w)
+    page.set_content(f'<html><body style="margin:0;background:transparent">{svg}</body></html>')
+    png = page.locator("svg").screenshot(omit_background=True)
+    page.close()
+    return Image.open(io.BytesIO(png)).convert("RGBA")
 
-sizes = [16, 24, 32, 48, 64, 128, 256]
-img.resize((256, 256), Image.LANCZOS).save("src/CncStudio.App/Assets/cncstudio.png")
-img.save("src/CncStudio.App/Assets/cncstudio.ico", sizes=[(s, s) for s in sizes])
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    big = render(browser, "icone-app.svg", 256)
+    small = render(browser, "icone-pequeno.svg", 64)
+    symbol = render(browser, "simbolo.svg", 236)
+    browser.close()
+
+big.save(ASSETS / "casillas-code.png")
+symbol.save(ASSETS / "simbolo.png")
+
+# .ico com várias resoluções: as pequenas vêm do desenho simplificado
+frames = {s: (small if s <= 32 else big).resize((s, s), Image.LANCZOS) for s in [16, 24, 32, 48, 64, 128, 256]}
+frames[256].save(ASSETS / "casillas-code.ico", sizes=[(s, s) for s in frames],
+                 append_images=[frames[s] for s in frames if s != 256])
 print("ok")
