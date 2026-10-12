@@ -149,7 +149,7 @@ jobs:
           du -sh site
 
       - name: Publicar no Cloudflare Pages (app instalável)
-        if: github.event_name == 'push' && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        if: github.event_name != 'pull_request' && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
           npx --yes wrangler@3 pages project create casillas-code --production-branch main || true
           npx --yes wrangler@3 pages deploy site --project-name casillas-code --branch main --commit-dirty=true
