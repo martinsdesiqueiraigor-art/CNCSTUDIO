@@ -12,7 +12,7 @@ namespace CncStudio.Core.Simulation;
 ///
 /// Não é thread-safe: a UI deve chamar sempre a partir da mesma thread de simulação.
 /// </summary>
-public sealed class MaterialSimulator
+public sealed class MaterialSimulator : IMaterialSimulation
 {
     private readonly HeightMap _map;
     private readonly IReadOnlyList<Move> _moves;
@@ -124,6 +124,27 @@ public sealed class MaterialSimulator
     /// <summary>Movimento em execução (ou o último, quando terminou); null sem movimentos.</summary>
     public Move? CurrentMove => _moves.Count == 0 ? null : _moves[Math.Min(_moveIndex, _moves.Count - 1)];
 
+    /// <summary>
+    /// Executa todos os movimentos da linha atual do programa (um ciclo inteiro, por exemplo)
+    /// e para no começo da próxima linha. Usado na execução "linha a linha".
+    /// </summary>
+    public void AdvanceLine()
+    {
+        if (IsFinished)
+        {
+            return;
+        }
+
+        int line = _moves[_moveIndex].LineNumber;
+        while (!IsFinished && _moves[_moveIndex].LineNumber == line)
+        {
+            AdvanceWithinPiece(double.PositiveInfinity);
+        }
+    }
+
+    /// <summary>Muda a cada remoção de material.</summary>
+    public int Version => _map.Version;
+
     /// <summary>Executa a trajetória inteira de uma vez.</summary>
     public void RunToEnd()
     {
@@ -153,7 +174,7 @@ public sealed class MaterialSimulator
         ToolPosition = to;
 
         // G00 que remove material = colisão (o bruto informado torna isso confiável)
-        if (removed && _moves[_moveIndex].IsRapid && (_rapidCollisions.Count == 0 || _rapidCollisions[^1] != _moveIndex))
+        if (removed && _moveIndex > 0 && _moves[_moveIndex].IsRapid && (_rapidCollisions.Count == 0 || _rapidCollisions[^1] != _moveIndex))
         {
             _rapidCollisions.Add(_moveIndex);
         }
