@@ -72,8 +72,8 @@ para que backplot e simulação sigam saltos, repetições e variáveis.
 - G74 (furação/canal de face em bicadas) e G75 (canais em X), formato de dois blocos.
 - G73 (repetição de padrão): fora do escopo (decisão do usuário).
 
-### Fase 4 — Backplot passe a passe (substitui a simulação do torno)
-A simulação de remoção de material do torno saiu do escopo; o torno usa o backplot. ✅
+### Fase 4 — Backplot passe a passe (substitui a simulação do torno) ✅
+A simulação de remoção de material do torno saiu do escopo; o torno usa o backplot.
 - Cores por movimento: G00 vermelho (tracejado), G01 verde, G02 azul-claro, G03 azul-escuro.
 - Barra passe a passe: início, passe anterior/próximo (Page Up/Down), executar com velocidade,
   régua para qualquer ponto e fim. O passe atual fica em destaque, o resto apagado, e o editor
@@ -89,9 +89,18 @@ A simulação de remoção de material do torno saiu do escopo; o torno usa o ba
 - Também: navegação por passes (◀ Passe / Passe ▶) e distância percorrida no painel.
 
 ### Fase 6 — Editor e funções NC
-- Barra de busca/substituição própria, em português.
+- Barra de busca/substituição própria, em português (maiúsculas, palavra inteira, expressão regular).
 - Painel de erros com filtro (erros/avisos) e contagem.
 - Funções NC extras: remover/inserir espaços, remover comentários, remover números de bloco.
+- Clicar na trajetória (backplot e simulação) leva à linha no editor.
+- Medir no backplot: distância entre dois pontos (encaixa nos pontos da trajetória), ΔX/ΔY/ΔZ, Ø no torno.
+- Explicação do código ao passar o mouse (G/M, ciclos com parâmetros, variáveis e palavras-chave).
+- Limites de curso da máquina: aviso quando o programa passa do curso configurado.
+
+### Fase 6B — Bruto, comparação e folha de setup
+- Bruto informado pelo usuário (bloco X×Y×Z na fresa; Ø × comprimento no torno).
+- Comparar dois programas lado a lado, com as linhas alteradas em destaque.
+- Folha de setup para imprimir/PDF: ferramentas, zeros, limites e tempos.
 
 ### Fase 7 — Polimento
 - Tema claro/escuro, configurações salvas (fonte, tema, pastas recentes, ferramentas).

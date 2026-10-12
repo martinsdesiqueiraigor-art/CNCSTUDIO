@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CncStudio.App.Controls.SearchBar">
+  <Border Background="#23262C" BorderBrush="#3A3F47" BorderThickness="0,0,0,1" Padding="6,4">
+    <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" >
+      <!-- Procurar -->
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="Procurar" VerticalAlignment="Center" Width="96" FontSize="12" />
+      <TextBox x:Name="FindBox" Grid.Row="0" Grid.Column="1" FontSize="12" Watermark="texto ou expressão"
+               ToolTip.Tip="Enter = próximo · Shift+Enter = anterior · Esc = fechar" />
+      <WrapPanel Grid.Row="0" Grid.Column="2" Margin="6,0,0,0" VerticalAlignment="Center">
+        <Button x:Name="PreviousButton" Content="◀" ToolTip.Tip="Anterior (Shift+F3)" Margin="0,0,2,0" />
+        <Button x:Name="NextButton" Content="▶" ToolTip.Tip="Próximo (F3)" Margin="0,0,6,0" />
+        <CheckBox x:Name="MatchCaseCheck" Content="Aa" ToolTip.Tip="Diferenciar maiúsculas e minúsculas" Margin="0,0,4,0" />
+        <CheckBox x:Name="WholeWordCheck" Content="Palavra inteira" ToolTip.Tip="X10 não acha X100 nem X10.5" Margin="0,0,4,0" />
+        <CheckBox x:Name="RegexCheck" Content="Expressão regular" ToolTip.Tip="Ex.: X(\d+) e substituir por X-$1" Margin="0,0,6,0" />
+        <TextBlock x:Name="CountText" VerticalAlignment="Center" FontSize="12" MinWidth="80" Opacity="0.8" />
+        <Button x:Name="CloseButton" Content="✕" ToolTip.Tip="Fechar (Esc)" Margin="6,0,0,0" />
+      </WrapPanel>
+
+      <!-- Substituir -->
+      <TextBlock x:Name="ReplaceLabel" Grid.Row="1" Grid.Column="0" Text="Substituir por" VerticalAlignment="Center" FontSize="12" Margin="0,4,0,0" />
+      <TextBox x:Name="ReplaceBox" Grid.Row="1" Grid.Column="1" FontSize="12" Margin="0,4,0,0"
+               ToolTip.Tip="Enter = substituir e ir para o próximo" />
+      <StackPanel x:Name="ReplaceButtons" Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="6,4,0,0">
+        <Button x:Name="ReplaceButton" Content="Substituir" />
+        <Button x:Name="ReplaceAllButton" Content="Substituir tudo" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

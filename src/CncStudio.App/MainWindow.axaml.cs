@@ -75,6 +75,16 @@ public partial class MainWindow : Window
         FontLargerButton.Click += (_, _) => ChangeFontSize(+1);
         RenumberButton.Click += async (_, _) => await RenumberAsync();
         UppercaseButton.Click += (_, _) => ApplyTextTool(text => NcTextTools.ToUpperOutsideComments(text, CurrentDialect));
+        RemoveBlockNumbersButton.Click += (_, _) => ApplyTextTool(text =>
+            NcTextTools.RenumberBlocks(text, CurrentDialect, new RenumberOptions(Mode: RenumberMode.Remove)));
+        RemoveSpacesButton.Click += (_, _) => ApplyTextTool(text => NcTextTools.RemoveSpaces(text, CurrentDialect));
+        InsertSpacesButton.Click += (_, _) => ApplyTextTool(text => NcTextTools.InsertSpaces(text, CurrentDialect));
+        RemoveCommentsButton.Click += (_, _) => ApplyTextTool(text => NcTextTools.RemoveComments(text, CurrentDialect));
+
+        Search.Attach(Editor);
+        ShowErrorsToggle.IsCheckedChanged += (_, _) => RefreshDiagnostics();
+        ShowWarningsToggle.IsCheckedChanged += (_, _) => RefreshDiagnostics();
+        RefreshDiagnostics();
 
         // Ctrl + roda do mouse no editor = zoom da fonte
         Editor.AddHandler(PointerWheelChangedEvent, OnEditorWheel, RoutingStrategies.Tunnel);
@@ -331,11 +341,7 @@ public partial class MainWindow : Window
         Backplot.SetHighlightedLine(Editor.TextArea.Caret.Line);
         _fitOnNextAnalysis = false;
 
-        var items = analysis.Diagnostics
-            .Take(MaxDiagnosticsShown)
-            .Select(d => new DiagnosticItem(d))
-            .ToList();
-        DiagnosticsList.ItemsSource = items;
+        RefreshDiagnostics();
 
         string extra = analysis.Diagnostics.Count > MaxDiagnosticsShown
             ? $" (mostrando {MaxDiagnosticsShown})"
@@ -354,6 +360,27 @@ public partial class MainWindow : Window
             $"tempo estimado {DurationFormat.Format(analysis.Statistics.TotalTime)} · " +
             $"{analysis.ErrorCount} erros · {analysis.WarningCount} avisos{extra} · " +
             $"análise em {analysis.Elapsed.TotalMilliseconds:0} ms";
+    }
+
+    /// <summary>Lista de avisos/erros conforme o filtro, com a contagem nos botões.</summary>
+    private void RefreshDiagnostics()
+    {
+        IReadOnlyList<ParseDiagnostic> all = CurrentAnalysis?.Diagnostics ?? [];
+        int errors = all.Count(d => d.Severity == DiagnosticSeverity.Error);
+        int warnings = all.Count - errors;
+        ShowErrorsToggle.Content = $"⛔ Erros ({errors})";
+        ShowWarningsToggle.Content = $"⚠ Avisos ({warnings})";
+
+        bool showErrors = ShowErrorsToggle.IsChecked == true;
+        bool showWarnings = ShowWarningsToggle.IsChecked == true;
+        var filtered = all
+            .Where(d => d.Severity == DiagnosticSeverity.Error ? showErrors : showWarnings)
+            .ToList();
+
+        DiagnosticsList.ItemsSource = filtered.Take(MaxDiagnosticsShown).Select(d => new DiagnosticItem(d)).ToList();
+        DiagnosticsHint.Text = filtered.Count > MaxDiagnosticsShown
+            ? $"mostrando {MaxDiagnosticsShown} de {filtered.Count}"
+            : all.Count == 0 ? "nenhum problema encontrado" : "clique para ir à linha";
     }
 
     // ───────────────────────── Navegação ─────────────────────────
@@ -408,11 +435,11 @@ public partial class MainWindow : Window
             e.Handled = true;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                Editor.SearchPanel.FindPrevious();
+                Search.FindPrevious();
             }
             else
             {
-                Editor.SearchPanel.FindNext();
+                Search.FindNext();
             }
 
             return;
@@ -466,15 +493,7 @@ public partial class MainWindow : Window
     /// <summary>Abre a barra de busca do editor (com o texto selecionado já preenchido).</summary>
     private void OpenSearch(bool replace)
     {
-        var search = Editor.SearchPanel;
-        string selected = Editor.SelectedText;
-        if (!string.IsNullOrEmpty(selected) && !selected.Contains('\n'))
-        {
-            search.SearchPattern = selected;
-        }
-
-        search.IsReplaceMode = replace;
-        search.Open();
+        Search.Open(replace);
     }
 
     /// <summary>Edita ferramentas, zeros de peça e opções; ao salvar, reanalisa e refaz a simulação.</summary>

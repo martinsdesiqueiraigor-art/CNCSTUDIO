@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ae="using:AvaloniaEdit"
         xmlns:views="using:CncStudio.App.Views"
+        xmlns:controls="using:CncStudio.App.Controls"
         x:Class="CncStudio.App.MainWindow"
         Title="CncStudio"
         Width="1280" Height="800"
@@ -100,8 +101,19 @@
                 <StackPanel Orientation="Horizontal" Spacing="4">
                   <Button x:Name="RenumberButton" Content="Renumerar blocos…" />
                   <Button x:Name="UppercaseButton" Content="Maiúsculas" ToolTip.Tip="Converte tudo, exceto comentários" />
+                  <Button x:Name="RemoveBlockNumbersButton" Content="Remover N" ToolTip.Tip="Remove todos os números de bloco" />
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Blocos" />
+              </StackPanel>
+            </Border>
+            <Border Classes="group">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="RemoveSpacesButton" Content="Remover espaços" ToolTip.Tip="N10 G01 X10 → N10G01X10 (comentários e IF/GOTO ficam como estão)" />
+                  <Button x:Name="InsertSpacesButton" Content="Inserir espaços" ToolTip.Tip="N10G01X10 → N10 G01 X10" />
+                  <Button x:Name="RemoveCommentsButton" Content="Remover comentários" ToolTip.Tip="Linhas que só tinham comentário são apagadas" />
+                </StackPanel>
+                <TextBlock Classes="groupLabel" Text="Texto" />
               </StackPanel>
             </Border>
           </StackPanel>
@@ -140,17 +152,27 @@
     <!-- Área principal: editor à esquerda, painéis gráficos à direita -->
     <Grid Grid.Row="1" ColumnDefinitions="2*,4,3*">
 
-      <Grid Grid.Column="0" RowDefinitions="*,4,120">
+      <Grid Grid.Column="0" RowDefinitions="Auto,*,4,140">
+        <controls:SearchBar x:Name="Search" Grid.Row="0" />
         <ae:TextEditor x:Name="Editor"
-                       Grid.Row="0"
+                       Grid.Row="1"
                        ShowLineNumbers="True"
                        FontFamily="Cascadia Mono, Consolas, Menlo, monospace"
                        FontSize="14"
                        HorizontalScrollBarVisibility="Auto"
                        VerticalScrollBarVisibility="Auto" />
-        <GridSplitter Grid.Row="1" ResizeDirection="Rows" />
-        <!-- Painel de diagnósticos: clique para ir à linha -->
-        <ListBox x:Name="DiagnosticsList" Grid.Row="2" FontSize="12" Background="#1B1D22" />
+        <GridSplitter Grid.Row="2" ResizeDirection="Rows" />
+        <!-- Painel de diagnósticos: filtro por tipo e contagem; clique para ir à linha -->
+        <DockPanel Grid.Row="3">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,2">
+            <ToggleButton x:Name="ShowErrorsToggle" IsChecked="True" FontSize="12" Padding="8,2"
+                          ToolTip.Tip="Mostrar/esconder erros" />
+            <ToggleButton x:Name="ShowWarningsToggle" IsChecked="True" FontSize="12" Padding="8,2"
+                          ToolTip.Tip="Mostrar/esconder avisos" />
+            <TextBlock x:Name="DiagnosticsHint" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="6,0,0,0" />
+          </StackPanel>
+          <ListBox x:Name="DiagnosticsList" FontSize="12" Background="#1B1D22" />
+        </DockPanel>
       </Grid>
 
       <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
