@@ -60,6 +60,7 @@ public partial class MainWindow : Window
         BackplotXY.IsCheckedChanged += (_, _) => { if (BackplotXY.IsChecked == true) Backplot.Plane = ViewPlane.XY; };
         BackplotXZ.IsCheckedChanged += (_, _) => { if (BackplotXZ.IsChecked == true) Backplot.Plane = ViewPlane.XZ; };
         BackplotYZ.IsCheckedChanged += (_, _) => { if (BackplotYZ.IsChecked == true) Backplot.Plane = ViewPlane.YZ; };
+        BackplotIso.IsCheckedChanged += (_, _) => { if (BackplotIso.IsChecked == true) Backplot.Plane = ViewPlane.Iso; };
         BackplotFitButton.Click += (_, _) => Backplot.FitToContent();
 
         // Atalhos capturados antes do editor (rota "tunnel")

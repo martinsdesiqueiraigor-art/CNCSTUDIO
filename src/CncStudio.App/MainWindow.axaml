@@ -35,7 +35,7 @@
                        VerticalScrollBarVisibility="Auto" />
         <GridSplitter Grid.Row="1" ResizeDirection="Rows" />
         <!-- Painel de diagnósticos: clique para ir à linha -->
-        <ListBox x:Name="DiagnosticsList" Grid.Row="2" FontSize="12" />
+        <ListBox x:Name="DiagnosticsList" Grid.Row="2" FontSize="12" Background="#1B1D22" />
       </Grid>
 
       <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
@@ -47,6 +47,7 @@
               <RadioButton x:Name="BackplotXY" GroupName="BackplotPlane" Content="Superior (XY)" IsChecked="True" />
               <RadioButton x:Name="BackplotXZ" GroupName="BackplotPlane" Content="Frontal (XZ)" />
               <RadioButton x:Name="BackplotYZ" GroupName="BackplotPlane" Content="Lateral (YZ)" />
+              <RadioButton x:Name="BackplotIso" GroupName="BackplotPlane" Content="Isométrica" />
               <Button x:Name="BackplotFitButton" Content="Ajustar" Margin="8,0,0,0" />
               <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12">
                 <Run Text="- - G00" Foreground="#E0A030" />

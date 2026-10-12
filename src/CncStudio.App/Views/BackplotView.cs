@@ -20,6 +20,7 @@ public sealed class BackplotView : ZoomPanControl
     private static readonly IBrush HighlightBrush = new SolidColorBrush(Color.Parse("#FFE84D")).ToImmutable();
     private static readonly Pen AxisXPen = new(new SolidColorBrush(Color.Parse("#E05050")).ToImmutable(), 1.5);
     private static readonly Pen AxisYPen = new(new SolidColorBrush(Color.Parse("#50C050")).ToImmutable(), 1.5);
+    private static readonly Pen AxisZPen = new(new SolidColorBrush(Color.Parse("#5090F0")).ToImmutable(), 1.5);
 
     private ToolPath? _path;
     private IReadOnlyList<PathPolyline> _figures = [];
@@ -105,20 +106,23 @@ public sealed class BackplotView : ZoomPanControl
             context.DrawEllipse(HighlightBrush, null, ToScreen(start.X, start.Y), 4, 4);
         }
 
-        (string h, string v) = _plane.AxisNames();
-        DrawLabel(context, $"Vista {h}{v}  ·  roda = zoom  ·  arrastar = mover  ·  duplo clique = ajustar",
+        DrawLabel(context, $"{_plane.Caption()}  ·  roda = zoom  ·  arrastar = mover  ·  duplo clique = ajustar",
             new Point(8, Bounds.Height - 20), LabelBrush, 11);
     }
 
-    /// <summary>Pequeno indicador dos eixos na origem do programa.</summary>
+    /// <summary>Pequeno indicador dos eixos na origem do programa (X vermelho, Y verde, Z azul).</summary>
     private void DrawAxes(DrawingContext context)
     {
         Point origin = ToScreen(0, 0);
-        (string h, string v) = _plane.AxisNames();
-        context.DrawLine(AxisXPen, origin, new Point(origin.X + 40, origin.Y));
-        context.DrawLine(AxisYPen, origin, new Point(origin.X, origin.Y - 40));
-        DrawLabel(context, h, new Point(origin.X + 42, origin.Y - 8), AxisXPen.Brush!);
-        DrawLabel(context, v, new Point(origin.X - 4, origin.Y - 58), AxisYPen.Brush!);
+        foreach ((string name, double u, double v) in _plane.AxisDirections())
+        {
+            // Direção na tela (v para cima = y para baixo), com 40 px de comprimento
+            double length = Math.Sqrt(u * u + v * v);
+            var end = new Point(origin.X + u / length * 40, origin.Y - v / length * 40);
+            Pen pen = name switch { "X" => AxisXPen, "Y" => AxisYPen, _ => AxisZPen };
+            context.DrawLine(pen, origin, end);
+            DrawLabel(context, name, new Point(end.X + 3, end.Y - 14), pen.Brush!);
+        }
     }
 
     private void RebuildGeometry()
