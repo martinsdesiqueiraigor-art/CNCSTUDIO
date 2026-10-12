@@ -14,6 +14,7 @@ export function pickFile() {
     return new Promise(resolve => {
         const input = document.createElement('input');
         input.type = 'file';
+        input.accept = '.nc,.mpf,.spf,.txt,.tap,.cnc,.iso,.ngc,.eia,.h,text/plain,application/octet-stream,*/*';
         // Sem filtro de tipo: no Android, extensões como .nc não têm tipo conhecido e ficariam cinza
         input.style.display = 'none';
         document.body.appendChild(input);
@@ -119,6 +120,9 @@ function ensureFileInput() {
     fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.title = 'Abrir programa CNC';
+    // Sem "accept", o Android mostra só câmera/fotos. Com tipos de arquivo + "*/*" ele abre o
+    // gerenciador de arquivos (Downloads, Drive, WhatsApp...), onde ficam os .nc/.mpf
+    fileInput.accept = '.nc,.mpf,.spf,.txt,.tap,.cnc,.iso,.ngc,.eia,.h,text/plain,application/octet-stream,*/*';
     fileInput.style.cssText = 'position:fixed;z-index:50;opacity:0;cursor:pointer;margin:0;padding:0;border:0;font-size:0';
     fileInput.addEventListener('change', async () => {
         const file = fileInput.files && fileInput.files[0];
