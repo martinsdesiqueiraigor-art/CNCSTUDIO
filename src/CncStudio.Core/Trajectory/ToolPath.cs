@@ -9,11 +9,13 @@ public sealed class ToolPath
 {
     private int[]? _lineOrder; // índices dos movimentos ordenados por linha (montado sob demanda)
 
-    public ToolPath(IReadOnlyList<Move> moves, IReadOnlyList<ParseDiagnostic> diagnostics, IReadOnlyList<ProgramMessage>? messages = null)
+    public ToolPath(IReadOnlyList<Move> moves, IReadOnlyList<ParseDiagnostic> diagnostics,
+        IReadOnlyList<ProgramMessage>? messages = null, IReadOnlyList<ProgramDwell>? dwells = null)
     {
         Moves = moves;
         Diagnostics = diagnostics;
         Messages = messages ?? [];
+        Dwells = dwells ?? [];
 
         var all = Bounds3.Empty;
         var cutting = Bounds3.Empty;
@@ -51,6 +53,9 @@ public sealed class ToolPath
 
     /// <summary>Ferramentas usadas, em ordem crescente.</summary>
     public IReadOnlyList<int> Tools { get; }
+
+    /// <summary>Tempos de espera (G04, G82...), em ordem de execução.</summary>
+    public IReadOnlyList<ProgramDwell> Dwells { get; }
 
     /// <summary>Mensagens do programa (MSG), em ordem de execução.</summary>
     public IReadOnlyList<ProgramMessage> Messages { get; }

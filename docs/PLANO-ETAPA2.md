@@ -56,9 +56,10 @@ para que backplot e simulação sigam saltos, repetições e variáveis.
   `ESPIRAL_WHILE.nc` (Fanuc, WHILE com 2.880 voltas, SIN/COS) e `CHAVETA.mpf`
   (Siemens, rótulos, IF/ELSE, GOTOF/GOTOB, REPEAT, TRANS, G41).
 
-### Fase 2 — Estatísticas
+### Fase 2 — Estatísticas ✅
 - Tempo estimado, distância de corte e de rápido, tempo por ferramenta.
 - Painel de estatísticas na interface.
+- Esperas (G04, G82 P, DTB dos ciclos Siemens) entram no tempo; velocidade de rápido configurável.
 
 ### Fase 3 — Torno: núcleo
 - Tipo de máquina (fresa/torno), com detecção automática e troca manual.

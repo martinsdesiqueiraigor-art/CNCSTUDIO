@@ -42,6 +42,9 @@ public sealed class AppSettings
 
     public double EditorFontSize { get; set; } = 14;
 
+    /// <summary>Velocidade de rápido (G00) em mm/min, usada na estimativa de tempo.</summary>
+    public double RapidRate { get; set; } = 10_000;
+
     public static string FilePath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CncStudio", "config.json");
 
@@ -109,6 +112,7 @@ public sealed class AppSettings
         return new MachineSettings
         {
             WorkOffsets = WorkOffsets.ToDictionary(o => o.Code, o => new Point3(o.X, o.Y, o.Z)),
+            RapidRate = RapidRate,
             FanucIntegers = FanucIntegersAsThousandths ? FanucIntegerMode.Thousandths : FanucIntegerMode.Millimeters,
             ToolDiameterOf = tool => diameters.TryGetValue(tool, out double d) ? d : defaultDiameter,
             LoadSubprogram = programFolder is null ? null : name => SubprogramFiles.Load(programFolder, name),
@@ -136,6 +140,11 @@ public sealed class AppSettings
         if (DefaultToolDiameter <= 0)
         {
             DefaultToolDiameter = 10;
+        }
+
+        if (RapidRate <= 0)
+        {
+            RapidRate = 10_000;
         }
 
         if (EditorFontSize < 6 || EditorFontSize > 60)

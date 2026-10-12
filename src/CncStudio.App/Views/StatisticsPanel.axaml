@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CncStudio.App.Views.StatisticsPanel">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.big">
+      <Setter Property="FontSize" Value="22" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,14,0,6" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="#23262C" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="MinWidth" Value="130" />
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Auto">
+    <StackPanel Margin="4,8,8,8">
+
+      <!-- Resumo -->
+      <WrapPanel>
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="caption" Text="Tempo total estimado" />
+            <TextBlock x:Name="TotalTimeText" Classes="big" Foreground="#FFE84D" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="caption" Text="Corte" />
+            <TextBlock x:Name="CuttingTimeText" Classes="big" Foreground="#3CC8FF" />
+            <TextBlock x:Name="CuttingDistanceText" Classes="caption" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="caption" Text="Rápido (G00)" />
+            <TextBlock x:Name="RapidTimeText" Classes="big" Foreground="#E0A030" />
+            <TextBlock x:Name="RapidDistanceText" Classes="caption" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="caption" Text="Espera (G04)" />
+            <TextBlock x:Name="DwellTimeText" Classes="big" />
+          </StackPanel>
+        </Border>
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="caption" Text="Movimentos / trocas de ferramenta" />
+            <TextBlock x:Name="CountsText" Classes="big" />
+          </StackPanel>
+        </Border>
+      </WrapPanel>
+
+      <TextBlock x:Name="NotesText" Classes="caption" TextWrapping="Wrap" />
+
+      <!-- Por ferramenta: clique numa linha para ir ao primeiro uso no editor -->
+      <TextBlock Classes="section" Text="Por ferramenta" />
+      <Grid x:Name="ToolsGrid" HorizontalAlignment="Left" />
+
+      <!-- Limites da trajetória -->
+      <TextBlock Classes="section" Text="Limites da trajetória (mm)" />
+      <Grid x:Name="BoundsGrid" HorizontalAlignment="Left" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

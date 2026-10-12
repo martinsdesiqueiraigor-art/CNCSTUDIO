@@ -2,6 +2,7 @@ using System.Diagnostics;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
+using CncStudio.Core.Statistics;
 using CncStudio.Core.Trajectory;
 
 namespace CncStudio.Core;
@@ -12,12 +13,14 @@ namespace CncStudio.Core;
 /// <param name="Diagnostics">Avisos e erros do parser e da trajetória, em ordem de linha.</param>
 /// <param name="BlockCount">Quantidade de blocos executáveis.</param>
 /// <param name="Elapsed">Tempo gasto na análise.</param>
+/// <param name="Statistics">Tempo estimado, distâncias e números por ferramenta.</param>
 public sealed record ProgramAnalysis(
     Dialect Dialect,
     ToolPath ToolPath,
     IReadOnlyList<ParseDiagnostic> Diagnostics,
     int BlockCount,
-    TimeSpan Elapsed)
+    TimeSpan Elapsed,
+    ProgramStatistics Statistics)
 {
     public int ErrorCount => Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
     public int WarningCount => Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Warning);
@@ -48,6 +51,8 @@ public static class ProgramAnalyzer
             .ThenBy(d => d.Column)
             .ToList();
 
-        return new ProgramAnalysis(dialect, toolPath, diagnostics, parse.Blocks.Count, stopwatch.Elapsed);
+        ProgramStatistics statistics = ProgramStatistics.Compute(toolPath, settings.RapidRate > 0 ? settings.RapidRate : MachineSettings.Default.RapidRate);
+
+        return new ProgramAnalysis(dialect, toolPath, diagnostics, parse.Blocks.Count, stopwatch.Elapsed, statistics);
     }
 }

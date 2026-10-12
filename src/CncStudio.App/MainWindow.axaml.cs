@@ -12,6 +12,7 @@ using CncStudio.Core.Dialects;
 using CncStudio.Core.Editing;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
+using CncStudio.Core.Statistics;
 using CncStudio.Core.Trajectory;
 using CncStudio.App.Views;
 
@@ -82,6 +83,8 @@ public partial class MainWindow : Window
         // Configuração da máquina (ferramentas, zeros de peça)
         Simulation.DiameterOf = tool => _settings.DiameterOf(tool);
         Simulation.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
+        Statistics.DiameterOf = tool => _settings.DiameterOf(tool);
+        Statistics.LineRequested += (_, line) => GoToLine(line);
         MachineSettingsButton.Click += async (_, _) => await OpenMachineSettingsAsync();
         Closing += (_, _) => _settings.Save();
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
@@ -309,6 +312,7 @@ public partial class MainWindow : Window
         CurrentAnalysis = analysis;
         Backplot.SetToolPath(analysis.ToolPath, figures, _fitOnNextAnalysis);
         Simulation.SetToolPath(analysis.ToolPath);
+        Statistics.Show(analysis);
         Backplot.SetHighlightedLine(Editor.TextArea.Caret.Line);
         _fitOnNextAnalysis = false;
 
@@ -326,6 +330,7 @@ public partial class MainWindow : Window
             : " · ferramentas " + string.Join(", ", analysis.ToolPath.Tools.Select(t => $"T{t}"));
         AnalysisStatus.Text =
             $"{analysis.BlockCount} blocos · {analysis.ToolPath.Moves.Count} movimentos{tools} · " +
+            $"tempo estimado {DurationFormat.Format(analysis.Statistics.TotalTime)} · " +
             $"{analysis.ErrorCount} erros · {analysis.WarningCount} avisos{extra} · " +
             $"análise em {analysis.Elapsed.TotalMilliseconds:0} ms";
     }

@@ -27,6 +27,8 @@ public sealed partial class MachineExecutor
     private double? _cycleZ;
     private double _cycleQ;
     private double _initialLevel;     // Z (programa) quando o ciclo começou
+    private bool _cycleDwells;        // G82: espera no fundo
+    private double _cycleDwellSeconds; // P do G82 (modal)
 
     // ── Siemens: ciclo chamado com MCALL ──
     private Statement? _modalCycle;
@@ -47,6 +49,7 @@ public sealed partial class MachineExecutor
             }
 
             _drillCycle = cycle;
+            _cycleDwells = w.CycleDwell;
         }
         else if (w.CycleCancel)
         {
@@ -78,6 +81,11 @@ public sealed partial class MachineExecutor
             _cycleQ = Math.Abs(q);
         }
 
+        if (w.P is { } p && _cycleDwells)
+        {
+            _cycleDwellSeconds = p.Value / 1000; // P em milissegundos
+        }
+
         if (_cycleR is not { } rValue || _cycleZ is not { } zValue)
         {
             Error(line, 0, 0, "Ciclo de furação sem plano R ou profundidade Z definidos.");
@@ -105,6 +113,10 @@ public sealed partial class MachineExecutor
             else
             {
                 AddLine(line, ToMachine(x, y, bottom), MotionMode.Linear);
+                if (_cycleDwells)
+                {
+                    AddDwell(line, _cycleDwellSeconds);
+                }
             }
 
             AddLine(line, ToMachine(x, y, returnLevel), MotionMode.Rapid);
@@ -162,10 +174,15 @@ public sealed partial class MachineExecutor
             // Primeira bicada é medida a partir do plano de referência
             AddLine(line, ToMachine(x, y, reference), MotionMode.Linear);
             Peck(line, x, y, reference, bottom, firstAmount, dam, fullRetract: vari == 1, retractLevel: safe);
+            AddSiemensDwell(line, args, 8); // DTB
         }
         else
         {
             AddLine(line, ToMachine(x, y, bottom), MotionMode.Linear);
+            if (cycle.Name == "CYCLE82")
+            {
+                AddSiemensDwell(line, args, 5); // DTB
+            }
         }
 
         AddLine(line, ToMachine(x, y, retract), MotionMode.Rapid);
@@ -206,6 +223,21 @@ public sealed partial class MachineExecutor
             {
                 amount = Math.Max(amount - degression, degression);
             }
+        }
+    }
+
+    /// <summary>DTB dos ciclos Siemens: positivo = segundos, negativo = rotações do fuso.</summary>
+    private void AddSiemensDwell(int line, double?[] args, int index)
+    {
+        if (index >= args.Length || args[index] is not { } dtb || dtb == 0)
+        {
+            return;
+        }
+
+        double? seconds = dtb > 0 ? dtb : RevolutionsToSeconds(line, dtb);
+        if (seconds is { } value)
+        {
+            AddDwell(line, value);
         }
     }
 

@@ -32,6 +32,12 @@ public sealed class MachineSettings
     /// <summary>Diferença máxima aceita entre raio inicial e final de um arco (mm).</summary>
     public double ArcRadiusTolerance { get; init; } = 0.01;
 
+    /// <summary>
+    /// Velocidade de avanço rápido (G00) em mm/min, usada só na estimativa de tempo.
+    /// O padrão é conservador; máquinas atuais costumam ter 15.000–40.000 mm/min.
+    /// </summary>
+    public double RapidRate { get; init; } = 10_000;
+
     /// <summary>Folga de reaproximação entre bicadas na furação profunda (G83/CYCLE83), em mm.</summary>
     public double PeckClearance { get; init; } = 0.5;
 

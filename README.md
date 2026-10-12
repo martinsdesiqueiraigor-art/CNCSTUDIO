@@ -3,7 +3,7 @@
 Editor e simulador de programas CNC (FANUC e Siemens), leve e rápido, no estilo do CIMCO Edit.
 
 > **Status:** Etapa 2 — produto final (C# / .NET 10 + Avalonia + AvaloniaEdit).
-> Fases 1 (comandos de fresa) e 1B (interpretador de macros) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
+> Fases 1 (comandos de fresa), 1B (interpretador de macros) e 2 (estatísticas) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
 
 ## Testar sem instalar nada (executável pronto)
 
@@ -79,6 +79,14 @@ tools/                       Script para gerar arquivo grande de teste
 - **Cantos e compensação:** `,R` / `,C` (Fanuc) e G41/G42 com o diâmetro da tabela de ferramentas.
 - **Proteção:** laço infinito e chamadas aninhadas demais interrompem a simulação com erro na linha.
 - Exemplos em `samples/macros/`: ESPIRAL_WHILE.nc, SUBPROGRAMA.nc, CHAVETA.mpf, CHAMA_FURO.mpf + FURO.SPF.
+
+## Estatísticas (Fase 2)
+
+- Aba **Estatísticas**: tempo total estimado, tempo de corte, de rápido e de espera, distâncias,
+  movimentos e trocas de ferramenta; tabela por ferramenta (clique para ir à 1ª linha) e limites X/Y/Z.
+- Tempo de corte = comprimento ÷ avanço (arcos pelo comprimento real); rápido pela velocidade de
+  *Máquina → Ferramentas e zeros de peça → Programa* (padrão 10.000 mm/min). Sem aceleração.
+- Esperas: `G04 X`/`G04 P` (Fanuc), `G4 F`/`G4 S` (Siemens), `G82 P`, DTB do CYCLE82/CYCLE83.
 
 ## Licença
 

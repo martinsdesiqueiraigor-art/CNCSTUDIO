@@ -41,6 +41,8 @@ public sealed partial class MachineExecutor
     private double _feed;
     private int _selectedTool;
     private int _activeTool;
+    private double _spindleSpeed;                       // última rotação S (rpm), para G4 S no Siemens
+    private readonly List<ProgramDwell> _dwells = [];
     private sbyte _compensationSide;          // 0 = G40, +1 = G41, −1 = G42
     private double _compensationRadius;
     private readonly HashSet<int> _toolsWithoutDiameter = [];
@@ -73,7 +75,7 @@ public sealed partial class MachineExecutor
         executor.Run(parse);
         executor.PostProcess();
         executor._moves.TrimExcess();
-        return new ToolPath(executor._moves, executor._diagnostics, executor._messages);
+        return new ToolPath(executor._moves, executor._diagnostics, executor._messages, executor._dwells);
     }
 
     // ───────────────────────── Bloco ─────────────────────────
@@ -112,9 +114,16 @@ public sealed partial class MachineExecutor
             ChangeWorkOffset(offsetCode);
         }
 
-        if (words.Feed is { } feed)
+        // Siemens "G4 F2": F é o tempo de espera, não o avanço
+        bool siemensDwell = words.Dwell && _dialect == Dialect.Siemens;
+        if (words.Feed is { } feed && !siemensDwell)
         {
             _feed = feed * _unitScale;
+        }
+
+        if (words.Spindle is { } spindle && !siemensDwell)
+        {
+            _spindleSpeed = Math.Abs(spindle);
         }
 
         if (words.Tool is { } tool)
@@ -163,7 +172,74 @@ public sealed partial class MachineExecutor
             ExecuteSiemensCycle(block, cycle); // ciclo chamado sem MCALL: executa já, na posição atual
         }
 
+        if (words.Dwell)
+        {
+            ExecuteDwell(block, words);
+        }
+
         HandleProgramFlowWords(block, words);
+    }
+
+    // ───────────────────────── Tempo de espera ─────────────────────────
+
+    /// <summary>
+    /// G04: Fanuc "G04 X1.5" (segundos) ou "G04 P1500" (milissegundos);
+    /// Siemens "G4 F2" (segundos) ou "G4 S50" (rotações do fuso, convertidas pela última rotação S).
+    /// </summary>
+    private void ExecuteDwell(NcBlock block, BlockWords w)
+    {
+        int line = block.LineNumber;
+        double? seconds = null;
+
+        if (_dialect == Dialect.Siemens)
+        {
+            if (w.Feed is { } f)
+            {
+                seconds = f;
+            }
+            else if (w.Spindle is { } revolutions)
+            {
+                seconds = RevolutionsToSeconds(line, revolutions);
+            }
+        }
+        else if (w.X is { } x)
+        {
+            // X segue a regra de números sem ponto (X1 = 0,001 s no modo de milésimos)
+            bool thousandths = !x.HasDecimalPoint && _settings.FanucIntegers == FanucIntegerMode.Thousandths;
+            seconds = thousandths ? x.Value / 1000 : x.Value;
+        }
+        else if (w.P is { } p)
+        {
+            seconds = p.Value / 1000; // P é sempre em milissegundos
+        }
+
+        if (seconds is not { } value)
+        {
+            Warning(line, 0, 0, "Tempo de espera (G04) sem duração.");
+            return;
+        }
+
+        AddDwell(line, value);
+    }
+
+    /// <summary>Converte rotações do fuso em segundos (precisa de um S anterior).</summary>
+    private double? RevolutionsToSeconds(int line, double revolutions)
+    {
+        if (_spindleSpeed <= 0)
+        {
+            Warning(line, 0, 0, "Espera em rotações sem rotação do fuso (S) definida: tempo ignorado.");
+            return null;
+        }
+
+        return Math.Abs(revolutions) / _spindleSpeed * 60;
+    }
+
+    private void AddDwell(int line, double seconds)
+    {
+        if (seconds > 0)
+        {
+            _dwells.Add(new ProgramDwell(_moves.Count, line, seconds, _activeTool));
+        }
     }
 
     // ───────────────────────── Palavras-chave ─────────────────────────
@@ -287,6 +363,9 @@ public sealed partial class MachineExecutor
         public double? Units { get; set; }
         public int? WorkOffsetCode { get; set; }
         public double? Feed { get; set; }
+        public double? Spindle { get; set; }         // S (rotação; no Siemens G4, rotações de espera)
+        public bool Dwell { get; set; }              // G04
+        public bool CycleDwell { get; set; }         // G82: espera no fundo do furo
         public int? Tool { get; set; }
         public bool ToolChange { get; set; }
         public sbyte? CompensationSide { get; set; }   // G40 = 0, G41 = +1, G42 = −1
@@ -338,6 +417,8 @@ public sealed partial class MachineExecutor
                 w.Tool = (int)word.Value;
                 break;
             case 'S':
+                w.Spindle = word.Value;
+                break;
             case 'D':
             case 'H':
             case 'E':
@@ -393,6 +474,7 @@ public sealed partial class MachineExecutor
                 return;
             case 4:
                 w.SuppressMotion = true; // tempo de espera: X/P são tempo
+                w.Dwell = true;
                 return;
             case 17: w.Plane = WorkPlane.XY; return;
             case 18: w.Plane = WorkPlane.ZX; return;
@@ -410,7 +492,11 @@ public sealed partial class MachineExecutor
             case >= 54 and <= 59: w.WorkOffsetCode = code; return;
             case 500 when siemens: w.WorkOffsetCode = 0; return;
             case 80: w.CycleCancel = true; return;
-            case 81 or 82 when !siemens: w.Cycle = DrillCycle.Drill; return;
+            case 81 when !siemens: w.Cycle = DrillCycle.Drill; return;
+            case 82 when !siemens:
+                w.Cycle = DrillCycle.Drill;
+                w.CycleDwell = true;
+                return;
             case 83 when !siemens: w.Cycle = DrillCycle.Peck; return;
             case 90: w.Incremental = false; return;
             case 91: w.Incremental = true; return;

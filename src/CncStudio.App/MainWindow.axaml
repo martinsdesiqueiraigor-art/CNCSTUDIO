@@ -167,6 +167,9 @@
         <TabItem Header="Simulação">
           <views:SimulationPanel x:Name="Simulation" />
         </TabItem>
+        <TabItem Header="Estatísticas">
+          <views:StatisticsPanel x:Name="Statistics" />
+        </TabItem>
       </TabControl>
     </Grid>
 
