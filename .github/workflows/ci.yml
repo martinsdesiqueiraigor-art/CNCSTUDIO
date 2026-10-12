@@ -26,6 +26,18 @@ jobs:
       - name: Testes
         run: dotnet test --no-build -c Release --logger "console;verbosity=normal"
 
+      - name: Fotos da interface (headless)
+        run: dotnet run --project tools/CncStudio.Screenshots -c Release -- screenshots
+        continue-on-error: true
+
+      - name: Anexar fotos da interface
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots
+          retention-days: 7
+        continue-on-error: true
+
       - name: Publicar executável Windows (x64)
         run: >
           dotnet publish src/CncStudio.App/CncStudio.App.csproj -c Release -r win-x64
