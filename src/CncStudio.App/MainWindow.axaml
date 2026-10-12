@@ -57,6 +57,15 @@
                 <TextBlock Classes="groupLabel" Text="Exemplos" />
               </StackPanel>
             </Border>
+            <Border Classes="group">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="SetupSheetButton" Content="Folha de setup"
+                          ToolTip.Tip="Informações do programa, ferramentas e tempos; abre no navegador para imprimir ou salvar em PDF" />
+                </StackPanel>
+                <TextBlock Classes="groupLabel" Text="Relatórios" />
+              </StackPanel>
+            </Border>
           </StackPanel>
         </TabItem>
 

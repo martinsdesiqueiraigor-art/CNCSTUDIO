@@ -52,6 +52,9 @@ Para testar desempenho com um arquivo grande (10 MB):
 - **Clique na trajetória** (backplot ou simulação) para ir à linha; **📏 Medir** no backplot (encaixa nos pontos).
 - **Limites de curso** (Máquina → Limites de curso): avisa a linha em que o programa passa do curso.
 - **Painel de avisos/erros** com filtro e contagem.
+- **Folha de setup** (Arquivo → Relatórios): informações do programa atual (arquivo, número, cabeçalho,
+  comando, máquina, zeros, limites), lista de ferramentas com descrição, tempo por ferramenta e total, e o
+  desenho da trajetória. Abre no navegador: Ctrl+P → Salvar como PDF.
 
 ## Estrutura
 

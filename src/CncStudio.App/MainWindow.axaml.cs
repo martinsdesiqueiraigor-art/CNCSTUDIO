@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -13,6 +14,7 @@ using CncStudio.Core.Dialects;
 using CncStudio.Core.Editing;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
+using CncStudio.Core.Reports;
 using CncStudio.Core.Statistics;
 using CncStudio.Core.Trajectory;
 using CncStudio.App.Views;
@@ -63,6 +65,7 @@ public partial class MainWindow : Window
         };
 
         OpenButton.Click += async (_, _) => await OpenFileAsync();
+        SetupSheetButton.Click += async (_, _) => await OpenSetupSheetAsync();
         MoreSamplesButton.Click += async (_, _) => await OpenFileAsync(Path.Combine(AppContext.BaseDirectory, "samples"));
         SaveButton.Click += async (_, _) => await SaveFileAsync(saveAs: false);
         SaveAsButton.Click += async (_, _) => await SaveFileAsync(saveAs: true);
@@ -338,8 +341,11 @@ public partial class MainWindow : Window
         }
     }
 
+    private List<PathPolyline> _figures = [];
+
     private void ApplyAnalysis(ProgramAnalysis analysis, List<PathPolyline> figures)
     {
+        _figures = figures;
         // Troca de fresa para torno (ou o contrário): escolhe a vista que faz sentido
         bool lathe = analysis.ToolPath.Machine == MachineKind.Lathe;
         bool wasLathe = CurrentAnalysis?.ToolPath.Machine == MachineKind.Lathe;
@@ -439,6 +445,59 @@ public partial class MainWindow : Window
         Editor.TextArea.Caret.Offset = document.GetLineByNumber(lineNumber).Offset;
         Editor.ScrollToLine(lineNumber);
     }
+
+    // ───────────────────────── Folha de setup ─────────────────────────
+
+    /// <summary>
+    /// Gera a folha de setup do programa atual (HTML) e abre no navegador, de onde dá para
+    /// imprimir ou salvar em PDF. Se o texto mudou desde a última análise, analisa de novo antes.
+    /// </summary>
+    private async Task OpenSetupSheetAsync()
+    {
+        string text = Editor.Text;
+        Dialect dialect = CurrentDialect;
+        string? filePath = _currentFilePath;
+        string fileName = filePath is null ? "sem título" : Path.GetFileName(filePath);
+        MachineSettings machine = _settings.ToMachineSettings(filePath is null ? null : Path.GetDirectoryName(filePath));
+        var tools = _settings.Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.Last());
+        string? stock = CurrentStockDescription;
+        AnalysisStatus.Text = "Gerando a folha de setup…";
+
+        try
+        {
+            ProgramAnalysis? current = CurrentAnalysis;
+            bool stale = _analysisTimer.IsEnabled || current is null;
+            List<PathPolyline> figures = _figures;
+
+            string path = await Task.Run(() =>
+            {
+                ProgramAnalysis analysis = stale ? ProgramAnalyzer.Analyze(text, dialect, machine) : current!;
+                List<PathPolyline> drawing = stale
+                    ? PathPolylineBuilder.Build(analysis.ToolPath.Moves, PathPolylineBuilder.ScreenTolerance(analysis.ToolPath))
+                    : figures;
+
+                SetupSheet sheet = SetupSheetBuilder.Build(text, analysis, fileName, filePath,
+                    t => tools.TryGetValue(t, out ToolEntry? e) ? (e.Diameter, e.Description) : null, stock);
+                string html = SetupSheetHtml.Render(sheet, drawing);
+
+                string folder = Path.Combine(Path.GetTempPath(), "CncStudio");
+                Directory.CreateDirectory(folder);
+                string output = Path.Combine(folder, $"Setup_{Path.GetFileNameWithoutExtension(fileName)}.html");
+                File.WriteAllText(output, html, System.Text.Encoding.UTF8);
+                return output;
+            });
+
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            AnalysisStatus.Text = $"Folha de setup aberta no navegador ({path}). Para PDF: Ctrl+P → Salvar como PDF.";
+        }
+        catch (Exception ex)
+        {
+            AnalysisStatus.Text = $"Não foi possível gerar a folha de setup: {ex.Message}";
+        }
+    }
+
+    /// <summary>Descrição do bruto para a folha de setup (null = não informado).</summary>
+    private string? CurrentStockDescription => null;
 
     // ───────────────────────── Explicação do código (mouse) ─────────────────────────
 
