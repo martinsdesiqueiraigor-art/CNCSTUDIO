@@ -1,0 +1,24 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="CncStudio.App.Dialogs.RenumberDialog"
+        Title="Renumerar blocos"
+        Width="340" SizeToContent="Height"
+        CanResize="False" WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="16" Spacing="10">
+    <Grid ColumnDefinitions="*,140" RowDefinitions="Auto,Auto">
+      <TextBlock Text="Começar em" VerticalAlignment="Center" />
+      <NumericUpDown x:Name="StartInput" Grid.Column="1" Value="10" Minimum="0" Maximum="99999" Increment="1" FormatString="0" />
+      <TextBlock Grid.Row="1" Text="Incremento" VerticalAlignment="Center" Margin="0,8,0,0" />
+      <NumericUpDown x:Name="IncrementInput" Grid.Row="1" Margin="0,8,0,0" Grid.Column="1" Value="10" Minimum="1" Maximum="1000" Increment="1" FormatString="0" />
+    </Grid>
+
+    <RadioButton x:Name="AllBlocksOption" GroupName="Mode" Content="Numerar todos os blocos" IsChecked="True" />
+    <RadioButton x:Name="ExistingOption" GroupName="Mode" Content="Só os blocos que já têm N" />
+    <RadioButton x:Name="RemoveOption" GroupName="Mode" Content="Remover todos os números" />
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,6,0,0">
+      <Button x:Name="OkButton" Content="Renumerar" IsDefault="True" />
+      <Button x:Name="CancelButton" Content="Cancelar" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

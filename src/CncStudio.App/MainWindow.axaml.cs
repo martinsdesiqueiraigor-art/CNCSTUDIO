@@ -4,9 +4,11 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using AvaloniaEdit.Document;
+using CncStudio.App.Dialogs;
 using CncStudio.App.Highlighting;
 using CncStudio.Core;
 using CncStudio.Core.Dialects;
+using CncStudio.Core.Editing;
 using CncStudio.Core.Parsing;
 using CncStudio.Core.Trajectory;
 using CncStudio.App.Views;
@@ -34,6 +36,11 @@ public partial class MainWindow : Window
     private bool _suppressDialectEvent;
     private bool _fitOnNextAnalysis = true;
 
+    // Tamanho da fonte do editor
+    private const double DefaultFontSize = 14;
+    private const double MinFontSize = 8;
+    private const double MaxFontSize = 40;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -51,7 +58,22 @@ public partial class MainWindow : Window
         };
 
         OpenButton.Click += async (_, _) => await OpenFileAsync();
-        SaveButton.Click += async (_, _) => await SaveFileAsync();
+        SaveButton.Click += async (_, _) => await SaveFileAsync(saveAs: false);
+        SaveAsButton.Click += async (_, _) => await SaveFileAsync(saveAs: true);
+
+        UndoButton.Click += (_, _) => Editor.Undo();
+        RedoButton.Click += (_, _) => Editor.Redo();
+        FindButton.Click += (_, _) => OpenSearch(replace: false);
+        ReplaceButton.Click += (_, _) => OpenSearch(replace: true);
+        GoToLineButton.Click += async (_, _) => await AskGoToLineAsync();
+        FontSmallerButton.Click += (_, _) => ChangeFontSize(-1);
+        FontLargerButton.Click += (_, _) => ChangeFontSize(+1);
+        RenumberButton.Click += async (_, _) => await RenumberAsync();
+        UppercaseButton.Click += (_, _) => ApplyTextTool(text => NcTextTools.ToUpperOutsideComments(text, CurrentDialect));
+
+        // Ctrl + roda do mouse no editor = zoom da fonte
+        Editor.AddHandler(PointerWheelChangedEvent, OnEditorWheel, RoutingStrategies.Tunnel);
+        SetFontSize(DefaultFontSize);
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
         SiemensSampleButton.Click += (_, _) => LoadSample("EXEMPLO.mpf");
         DialectCombo.SelectionChanged += OnDialectComboChanged;
@@ -109,9 +131,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task SaveFileAsync()
+    private async Task SaveFileAsync(bool saveAs)
     {
-        string? path = _currentFilePath;
+        string? path = saveAs ? null : _currentFilePath;
         if (path is null)
         {
             IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -319,21 +341,133 @@ public partial class MainWindow : Window
 
     private async void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.F3)
+        {
+            // Próxima ocorrência da busca
+            e.Handled = true;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                Editor.SearchPanel.FindPrevious();
+            }
+            else
+            {
+                Editor.SearchPanel.FindNext();
+            }
+
+            return;
+        }
+
         if (!e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             return;
         }
 
-        if (e.Key == Key.O)
+        bool shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        switch (e.Key)
         {
-            e.Handled = true;
-            await OpenFileAsync();
+            case Key.O:
+                e.Handled = true;
+                await OpenFileAsync();
+                break;
+            case Key.S:
+                e.Handled = true;
+                await SaveFileAsync(saveAs: shift);
+                break;
+            case Key.F:
+                e.Handled = true;
+                OpenSearch(replace: false);
+                break;
+            case Key.H:
+                e.Handled = true;
+                OpenSearch(replace: true);
+                break;
+            case Key.G:
+                e.Handled = true;
+                await AskGoToLineAsync();
+                break;
+            case Key.OemPlus or Key.Add:
+                e.Handled = true;
+                ChangeFontSize(+1);
+                break;
+            case Key.OemMinus or Key.Subtract:
+                e.Handled = true;
+                ChangeFontSize(-1);
+                break;
+            case Key.D0 or Key.NumPad0:
+                e.Handled = true;
+                SetFontSize(DefaultFontSize);
+                break;
         }
-        else if (e.Key == Key.S)
+    }
+
+    // ───────────────────────── Ferramentas de edição ─────────────────────────
+
+    /// <summary>Abre a barra de busca do editor (com o texto selecionado já preenchido).</summary>
+    private void OpenSearch(bool replace)
+    {
+        var search = Editor.SearchPanel;
+        string selected = Editor.SelectedText;
+        if (!string.IsNullOrEmpty(selected) && !selected.Contains('\n'))
         {
-            e.Handled = true;
-            await SaveFileAsync();
+            search.SearchPattern = selected;
         }
+
+        search.IsReplaceMode = replace;
+        search.Open();
+    }
+
+    private async Task AskGoToLineAsync()
+    {
+        var dialog = new GoToLineDialog(Editor.TextArea.Caret.Line, Editor.Document.LineCount);
+        int? line = await dialog.ShowDialog<int?>(this);
+        if (line is int target)
+        {
+            GoToLine(target);
+        }
+    }
+
+    private async Task RenumberAsync()
+    {
+        RenumberOptions? options = await new RenumberDialog().ShowDialog<RenumberOptions?>(this);
+        if (options is not null)
+        {
+            ApplyTextTool(text => NcTextTools.RenumberBlocks(text, CurrentDialect, options));
+        }
+    }
+
+    /// <summary>
+    /// Aplica uma transformação no texto inteiro como UMA operação de edição
+    /// (Ctrl+Z desfaz tudo de uma vez) e mantém o cursor na mesma linha.
+    /// </summary>
+    private void ApplyTextTool(Func<string, string> transform)
+    {
+        string original = Editor.Text;
+        string changed = transform(original);
+        if (changed == original)
+        {
+            return;
+        }
+
+        int line = Editor.TextArea.Caret.Line;
+        Editor.Document.Replace(0, Editor.Document.TextLength, changed);
+        GoToLine(Math.Min(line, Editor.Document.LineCount));
+    }
+
+    private void OnEditorWheel(object? sender, PointerWheelEventArgs e)
+    {
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            ChangeFontSize(e.Delta.Y > 0 ? +1 : -1);
+            e.Handled = true;
+        }
+    }
+
+    private void ChangeFontSize(int direction) => SetFontSize(Editor.FontSize + direction);
+
+    private void SetFontSize(double size)
+    {
+        Editor.FontSize = Math.Clamp(size, MinFontSize, MaxFontSize);
+        FontSizeText.Text = $"{Editor.FontSize:0} pt";
     }
 
     private void UpdateTitle() =>

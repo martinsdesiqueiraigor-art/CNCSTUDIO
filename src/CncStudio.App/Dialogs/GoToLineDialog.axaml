@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="CncStudio.App.Dialogs.GoToLineDialog"
+        Title="Ir para linha"
+        Width="300" SizeToContent="Height"
+        CanResize="False" WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="16" Spacing="10">
+    <TextBlock x:Name="RangeText" />
+    <NumericUpDown x:Name="LineInput" Minimum="1" Increment="1" FormatString="0" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="OkButton" Content="Ir" IsDefault="True" />
+      <Button x:Name="CancelButton" Content="Cancelar" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

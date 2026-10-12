@@ -7,20 +7,112 @@
         Width="1280" Height="800"
         MinWidth="800" MinHeight="500">
 
+  <Window.Styles>
+    <!-- Faixa de comandos: grupos com moldura e rótulo embaixo, como no CIMCO -->
+    <Style Selector="StackPanel.ribbon">
+      <Setter Property="Margin" Value="4,2,4,4" />
+      <Setter Property="Spacing" Value="6" />
+    </Style>
+    <Style Selector="Border.group">
+      <Setter Property="BorderBrush" Value="#3A3F47" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="6,4,6,2" />
+    </Style>
+    <Style Selector="TextBlock.groupLabel">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Opacity" Value="0.6" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,3,0,0" />
+    </Style>
+  </Window.Styles>
+
   <Grid RowDefinitions="Auto,*,Auto">
 
-    <!-- Barra de ferramentas -->
-    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="8,6">
-      <Button x:Name="OpenButton" Content="Abrir (Ctrl+O)" />
-      <Button x:Name="SaveButton" Content="Salvar (Ctrl+S)" />
-      <Button x:Name="FanucSampleButton" Content="Exemplo Fanuc" />
-      <Button x:Name="SiemensSampleButton" Content="Exemplo Siemens" />
-      <TextBlock Text="Dialeto:" VerticalAlignment="Center" Margin="12,0,0,0" />
-      <ComboBox x:Name="DialectCombo" Width="120" SelectedIndex="0">
-        <ComboBoxItem Content="Fanuc" />
-        <ComboBoxItem Content="Siemens" />
-      </ComboBox>
-    </StackPanel>
+    <!-- Faixa de comandos em abas (estilo "ribbon") + dialeto sempre visível -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Background="#202329">
+      <TabControl x:Name="Ribbon" Grid.Column="0" Padding="0">
+        <TabItem Header="Arquivo">
+          <StackPanel Orientation="Horizontal" Classes="ribbon">
+            <Border Classes="group">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="OpenButton" Content="Abrir" ToolTip.Tip="Abrir programa (Ctrl+O)" />
+                  <Button x:Name="SaveButton" Content="Salvar" ToolTip.Tip="Salvar (Ctrl+S)" />
+                  <Button x:Name="SaveAsButton" Content="Salvar como…" ToolTip.Tip="Salvar com outro nome (Ctrl+Shift+S)" />
+                </StackPanel>
+                <TextBlock Classes="groupLabel" Text="Arquivo" />
+              </StackPanel>
+            </Border>
+            <Border Classes="group">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="FanucSampleButton" Content="Fanuc" ToolTip.Tip="Abrir EXEMPLO.nc" />
+                  <Button x:Name="SiemensSampleButton" Content="Siemens" ToolTip.Tip="Abrir EXEMPLO.mpf" />
+                </StackPanel>
+                <TextBlock Classes="groupLabel" Text="Exemplos" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </TabItem>
+
+        <TabItem Header="Editar">
+          <StackPanel Orientation="Horizontal" Classes="ribbon">
+            <Border Classes="group">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="UndoButton" Content="Desfazer" ToolTip.Tip="Ctrl+Z" />
+                  <Button x:Name="RedoButton" Content="Refazer" ToolTip.Tip="Ctrl+Y" />
+                </StackPanel>
+                <TextBlock Classes="groupLabel" Text="Histórico" />
+              </StackPanel>
+            </Border>
+            <Border Classes="group">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="FindButton" Content="Procurar" ToolTip.Tip="Ctrl+F (F3 = próximo)" />
+                  <Button x:Name="ReplaceButton" Content="Substituir" ToolTip.Tip="Ctrl+H" />
+                  <Button x:Name="GoToLineButton" Content="Ir para linha" ToolTip.Tip="Ctrl+G" />
+                </StackPanel>
+                <TextBlock Classes="groupLabel" Text="Localizar" />
+              </StackPanel>
+            </Border>
+            <Border Classes="group">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="FontSmallerButton" Content="A−" ToolTip.Tip="Diminuir fonte (Ctrl + −)" />
+                  <TextBlock x:Name="FontSizeText" VerticalAlignment="Center" MinWidth="40" TextAlignment="Center" />
+                  <Button x:Name="FontLargerButton" Content="A+" ToolTip.Tip="Aumentar fonte (Ctrl + +, ou Ctrl + roda do mouse)" />
+                </StackPanel>
+                <TextBlock Classes="groupLabel" Text="Fonte" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </TabItem>
+
+        <TabItem Header="Funções NC">
+          <StackPanel Orientation="Horizontal" Classes="ribbon">
+            <Border Classes="group">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="RenumberButton" Content="Renumerar blocos…" />
+                  <Button x:Name="UppercaseButton" Content="Maiúsculas" ToolTip.Tip="Converte tudo, exceto comentários" />
+                </StackPanel>
+                <TextBlock Classes="groupLabel" Text="Blocos" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </TabItem>
+      </TabControl>
+
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="8,0" VerticalAlignment="Center">
+        <TextBlock Text="Dialeto" VerticalAlignment="Center" />
+        <ComboBox x:Name="DialectCombo" Width="120" SelectedIndex="0">
+          <ComboBoxItem Content="Fanuc" />
+          <ComboBoxItem Content="Siemens" />
+        </ComboBox>
+      </StackPanel>
+    </Grid>
 
     <!-- Área principal: editor à esquerda, painéis gráficos à direita -->
     <Grid Grid.Row="1" ColumnDefinitions="2*,4,3*">
