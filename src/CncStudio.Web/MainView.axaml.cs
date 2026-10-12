@@ -521,6 +521,9 @@ public partial class MainView : UserControl
         SimInfoRow.IsVisible = !compact;
         Grid.SetRow(GraphHeader, compact ? 1 : 0);
         GraphHeader.ZIndex = compact ? 1 : 0;
+        GraphHeader.VerticalAlignment = compact ? Avalonia.Layout.VerticalAlignment.Top : Avalonia.Layout.VerticalAlignment.Stretch;
+        GraphHost.Classes.Set("compact", compact);
+        SpeedSlider.Width = compact ? 80 : 110;
         Workspace.Margin = compact ? new Thickness(0, 2, 0, 0) : new Thickness(0, 6, 0, 0);
     }
 
