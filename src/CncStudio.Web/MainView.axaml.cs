@@ -110,6 +110,10 @@ public partial class MainView : UserControl
         FrontViewButton.Click += (_, _) => SetMillView(MillView.Front);
 
         OpenButton.Click += async (_, _) => await OpenFromDeviceAsync();
+        // Campo de arquivo nativo por cima do botão "Abrir" (o toque cai direto nele)
+        OpenButton.LayoutUpdated += (_, _) => PlaceOpenInput();
+        _ = ReceivePickedFilesAsync();
+        BuildDisplayMenu();
         FitButton.Click += (_, _) => Backplot.Fit();
         DialectCombo.SelectionChanged += (_, _) =>
         {
@@ -147,6 +151,10 @@ public partial class MainView : UserControl
     {
         var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
         ExamplesButton.Flyout = menu;
+        var paste = new MenuItem { Header = "Novo programa (colar ou digitar)…" };
+        paste.Click += async (_, _) => await NewFromPasteAsync();
+        menu.Items.Add(paste);
+        menu.Items.Add(new Separator());
         foreach (string name in ExampleNames())
         {
             var item = new MenuItem { Header = name.Replace("_", "__") }; // "_" sozinho vira tecla de atalho
@@ -165,6 +173,88 @@ public partial class MainView : UserControl
 
         using var reader = new StreamReader(stream);
         LoadProgram(name, reader.ReadToEnd());
+    }
+
+    private (double X, double Y, double W, double H, bool Visible) _openInputPlace;
+
+    private void PlaceOpenInput()
+    {
+        try
+        {
+            TopLevel? top = TopLevel.GetTopLevel(this);
+            Point? origin = top is null ? null : OpenButton.TranslatePoint(new Point(0, 0), top);
+            var place = origin is { } o
+                ? (o.X, o.Y, OpenButton.Bounds.Width, OpenButton.Bounds.Height, OpenButton.IsEffectivelyVisible)
+                : (0d, 0d, 0d, 0d, false);
+            if (place == _openInputPlace)
+            {
+                return;
+            }
+
+            _openInputPlace = place;
+            WebInterop.PlaceFileInput(place.Item1, place.Item2, place.Item3, place.Item4, place.Item5);
+        }
+        catch
+        {
+            // Sem o campo nativo, o clique no botão usa o seletor por código (OpenFromDeviceAsync)
+        }
+    }
+
+    /// <summary>Recebe, um por vez, os arquivos escolhidos no campo nativo sobre o botão "Abrir".</summary>
+    private async Task ReceivePickedFilesAsync()
+    {
+        while (true)
+        {
+            string? picked;
+            try
+            {
+                picked = await WebInterop.NextPickedFileAsync();
+            }
+            catch
+            {
+                return;
+            }
+
+            if (picked is null)
+            {
+                continue;
+            }
+
+            int newline = picked.IndexOf('\n');
+            if (newline > 0)
+            {
+                StopSimulation();
+                LoadProgram(picked[..newline], picked[(newline + 1)..]);
+            }
+        }
+    }
+
+    /// <summary>Programa novo: abre o editor nativo vazio para colar ou digitar (funciona mesmo onde o seletor de arquivos não abre).</summary>
+    private async Task NewFromPasteAsync()
+    {
+        StopSimulation();
+        string? text = await WebInterop.EditTextAsync("", 1, "Novo programa — cole ou digite");
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            LoadProgram("novo.nc", text.Replace("\r\n", "\n"));
+        }
+    }
+
+    /// <summary>Menu "Exibir": rápidos, percurso à frente na simulação e ferramenta.</summary>
+    private void BuildDisplayMenu()
+    {
+        CheckBox Option(string text, bool initial, Action<bool> apply)
+        {
+            var box = new CheckBox { Content = text, IsChecked = initial, MinHeight = 36 };
+            box.IsCheckedChanged += (_, _) => apply(box.IsChecked == true);
+            return box;
+        }
+
+        var panel = new StackPanel { Spacing = 2, Margin = new Thickness(4) };
+        panel.Children.Add(Option("Rápidos (G00)", true, v => Backplot.ShowRapids = v));
+        panel.Children.Add(Option("Percurso à frente (na simulação)", true, v => Backplot.ShowAhead = v));
+        panel.Children.Add(Option("Ferramenta", true, v => Backplot.ShowTool = v));
+        DisplayButton.Flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
     }
 
     private async Task OpenFromDeviceAsync()

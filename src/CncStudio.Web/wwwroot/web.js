@@ -104,3 +104,59 @@ export function editText(text, line, title) {
         area.scrollTop = Math.max(0, (Math.max(line, 1) - 1) * lineHeight - area.clientHeight / 3);
     });
 }
+
+// ───────────── Botão "Abrir" com <input type="file"> de verdade ─────────────
+// Um campo de arquivo transparente fica exatamente em cima do botão "Abrir" desenhado pelo Avalonia.
+// Assim o toque do usuário cai direto no campo nativo (alguns navegadores e apps só abrem o seletor
+// de arquivos com um toque real, não com um clique feito por código).
+
+let fileInput = null;
+let pendingResolve = null;
+let pickedQueue = [];
+
+function ensureFileInput() {
+    if (fileInput) return fileInput;
+    fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.title = 'Abrir programa CNC';
+    fileInput.style.cssText = 'position:fixed;z-index:50;opacity:0;cursor:pointer;margin:0;padding:0;border:0;font-size:0';
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        let payload;
+        try {
+            payload = file.name + '\n' + await file.text();
+        } catch {
+            payload = null;
+        }
+        fileInput.value = ''; // permite abrir o mesmo arquivo de novo
+        if (payload === null) return;
+        if (pendingResolve) {
+            const resolve = pendingResolve;
+            pendingResolve = null;
+            resolve(payload);
+        } else {
+            pickedQueue.push(payload);
+        }
+    });
+    document.body.appendChild(fileInput);
+    return fileInput;
+}
+
+/** Posiciona o campo de arquivo sobre o botão (coordenadas da tela do Avalonia, em px CSS). */
+export function placeFileInput(x, y, width, height, visible) {
+    const input = ensureFileInput();
+    const host = document.getElementById('out');
+    const r = host ? host.getBoundingClientRect() : { left: 0, top: 0 };
+    input.style.left = (r.left + x) + 'px';
+    input.style.top = (r.top + y) + 'px';
+    input.style.width = Math.max(0, width) + 'px';
+    input.style.height = Math.max(0, height) + 'px';
+    input.style.display = visible ? 'block' : 'none';
+}
+
+/** Espera o próximo arquivo escolhido pelo campo sobre o botão: "nome\nconteúdo". */
+export function nextPickedFile() {
+    if (pickedQueue.length > 0) return Promise.resolve(pickedQueue.shift());
+    return new Promise(resolve => { pendingResolve = resolve; });
+}

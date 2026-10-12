@@ -128,6 +128,8 @@
             <ToggleButton x:Name="FrontViewButton" Classes="view" Content="Frente" ToolTip.Tip="Vista de frente (XZ)" />
           </StackPanel>
           <Button x:Name="FitButton" DockPanel.Dock="Right" Classes="view" Content="Ajustar" ToolTip.Tip="Mostrar a peça inteira (ou duplo toque no gráfico)" />
+          <Button x:Name="DisplayButton" DockPanel.Dock="Right" Classes="view" Content="Exibir" Margin="0,0,4,0"
+                  ToolTip.Tip="Mostrar ou ocultar rápidos, percurso à frente e ferramenta" />
         </DockPanel>
 
         <!-- ...e as informações no rodapé do gráfico. Toque fora da trajetória esconde/mostra -->

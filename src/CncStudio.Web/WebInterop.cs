@@ -19,6 +19,20 @@ internal static partial class WebInterop
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
     public static partial Task<string?> PickFileAsync();
 
+    /// <summary>Coloca o campo de arquivo nativo (transparente) em cima do botão "Abrir".</summary>
+    [JSImport("placeFileInput", Module)]
+    public static partial void PlaceFileInput(
+        [JSMarshalAs<JSType.Number>] double x,
+        [JSMarshalAs<JSType.Number>] double y,
+        [JSMarshalAs<JSType.Number>] double width,
+        [JSMarshalAs<JSType.Number>] double height,
+        [JSMarshalAs<JSType.Boolean>] bool visible);
+
+    /// <summary>Próximo arquivo escolhido pelo campo sobre o botão "Abrir" ("nome\nconteúdo").</summary>
+    [JSImport("nextPickedFile", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> NextPickedFileAsync();
+
     /// <summary>Editor nativo em tela cheia; texto novo ou null se cancelar.</summary>
     [JSImport("editText", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]

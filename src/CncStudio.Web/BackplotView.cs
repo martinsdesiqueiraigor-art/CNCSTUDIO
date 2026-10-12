@@ -95,6 +95,31 @@ public sealed class BackplotView : Control
     /// <summary>Toque simples fora da trajetória (sem ser o primeiro de um duplo toque).</summary>
     public event EventHandler? EmptyTapped;
 
+    /// <summary>Mostrar os rápidos (G00).</summary>
+    public bool ShowRapids
+    {
+        get => _showRapids;
+        set { _showRapids = value; InvalidateVisual(); }
+    }
+
+    /// <summary>Na simulação, mostrar (apagado) o percurso que ainda não foi executado.</summary>
+    public bool ShowAhead
+    {
+        get => _showAhead;
+        set { _showAhead = value; InvalidateVisual(); }
+    }
+
+    /// <summary>Desenhar a ferramenta na simulação.</summary>
+    public bool ShowTool
+    {
+        get => _showTool;
+        set { _showTool = value; InvalidateVisual(); }
+    }
+
+    private bool _showRapids = true;
+    private bool _showAhead = true;
+    private bool _showTool = true;
+
     /// <summary>Área coberta por botões/informações por cima do gráfico: o enquadramento desvia dela.</summary>
     public Thickness FitPadding { get; set; }
 
@@ -351,7 +376,11 @@ public sealed class BackplotView : Control
             else
             {
                 // Simulação: tudo apagado + o que já foi executado aceso
-                DrawSet(context, _full, DimBrushes, px);
+                if (_showAhead)
+                {
+                    DrawSet(context, _full, DimBrushes, px);
+                }
+
                 visible = Math.Clamp(visible, 0, _polys.Length);
                 int complete = visible / BlockSize;
                 for (int b = 0; b < complete; b++)
@@ -374,15 +403,15 @@ public sealed class BackplotView : Control
             }
         }
 
-        if (_visibleMoves is { } executed)
+        if (_visibleMoves is { } executed && _showTool)
         {
             DrawTool(context, executed);
         }
     }
 
-    private static void DrawSet(DrawingContext context, StreamGeometry?[] set, IBrush[] brushes, double px)
+    private void DrawSet(DrawingContext context, StreamGeometry?[] set, IBrush[] brushes, double px)
     {
-        if (set[0] is { } rapid)
+        if (_showRapids && set[0] is { } rapid)
         {
             context.DrawGeometry(null, new Pen(brushes[0], 0.9 * px, RapidDash), rapid);
         }
