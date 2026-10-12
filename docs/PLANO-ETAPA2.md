@@ -44,6 +44,11 @@ para que backplot e simulação sigam saltos, repetições e variáveis.
 - Uma linha dentro de um laço gera vários movimentos: o backplot destaca **todas** as passagens
   da linha do cursor, e a simulação mostra a passagem atual.
 - Variáveis de sistema (posição atual etc.): só as mais usadas, sob demanda.
+- Arredondamento e chanfro de canto do Fanuc (`,R` e `,C`), e `R` como raio de arco.
+- **Compensação de raio G41/G42 básica** (retas e arcos, entrada/saída em G40): sem ela,
+  programas como o FAMILIA1 simulam com a ferramenta em cima do contorno, e não ao lado.
+- G43/H (comprimento) e G53 (coordenada de máquina) aceitos sem afetar o desenho da peça.
+- Teste de referência: `samples/macros/FAMILIA1.nc` (exemplo enviado pelo usuário).
 
 ### Fase 2 — Estatísticas
 - Tempo estimado, distância de corte e de rápido, tempo por ferramenta.
@@ -78,5 +83,6 @@ para que backplot e simulação sigam saltos, repetições e variáveis.
 
 ## Fora do escopo
 
-4º/5º eixos, CYCLE800, compensação G41/G42 complexa, DNC/serial, CAD/CAM e vista 3D girável.
+4º/5º eixos, CYCLE800, compensação G41/G42 em casos avançados (cantos agudos com
+interferência, mudança de lado no meio do contorno), DNC/serial, CAD/CAM e vista 3D girável.
 (Programação paramétrica saiu desta lista: entrou na Fase 1B.)
