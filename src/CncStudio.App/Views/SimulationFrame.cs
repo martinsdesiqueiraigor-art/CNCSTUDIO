@@ -18,7 +18,7 @@ public enum SimulationViewMode
 /// de fundo a partir do HeightMap. A UI só copia para a tela — não lê o HeightMap
 /// enquanto o simulador está trabalhando.
 /// </summary>
-public sealed class SimulationFrame
+public sealed record SimulationFrame
 {
     public required int Generation { get; init; }
     public required SimulationViewMode Mode { get; init; }
@@ -49,6 +49,10 @@ public sealed class SimulationFrame
 
     /// <summary>Distância percorrida desde o início (mm).</summary>
     public double Travelled { get; init; }
+
+    /// <summary>G00 que removeram material até aqui: linhas (até 6) e total de movimentos.</summary>
+    public int[] CollisionLines { get; init; } = [];
+    public int CollisionCount { get; init; }
 
     /// <summary>Mensagem do programa (MSG) válida neste ponto, se houver.</summary>
     public string? Message { get; init; }

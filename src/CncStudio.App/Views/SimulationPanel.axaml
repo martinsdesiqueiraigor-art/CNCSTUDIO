@@ -27,6 +27,8 @@
                 ToolTip.Tip="Desenha a trajetória (cores do backplot) por cima do material" />
       <Button x:Name="ToolsButton" Content="Ferramentas…" Margin="12,0,0,0"
               ToolTip.Tip="Diâmetro de cada ferramenta (T) usado na simulação" />
+      <Button x:Name="StockButton" Content="Bruto…" Margin="4,0,0,0"
+              ToolTip.Tip="Medidas do bruto (automático pela trajetória ou informado)" />
     </WrapPanel>
 
     <!-- Barra de reprodução (como no CIMCO): botões, régua para qualquer ponto e velocidade -->

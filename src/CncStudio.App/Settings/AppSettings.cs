@@ -1,6 +1,7 @@
 using System.Text.Json;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
+using CncStudio.Core.Simulation;
 
 namespace CncStudio.App.Settings;
 
@@ -10,6 +11,19 @@ public sealed class ToolEntry
     public int Number { get; set; }
     public double Diameter { get; set; } = 10;
     public string Description { get; set; } = "";
+}
+
+/// <summary>Bruto informado para um programa (guardado pelo caminho do arquivo).</summary>
+public sealed class StockEntry
+{
+    public string Key { get; set; } = "";
+    public string Machine { get; set; } = "Mill";
+    public double MinX { get; set; }
+    public double MaxX { get; set; }
+    public double MinY { get; set; }
+    public double MaxY { get; set; }
+    public double MinZ { get; set; }
+    public double MaxZ { get; set; }
 }
 
 /// <summary>Um zero de peça (G54–G59).</summary>
@@ -41,6 +55,42 @@ public sealed class AppSettings
     public bool FanucIntegersAsThousandths { get; set; }
 
     public double EditorFontSize { get; set; } = 14;
+
+    /// <summary>Brutos informados, por programa (os mais recentes no fim).</summary>
+    public List<StockEntry> Stocks { get; set; } = [];
+
+    /// <summary>Bruto informado para o programa (null = automático, pela trajetória).</summary>
+    public Stock? StockFor(string key)
+    {
+        StockEntry? e = Stocks.LastOrDefault(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));
+        if (e is null)
+        {
+            return null;
+        }
+
+        var stock = new Stock(e.Machine == "Lathe" ? MachineKind.Lathe : MachineKind.Mill, e.MinX, e.MaxX, e.MinY, e.MaxY, e.MinZ, e.MaxZ);
+        return stock.IsValid ? stock : null;
+    }
+
+    /// <summary>Guarda (ou apaga, com null) o bruto do programa. Mantém os 100 mais recentes.</summary>
+    public void SetStock(string key, Stock? stock)
+    {
+        Stocks.RemoveAll(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));
+        if (stock is not null)
+        {
+            Stocks.Add(new StockEntry
+            {
+                Key = key,
+                Machine = stock.Machine == MachineKind.Lathe ? "Lathe" : "Mill",
+                MinX = stock.MinX, MaxX = stock.MaxX, MinY = stock.MinY, MaxY = stock.MaxY, MinZ = stock.MinZ, MaxZ = stock.MaxZ,
+            });
+        }
+
+        if (Stocks.Count > 100)
+        {
+            Stocks.RemoveRange(0, Stocks.Count - 100);
+        }
+    }
 
     /// <summary>Mostrar a explicação do código ao parar o mouse no editor.</summary>
     public bool ShowCodeHelp { get; set; } = true;
@@ -155,6 +205,7 @@ public sealed class AppSettings
     private void Normalize()
     {
         Tools ??= [];
+        Stocks ??= [];
         WorkOffsets ??= [];
         for (int code = 54; code <= 59; code++)
         {

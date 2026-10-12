@@ -69,6 +69,7 @@ public sealed class MaterialSimulator
         _map.Reset();
         _moveIndex = 0;
         Travelled = 0;
+        _rapidCollisions.Clear();
         ToolPosition = _moves.Count > 0 ? _moves[0].Start : Point3.Origin;
         LoadCurrentMove();
     }
@@ -112,6 +113,11 @@ public sealed class MaterialSimulator
         }
     }
 
+    private readonly List<int> _rapidCollisions = [];
+
+    /// <summary>Movimentos G00 que removeram material até agora (colisões), em ordem.</summary>
+    public IReadOnlyList<int> RapidCollisions => _rapidCollisions;
+
     /// <summary>Distância percorrida pela ferramenta desde o início (mm), rápidos inclusive.</summary>
     public double Travelled { get; private set; }
 
@@ -143,8 +149,14 @@ public sealed class MaterialSimulator
         bool pieceDone = _distanceInPiece >= length - 1e-9;
         Point3 to = pieceDone ? b : Point3.Lerp(a, b, _distanceInPiece / length);
 
-        CutAlong(ToolPosition, to);
+        bool removed = CutAlong(ToolPosition, to);
         ToolPosition = to;
+
+        // G00 que remove material = colisão (o bruto informado torna isso confiável)
+        if (removed && _moves[_moveIndex].IsRapid && (_rapidCollisions.Count == 0 || _rapidCollisions[^1] != _moveIndex))
+        {
+            _rapidCollisions.Add(_moveIndex);
+        }
 
         if (pieceDone)
         {
@@ -181,8 +193,9 @@ public sealed class MaterialSimulator
     /// Remove material ao longo de um trecho reto: "carimba" o disco da ferramenta em
     /// pontos espaçados de meia célula, interpolando Z (cobre rampas e mergulhos).
     /// </summary>
-    private void CutAlong(Point3 a, Point3 b)
+    private bool CutAlong(Point3 a, Point3 b)
     {
+        bool removed = false;
         double dx = b.X - a.X;
         double dy = b.Y - a.Y;
         double lengthXY = Math.Sqrt(dx * dx + dy * dy);
@@ -192,7 +205,9 @@ public sealed class MaterialSimulator
         for (int k = 0; k <= count; k++)
         {
             Point3 p = Point3.Lerp(a, b, (double)k / count);
-            _map.CutDisc(p.X, p.Y, _toolRadius, p.Z);
+            removed |= _map.CutDisc(p.X, p.Y, _toolRadius, p.Z);
         }
+
+        return removed;
     }
 }

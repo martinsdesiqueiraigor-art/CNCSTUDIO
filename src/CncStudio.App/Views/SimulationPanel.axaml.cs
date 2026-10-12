@@ -115,6 +115,7 @@ public partial class SimulationPanel : UserControl
             }
         };
         ToolsButton.Click += (_, _) => ToolSettingsRequested?.Invoke(this, EventArgs.Empty);
+        StockButton.Click += (_, _) => StockSettingsRequested?.Invoke(this, EventArgs.Empty);
 
         _timer.Tick += OnTick;
         UpdateSpeedLabel();
@@ -130,6 +131,12 @@ public partial class SimulationPanel : UserControl
 
     /// <summary>O usuário pediu para editar as ferramentas.</summary>
     public event EventHandler? ToolSettingsRequested;
+
+    /// <summary>O usuário pediu para editar o bruto.</summary>
+    public event EventHandler? StockSettingsRequested;
+
+    /// <summary>Bruto informado (fresa). Null = automático pela trajetória. Vale na próxima trajetória carregada.</summary>
+    public Stock? Stock { get; set; }
 
     /// <summary>Clicou na trajetória: ir para a linha no editor.</summary>
     public event EventHandler<int>? LineRequested;
@@ -181,7 +188,9 @@ public partial class SimulationPanel : UserControl
 
         Func<int, double> diameterOf = DiameterOf;
         double largest = _path.Tools.Count == 0 ? diameterOf(0) : _path.Tools.Max(diameterOf);
-        HeightMap map = HeightMap.CreateForToolPath(_path, largest);
+        HeightMap map = Stock is { Machine: MachineKind.Mill } stock
+            ? HeightMap.CreateForStock(stock)
+            : HeightMap.CreateForToolPath(_path, largest);
         _simulator = new MaterialSimulator(map, _path.Moves, diameterOf);
         _generation++;
         Enqueue(null);
@@ -266,6 +275,14 @@ public partial class SimulationPanel : UserControl
                 action?.Invoke(simulator);
                 string? message = path?.MessageAt(simulator.CurrentMoveIndex);
                 SimulationFrame frame = SimulationFrame.Capture(simulator, mode, generation, path?.Moves.Count ?? 0, message);
+                if (path is not null && simulator.RapidCollisions.Count > 0)
+                {
+                    frame = frame with
+                    {
+                        CollisionLines = simulator.RapidCollisions.Select(i => path.Moves[i].LineNumber).Distinct().Take(6).ToArray(),
+                        CollisionCount = simulator.RapidCollisions.Count,
+                    };
+                }
                 Dispatcher.UIThread.Post(() => ShowFrame(frame));
             }
             catch (Exception ex)
@@ -299,12 +316,18 @@ public partial class SimulationPanel : UserControl
         }
 
         string state = frame.IsFinished ? "Concluído · " : "";
+        if (frame.CollisionCount > 0)
+        {
+            state = $"⚠ G00 dentro do material: linha(s) {string.Join(", ", frame.CollisionLines)}" +
+                    (frame.CollisionCount > frame.CollisionLines.Length ? "…" : "") + " · " + state;
+        }
         if (frame.Message is { } message)
         {
             state += $"MSG: {message} · ";
         }
 
-        StatusText.Text = $"{state}bruto {frame.Width:0.#} × {frame.Height:0.#} mm, grade {frame.Columns} × {frame.Rows}";
+        string stock = Stock is { Machine: MachineKind.Mill } ? "bruto informado" : "bruto automático";
+        StatusText.Text = $"{state}{stock} {frame.Width:0.#} × {frame.Height:0.#} mm, grade {frame.Columns} × {frame.Rows}";
 
         if (frame.IsFinished)
         {

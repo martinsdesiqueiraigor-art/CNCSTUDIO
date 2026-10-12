@@ -87,12 +87,13 @@ public sealed class HeightMap
     /// <summary>
     /// Remove material com uma fresa de topo reto: toda célula cujo centro está
     /// dentro do círculo (x, y, radius) é rebaixada até z (se estiver acima).
+    /// Retorna true se removeu algum material.
     /// </summary>
-    public void CutDisc(double x, double y, double radius, double z)
+    public bool CutDisc(double x, double y, double radius, double z)
     {
         if (z >= TopZ)
         {
-            return; // ferramenta acima do bruto: nada a remover
+            return false; // ferramenta acima do bruto: nada a remover
         }
 
         float cutZ = (float)Math.Max(z, BottomZ);
@@ -132,6 +133,22 @@ public sealed class HeightMap
         {
             Version++;
         }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Bruto informado pelo usuário (bloco da fresa). A resolução é escolhida para que o
+    /// maior lado tenha no máximo "maxCellsPerSide" células.
+    /// </summary>
+    public static HeightMap CreateForStock(Stock stock, int maxCellsPerSide = 400)
+    {
+        double width = Math.Max(stock.MaxX - stock.MinX, 0.1);
+        double height = Math.Max(stock.MaxY - stock.MinY, 0.1);
+        double cellSize = Math.Max(width, height) / maxCellsPerSide;
+        int columns = Math.Max(1, (int)Math.Ceiling(width / cellSize));
+        int rows = Math.Max(1, (int)Math.Ceiling(height / cellSize));
+        return new HeightMap(stock.MinX, stock.MinY, columns, rows, cellSize, stock.MaxZ, stock.MinZ);
     }
 
     /// <summary>

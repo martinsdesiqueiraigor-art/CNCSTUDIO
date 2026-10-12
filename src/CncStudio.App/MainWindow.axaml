@@ -141,6 +141,8 @@
                 <StackPanel Orientation="Horizontal" Spacing="4">
                   <Button x:Name="MachineSettingsButton" Content="Ferramentas e zeros de peça…"
                           ToolTip.Tip="Diâmetros das ferramentas, G54–G59 e números sem ponto no Fanuc" />
+                  <Button x:Name="StockSettingsButton" Content="Bruto…"
+                          ToolTip.Tip="Medidas do bruto deste programa (bloco na fresa, barra no torno)" />
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Configuração" />
               </StackPanel>

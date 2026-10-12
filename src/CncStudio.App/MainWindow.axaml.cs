@@ -15,6 +15,8 @@ using CncStudio.Core.Editing;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
 using CncStudio.Core.Reports;
+using CncStudio.Core.Simulation;
+using CncStudio.Core.Geometry;
 using CncStudio.Core.Statistics;
 using CncStudio.Core.Trajectory;
 using CncStudio.App.Views;
@@ -66,6 +68,8 @@ public partial class MainWindow : Window
 
         OpenButton.Click += async (_, _) => await OpenFileAsync();
         SetupSheetButton.Click += async (_, _) => await OpenSetupSheetAsync();
+        StockSettingsButton.Click += async (_, _) => await OpenStockDialogAsync();
+        Simulation.StockSettingsRequested += async (_, _) => await OpenStockDialogAsync();
         MoreSamplesButton.Click += async (_, _) => await OpenFileAsync(Path.Combine(AppContext.BaseDirectory, "samples"));
         SaveButton.Click += async (_, _) => await SaveFileAsync(saveAs: false);
         SaveAsButton.Click += async (_, _) => await SaveFileAsync(saveAs: true);
@@ -207,6 +211,11 @@ public partial class MainWindow : Window
             _currentFilePath = path;
             _displayName = Path.GetFileName(path);
             _isDirty = false;
+            if (_stock is not null)
+            {
+                _settings.SetStock(StockKey, _stock); // "salvar como": o bruto acompanha o arquivo novo
+            }
+
             FileStatus.Text = path;
             UpdateTitle();
         }
@@ -239,6 +248,7 @@ public partial class MainWindow : Window
         _currentFilePath = path;
         _displayName = displayName;
         _isDirty = false;
+        _stock = _settings.StockFor(StockKey);
         _fitOnNextAnalysis = true;
         FileStatus.Text = path ?? displayName;
         UpdateTitle();
@@ -346,6 +356,9 @@ public partial class MainWindow : Window
     private void ApplyAnalysis(ProgramAnalysis analysis, List<PathPolyline> figures)
     {
         _figures = figures;
+        Stock? stock = EffectiveStock(analysis);
+        Backplot.SetStock(stock);
+        Simulation.Stock = stock;
         // Troca de fresa para torno (ou o contrário): escolhe a vista que faz sentido
         bool lathe = analysis.ToolPath.Machine == MachineKind.Lathe;
         bool wasLathe = CurrentAnalysis?.ToolPath.Machine == MachineKind.Lathe;
@@ -497,7 +510,37 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Descrição do bruto para a folha de setup (null = não informado).</summary>
-    private string? CurrentStockDescription => null;
+    private string? CurrentStockDescription => CurrentAnalysis is { } analysis ? EffectiveStock(analysis)?.Describe() : _stock?.Describe();
+
+    // ───────────────────────── Bruto ─────────────────────────
+
+    private Stock? _stock;
+
+    /// <summary>Chave do bruto guardado: o caminho do arquivo (ou o nome, se não salvo).</summary>
+    private string StockKey => _currentFilePath ?? _displayName;
+
+    /// <summary>O bruto só vale se for do mesmo tipo de máquina da análise (bloco × barra).</summary>
+    private Stock? EffectiveStock(ProgramAnalysis analysis) =>
+        _stock is { } stock && stock.Machine == analysis.ToolPath.Machine ? stock : null;
+
+    private async Task OpenStockDialogAsync()
+    {
+        MachineKind machine = CurrentAnalysis?.ToolPath.Machine ?? MachineKind.Mill;
+        Bounds3 cutting = CurrentAnalysis?.ToolPath.CuttingBounds ?? Bounds3.Empty;
+        Stock? current = _stock?.Machine == machine ? _stock : null;
+
+        var dialog = new StockDialog(current, machine, cutting, Editor.Text);
+        StockChoice? choice = await dialog.ShowDialog<StockChoice?>(this);
+        if (choice is null)
+        {
+            return;
+        }
+
+        _stock = choice.Stock;
+        _settings.SetStock(StockKey, _stock);
+        _settings.Save();
+        StartAnalysis(); // redesenha backplot e refaz a simulação com o bruto novo
+    }
 
     // ───────────────────────── Explicação do código (mouse) ─────────────────────────
 

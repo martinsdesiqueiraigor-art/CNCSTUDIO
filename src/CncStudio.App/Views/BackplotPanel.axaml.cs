@@ -105,6 +105,9 @@ public partial class BackplotPanel : UserControl
 
     public void SetHighlightedLine(int lineNumber) => View.SetHighlightedLine(lineNumber);
 
+    /// <summary>Bruto desenhado no backplot (null = não desenha).</summary>
+    public void SetStock(CncStudio.Core.Simulation.Stock? stock) => View.SetStock(stock);
+
     public void FitToContent() => View.FitToContent();
 
     /// <summary>Atalhos: Page Up / Page Down = passe anterior / próximo (quando o backplot tem o foco).</summary>

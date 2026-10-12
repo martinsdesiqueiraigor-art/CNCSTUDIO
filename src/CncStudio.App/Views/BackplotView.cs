@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Media;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
+using CncStudio.Core.Simulation;
 using CncStudio.Core.Trajectory;
 
 namespace CncStudio.App.Views;
@@ -48,6 +49,11 @@ public sealed class BackplotView : ZoomPanControl
 
     private readonly List<MeasurePoint> _measure = [];
     private bool _measureMode;
+
+    private static readonly Pen StockPen = MotionPen("#6A727C", 1);
+    private static readonly IBrush StockBrush = new SolidColorBrush(Color.FromArgb(28, 160, 170, 180)).ToImmutable();
+    private static readonly Pen AxisLinePen = MotionPen("#6A727C", 1, new DashStyle([8, 4, 2, 4], 0));
+    private Stock? _stock;
 
     private ToolPath? _path;
     private IReadOnlyList<PathPolyline> _figures = [];
@@ -127,6 +133,62 @@ public sealed class BackplotView : ZoomPanControl
     }
 
     protected override Rect? ContentBounds => _contentBounds;
+
+    /// <summary>Bruto desenhado em volta da trajetória (null = não desenha).</summary>
+    public void SetStock(Stock? stock)
+    {
+        _stock = stock;
+        RebuildAll();
+        InvalidateVisual();
+    }
+
+    /// <summary>Contorno do bruto na vista atual: bloco (fresa) ou meia seção da barra (torno).</summary>
+    private void DrawStock(DrawingContext context)
+    {
+        if (_stock is not { } s)
+        {
+            return;
+        }
+
+        if (s.Machine == MachineKind.Lathe)
+        {
+            if (_plane != ViewPlane.Lathe)
+            {
+                return;
+            }
+
+            var rect = new Rect(ToScreen(s.MinZ, s.MaxX), ToScreen(s.MaxZ, 0));
+            context.DrawRectangle(StockBrush, StockPen, rect);
+            context.DrawLine(AxisLinePen, ToScreen(s.MinZ - 5, 0), ToScreen(s.MaxZ + 5, 0)); // eixo de rotação
+            return;
+        }
+
+        if (_plane == ViewPlane.Lathe)
+        {
+            return;
+        }
+
+        // Bloco: as 12 arestas projetadas (nas vistas 2D, viram um retângulo)
+        Point3[] c =
+        [
+            new(s.MinX, s.MinY, s.MinZ), new(s.MaxX, s.MinY, s.MinZ), new(s.MaxX, s.MaxY, s.MinZ), new(s.MinX, s.MaxY, s.MinZ),
+            new(s.MinX, s.MinY, s.MaxZ), new(s.MaxX, s.MinY, s.MaxZ), new(s.MaxX, s.MaxY, s.MaxZ), new(s.MinX, s.MaxY, s.MaxZ),
+        ];
+        if (_plane != ViewPlane.Iso)
+        {
+            Rect r = _plane.ProjectBounds(s.Bounds);
+            context.DrawRectangle(StockBrush, StockPen, new Rect(ToScreen(r.Left, r.Bottom), ToScreen(r.Right, r.Top)));
+            return;
+        }
+
+        int[,] edges = { { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 } };
+        for (int i = 0; i < edges.GetLength(0); i++)
+        {
+            Point a = _plane.Project(c[edges[i, 0]]);
+            Point b = _plane.Project(c[edges[i, 1]]);
+            context.DrawLine(StockPen, ToScreen(a.X, a.Y), ToScreen(b.X, b.Y));
+        }
+    }
 
     /// <summary>Clicou num movimento (fora do modo de medição): índice na trajetória.</summary>
     public event EventHandler<int>? MoveClicked;
@@ -237,6 +299,7 @@ public sealed class BackplotView : ZoomPanControl
         }
 
         var transform = new MatrixTransform(WorldToScreen);
+        DrawStock(context);
         DrawAxes(context);
 
         bool stepping = _limit.HasValue;
@@ -344,6 +407,11 @@ public sealed class BackplotView : ZoomPanControl
         }
 
         _contentBounds = _path is null || _figures.Count == 0 ? null : _plane.ProjectBounds(_path.Bounds);
+        if (_contentBounds is { } content && _stock is { } stock && (stock.Machine == MachineKind.Lathe) == (_plane == ViewPlane.Lathe))
+        {
+            Rect stockRect = _plane.ProjectBounds(stock.Bounds);
+            _contentBounds = content.Union(stockRect);
+        }
         RebuildProgress();
         RebuildHighlight();
     }

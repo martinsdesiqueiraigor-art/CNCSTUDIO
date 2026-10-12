@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="CncStudio.App.Dialogs.StockDialog"
+        Title="Bruto"
+        Width="520" SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="16" Spacing="10">
+    <RadioButton x:Name="AutoOption" GroupName="StockMode" Content="Automático (calculado pela trajetória, topo em Z0)" />
+    <RadioButton x:Name="ManualOption" GroupName="StockMode" Content="Informado" />
+
+    <!-- Fresa: bloco -->
+    <StackPanel x:Name="MillPanel" Spacing="6" Margin="24,0,0,0">
+      <TextBlock TextWrapping="Wrap" Opacity="0.75" Text="Bloco em coordenadas do programa (zero de peça)." />
+      <Grid ColumnDefinitions="90,150,150" RowDefinitions="Auto,Auto,Auto,Auto">
+        <TextBlock Grid.Column="1" Text="Mínimo" Opacity="0.7" />
+        <TextBlock Grid.Column="2" Text="Máximo" Opacity="0.7" />
+        <TextBlock Grid.Row="1" Text="X" VerticalAlignment="Center" />
+        <NumericUpDown x:Name="MinXInput" Grid.Row="1" Grid.Column="1" Width="140" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+        <NumericUpDown x:Name="MaxXInput" Grid.Row="1" Grid.Column="2" Width="140" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+        <TextBlock Grid.Row="2" Text="Y" VerticalAlignment="Center" />
+        <NumericUpDown x:Name="MinYInput" Grid.Row="2" Grid.Column="1" Width="140" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+        <NumericUpDown x:Name="MaxYInput" Grid.Row="2" Grid.Column="2" Width="140" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+        <TextBlock Grid.Row="3" Text="Z (fundo/topo)" VerticalAlignment="Center" />
+        <NumericUpDown x:Name="MinZInput" Grid.Row="3" Grid.Column="1" Width="140" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+        <NumericUpDown x:Name="MaxZInput" Grid.Row="3" Grid.Column="2" Width="140" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+      </Grid>
+    </StackPanel>
+
+    <!-- Torno: barra -->
+    <StackPanel x:Name="LathePanel" Spacing="6" Margin="24,0,0,0">
+      <TextBlock TextWrapping="Wrap" Opacity="0.75" Text="Barra: diâmetro × comprimento, com a face em Z (normalmente 0 ou um pouco acima, para facear)." />
+      <Grid ColumnDefinitions="140,150" RowDefinitions="Auto,Auto,Auto">
+        <TextBlock Text="Diâmetro (mm)" VerticalAlignment="Center" />
+        <NumericUpDown x:Name="DiameterInput" Grid.Column="1" Width="140" HorizontalAlignment="Left" Minimum="0.1" FormatString="0.###" Margin="0,2" />
+        <TextBlock Grid.Row="1" Text="Comprimento (mm)" VerticalAlignment="Center" />
+        <NumericUpDown x:Name="LengthInput" Grid.Row="1" Grid.Column="1" Width="140" HorizontalAlignment="Left" Minimum="0.1" FormatString="0.###" Margin="0,2" />
+        <TextBlock Grid.Row="2" Text="Face em Z" VerticalAlignment="Center" />
+        <NumericUpDown x:Name="FaceInput" Grid.Row="2" Grid.Column="1" Width="140" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+      </Grid>
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <Button x:Name="FromCommentButton" Content="Ler do cabeçalho" ToolTip.Tip="Usa um comentário como (BRUTO 100 X 80 X 20) ou (BRUTO D50 X 70)" />
+      <Button x:Name="FitPathButton" Content="Ajustar à trajetória" ToolTip.Tip="Preenche com os limites do corte + 2 mm" />
+    </StackPanel>
+    <TextBlock x:Name="HintText" TextWrapping="Wrap" FontSize="12" Opacity="0.8" />
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="OkButton" Content="Salvar" IsDefault="True" />
+      <Button x:Name="CancelButton" Content="Cancelar" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>
