@@ -1,0 +1,119 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:g="using:CncStudio.App.Graphics"
+             x:Class="CncStudio.App.Graphics.GraphicsPanel">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.coordLabel">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="#9DA5B4" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+    </Style>
+    <Style Selector="Border.coordValue">
+      <Setter Property="Background" Value="#0F1114" />
+      <Setter Property="BorderBrush" Value="#3A3F47" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="Margin" Value="0,1,10,1" />
+      <Setter Property="MinWidth" Value="92" />
+    </Style>
+    <Style Selector="Border.coordValue > TextBlock">
+      <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Menlo, monospace" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="#E6E8EB" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="Button.play">
+      <Setter Property="MinWidth" Value="34" />
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="FontSize" Value="14" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <!-- Vistas e opções de exibição -->
+    <WrapPanel DockPanel.Dock="Top" Margin="0,4">
+      <StackPanel x:Name="MillViews" Orientation="Horizontal" Spacing="2">
+        <RadioButton x:Name="IsoView" GroupName="View" Content="Isométrica" IsChecked="True" />
+        <RadioButton x:Name="TopView" GroupName="View" Content="Topo" />
+        <RadioButton x:Name="FrontView" GroupName="View" Content="Frente" />
+        <RadioButton x:Name="SideView" GroupName="View" Content="Lado" />
+      </StackPanel>
+      <StackPanel x:Name="LatheViews" Orientation="Horizontal" Spacing="2" IsVisible="False">
+        <RadioButton x:Name="Lathe3DView" GroupName="View" Content="Torno 3D" />
+        <RadioButton x:Name="LatheZXView" GroupName="View" Content="Torno ZX" />
+      </StackPanel>
+      <Border Width="1" Background="#3A3F47" Margin="8,2" />
+      <CheckBox x:Name="SolidCheck" Content="Sólido" IsChecked="True" Margin="0,0,6,0" />
+      <CheckBox x:Name="PathCheck" Content="Trajetória" IsChecked="True" Margin="0,0,6,0" />
+      <CheckBox x:Name="ToolCheck" Content="Ferramenta" IsChecked="True" Margin="0,0,6,0" />
+      <CheckBox x:Name="SectionCheck" Content="Meia seção" IsChecked="True" IsVisible="False" Margin="0,0,6,0" />
+      <Border Width="1" Background="#3A3F47" Margin="8,2" />
+      <Button x:Name="FitButton" Content="Ajustar" Margin="0,0,4,0" />
+      <ToggleButton x:Name="MeasureToggle" Content="📏 Medir" Margin="0,0,4,0"
+                    ToolTip.Tip="Clique em dois pontos (encaixa nos pontos da trajetória). Esc sai." />
+      <Button x:Name="StockButton" Content="Bruto…" Margin="0,0,4,0" />
+      <Button x:Name="ToolsButton" Content="Ferramentas…" />
+      <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12">
+        <Run Text="- - G00" Foreground="{DynamicResource LegendG00}" />
+        <Run Text="  ── G01" Foreground="{DynamicResource LegendG01}" />
+        <Run Text="  ── G02" Foreground="{DynamicResource LegendG02}" />
+        <Run Text="  ── G03" Foreground="{DynamicResource LegendG03}" />
+      </TextBlock>
+    </WrapPanel>
+
+    <!-- Painel inferior (como o CIMCO): coordenadas à esquerda, reprodução à direita -->
+    <Border DockPanel.Dock="Bottom" Background="#1A1D22" BorderBrush="#3A3F47" BorderThickness="0,1,0,0" Padding="6,4">
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="Auto,*">
+          <Grid x:Name="CoordGrid" Grid.Column="0" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Classes="coordLabel" Text="X" />
+            <Border Grid.Row="0" Grid.Column="1" Classes="coordValue"><TextBlock x:Name="XText" Text="—" /></Border>
+            <TextBlock Grid.Row="1" Grid.Column="0" Classes="coordLabel" Text="Y" x:Name="YLabel" />
+            <Border Grid.Row="1" Grid.Column="1" Classes="coordValue" x:Name="YBox"><TextBlock x:Name="YText" Text="—" /></Border>
+            <TextBlock Grid.Row="2" Grid.Column="0" Classes="coordLabel" Text="Z" />
+            <Border Grid.Row="2" Grid.Column="1" Classes="coordValue"><TextBlock x:Name="ZText" Text="—" /></Border>
+
+            <TextBlock Grid.Row="0" Grid.Column="2" Classes="coordLabel" Text="Ferr." />
+            <Border Grid.Row="0" Grid.Column="3" Classes="coordValue"><TextBlock x:Name="ToolText" Text="—" /></Border>
+            <TextBlock Grid.Row="1" Grid.Column="2" Classes="coordLabel" Text="Mov." />
+            <Border Grid.Row="1" Grid.Column="3" Classes="coordValue"><TextBlock x:Name="MotionText" Text="—" /></Border>
+            <TextBlock Grid.Row="2" Grid.Column="2" Classes="coordLabel" Text="Avanço" />
+            <Border Grid.Row="2" Grid.Column="3" Classes="coordValue"><TextBlock x:Name="FeedText" Text="—" /></Border>
+
+            <TextBlock Grid.Row="0" Grid.Column="4" Classes="coordLabel" Text="Linha" />
+            <Border Grid.Row="0" Grid.Column="5" Classes="coordValue"><TextBlock x:Name="LineText" Text="—" /></Border>
+            <TextBlock Grid.Row="1" Grid.Column="4" Classes="coordLabel" Text="Passe" />
+            <Border Grid.Row="1" Grid.Column="5" Classes="coordValue"><TextBlock x:Name="PassText" Text="—" /></Border>
+            <TextBlock Grid.Row="2" Grid.Column="4" Classes="coordLabel" Text="Dist." />
+            <Border Grid.Row="2" Grid.Column="5" Classes="coordValue"><TextBlock x:Name="DistanceText" Text="—" /></Border>
+          </Grid>
+
+          <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0" VerticalAlignment="Center">
+            <Slider x:Name="PositionSlider" Minimum="0" Maximum="1" ToolTip.Tip="Arraste para qualquer ponto do programa" />
+            <WrapPanel HorizontalAlignment="Right">
+              <Button x:Name="ResetButton" Classes="play" Content="⏮" ToolTip.Tip="Início (bruto inteiro)" Margin="0,0,2,0" />
+              <Button x:Name="PreviousPassButton" Classes="play" Content="⏪" ToolTip.Tip="Passe anterior" Margin="0,0,2,0" />
+              <Button x:Name="PreviousLineButton" Classes="play" Content="◀" ToolTip.Tip="Linha anterior" Margin="0,0,2,0" />
+              <Button x:Name="PlayButton" Classes="play" Content="▶" ToolTip.Tip="Executar" Margin="0,0,2,0" />
+              <Button x:Name="PauseButton" Classes="play" Content="⏸" ToolTip.Tip="Pausar" IsEnabled="False" Margin="0,0,2,0" />
+              <Button x:Name="NextLineButton" Classes="play" Content="▶|" ToolTip.Tip="Próxima linha do programa" Margin="0,0,2,0" />
+              <Button x:Name="NextPassButton" Classes="play" Content="⏩" ToolTip.Tip="Próximo passe" Margin="0,0,2,0" />
+              <Button x:Name="EndButton" Classes="play" Content="⏭" ToolTip.Tip="Até o fim" Margin="0,0,10,0" />
+              <ComboBox x:Name="ModeCombo" SelectedIndex="0" Width="130" Margin="0,0,6,0" ToolTip.Tip="Como a execução avança">
+                <ComboBoxItem Content="Linha a linha" />
+                <ComboBoxItem Content="Contínuo" />
+              </ComboBox>
+              <TextBlock Text="Velocidade" VerticalAlignment="Center" FontSize="12" Margin="0,0,4,0" Foreground="#9DA5B4" />
+              <Slider x:Name="SpeedSlider" Minimum="0" Maximum="100" Value="40" Width="110" />
+              <TextBlock x:Name="SpeedLabel" VerticalAlignment="Center" FontSize="12" MinWidth="90" Margin="6,0,0,0" Foreground="#9DA5B4" />
+            </WrapPanel>
+          </StackPanel>
+        </Grid>
+        <TextBlock x:Name="StatusText" FontSize="12" Foreground="#C8CDD3" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+    </Border>
+
+    <g:GraphicsView x:Name="View" />
+  </DockPanel>
+</UserControl>

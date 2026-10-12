@@ -3,6 +3,7 @@
         xmlns:ae="using:AvaloniaEdit"
         xmlns:views="using:CncStudio.App.Views"
         xmlns:controls="using:CncStudio.App.Controls"
+        xmlns:graphics="using:CncStudio.App.Graphics"
         x:Class="CncStudio.App.MainWindow"
         Title="CncStudio"
         Icon="/Assets/cncstudio.ico"
@@ -49,11 +50,11 @@
             <Border Classes="group">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                  <Button x:Name="NewButton" Content="Novo" ToolTip.Tip="Programa novo em outra aba (Ctrl+N)" />
-                  <Button x:Name="OpenButton" Content="Abrir" ToolTip.Tip="Abrir programa (Ctrl+O)" />
-                  <Button x:Name="RecentButton" Content="Recentes ▾" ToolTip.Tip="Arquivos abertos recentemente" />
-                  <Button x:Name="SaveButton" Content="Salvar" ToolTip.Tip="Salvar (Ctrl+S)" />
-                  <Button x:Name="SaveAsButton" Content="Salvar como…" ToolTip.Tip="Salvar com outro nome (Ctrl+Shift+S)" />
+                  <Button x:Name="NewButton" Classes="ribbon" ToolTip.Tip="Programa novo em outra aba (Ctrl+N)"><StackPanel><PathIcon Data="{StaticResource IconNew}" /><TextBlock Text="Novo" /></StackPanel></Button>
+                  <Button x:Name="OpenButton" Classes="ribbon" ToolTip.Tip="Abrir programa (Ctrl+O)"><StackPanel><PathIcon Data="{StaticResource IconOpen}" /><TextBlock Text="Abrir" /></StackPanel></Button>
+                  <Button x:Name="RecentButton" Classes="ribbon" ToolTip.Tip="Arquivos abertos recentemente"><StackPanel><PathIcon Data="{StaticResource IconRecent}" /><TextBlock Text="Recentes ▾" /></StackPanel></Button>
+                  <Button x:Name="SaveButton" Classes="ribbon" ToolTip.Tip="Salvar (Ctrl+S)"><StackPanel><PathIcon Data="{StaticResource IconSave}" /><TextBlock Text="Salvar" /></StackPanel></Button>
+                  <Button x:Name="SaveAsButton" Classes="ribbon" ToolTip.Tip="Salvar com outro nome (Ctrl+Shift+S)"><StackPanel><PathIcon Data="{StaticResource IconSaveAs}" /><TextBlock Text="Salvar como…" /></StackPanel></Button>
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Arquivo" />
               </StackPanel>
@@ -61,11 +62,11 @@
             <Border Classes="group">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                  <Button x:Name="FanucSampleButton" Content="Fanuc" ToolTip.Tip="Abrir EXEMPLO.nc" />
-                  <Button x:Name="SiemensSampleButton" Content="Siemens" ToolTip.Tip="Abrir EXEMPLO.mpf" />
-                  <Button x:Name="LatheFanucSampleButton" Content="Torno Fanuc" ToolTip.Tip="Abrir torno/EXEMPLO_TORNO.nc (G71, G70, G76)" />
-                  <Button x:Name="LatheSiemensSampleButton" Content="Torno Siemens" ToolTip.Tip="Abrir torno/EXEMPLO_TORNO.mpf (CYCLE95, CYCLE97)" />
-                  <Button x:Name="MoreSamplesButton" Content="Outros…" ToolTip.Tip="Abrir a pasta de exemplos (furação, macros)" />
+                  <Button x:Name="FanucSampleButton" Classes="ribbon" ToolTip.Tip="Abrir EXEMPLO.nc"><StackPanel><PathIcon Data="{StaticResource IconProgram}" /><TextBlock Text="Fanuc" /></StackPanel></Button>
+                  <Button x:Name="SiemensSampleButton" Classes="ribbon" ToolTip.Tip="Abrir EXEMPLO.mpf"><StackPanel><PathIcon Data="{StaticResource IconProgram}" /><TextBlock Text="Siemens" /></StackPanel></Button>
+                  <Button x:Name="LatheFanucSampleButton" Classes="ribbon" ToolTip.Tip="Abrir torno/EXEMPLO_TORNO.nc (G71, G70, G76)"><StackPanel><PathIcon Data="{StaticResource IconLathe}" /><TextBlock Text="Torno Fanuc" /></StackPanel></Button>
+                  <Button x:Name="LatheSiemensSampleButton" Classes="ribbon" ToolTip.Tip="Abrir torno/EXEMPLO_TORNO.mpf (CYCLE95, CYCLE97)"><StackPanel><PathIcon Data="{StaticResource IconLathe}" /><TextBlock Text="Torno Siemens" /></StackPanel></Button>
+                  <Button x:Name="MoreSamplesButton" Classes="ribbon" ToolTip.Tip="Abrir a pasta de exemplos (furação, macros)"><StackPanel><PathIcon Data="{StaticResource IconFolder}" /><TextBlock Text="Outros…" /></StackPanel></Button>
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Exemplos" />
               </StackPanel>
@@ -73,10 +74,10 @@
             <Border Classes="group">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                  <Button x:Name="SetupSheetButton" Content="Folha de setup"
-                          ToolTip.Tip="Informações do programa, ferramentas e tempos; abre no navegador para imprimir ou salvar em PDF" />
-                  <Button x:Name="CompareButton" Content="Comparar…"
-                          ToolTip.Tip="Compara o programa do editor com outro arquivo, lado a lado" />
+                  <Button x:Name="SetupSheetButton" Classes="ribbon"
+                          ToolTip.Tip="Informações do programa, ferramentas e tempos; abre no navegador para imprimir ou salvar em PDF"><StackPanel><PathIcon Data="{StaticResource IconSheet}" /><TextBlock Text="Folha de setup" /></StackPanel></Button>
+                  <Button x:Name="CompareButton" Classes="ribbon"
+                          ToolTip.Tip="Compara o programa do editor com outro arquivo, lado a lado"><StackPanel><PathIcon Data="{StaticResource IconCompare}" /><TextBlock Text="Comparar…" /></StackPanel></Button>
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Relatórios" />
               </StackPanel>
@@ -89,8 +90,8 @@
             <Border Classes="group">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                  <Button x:Name="UndoButton" Content="Desfazer" ToolTip.Tip="Ctrl+Z" />
-                  <Button x:Name="RedoButton" Content="Refazer" ToolTip.Tip="Ctrl+Y" />
+                  <Button x:Name="UndoButton" Classes="ribbon" ToolTip.Tip="Ctrl+Z"><StackPanel><PathIcon Data="{StaticResource IconUndo}" /><TextBlock Text="Desfazer" /></StackPanel></Button>
+                  <Button x:Name="RedoButton" Classes="ribbon" ToolTip.Tip="Ctrl+Y"><StackPanel><PathIcon Data="{StaticResource IconRedo}" /><TextBlock Text="Refazer" /></StackPanel></Button>
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Histórico" />
               </StackPanel>
@@ -98,9 +99,9 @@
             <Border Classes="group">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                  <Button x:Name="FindButton" Content="Procurar" ToolTip.Tip="Ctrl+F (F3 = próximo)" />
-                  <Button x:Name="ReplaceButton" Content="Substituir" ToolTip.Tip="Ctrl+H" />
-                  <Button x:Name="GoToLineButton" Content="Ir para linha" ToolTip.Tip="Ctrl+G" />
+                  <Button x:Name="FindButton" Classes="ribbon" ToolTip.Tip="Ctrl+F (F3 = próximo)"><StackPanel><PathIcon Data="{StaticResource IconFind}" /><TextBlock Text="Procurar" /></StackPanel></Button>
+                  <Button x:Name="ReplaceButton" Classes="ribbon" ToolTip.Tip="Ctrl+H"><StackPanel><PathIcon Data="{StaticResource IconReplace}" /><TextBlock Text="Substituir" /></StackPanel></Button>
+                  <Button x:Name="GoToLineButton" Classes="ribbon" ToolTip.Tip="Ctrl+G"><StackPanel><PathIcon Data="{StaticResource IconGoTo}" /><TextBlock Text="Ir para linha" /></StackPanel></Button>
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Localizar" />
               </StackPanel>
@@ -130,9 +131,9 @@
             <Border Classes="group">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                  <Button x:Name="RenumberButton" Content="Renumerar blocos…" />
-                  <Button x:Name="UppercaseButton" Content="Maiúsculas" ToolTip.Tip="Converte tudo, exceto comentários" />
-                  <Button x:Name="RemoveBlockNumbersButton" Content="Remover N" ToolTip.Tip="Remove todos os números de bloco" />
+                  <Button x:Name="RenumberButton" Classes="ribbon"><StackPanel><PathIcon Data="{StaticResource IconRenumber}" /><TextBlock Text="Renumerar blocos…" /></StackPanel></Button>
+                  <Button x:Name="UppercaseButton" Classes="ribbon" ToolTip.Tip="Converte tudo, exceto comentários"><StackPanel><PathIcon Data="{StaticResource IconUpper}" /><TextBlock Text="Maiúsculas" /></StackPanel></Button>
+                  <Button x:Name="RemoveBlockNumbersButton" Classes="ribbon" ToolTip.Tip="Remove todos os números de bloco"><StackPanel><PathIcon Data="{StaticResource IconRemoveN}" /><TextBlock Text="Remover N" /></StackPanel></Button>
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Blocos" />
               </StackPanel>
@@ -140,9 +141,9 @@
             <Border Classes="group">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                  <Button x:Name="RemoveSpacesButton" Content="Remover espaços" ToolTip.Tip="N10 G01 X10 → N10G01X10 (comentários e IF/GOTO ficam como estão)" />
-                  <Button x:Name="InsertSpacesButton" Content="Inserir espaços" ToolTip.Tip="N10G01X10 → N10 G01 X10" />
-                  <Button x:Name="RemoveCommentsButton" Content="Remover comentários" ToolTip.Tip="Linhas que só tinham comentário são apagadas" />
+                  <Button x:Name="RemoveSpacesButton" Classes="ribbon" ToolTip.Tip="N10 G01 X10 → N10G01X10 (comentários e IF/GOTO ficam como estão)"><StackPanel><PathIcon Data="{StaticResource IconRemoveSpaces}" /><TextBlock Text="Remover espaços" /></StackPanel></Button>
+                  <Button x:Name="InsertSpacesButton" Classes="ribbon" ToolTip.Tip="N10G01X10 → N10 G01 X10"><StackPanel><PathIcon Data="{StaticResource IconInsertSpaces}" /><TextBlock Text="Inserir espaços" /></StackPanel></Button>
+                  <Button x:Name="RemoveCommentsButton" Classes="ribbon" ToolTip.Tip="Linhas que só tinham comentário são apagadas"><StackPanel><PathIcon Data="{StaticResource IconRemoveComments}" /><TextBlock Text="Remover comentários" /></StackPanel></Button>
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Texto" />
               </StackPanel>
@@ -154,10 +155,10 @@
             <Border Classes="group">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                  <Button x:Name="MachineSettingsButton" Content="Ferramentas e zeros de peça…"
-                          ToolTip.Tip="Diâmetros das ferramentas, G54–G59 e números sem ponto no Fanuc" />
-                  <Button x:Name="StockSettingsButton" Content="Bruto…"
-                          ToolTip.Tip="Medidas do bruto deste programa (bloco na fresa, barra no torno)" />
+                  <Button x:Name="MachineSettingsButton" Classes="ribbon"
+                          ToolTip.Tip="Diâmetros das ferramentas, G54–G59 e números sem ponto no Fanuc"><StackPanel><PathIcon Data="{StaticResource IconTool}" /><TextBlock Text="Ferramentas e zeros…" /></StackPanel></Button>
+                  <Button x:Name="StockSettingsButton" Classes="ribbon"
+                          ToolTip.Tip="Medidas do bruto deste programa (bloco na fresa, barra no torno)"><StackPanel><PathIcon Data="{StaticResource IconStock}" /><TextBlock Text="Bruto…" /></StackPanel></Button>
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Configuração" />
               </StackPanel>
@@ -216,11 +217,8 @@
       <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
 
       <TabControl x:Name="ViewTabs" Grid.Column="2" Margin="4,0,0,0">
-        <TabItem Header="Backplot">
-          <views:BackplotPanel x:Name="Backplot" />
-        </TabItem>
-        <TabItem Header="Simulação">
-          <views:SimulationPanel x:Name="Simulation" />
+        <TabItem Header="Gráfico">
+          <graphics:GraphicsPanel x:Name="Graphics" />
         </TabItem>
         <TabItem Header="Estatísticas">
           <views:StatisticsPanel x:Name="Statistics" />

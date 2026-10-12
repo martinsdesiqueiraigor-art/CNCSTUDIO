@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private const int MaxDiagnosticsShown = 2000;
 
     private readonly GCodeColorizer _colorizer = new();
+    private readonly LineMotionRenderer _lineMotions = new();
     private AppSettings _settings = AppSettings.Load();
     private readonly DispatcherTimer _analysisTimer;
     private CancellationTokenSource? _analysisCancellation;
@@ -58,6 +59,7 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         Editor.TextArea.TextView.LineTransformers.Add(_colorizer);
+        Editor.TextArea.TextView.BackgroundRenderers.Add(_lineMotions);
         Editor.TextChanged += OnEditorTextChanged;
         Editor.TextArea.Caret.PositionChanged += (_, _) => OnCaretMoved();
 
@@ -78,7 +80,7 @@ public partial class MainWindow : Window
             await window.ChooseRightFileAsync();
         };
         StockSettingsButton.Click += async (_, _) => await OpenStockDialogAsync();
-        Simulation.StockSettingsRequested += async (_, _) => await OpenStockDialogAsync();
+        Graphics.StockSettingsRequested += async (_, _) => await OpenStockDialogAsync();
         MoreSamplesButton.Click += async (_, _) => await OpenFileAsync(Path.Combine(AppContext.BaseDirectory, "samples"));
         SaveButton.Click += async (_, _) => await SaveFileAsync(saveAs: false);
         SaveAsButton.Click += async (_, _) => await SaveFileAsync(saveAs: true);
@@ -120,8 +122,8 @@ public partial class MainWindow : Window
         SetFontSize(_settings.EditorFontSize);
 
         // Configuração da máquina (ferramentas, zeros de peça)
-        Simulation.DiameterOf = tool => _settings.DiameterOf(tool);
-        Simulation.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
+        Graphics.DiameterOf = tool => _settings.DiameterOf(tool);
+        Graphics.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
         Statistics.DiameterOf = tool => _settings.DiameterOf(tool);
         Statistics.LineRequested += (_, line) => GoToLine(line);
         MachineSettingsButton.Click += async (_, _) => await OpenMachineSettingsAsync();
@@ -144,10 +146,8 @@ public partial class MainWindow : Window
         DialectCombo.SelectionChanged += OnDialectComboChanged;
         DiagnosticsList.SelectionChanged += OnDiagnosticSelected;
 
-        Backplot.LineReached += (_, line) => ShowLine(line); // passe a passe: o editor acompanha
-        Simulation.LineReached += (_, line) => ShowLine(line);
-        Backplot.LineRequested += (_, line) => GoToLine(line);   // clique na trajetória
-        Simulation.LineRequested += (_, line) => GoToLine(line);
+        Graphics.LineReached += (_, line) => ShowExecutingLine(line); // execução: o editor acompanha
+        Graphics.LineRequested += (_, line) => GoToLine(line);          // clique na trajetória
 
         // Atalhos capturados antes do editor (rota "tunnel")
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
@@ -660,23 +660,23 @@ public partial class MainWindow : Window
     private void ApplyAnalysis(ProgramAnalysis analysis, List<PathPolyline> figures)
     {
         _figures = figures;
-        Stock? stock = EffectiveStock(analysis);
-        Backplot.SetStock(stock);
-        Simulation.Stock = stock;
-        // Troca de fresa para torno (ou o contrário): escolhe a vista que faz sentido
+        Graphics.Stock = EffectiveStock(analysis);
+
+        // Troca de fresa para torno (ou o contrário): reenquadra (a área gráfica escolhe a vista)
         bool lathe = analysis.ToolPath.Machine == MachineKind.Lathe;
         bool wasLathe = CurrentAnalysis?.ToolPath.Machine == MachineKind.Lathe;
         if (CurrentAnalysis is null || lathe != wasLathe)
         {
-            Backplot.ShowPlane(lathe ? ViewPlane.Lathe : ViewPlane.XY);
             _fitOnNextAnalysis = true;
         }
 
         CurrentAnalysis = analysis;
-        Backplot.SetToolPath(analysis.ToolPath, figures, _fitOnNextAnalysis);
-        Simulation.SetToolPath(analysis.ToolPath, figures);
+        Graphics.SetToolPath(analysis.ToolPath, figures, _fitOnNextAnalysis);
         Statistics.Show(analysis);
-        Backplot.SetHighlightedLine(Editor.TextArea.Caret.Line);
+        Graphics.SetHighlightedLine(Editor.TextArea.Caret.Line);
+        _lineMotions.Update(analysis.ToolPath);
+        _lineMotions.ExecutingLine = 0;
+        Editor.TextArea.TextView.InvalidateLayer(AvaloniaEdit.Rendering.KnownLayer.Background);
         _fitOnNextAnalysis = false;
 
         RefreshDiagnostics();
@@ -751,6 +751,14 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Mostra a linha no editor (cursor no início) sem tirar o foco de onde está.</summary>
+    /// <summary>A execução (simulação) chegou nesta linha: destaca e mostra no editor.</summary>
+    private void ShowExecutingLine(int lineNumber)
+    {
+        _lineMotions.ExecutingLine = lineNumber;
+        ShowLine(lineNumber);
+        Editor.TextArea.TextView.InvalidateLayer(AvaloniaEdit.Rendering.KnownLayer.Background);
+    }
+
     private void ShowLine(int lineNumber)
     {
         TextDocument document = Editor.Document;
@@ -1077,7 +1085,7 @@ public partial class MainWindow : Window
     private void OnCaretMoved()
     {
         UpdateCaretStatus();
-        Backplot.SetHighlightedLine(Editor.TextArea.Caret.Line);
+        Graphics.SetHighlightedLine(Editor.TextArea.Caret.Line);
     }
 
     private void UpdateCaretStatus()
