@@ -29,6 +29,22 @@ Ao fim de cada fase eu mostro o resultado antes de seguir.
 - Opção para números sem ponto decimal no Fanuc (`X10` = 10 mm ou 0,010 mm).
 - Validador: avisos de avanço zero em G01, rápido dentro do material, etc.
 
+### Fase 1B — Interpretador: ciclos, repetições e programação paramétrica
+O parser deixa de ler linha a linha e passa a **executar** o programa como o comando faz,
+para que backplot e simulação sigam saltos, repetições e variáveis.
+
+- **Fanuc Macro B:** variáveis #1–#999 (locais, comuns), aritmética e funções
+  (SIN, COS, TAN, ATAN, SQRT, ABS, ROUND, FIX, FUP), `IF [...] GOTO n`, `IF [...] THEN`,
+  `WHILE [...] DO n` / `END n`, `GOTO n`, chamadas G65/G66 e M98/M99 com repetição (L/K).
+- **Siemens:** parâmetros R, variáveis `DEF REAL/INT`, expressões e funções,
+  `IF/ELSE/ENDIF`, `WHILE/ENDWHILE`, `FOR/ENDFOR`, `REPEAT/UNTIL`, `LOOP/ENDLOOP`,
+  `GOTOF/GOTOB/GOTO`, `REPEAT rótulo P=n`, subprogramas com repetição (`L10 P3`).
+- Ciclos de furação e de torno executados pelo mesmo mecanismo.
+- Proteção contra laço infinito (limite de iterações, com aviso na linha).
+- Uma linha dentro de um laço gera vários movimentos: o backplot destaca **todas** as passagens
+  da linha do cursor, e a simulação mostra a passagem atual.
+- Variáveis de sistema (posição atual etc.): só as mais usadas, sob demanda.
+
 ### Fase 2 — Estatísticas
 - Tempo estimado, distância de corte e de rápido, tempo por ferramenta.
 - Painel de estatísticas na interface.
@@ -62,5 +78,5 @@ Ao fim de cada fase eu mostro o resultado antes de seguir.
 
 ## Fora do escopo
 
-4º/5º eixos, CYCLE800, compensação G41/G42 complexa, DNC/serial, macros paramétricas completas,
-CAD/CAM e vista 3D girável.
+4º/5º eixos, CYCLE800, compensação G41/G42 complexa, DNC/serial, CAD/CAM e vista 3D girável.
+(Programação paramétrica saiu desta lista: entrou na Fase 1B.)
