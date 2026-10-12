@@ -119,6 +119,10 @@ public partial class MainView : UserControl
             }
         };
         Backplot.LineRequested += (_, line) => GoToLine(line);
+        // Toque fora da trajetória: esconde/mostra as informações por cima do gráfico
+        Backplot.EmptyTapped += (_, _) => GraphInfo.IsVisible = !GraphInfo.IsVisible;
+        // Espaço ocupado pelos botões (em cima) e pelas informações (embaixo) ao enquadrar a peça
+        Backplot.FitPadding = new Thickness(0, 40, 0, 46);
 
         CodePageButton.Click += (_, _) => ShowPage(graph: false);
         GraphPageButton.Click += (_, _) => ShowPage(graph: true);
@@ -179,7 +183,7 @@ public partial class MainView : UserControl
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Não foi possível abrir o arquivo: " + ex.Message;
+            SetStatus("Não foi possível abrir o arquivo: " + ex.Message);
         }
     }
 
@@ -238,7 +242,7 @@ public partial class MainView : UserControl
         catch (Exception ex)
         {
             _analysis = null;
-            StatusText.Text = "Erro ao analisar: " + ex.Message;
+            SetStatus("Erro ao analisar: " + ex.Message);
             Backplot.SetPath(null, keepView);
             _diagnosticMarks.Update([]);
             UpdateProblemsButton();
@@ -273,8 +277,21 @@ public partial class MainView : UserControl
         string problems = a.ErrorCount + a.WarningCount == 0
             ? "sem problemas"
             : $"{a.ErrorCount} erro(s), {a.WarningCount} aviso(s)";
-        StatusText.Text = $"{machine} · {a.BlockCount} blocos · {a.ToolPath.Moves.Count} movimentos · " +
-                          $"tempo estimado {DurationFormat.Format(a.Statistics.TotalTime)} · {problems}";
+        SetStatus($"{machine} · {a.BlockCount} blocos · {a.ToolPath.Moves.Count} movimentos · " +
+                          $"tempo estimado {DurationFormat.Format(a.Statistics.TotalTime)} · {problems}");
+    }
+
+    /// <summary>Mensagem no rodapé da tela e também no rodapé do gráfico (que fica por cima do desenho).</summary>
+    private void SetStatus(string text)
+    {
+        StatusText.Text = text;
+        GraphStatusText.Text = text;
+    }
+
+    /// <summary>No celular, com o gráfico na tela, o rodapé de baixo some: a informação está por cima do gráfico.</summary>
+    private void UpdateStatusBar()
+    {
+        StatusBar.IsVisible = !(_narrow == true && GraphPageButton.IsChecked == true);
     }
 
     // ───────────────────────── Editor ↔ gráfico ─────────────────────────
@@ -302,7 +319,7 @@ public partial class MainView : UserControl
 
         // No celular o editor está escondido: mostra a linha tocada no rodapé
         string text = Editor.Document.GetText(docLine).Trim();
-        StatusText.Text = $"Linha {line}: {text}";
+        SetStatus($"Linha {line}: {text}");
     }
 
     // ───────────────────────── Simulação linha a linha ─────────────────────────
@@ -382,21 +399,21 @@ public partial class MainView : UserControl
             if (line >= 1 && line <= Editor.Document.LineCount)
             {
                 string pass = _stepPassCount[_step - 1] > 1 ? $" · passe {_stepPass[_step - 1]} de {_stepPassCount[_step - 1]}" : "";
-                StatusText.Text = $"Linha {line}{pass}: {Editor.Document.GetText(Editor.Document.GetLineByNumber(line)).Trim()}";
+                SetStatus($"Linha {line}{pass}: {Editor.Document.GetText(Editor.Document.GetLineByNumber(line)).Trim()}");
             }
 
             // Como na máquina: chegou numa linha com erro, a execução para com alarme
             if (ErrorBetween(_step == 1 ? 1 : a.ToolPath.Moves[_stepEnds[_step - 2] - 1].LineNumber + 1, line) is { } alarm)
             {
                 StopSimulation();
-                StatusText.Text = $"Alarme na linha {alarm.LineNumber}: {alarm.Message}";
+                SetStatus($"Alarme na linha {alarm.LineNumber}: {alarm.Message}");
             }
         }
         else
         {
             _lineMotion.ExecutingLine = 0;
             Editor.TextArea.TextView.InvalidateLayer(KnownLayer.Background);
-            StatusText.Text = "Início do programa";
+            SetStatus("Início do programa");
         }
 
         ShowSimPosition();
@@ -439,7 +456,7 @@ public partial class MainView : UserControl
         ShowPage(graph: false);
         GoToLine(d.LineNumber);
         string kind = d.Severity == DiagnosticSeverity.Error ? "Erro" : "Aviso";
-        StatusText.Text = $"{kind} {_problemIndex + 1}/{ordered.Count} · linha {d.LineNumber}: {d.Message}";
+        SetStatus($"{kind} {_problemIndex + 1}/{ordered.Count} · linha {d.LineNumber}: {d.Message}");
     }
 
     private void ShowSimPosition()
@@ -493,7 +510,7 @@ public partial class MainView : UserControl
     private void UpdateSpeed()
     {
         int speed = (int)Math.Round(SpeedSlider.Value);
-        SpeedText.Text = $"{speed} passos/s";
+        SpeedText.Text = $"{speed}/s";
         _simTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / Math.Max(1, speed));
     }
 
@@ -522,6 +539,7 @@ public partial class MainView : UserControl
         HeaderPages.IsVisible = narrow && _compact == true;
         BrandText.IsVisible = !narrow; // no celular fica só o símbolo, para caber os botões
         Splitter.IsVisible = !narrow;
+        UpdateStatusBar();
 
         if (narrow)
         {
@@ -553,12 +571,6 @@ public partial class MainView : UserControl
         bool narrow = _narrow == true;
         PageSwitch.IsVisible = narrow && !compact;
         HeaderPages.IsVisible = narrow && compact;
-        SimInfoRow.IsVisible = !compact;
-        Grid.SetRow(GraphHeader, compact ? 1 : 0);
-        GraphHeader.ZIndex = compact ? 1 : 0;
-        GraphHeader.VerticalAlignment = compact ? Avalonia.Layout.VerticalAlignment.Top : Avalonia.Layout.VerticalAlignment.Stretch;
-        GraphHost.Classes.Set("compact", compact);
-        SpeedSlider.Width = compact ? 80 : 110;
         Workspace.Margin = compact ? new Thickness(0, 2, 0, 0) : new Thickness(0, 6, 0, 0);
     }
 
@@ -568,6 +580,7 @@ public partial class MainView : UserControl
         GraphPageButton.IsChecked = graph;
         HeaderCodeButton.IsChecked = !graph;
         HeaderGraphButton.IsChecked = graph;
+        UpdateStatusBar();
         if (_narrow != true)
         {
             return;

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Rendering;
@@ -90,6 +91,14 @@ public sealed class BackplotView : Control
 
     /// <summary>O usuário tocou num movimento: número da linha no editor.</summary>
     public event EventHandler<int>? LineRequested;
+
+    /// <summary>Toque simples fora da trajetória (sem ser o primeiro de um duplo toque).</summary>
+    public event EventHandler? EmptyTapped;
+
+    /// <summary>Área coberta por botões/informações por cima do gráfico: o enquadramento desvia dela.</summary>
+    public Thickness FitPadding { get; set; }
+
+    private DispatcherTimer? _singleTapTimer;
 
     public bool IsLathe => _lathe;
 
@@ -323,7 +332,7 @@ public sealed class BackplotView : Control
 
         if (_path is null || _path.Moves.Count == 0)
         {
-            DrawText(context, "Sem trajetória para mostrar", new Point(12, 10));
+            DrawText(context, "Sem trajetória para mostrar", new Point(12, 52));
             return;
         }
 
@@ -506,13 +515,19 @@ public sealed class BackplotView : Control
 
         double width = Math.Max(maxU - minU, 1);
         double height = Math.Max(maxV - minV, 1);
-        const double margin = 30;
-        _scale = Math.Min((size.Width - 2 * margin) / width, (size.Height - 2 * margin) / height);
+        const double margin = 24;
+        // Área livre = tela menos o que está coberto pelos botões e informações
+        Thickness pad = FitPadding;
+        double freeWidth = Math.Max(40, size.Width - pad.Left - pad.Right - 2 * margin);
+        double freeHeight = Math.Max(40, size.Height - pad.Top - pad.Bottom - 2 * margin);
+        _scale = Math.Min(freeWidth / width, freeHeight / height);
         _scale = Math.Clamp(_scale, 0.01, 10_000);
 
         double centerU = (minU + maxU) / 2;
         double centerV = (minV + maxV) / 2;
-        _offset = new Vector(size.Width / 2 - centerU * _scale, size.Height / 2 + centerV * _scale);
+        double centerX = pad.Left + (size.Width - pad.Left - pad.Right) / 2;
+        double centerY = pad.Top + (size.Height - pad.Top - pad.Bottom) / 2;
+        _offset = new Vector(centerX - centerU * _scale, centerY + centerV * _scale);
     }
 
     private void ZoomAt(Point screen, double factor)
@@ -629,6 +644,7 @@ public sealed class BackplotView : Control
         if ((now - _lastTap).TotalMilliseconds < 350)
         {
             _lastTap = DateTime.MinValue;
+            _singleTapTimer?.Stop(); // era duplo toque: não conta como toque simples
             Fit();
             return;
         }
@@ -645,7 +661,24 @@ public sealed class BackplotView : Control
         if (index >= 0)
         {
             LineRequested?.Invoke(this, _path.Moves[index].LineNumber);
+            return;
         }
+
+        // Toque no vazio: espera um instante para saber se vem um segundo toque (duplo = ajustar)
+        _singleTapTimer ??= CreateSingleTapTimer();
+        _singleTapTimer.Stop();
+        _singleTapTimer.Start();
+    }
+
+    private DispatcherTimer CreateSingleTapTimer()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(360) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            EmptyTapped?.Invoke(this, EventArgs.Empty);
+        };
+        return timer;
     }
 
     private double PinchDistance()
