@@ -493,7 +493,7 @@ public partial class MainView : UserControl
     private void UpdateSpeed()
     {
         int speed = (int)Math.Round(SpeedSlider.Value);
-        SpeedText.Text = $"{speed} linhas/s";
+        SpeedText.Text = $"{speed} passos/s";
         _simTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / Math.Max(1, speed));
     }
 

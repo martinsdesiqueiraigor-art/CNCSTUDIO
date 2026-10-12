@@ -147,7 +147,7 @@
               </Button>
               <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0,0,0">
                 <Slider x:Name="SpeedSlider" Width="110" Minimum="1" Maximum="50" Value="5" VerticalAlignment="Center" />
-                <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="12" Width="70" Text="5 linhas/s" />
+                <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="12" Width="70" Text="5 passos/s" />
               </StackPanel>
             </WrapPanel>
             <WrapPanel x:Name="SimInfoRow">
