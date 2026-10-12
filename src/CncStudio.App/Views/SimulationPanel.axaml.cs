@@ -20,7 +20,12 @@ public partial class SimulationPanel : UserControl
     private TimeSpan _lastTick;
 
     private ToolPath? _path;
+    private int[] _passStarts = [];
     private MaterialSimulator? _simulator;
+    private SimulationFrame? _lastFrame;
+    private bool _updatingSlider;
+    private int? _deferredTarget;      // régua arrastada enquanto o quadro anterior era calculado
+    private int _lastReportedLine;
     private int _generation;
     private bool _fitOnNextFrame = true;
 
@@ -38,7 +43,35 @@ public partial class SimulationPanel : UserControl
         IsoMode.IsCheckedChanged += (_, _) => OnModeChanged(IsoMode, SimulationViewMode.Iso);
         FitButton.Click += (_, _) => View.FitToContent();
 
+        ShowPathCheck.IsCheckedChanged += (_, _) => View.ShowPath = ShowPathCheck.IsChecked == true;
+
         PlayButton.Click += (_, _) => TogglePlay();
+        PreviousPassButton.Click += (_, _) =>
+        {
+            Pause();
+            int position = _lastFrame?.MoveIndex ?? 0;
+            if (position > 0 && _passStarts.Length > 0)
+            {
+                GoToMove(_passStarts[PathPasses.PassOf(_passStarts, position - 1)]);
+            }
+        };
+        NextPassButton.Click += (_, _) =>
+        {
+            Pause();
+            int position = _lastFrame?.MoveIndex ?? 0;
+            if (_path is not null && position < _path.Moves.Count && _passStarts.Length > 0)
+            {
+                GoToMove(PathPasses.EndOf(_passStarts, PathPasses.PassOf(_passStarts, position), _path.Moves.Count));
+            }
+        };
+        PositionSlider.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Slider.ValueProperty && !_updatingSlider)
+            {
+                Pause();
+                GoToMove((int)Math.Round(PositionSlider.Value));
+            }
+        };
         StepButton.Click += (_, _) =>
         {
             Pause();
@@ -79,11 +112,14 @@ public partial class SimulationPanel : UserControl
     /// <summary>O usuário pediu para editar as ferramentas.</summary>
     public event EventHandler? ToolSettingsRequested;
 
+    /// <summary>A simulação chegou a outra linha do programa: o editor pode acompanhar.</summary>
+    public event EventHandler<int>? LineReached;
+
     /// <summary>Recria a simulação (ex.: diâmetros das ferramentas mudaram).</summary>
     public void Refresh() => Rebuild();
 
     /// <summary>Carrega uma nova trajetória: recria o bruto e volta ao início.</summary>
-    public void SetToolPath(ToolPath path)
+    public void SetToolPath(ToolPath path, IReadOnlyList<PathPolyline> figures)
     {
         if (path.Machine == MachineKind.Lathe)
         {
@@ -94,12 +130,20 @@ public partial class SimulationPanel : UserControl
             _generation++;
             _fitOnNextFrame = true;
             View.Clear();
+            View.SetPath([]);
+            _passStarts = [];
             StatusText.Text = "Programa de torno: use o Backplot (vista Torno ZX, com o passe a passe). A simulação 2.5D é só para fresa.";
             return;
         }
 
         bool firstLoad = _path is null;
         _path = path;
+        _passStarts = PathPasses.Starts(path.Moves);
+        View.SetPath(figures);
+        _updatingSlider = true;
+        PositionSlider.Maximum = Math.Max(1, path.Moves.Count);
+        PositionSlider.Value = 0;
+        _updatingSlider = false;
         _fitOnNextFrame |= firstLoad;
         Rebuild();
     }
@@ -199,7 +243,7 @@ public partial class SimulationPanel : UserControl
             {
                 action?.Invoke(simulator);
                 string? message = path?.MessageAt(simulator.CurrentMoveIndex);
-                SimulationFrame frame = SimulationFrame.Capture(simulator, mode, generation, message);
+                SimulationFrame frame = SimulationFrame.Capture(simulator, mode, generation, path?.Moves.Count ?? 0, message);
                 Dispatcher.UIThread.Post(() => ShowFrame(frame));
             }
             catch (Exception ex)
@@ -223,20 +267,79 @@ public partial class SimulationPanel : UserControl
 
         View.ShowFrame(frame, _fitOnNextFrame);
         _fitOnNextFrame = false;
+        _lastFrame = frame;
+        UpdateCoordinates(frame);
 
-        var p = frame.ToolPosition;
-        string state = frame.IsFinished ? " · concluído" : "";
+        if (_deferredTarget is { } target)
+        {
+            _deferredTarget = null;
+            Enqueue(s => s.RunToMove(target));
+        }
+
+        string state = frame.IsFinished ? "Concluído · " : "";
         if (frame.Message is { } message)
         {
-            state += $" · MSG: {message}";
+            state += $"MSG: {message} · ";
         }
-        string tool = frame.Tool == 0 ? "" : $"T{frame.Tool} Ø{frame.ToolDiameter:0.##} · ";
-        StatusText.Text = $"{tool}Linha {frame.LineNumber} · X {p.X:0.###}  Y {p.Y:0.###}  Z {p.Z:0.###}" +
-                          $" · bruto {frame.Width:0.#} × {frame.Height:0.#} mm, grade {frame.Columns} × {frame.Rows}{state}";
+
+        StatusText.Text = $"{state}bruto {frame.Width:0.#} × {frame.Height:0.#} mm, grade {frame.Columns} × {frame.Rows}";
 
         if (frame.IsFinished)
         {
             Pause();
+        }
+    }
+
+    /// <summary>Leva a simulação ao início do movimento indicado (régua e passes).</summary>
+    private void GoToMove(int moveIndex)
+    {
+        if (_pendingWork > 0)
+        {
+            _deferredTarget = moveIndex; // só o último pedido importa
+            return;
+        }
+
+        Enqueue(s => s.RunToMove(moveIndex));
+    }
+
+    /// <summary>Painel de coordenadas, régua e acompanhamento do editor.</summary>
+    private void UpdateCoordinates(SimulationFrame frame)
+    {
+        var p = frame.ToolPosition;
+        ToolText.Text = frame.Tool == 0 ? $"Ø{frame.ToolDiameter:0.##}" : $"T{frame.Tool} Ø{frame.ToolDiameter:0.##}";
+        XText.Text = $"{p.X,9:0.000}";
+        YText.Text = $"{p.Y,9:0.000}";
+        ZText.Text = $"{p.Z,9:0.000}";
+        LineText.Text = frame.LineNumber > 0 ? frame.LineNumber.ToString() : "—";
+        DistanceText.Text = frame.Travelled >= 10_000 ? $"{frame.Travelled / 1000:0.00} m" : $"{frame.Travelled:0.0} mm";
+
+        if (frame.CurrentMove is { } move)
+        {
+            string code = move.Motion switch
+            {
+                MotionMode.Rapid => "G00",
+                MotionMode.Linear => "G01",
+                MotionMode.ClockwiseArc => "G02",
+                _ => "G03",
+            };
+            MotionText.Text = move.IsRapid ? code : $"{code} F{move.Feed:0}";
+        }
+        else
+        {
+            MotionText.Text = "—";
+        }
+
+        int pass = _passStarts.Length == 0 ? 0 : PathPasses.PassOf(_passStarts, Math.Min(frame.MoveIndex, Math.Max(0, frame.MoveCount - 1))) + 1;
+        PassText.Text = _passStarts.Length == 0 ? "—" : $"{pass} / {_passStarts.Length}";
+
+        _updatingSlider = true;
+        PositionSlider.Value = frame.MoveIndex;
+        _updatingSlider = false;
+
+        if (frame.LineNumber > 0 && frame.LineNumber != _lastReportedLine)
+        {
+            _lastReportedLine = frame.LineNumber;
+            LineReached?.Invoke(this, frame.LineNumber);
         }
     }
 

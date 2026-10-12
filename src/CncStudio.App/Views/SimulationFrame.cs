@@ -1,5 +1,6 @@
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Simulation;
+using CncStudio.Core.Trajectory;
 
 namespace CncStudio.App.Views;
 
@@ -39,6 +40,16 @@ public sealed class SimulationFrame
     public required int LineNumber { get; init; }
     public required bool IsFinished { get; init; }
 
+    /// <summary>Movimento em execução (= MoveCount quando terminou) e total de movimentos.</summary>
+    public required int MoveIndex { get; init; }
+    public required int MoveCount { get; init; }
+
+    /// <summary>Movimento em execução (para G-code e avanço no painel); null sem movimentos.</summary>
+    public Move? CurrentMove { get; init; }
+
+    /// <summary>Distância percorrida desde o início (mm).</summary>
+    public double Travelled { get; init; }
+
     /// <summary>Mensagem do programa (MSG) válida neste ponto, se houver.</summary>
     public string? Message { get; init; }
 
@@ -55,8 +66,12 @@ public sealed class SimulationFrame
     /// <summary>Comprimento da ferramenta desenhado acima da ponta (mm).</summary>
     public double ToolDrawLength => Math.Max(20, ToolDiameter * 3);
 
+    /// <summary>Suporte (porta-ferramenta) desenhado acima da ferramenta: diâmetro e altura (mm).</summary>
+    public double HolderDiameter => Math.Max(ToolDiameter * 1.6, ToolDiameter + 10);
+    public double HolderLength => Math.Max(15, ToolDiameter * 1.5);
+
     /// <summary>Captura o estado atual. Deve rodar na mesma thread que mexe no simulador.</summary>
-    public static SimulationFrame Capture(MaterialSimulator simulator, SimulationViewMode mode, int generation, string? message = null)
+    public static SimulationFrame Capture(MaterialSimulator simulator, SimulationViewMode mode, int generation, int moveCount, string? message = null)
     {
         HeightMap map = simulator.Map;
         uint[]? top = null;
@@ -109,6 +124,10 @@ public sealed class SimulationFrame
             Tool = simulator.CurrentTool,
             LineNumber = simulator.CurrentLineNumber,
             IsFinished = simulator.IsFinished,
+            MoveIndex = simulator.CurrentMoveIndex,
+            MoveCount = moveCount,
+            CurrentMove = simulator.CurrentMove,
+            Travelled = simulator.Travelled,
             Message = message,
             TopPixels = top,
             Iso = iso,

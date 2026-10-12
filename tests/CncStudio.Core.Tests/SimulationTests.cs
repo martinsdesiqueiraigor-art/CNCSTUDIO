@@ -182,4 +182,46 @@ public class SimulationTests
         Assert.Equal(0, map.TopZ, 9);
         Assert.Equal(-8, map.BottomZ, 9);
     }
+
+    [Fact]
+    public void RunToMoveDaOMesmoMaterialQuePassoAPasso()
+    {
+        ToolPath path = BuildFanuc(
+            "G00 X10 Y10 Z5",
+            "G01 Z-2 F100",
+            "X40",
+            "Y40",
+            "X10",
+            "G00 Z5");
+
+        var stepped = new MaterialSimulator(CreateMap(), path.Moves, 6);
+        while (stepped.CurrentMoveIndex < 3)
+        {
+            stepped.AdvanceToNextLine();
+        }
+
+        var jumped = new MaterialSimulator(CreateMap(), path.Moves, 6);
+        jumped.RunToMove(5);   // vai além...
+        jumped.RunToMove(3);   // ...e volta: recomeça do bruto e para no início do movimento 3
+
+        Assert.Equal(3, jumped.CurrentMoveIndex);
+        Assert.Equal(stepped.ToolPosition, jumped.ToolPosition);
+        Assert.True(stepped.Map.Heights.SequenceEqual(jumped.Map.Heights));
+        Assert.Equal(stepped.Travelled, jumped.Travelled, 6);
+    }
+
+    [Fact]
+    public void RunToMoveLimitaAoIntervaloEContaADistancia()
+    {
+        ToolPath path = BuildFanuc("G00 X10 Y10", "G01 X40 F100");
+        var simulator = new MaterialSimulator(CreateMap(), path.Moves, 6);
+
+        simulator.RunToMove(99);
+        Assert.True(simulator.IsFinished);
+        Assert.Equal(Math.Sqrt(200) + 30, simulator.Travelled, 6);
+
+        simulator.RunToMove(-5);
+        Assert.Equal(0, simulator.CurrentMoveIndex);
+        Assert.Equal(0, simulator.Travelled);
+    }
 }

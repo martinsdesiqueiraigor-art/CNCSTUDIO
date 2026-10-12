@@ -70,7 +70,7 @@ para que backplot e simulação sigam saltos, repetições e variáveis.
   (avanço por rotação convertido com a rotação no ponto), vista "Torno (ZX)" no backplot.
 - G71/G72 com rebaixo (tipo II): o desbaste entra em cada rebaixo, passando por cima dos ressaltos.
 - G74 (furação/canal de face em bicadas) e G75 (canais em X), formato de dois blocos.
-- G73 (repetição de padrão) ainda não.
+- G73 (repetição de padrão): fora do escopo (decisão do usuário).
 
 ### Fase 4 — Backplot passe a passe (substitui a simulação do torno)
 A simulação de remoção de material do torno saiu do escopo; o torno usa o backplot. ✅
@@ -80,12 +80,13 @@ A simulação de remoção de material do torno saiu do escopo; o torno usa o ba
   acompanha a linha.
 - Vale para fresa e torno (um passe = rápidos de aproximação + cortes seguintes).
 
-### Fase 5 — Interface da simulação (inspirada no CIMCO)
+### Fase 5 — Interface da simulação (inspirada no CIMCO) ✅
 - Barra de reprodução embaixo, com régua para arrastar a qualquer ponto do programa e "ir para linha".
 - Painel de coordenadas: X, Y, Z, avanço, linha e distância.
 - Ferramenta desenhada com suporte (porta-ferramenta).
 - Trajetória desenhada por cima do material.
 - Editor acompanha a linha em execução.
+- Também: navegação por passes (◀ Passe / Passe ▶) e distância percorrida no painel.
 
 ### Fase 6 — Editor e funções NC
 - Barra de busca/substituição própria, em português.

@@ -2,31 +2,76 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="using:CncStudio.App.Views"
              x:Class="CncStudio.App.Views.SimulationPanel">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Opacity" Value="0.6" />
+      <Setter Property="Margin" Value="0,6,0,0" />
+    </Style>
+    <Style Selector="TextBlock.value">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Menlo, monospace" />
+    </Style>
+  </UserControl.Styles>
+
   <DockPanel>
 
-    <!-- Vistas -->
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,4,0,0">
-      <RadioButton x:Name="TopMode" GroupName="SimMode" Content="Superior" IsChecked="True" />
-      <RadioButton x:Name="FrontMode" GroupName="SimMode" Content="Frontal" />
-      <RadioButton x:Name="SideMode" GroupName="SimMode" Content="Lateral" />
-      <RadioButton x:Name="IsoMode" GroupName="SimMode" Content="Isométrica" />
-      <Button x:Name="FitButton" Content="Ajustar" Margin="8,0,0,0" />
-    </StackPanel>
-
-    <!-- Controles de execução -->
+    <!-- Vistas e opções -->
     <WrapPanel DockPanel.Dock="Top" Margin="0,4">
-      <Button x:Name="PlayButton" Content="▶ Executar" Margin="0,0,4,4" MinWidth="100" />
-      <Button x:Name="StepButton" Content="Passo (linha)" Margin="0,0,4,4" />
-      <Button x:Name="EndButton" Content="Até o fim" Margin="0,0,4,4" />
-      <Button x:Name="ResetButton" Content="Reiniciar" Margin="0,0,12,4" />
-      <TextBlock Text="Velocidade" VerticalAlignment="Center" Margin="0,0,6,4" />
-      <Slider x:Name="SpeedSlider" Minimum="0" Maximum="100" Value="50" Width="140" Margin="0,0,6,4" />
-      <TextBlock x:Name="SpeedLabel" VerticalAlignment="Center" MinWidth="90" Margin="0,0,12,4" />
-      <Button x:Name="ToolsButton" Content="Ferramentas…" Margin="0,0,0,4"
+      <RadioButton x:Name="TopMode" GroupName="SimMode" Content="Superior" IsChecked="True" Margin="0,0,4,0" />
+      <RadioButton x:Name="FrontMode" GroupName="SimMode" Content="Frontal" Margin="0,0,4,0" />
+      <RadioButton x:Name="SideMode" GroupName="SimMode" Content="Lateral" Margin="0,0,4,0" />
+      <RadioButton x:Name="IsoMode" GroupName="SimMode" Content="Isométrica" Margin="0,0,4,0" />
+      <Button x:Name="FitButton" Content="Ajustar" Margin="8,0,0,0" />
+      <CheckBox x:Name="ShowPathCheck" Content="Trajetória" IsChecked="True" Margin="12,0,0,0"
+                ToolTip.Tip="Desenha a trajetória (cores do backplot) por cima do material" />
+      <Button x:Name="ToolsButton" Content="Ferramentas…" Margin="12,0,0,0"
               ToolTip.Tip="Diâmetro de cada ferramenta (T) usado na simulação" />
     </WrapPanel>
 
-    <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" FontSize="12" Margin="4,2" />
+    <!-- Barra de reprodução (como no CIMCO): botões, régua para qualquer ponto e velocidade -->
+    <StackPanel DockPanel.Dock="Bottom" Spacing="2" Margin="0,4,0,0">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+          <Button x:Name="ResetButton" Content="⏮" ToolTip.Tip="Reiniciar (bruto inteiro)" />
+          <Button x:Name="PreviousPassButton" Content="◀ Passe" ToolTip.Tip="Passe anterior" />
+          <Button x:Name="PlayButton" Content="▶" MinWidth="36" ToolTip.Tip="Executar / pausar" />
+          <Button x:Name="StepButton" Content="Linha ▶" ToolTip.Tip="Executa até o fim do movimento atual" />
+          <Button x:Name="NextPassButton" Content="Passe ▶" ToolTip.Tip="Executa até o fim do passe" />
+          <Button x:Name="EndButton" Content="⏭" ToolTip.Tip="Até o fim" />
+        </StackPanel>
+        <Slider x:Name="PositionSlider" Grid.Column="1" Minimum="0" Maximum="1" Margin="10,0"
+                ToolTip.Tip="Arraste para qualquer ponto do programa" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+          <TextBlock Text="Velocidade" VerticalAlignment="Center" FontSize="12" />
+          <Slider x:Name="SpeedSlider" Minimum="0" Maximum="100" Value="50" Width="100" />
+          <TextBlock x:Name="SpeedLabel" VerticalAlignment="Center" MinWidth="80" FontSize="12" />
+        </StackPanel>
+      </Grid>
+      <TextBlock x:Name="StatusText" FontSize="12" Margin="2,0" TextTrimming="CharacterEllipsis" />
+    </StackPanel>
+
+    <!-- Painel de coordenadas -->
+    <Border DockPanel.Dock="Right" Width="150" Margin="6,0,0,0" Padding="10,4" Background="#1E2126" CornerRadius="4">
+      <StackPanel>
+        <TextBlock Classes="label" Text="Ferramenta" />
+        <TextBlock x:Name="ToolText" Classes="value" Text="—" />
+        <TextBlock Classes="label" Text="X" />
+        <TextBlock x:Name="XText" Classes="value" Foreground="#FF7070" Text="—" />
+        <TextBlock Classes="label" Text="Y" />
+        <TextBlock x:Name="YText" Classes="value" Foreground="#70E080" Text="—" />
+        <TextBlock Classes="label" Text="Z" />
+        <TextBlock x:Name="ZText" Classes="value" Foreground="#70A8FF" Text="—" />
+        <TextBlock Classes="label" Text="Movimento / avanço" />
+        <TextBlock x:Name="MotionText" Classes="value" Text="—" />
+        <TextBlock Classes="label" Text="Linha" />
+        <TextBlock x:Name="LineText" Classes="value" Text="—" />
+        <TextBlock Classes="label" Text="Passe" />
+        <TextBlock x:Name="PassText" Classes="value" Text="—" />
+        <TextBlock Classes="label" Text="Distância percorrida" />
+        <TextBlock x:Name="DistanceText" Classes="value" Text="—" />
+      </StackPanel>
+    </Border>
 
     <views:SimulationView x:Name="View" />
   </DockPanel>

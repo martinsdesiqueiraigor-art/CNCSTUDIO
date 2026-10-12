@@ -68,6 +68,7 @@ public sealed class MaterialSimulator
     {
         _map.Reset();
         _moveIndex = 0;
+        Travelled = 0;
         ToolPosition = _moves.Count > 0 ? _moves[0].Start : Point3.Origin;
         LoadCurrentMove();
     }
@@ -91,6 +92,32 @@ public sealed class MaterialSimulator
         }
     }
 
+    /// <summary>
+    /// Leva a simulação ao início do movimento "moveIndex" (0 = nada executado, Count = tudo),
+    /// com o material removido até ali. Para voltar atrás recomeça do bruto inteiro.
+    /// Usado pela régua de reprodução e pela navegação por passes.
+    /// </summary>
+    public void RunToMove(int moveIndex)
+    {
+        moveIndex = Math.Clamp(moveIndex, 0, _moves.Count);
+        bool midMove = _pieceIndex > 0 || _distanceInPiece > 0;
+        if (moveIndex < _moveIndex || (moveIndex == _moveIndex && midMove))
+        {
+            Reset();
+        }
+
+        while (_moveIndex < moveIndex)
+        {
+            AdvanceWithinPiece(double.PositiveInfinity);
+        }
+    }
+
+    /// <summary>Distância percorrida pela ferramenta desde o início (mm), rápidos inclusive.</summary>
+    public double Travelled { get; private set; }
+
+    /// <summary>Movimento em execução (ou o último, quando terminou); null sem movimentos.</summary>
+    public Move? CurrentMove => _moves.Count == 0 ? null : _moves[Math.Min(_moveIndex, _moves.Count - 1)];
+
     /// <summary>Executa a trajetória inteira de uma vez.</summary>
     public void RunToEnd()
     {
@@ -112,6 +139,7 @@ public sealed class MaterialSimulator
         double step = Math.Min(maxDistance, length - _distanceInPiece);
 
         _distanceInPiece += step;
+        Travelled += step;
         bool pieceDone = _distanceInPiece >= length - 1e-9;
         Point3 to = pieceDone ? b : Point3.Lerp(a, b, _distanceInPiece / length);
 

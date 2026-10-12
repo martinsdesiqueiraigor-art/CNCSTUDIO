@@ -102,6 +102,7 @@ public partial class MainWindow : Window
         DiagnosticsList.SelectionChanged += OnDiagnosticSelected;
 
         Backplot.LineReached += (_, line) => ShowLine(line); // passe a passe: o editor acompanha
+        Simulation.LineReached += (_, line) => ShowLine(line);
 
         // Atalhos capturados antes do editor (rota "tunnel")
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
@@ -325,7 +326,7 @@ public partial class MainWindow : Window
 
         CurrentAnalysis = analysis;
         Backplot.SetToolPath(analysis.ToolPath, figures, _fitOnNextAnalysis);
-        Simulation.SetToolPath(analysis.ToolPath);
+        Simulation.SetToolPath(analysis.ToolPath, figures);
         Statistics.Show(analysis);
         Backplot.SetHighlightedLine(Editor.TextArea.Caret.Line);
         _fitOnNextAnalysis = false;

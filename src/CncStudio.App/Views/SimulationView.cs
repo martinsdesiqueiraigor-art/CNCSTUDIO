@@ -2,7 +2,9 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using CncStudio.Core.Geometry;
 using CncStudio.Core.Simulation;
+using CncStudio.Core.Trajectory;
 
 namespace CncStudio.App.Views;
 
@@ -17,6 +19,23 @@ public sealed class SimulationView : ZoomPanControl
     private static readonly IBrush ToolBrush = new SolidColorBrush(Color.FromArgb(150, 255, 160, 40)).ToImmutable();
     private static readonly Pen ToolPen = new(new SolidColorBrush(Color.Parse("#FFB040")).ToImmutable(), 1.5);
     private static readonly Pen StockOutlinePen = new(new SolidColorBrush(Color.Parse("#606870")).ToImmutable(), 1);
+
+    private static readonly Pen HolderPen = new(new SolidColorBrush(Color.Parse("#8A929C")).ToImmutable(), 1.2);
+    private static readonly IBrush HolderBrush = new SolidColorBrush(Color.FromArgb(150, 110, 118, 128)).ToImmutable();
+    private static readonly Pen HolderTopPen = new(new SolidColorBrush(Color.Parse("#8A929C")).ToImmutable(), 1, new DashStyle([3, 3], 0));
+
+    // Trajetória sobre o material: mesmas cores do backplot, um pouco transparentes
+    private static readonly Pen[] PathPens =
+    [
+        new(new SolidColorBrush(Color.FromArgb(170, 255, 77, 77)).ToImmutable(), 1, new DashStyle([4, 4], 0)),
+        new(new SolidColorBrush(Color.FromArgb(200, 61, 220, 106)).ToImmutable(), 1),
+        new(new SolidColorBrush(Color.FromArgb(200, 127, 216, 255)).ToImmutable(), 1.2),
+        new(new SolidColorBrush(Color.FromArgb(220, 59, 107, 255)).ToImmutable(), 1.2),
+    ];
+
+    private IReadOnlyList<PathPolyline> _pathFigures = [];
+    private readonly Dictionary<SimulationViewMode, StreamGeometry?[]> _pathGeometry = [];
+    private bool _showPath = true;
 
     private SimulationFrame? _frame;
     private WriteableBitmap? _topBitmap;
@@ -46,6 +65,25 @@ public sealed class SimulationView : ZoomPanControl
         }
     }
 
+    /// <summary>Trajetória desenhada por cima do material (figuras do backplot).</summary>
+    public void SetPath(IReadOnlyList<PathPolyline> figures)
+    {
+        _pathFigures = figures;
+        _pathGeometry.Clear();
+        InvalidateVisual();
+    }
+
+    /// <summary>Mostra ou esconde a trajetória sobre o material.</summary>
+    public bool ShowPath
+    {
+        get => _showPath;
+        set
+        {
+            _showPath = value;
+            InvalidateVisual();
+        }
+    }
+
     /// <summary>Limpa a vista (ex.: programa de torno, ainda sem simulação).</summary>
     public void Clear()
     {
@@ -62,14 +100,14 @@ public sealed class SimulationView : ZoomPanControl
                 return null;
             }
 
-            double toolTop = f.TopZ + f.ToolDrawLength;
+            double toolTop = f.TopZ + f.ToolDrawLength + f.HolderLength;
             return f.Mode switch
             {
                 SimulationViewMode.Top => new Rect(f.OriginX, f.OriginY, f.Width, f.Height),
                 SimulationViewMode.Front => new Rect(f.OriginX, f.BottomZ, f.Width, toolTop - f.BottomZ),
                 SimulationViewMode.Side => new Rect(f.OriginY, f.BottomZ, f.Height, toolTop - f.BottomZ),
                 _ => f.Iso is { } iso
-                    ? new Rect(iso.MinU, iso.MaxV - iso.HeightMm, iso.WidthMm, iso.HeightMm + f.ToolDrawLength)
+                    ? new Rect(iso.MinU, iso.MaxV - iso.HeightMm, iso.WidthMm, iso.HeightMm + f.ToolDrawLength + f.HolderLength)
                     : null,
             };
         }
@@ -110,10 +148,13 @@ public sealed class SimulationView : ZoomPanControl
         Rect dest = WorldRect(f.OriginX, f.OriginY, f.OriginX + f.Width, f.OriginY + f.Height);
         context.DrawImage(_topBitmap, new Rect(0, 0, f.Columns, f.Rows), dest);
         context.DrawRectangle(null, StockOutlinePen, dest);
+        DrawPath(context, f.Mode);
 
-        // Ferramenta: círculo do diâmetro real
+        // Ferramenta: círculo do diâmetro real; suporte tracejado em volta
         Point center = ToScreen(f.ToolPosition.X, f.ToolPosition.Y);
         double radius = f.ToolDiameter / 2 * Scale;
+        double holder = f.HolderDiameter / 2 * Scale;
+        context.DrawEllipse(null, HolderTopPen, center, holder, holder);
         context.DrawEllipse(ToolBrush, ToolPen, center, radius, radius);
         DrawLabel(context, "Cor = profundidade · cinza = topo do bruto", new Point(8, Bounds.Height - 20), LabelBrush, 11);
     }
@@ -135,11 +176,15 @@ public sealed class SimulationView : ZoomPanControl
         StreamGeometry section = ProfileGeometry(f.Section, origin, cell, f.BottomZ);
         section.Transform = transform;
         context.DrawGeometry(SectionBrush, null, section);
+        DrawPath(context, f.Mode);
 
-        // Ferramenta: retângulo da largura do diâmetro, da ponta para cima
+        // Ferramenta: retângulo da largura do diâmetro, da ponta para cima, e o suporte acima
         double r = f.ToolDiameter / 2;
-        Rect tool = WorldRect(toolU - r, f.ToolPosition.Z, toolU + r, f.ToolPosition.Z + f.ToolDrawLength);
+        double toolTop = f.ToolPosition.Z + f.ToolDrawLength;
+        Rect tool = WorldRect(toolU - r, f.ToolPosition.Z, toolU + r, toolTop);
         context.DrawRectangle(ToolBrush, ToolPen, tool);
+        double h = f.HolderDiameter / 2;
+        context.DrawRectangle(HolderBrush, HolderPen, WorldRect(toolU - h, toolTop, toolU + h, toolTop + f.HolderLength));
 
         DrawLabel(context, $"{caption} · claro = material no corte · escuro = material à frente/atrás",
             new Point(8, Bounds.Height - 20), LabelBrush, 11);
@@ -154,16 +199,80 @@ public sealed class SimulationView : ZoomPanControl
 
         Rect dest = WorldRect(iso.MinU, iso.MaxV - iso.HeightMm, iso.MinU + iso.WidthMm, iso.MaxV);
         context.DrawImage(_isoBitmap, new Rect(0, 0, iso.Width, iso.Height), dest);
+        DrawPath(context, f.Mode);
 
-        // Ferramenta: "cilindro" do diâmetro, da ponta para cima
+        // Ferramenta: "cilindro" do diâmetro, da ponta para cima, e o suporte acima
         (double tipU, double tipV) = IsoProjection.Project(f.ToolPosition);
         Point tip = ToScreen(tipU, tipV);
         Point top = ToScreen(tipU, tipV + f.ToolDrawLength);
+        Point holderTop = ToScreen(tipU, tipV + f.ToolDrawLength + f.HolderLength);
+        var holder = new Pen(HolderBrush, Math.Max(3, f.HolderDiameter * IsoProjection.Cos30 * Scale));
+        context.DrawLine(holder, top, holderTop);
         var body = new Pen(ToolBrush, Math.Max(2, f.ToolDiameter * IsoProjection.Cos30 * Scale));
         context.DrawLine(body, tip, top);
         context.DrawEllipse(null, ToolPen, tip, f.ToolDiameter / 2 * IsoProjection.Cos30 * Scale, f.ToolDiameter / 4 * Scale);
 
         DrawLabel(context, "Isométrica (vista do canto X+ / Y−)", new Point(8, Bounds.Height - 20), LabelBrush, 11);
+    }
+
+    /// <summary>Desenha a trajetória projetada na vista (geometria guardada por vista).</summary>
+    private void DrawPath(DrawingContext context, SimulationViewMode mode)
+    {
+        if (!_showPath || _pathFigures.Count == 0)
+        {
+            return;
+        }
+
+        if (!_pathGeometry.TryGetValue(mode, out StreamGeometry?[]? geometries))
+        {
+            geometries = new StreamGeometry?[4];
+            for (int i = 0; i < 4; i++)
+            {
+                var motion = (MotionMode)i;
+                var figures = _pathFigures.Where(f => f.Motion == motion).ToList();
+                geometries[i] = figures.Count == 0 ? null : PathGeometry(figures, mode);
+            }
+
+            _pathGeometry[mode] = geometries;
+        }
+
+        var transform = new MatrixTransform(WorldToScreen);
+        for (int i = 0; i < 4; i++)
+        {
+            if (geometries[i] is { } geometry)
+            {
+                geometry.Transform = transform;
+                context.DrawGeometry(null, PathPens[i], geometry);
+            }
+        }
+    }
+
+    private static StreamGeometry PathGeometry(IEnumerable<PathPolyline> figures, SimulationViewMode mode)
+    {
+        static Point Project(SimulationViewMode mode, Point3 p) => mode switch
+        {
+            SimulationViewMode.Top => new Point(p.X, p.Y),
+            SimulationViewMode.Front => new Point(p.X, p.Z),
+            SimulationViewMode.Side => new Point(p.Y, p.Z),
+            _ => new Point(IsoProjection.U(p.X, p.Y), IsoProjection.V(p.X, p.Y, p.Z)),
+        };
+
+        var geometry = new StreamGeometry();
+        using (StreamGeometryContext g = geometry.Open())
+        {
+            foreach (PathPolyline figure in figures)
+            {
+                g.BeginFigure(Project(mode, figure.Points[0]), false);
+                for (int i = 1; i < figure.Points.Length; i++)
+                {
+                    g.LineTo(Project(mode, figure.Points[i]));
+                }
+
+                g.EndFigure(false);
+            }
+        }
+
+        return geometry;
     }
 
     /// <summary>Polígono em degraus: base em "bottom", topo nas alturas de cada célula.</summary>
