@@ -151,16 +151,6 @@ public class MachineExecutorTests
     }
 
     [Fact]
-    public void LinhaComVariavelEhPuladaComAviso()
-    {
-        ToolPath path = Fanuc("G00 X1\n#1=10\nG01 X#1 F100\nG01 X5 F50");
-
-        Assert.Equal(2, path.Moves.Count);
-        Assert.Equal(2, path.Diagnostics.Count);
-        Assert.All(path.Diagnostics, d => Assert.Equal(DiagnosticSeverity.Warning, d.Severity));
-    }
-
-    [Fact]
     public void BlocosDepoisDoM30GeramUmAviso()
     {
         ToolPath path = Fanuc("G01 X10 F100\nM30\nG00 X99\nG00 X98");

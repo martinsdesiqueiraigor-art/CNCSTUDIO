@@ -34,4 +34,20 @@ public sealed class MachineSettings
 
     /// <summary>Folga de reaproximação entre bicadas na furação profunda (G83/CYCLE83), em mm.</summary>
     public double PeckClearance { get; init; } = 0.5;
+
+    /// <summary>Limite de blocos executados (proteção contra laço infinito).</summary>
+    public long MaxExecutedBlocks { get; init; } = 5_000_000;
+
+    /// <summary>Limite de movimentos gerados (proteção de memória).</summary>
+    public int MaxMoves { get; init; } = 10_000_000;
+
+    /// <summary>Profundidade máxima de chamadas de subprograma.</summary>
+    public int MaxCallDepth { get; init; } = 32;
+
+    /// <summary>
+    /// Carrega o texto de um subprograma que não está no arquivo principal
+    /// (ex.: "1234" no Fanuc, "L10" ou "FURO" no Siemens). Null = não encontrado.
+    /// A interface procura na pasta do programa aberto.
+    /// </summary>
+    public Func<string, string?>? LoadSubprogram { get; init; }
 }

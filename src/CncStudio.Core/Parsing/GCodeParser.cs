@@ -44,6 +44,7 @@ public static class GCodeParser
     private static NcBlock? ParseLine(string line, int lineNumber, List<Token> tokens, List<ParseDiagnostic> diagnostics)
     {
         int? blockNumber = null;
+        string? programId = null;
         List<AddressWord>? words = null;
         List<Statement>? statements = null;
 
@@ -52,7 +53,10 @@ public static class GCodeParser
             switch (token.Kind)
             {
                 case TokenKind.Comment:
+                    break;
+
                 case TokenKind.ProgramMarker:
+                    programId = ProgramIdOf(token, line);
                     break;
 
                 case TokenKind.BlockNumber:
@@ -76,7 +80,7 @@ public static class GCodeParser
             }
         }
 
-        if (words is null && statements is null)
+        if (words is null && statements is null && programId is null)
         {
             return null;
         }
@@ -87,7 +91,32 @@ public static class GCodeParser
             BlockNumber = blockNumber,
             Words = (IReadOnlyList<AddressWord>?)words ?? [],
             Statements = (IReadOnlyList<Statement>?)statements ?? [],
+            ProgramId = programId,
         };
+    }
+
+    /// <summary>"O1234" → "1234"; "%_N_FURO_SPF" → "FURO"; "%" → null.</summary>
+    private static string? ProgramIdOf(Token token, string line)
+    {
+        if (token.Letter == 'O' && token.Value is { } number)
+        {
+            return ((int)number).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        string text = token.GetText(line).Trim();
+        if (text.StartsWith("%_N_", StringComparison.OrdinalIgnoreCase))
+        {
+            string name = text[4..];
+            int suffix = name.LastIndexOf('_');
+            if (suffix > 0)
+            {
+                name = name[..suffix]; // remove _MPF / _SPF
+            }
+
+            return name.ToUpperInvariant();
+        }
+
+        return null;
     }
 
     private static Statement ToStatement(string line, Token token)
@@ -104,24 +133,86 @@ public static class GCodeParser
                 return new Statement(StatementKind.Expression, expressionName, null, null, text, token.Column, token.Length);
 
             default:
-                // Palavra-chave: separa nome e argumentos ("CYCLE81(10,0)" → "CYCLE81" + "10,0")
-                int open = text.IndexOfAny(['(', '[']);
-                int equals = text.IndexOf('=');
-                int nameEnd = open >= 0 ? open : equals >= 0 ? equals : text.Length;
-                string name = text[..nameEnd].Trim().ToUpperInvariant();
+                // Palavra-chave: nome (identificador inicial) + argumentos (o resto, sem o grupo externo)
+                int nameEnd = 0;
+                while (nameEnd < text.Length && (char.IsAsciiLetterOrDigit(text[nameEnd]) || text[nameEnd] == '_'))
+                {
+                    nameEnd++;
+                }
+
+                string name = text[..nameEnd].ToUpperInvariant();
+                double? value = token.Value;
                 if (token.Letter != '\0')
                 {
                     name = "," + token.Letter; // canto Fanuc ",R" / ",C"
                 }
-
-                string? arguments = null;
-                if (open >= 0)
+                else if (SplitNumberedKeyword(name) is { } numbered)
                 {
-                    int close = text.LastIndexOfAny([')', ']']);
-                    arguments = close > open ? text[(open + 1)..close] : text[(open + 1)..];
+                    // Fanuc "GOTO260", "DO2", "END2" → nome + número
+                    (name, value) = numbered;
                 }
 
-                return new Statement(StatementKind.Keyword, name, token.Value, arguments, text, token.Column, token.Length);
+                string? arguments = null;
+                string rest = nameEnd < text.Length ? text[nameEnd..].Trim() : "";
+                if (rest.StartsWith('='))
+                {
+                    rest = ""; // "CR=5": o valor já está em Value
+                }
+
+                if (rest.Length > 0)
+                {
+                    arguments = StripOuterGroup(rest);
+                }
+
+                return new Statement(StatementKind.Keyword, name, value, arguments, text, token.Column, token.Length);
         }
+    }
+
+    /// <summary>"GOTO260" → ("GOTO", 260); "DO2" → ("DO", 2); "END2" → ("END", 2). Outros → null.</summary>
+    private static (string Name, double Value)? SplitNumberedKeyword(string name)
+    {
+        foreach (string prefix in (string[])["GOTO", "DO", "END"])
+        {
+            if (name.Length > prefix.Length && name.StartsWith(prefix, StringComparison.Ordinal)
+                && name.AsSpan(prefix.Length).IndexOfAnyExceptInRange('0', '9') < 0)
+            {
+                return (prefix, int.Parse(name.AsSpan(prefix.Length), System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>"(R1<=R2)" → "R1<=R2"; "[#1 GE 0]" → "#1 GE 0"; "(a)+(b)" fica como está.</summary>
+    private static string StripOuterGroup(string text)
+    {
+        if (text.Length < 2 || !(text[0] is '(' or '['))
+        {
+            return text;
+        }
+
+        char open = text[0];
+        char close = open == '(' ? ')' : ']';
+        int depth = 0;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '"')
+            {
+                int quoteEnd = text.IndexOf('"', i + 1);
+                if (quoteEnd < 0) break;
+                i = quoteEnd;
+                continue;
+            }
+
+            if (text[i] == open) depth++;
+            else if (text[i] == close) depth--;
+
+            if (depth == 0)
+            {
+                return i == text.Length - 1 ? text[1..^1] : text;
+            }
+        }
+
+        return text;
     }
 }

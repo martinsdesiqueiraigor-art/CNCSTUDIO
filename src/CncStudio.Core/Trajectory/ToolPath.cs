@@ -1,3 +1,4 @@
+using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Parsing;
 
@@ -6,10 +7,13 @@ namespace CncStudio.Core.Trajectory;
 /// <summary>Trajetória completa da ferramenta, pronta para backplot e simulação.</summary>
 public sealed class ToolPath
 {
-    public ToolPath(IReadOnlyList<Move> moves, IReadOnlyList<ParseDiagnostic> diagnostics)
+    private int[]? _lineOrder; // índices dos movimentos ordenados por linha (montado sob demanda)
+
+    public ToolPath(IReadOnlyList<Move> moves, IReadOnlyList<ParseDiagnostic> diagnostics, IReadOnlyList<ProgramMessage>? messages = null)
     {
         Moves = moves;
         Diagnostics = diagnostics;
+        Messages = messages ?? [];
 
         var all = Bounds3.Empty;
         var cutting = Bounds3.Empty;
@@ -48,38 +52,80 @@ public sealed class ToolPath
     /// <summary>Ferramentas usadas, em ordem crescente.</summary>
     public IReadOnlyList<int> Tools { get; }
 
+    /// <summary>Mensagens do programa (MSG), em ordem de execução.</summary>
+    public IReadOnlyList<ProgramMessage> Messages { get; }
+
+    /// <summary>Última mensagem válida no movimento informado (null se nenhuma).</summary>
+    public string? MessageAt(int moveIndex)
+    {
+        string? text = null;
+        foreach (ProgramMessage message in Messages)
+        {
+            if (message.MoveIndex > moveIndex)
+            {
+                break;
+            }
+
+            text = message.Text;
+        }
+
+        return string.IsNullOrEmpty(text) ? null : text;
+    }
+
     /// <summary>
     /// Índices dos movimentos gerados por uma linha do arquivo (vazio se a linha não gerou movimento).
-    /// Uma linha pode gerar vários movimentos (ciclo de furação, repetições).
-    /// Hoje os movimentos de uma linha são contíguos e em ordem; a busca é binária.
+    /// Uma linha pode gerar vários movimentos (ciclo de furação) e, dentro de laços ou
+    /// subprogramas, aparecer várias vezes fora de ordem — todos são devolvidos, em ordem de execução.
     /// </summary>
     public IReadOnlyList<int> MovesForLine(int lineNumber)
     {
-        int first = LowerBound(lineNumber);
-        int last = LowerBound(lineNumber + 1);
+        int[] order = _lineOrder ??= BuildLineOrder();
+        int first = LowerBound(order, lineNumber);
+        int last = LowerBound(order, lineNumber + 1);
         if (first >= last)
         {
             return [];
         }
 
-        var indices = new int[last - first];
-        for (int k = 0; k < indices.Length; k++)
-        {
-            indices[k] = first + k;
-        }
-
-        return indices;
+        return order[first..last];
     }
 
-    /// <summary>Primeiro índice cujo LineNumber é maior ou igual ao informado.</summary>
-    private int LowerBound(int lineNumber)
+    private int[] BuildLineOrder()
+    {
+        var order = new int[Moves.Count];
+        for (int i = 0; i < order.Length; i++)
+        {
+            order[i] = i;
+        }
+
+        // Ordenação estável por linha: dentro da mesma linha, mantém a ordem de execução
+        int[] keys = new int[order.Length];
+        for (int i = 0; i < keys.Length; i++)
+        {
+            keys[i] = Moves[i].LineNumber;
+        }
+
+        Array.Sort(keys, order);
+        for (int start = 0; start < order.Length;)
+        {
+            int end = start;
+            while (end < order.Length && keys[end] == keys[start]) end++;
+            Array.Sort(order, start, end - start);
+            start = end;
+        }
+
+        return order;
+    }
+
+    /// <summary>Primeira posição em "order" cuja linha é maior ou igual à informada.</summary>
+    private int LowerBound(int[] order, int lineNumber)
     {
         int low = 0;
-        int high = Moves.Count;
+        int high = order.Length;
         while (low < high)
         {
             int mid = (low + high) / 2;
-            if (Moves[mid].LineNumber < lineNumber)
+            if (Moves[order[mid]].LineNumber < lineNumber)
             {
                 low = mid + 1;
             }

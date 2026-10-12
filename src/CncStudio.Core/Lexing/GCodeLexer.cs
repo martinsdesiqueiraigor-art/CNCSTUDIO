@@ -202,6 +202,46 @@ public static class GCodeLexer
         }
 
         bool siemens = dialect == Dialect.Siemens;
+        string word = line[start..j].ToUpperInvariant();
+
+        // Siemens: condição sem parênteses obrigatórios ("IF R1>R2 GOTOF FIM", "FOR R1=0 TO 10",
+        // "DEF REAL A=1, B"): a palavra-chave leva o resto da instrução junto
+        if (siemens && word is "IF" or "ELSEIF" or "WHILE" or "UNTIL" or "FOR" or "DEF")
+        {
+            int end = ReadSiemensCondition(line, j, stopAtGoto: word == "IF");
+            output.Add(new Token(TokenKind.Keyword, start, end - start, '\0', null));
+            return end;
+        }
+
+        // Fanuc: "GOTO 260", "GOTO#10", "GOTO[#1+10]" (com espaço ou expressão depois)
+        if (!siemens && word == "GOTO")
+        {
+            int p0 = j;
+            while (p0 < n && line[p0] == ' ')
+            {
+                p0++;
+            }
+
+            int end = p0;
+            if (p0 < n && char.IsAsciiDigit(line[p0]))
+            {
+                while (end < n && char.IsAsciiDigit(line[end])) end++;
+            }
+            else if (p0 < n && line[p0] == '#')
+            {
+                end = ReadVariableReference(line, p0);
+            }
+            else if (p0 < n && line[p0] == '[')
+            {
+                end = ReadGroup(line, p0, '[', ']');
+            }
+
+            if (end > p0)
+            {
+                output.Add(new Token(TokenKind.Keyword, start, end - start, '\0', null));
+                return end;
+            }
+        }
 
         // Rótulo Siemens: "VOLTA:"
         if (siemens && j < n && line[j] == ':')
@@ -243,6 +283,45 @@ public static class GCodeLexer
 
         output.Add(new Token(TokenKind.Keyword, start, j - start, '\0', null));
         return j;
+    }
+
+    /// <summary>
+    /// Fim de uma condição Siemens: até ";" (comentário), fim da linha ou — no IF de salto — até
+    /// a palavra GOTO/GOTOF/GOTOB/GOTOC (fora de parênteses).
+    /// </summary>
+    private static int ReadSiemensCondition(string line, int start, bool stopAtGoto)
+    {
+        int depth = 0;
+        int k = start;
+        while (k < line.Length)
+        {
+            char c = line[k];
+            if (c == '"')
+            {
+                int quoteEnd = line.IndexOf('"', k + 1);
+                k = quoteEnd < 0 ? line.Length : quoteEnd + 1;
+                continue;
+            }
+
+            if (c is '(' or '[') depth++;
+            else if (c is ')' or ']') depth--;
+            else if (depth <= 0 && c == ';') break;
+            else if (depth <= 0 && stopAtGoto && (c is 'G' or 'g')
+                     && (k == 0 || !char.IsAsciiLetterOrDigit(line[k - 1]))
+                     && string.Compare(line, k, "GOTO", 0, 4, StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                break;
+            }
+
+            k++;
+        }
+
+        while (k > start && char.IsWhiteSpace(line[k - 1]))
+        {
+            k--;
+        }
+
+        return k;
     }
 
     /// <summary>Fanuc ",R5." / ",C[#5]": canto arredondado ou chanfro.</summary>

@@ -1,5 +1,6 @@
 using System.Globalization;
 using CncStudio.Core.Dialects;
+using CncStudio.Core.Execution.Expressions;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Parsing;
 using CncStudio.Core.Trajectory;
@@ -7,34 +8,27 @@ using CncStudio.Core.Trajectory;
 namespace CncStudio.Core.Execution;
 
 /// <summary>
-/// Executa os blocos do programa como o comando faria e gera os movimentos da ferramenta.
+/// Executa o programa como o comando faria e gera os movimentos da ferramenta.
 /// Mantém o estado modal (movimento, plano, absoluto/incremental, unidades, zero de peça,
-/// ferramenta, ciclo de furação) e a posição atual.
-///
-/// Ainda não interpreta variáveis, expressões e saltos (Fase 1B): linhas com isso são
-/// puladas com um aviso, para o resto do programa continuar sendo desenhado.
+/// ferramenta, ciclo de furação), a posição atual e as variáveis, e segue saltos, laços
+/// e subprogramas (ver MachineExecutor.Interpreter.cs).
 /// </summary>
 public sealed partial class MachineExecutor
 {
     // Palavras-chave sem efeito na trajetória (aceitas sem aviso)
     private static readonly HashSet<string> SilentKeywords =
     [
-        "MSG", "CFTCP", "CFC", "CFIN", "SOFT", "BRISK", "FFWON", "FFWOF", "DIAMON", "DIAMOF", "DIAM90",
+        "CFTCP", "CFC", "CFIN", "SOFT", "BRISK", "FFWON", "FFWOF", "DIAMON", "DIAMOF", "DIAM90",
         "G642", "G641", "G601", "G602", "COMPON", "COMPOF", "COMPCAD", "SPOS", "SETMS", "WAITM", "STOPRE",
-        "TRAFOOF", "CUT2DF", "CUT2D", "SUPA", "GWPSON", "GWPSOF", "TOFFON", "TOFFOF",
-    ];
-
-    // Palavras-chave de controle de fluxo e variáveis: interpretadas na Fase 1B
-    private static readonly HashSet<string> FlowKeywords =
-    [
-        "IF", "ELSE", "ENDIF", "THEN", "WHILE", "ENDWHILE", "FOR", "ENDFOR", "TO", "REPEAT", "UNTIL",
-        "LOOP", "ENDLOOP", "GOTO", "GOTOF", "GOTOB", "GOTOC", "DEF", "RET", "CASE", "DEFAULT", "PROC",
+        "TRAFOOF", "CUT2DF", "CUT2D", "SUPA", "GWPSON", "GWPSOF", "TOFFON", "TOFFOF", "PROC", "SAVE",
+        "DISPLOF", "DISPLON", "SBLOF", "SBLON", "ACC", "OVR", "FGROUP", "CPRECON", "CPRECOF", "TO",
     ];
 
     private readonly MachineSettings _settings;
     private readonly Dialect _dialect;
     private readonly List<Move> _moves = [];
     private readonly List<ParseDiagnostic> _diagnostics = [];
+    private readonly HashSet<(int Line, int Column, string Message)> _reported = [];
 
     // ── Estado modal ──
     private MotionMode _motion = MotionMode.Rapid;
@@ -54,7 +48,6 @@ public sealed partial class MachineExecutor
 
     // ── Fim de programa ──
     private bool _ended;
-    private bool _warnedAfterEnd;
 
     private MachineExecutor(Dialect dialect, MachineSettings settings)
     {
@@ -62,45 +55,32 @@ public sealed partial class MachineExecutor
         _settings = settings;
         _workOffset = OffsetFor(54);
         _position = settings.StartPosition + Offset;
+        _variables.SystemVariables = ReadSystemVariable;
     }
 
     private Point3 Offset => _workOffset + _frame;
+
+    /// <summary>Posição atual em coordenadas do programa (sem zero de peça/TRANS).</summary>
+    private Point3 ProgramPosition => _position - Offset;
 
     /// <summary>Executa o programa e devolve a trajetória (com os diagnósticos de execução).</summary>
     public static ToolPath Execute(ParseResult parse, MachineSettings? settings = null)
     {
         var executor = new MachineExecutor(parse.Dialect, settings ?? MachineSettings.Default);
-        foreach (NcBlock block in parse.Blocks)
-        {
-            executor.ExecuteBlock(block);
-        }
-
+        executor.Run(parse);
         executor._moves.TrimExcess();
-        return new ToolPath(executor._moves, executor._diagnostics);
+        return new ToolPath(executor._moves, executor._diagnostics, executor._messages);
     }
 
     // ───────────────────────── Bloco ─────────────────────────
 
-    private void ExecuteBlock(NcBlock block)
+    /// <summary>
+    /// Executa um bloco já com as expressões avaliadas (palavras de endereço com valores numéricos).
+    /// Controle de fluxo e atribuições já foram tratados pelo interpretador.
+    /// </summary>
+    private void ExecuteBlock(NcBlock block, BlockKeywords keywords)
     {
         int line = block.LineNumber;
-
-        if (_ended)
-        {
-            if (!_warnedAfterEnd)
-            {
-                Warning(line, 0, 0, "Blocos depois do fim do programa (M30/M02) nunca são executados.");
-                _warnedAfterEnd = true;
-            }
-
-            return;
-        }
-
-        if (!ReviewStatements(block, out BlockKeywords keywords))
-        {
-            return; // linha com variáveis/saltos: fica para o interpretador (Fase 1B)
-        }
-
         var words = new BlockWords();
         foreach (AddressWord word in block.Words)
         {
@@ -170,13 +150,10 @@ public sealed partial class MachineExecutor
             ExecuteSiemensCycle(block, cycle); // ciclo chamado sem MCALL: executa já, na posição atual
         }
 
-        if (words.EndsProgram)
-        {
-            _ended = true;
-        }
+        HandleProgramFlowWords(block, words);
     }
 
-    // ───────────────────────── Palavras-chave e expressões ─────────────────────────
+    // ───────────────────────── Palavras-chave ─────────────────────────
 
     private enum FrameKind
     {
@@ -192,80 +169,62 @@ public sealed partial class MachineExecutor
         public bool IsModalCall { get; set; }               // MCALL antes do ciclo
         public bool CancelModalCall { get; set; }           // MCALL sozinho
         public FrameKind? Frame { get; set; }
+        public double? CornerRadius { get; set; }           // Fanuc ,R
+        public double? CornerChamfer { get; set; }          // Fanuc ,C
     }
 
-    /// <summary>
-    /// Analisa palavras-chave, expressões e rótulos. Retorna false se o bloco deve ser pulado
-    /// (variáveis, expressões ou controle de fluxo — Fase 1B).
-    /// </summary>
-    private bool ReviewStatements(NcBlock block, out BlockKeywords keywords)
+    /// <summary>Interpreta as palavras-chave de máquina (não as de fluxo, já tratadas antes).</summary>
+    private BlockKeywords ReviewKeywords(int line, IEnumerable<Statement> statements)
     {
-        keywords = new BlockKeywords();
-        int line = block.LineNumber;
+        var keywords = new BlockKeywords();
         bool hasMcall = false;
 
-        foreach (Statement statement in block.Statements)
+        foreach (Statement statement in statements)
         {
-            switch (statement.Kind)
+            if (statement.Kind != StatementKind.Keyword)
             {
-                case StatementKind.Label:
-                    break; // rótulos só importam para saltos (Fase 1B)
+                continue;
+            }
 
-                case StatementKind.Expression:
-                    if (statement.Text.StartsWith('T') || statement.Text.StartsWith('t'))
-                    {
-                        Warning(line, statement, "Ferramenta por nome (T=\"...\") ainda não é suportada; a ferramenta não muda.");
-                        break;
-                    }
-
-                    Warning(line, statement, "Variáveis e expressões serão interpretadas na Fase 1B: esta linha foi pulada.");
-                    return false;
-
-                case StatementKind.Keyword:
-                    string name = statement.Name;
-                    if (IsFlowKeyword(name))
-                    {
-                        Warning(line, statement, $"'{name}' (controle de fluxo) será interpretado na Fase 1B: esta linha foi pulada.");
-                        return false;
-                    }
-
-                    if (name is "CR")
-                    {
-                        keywords.ArcRadius = statement.Value * _unitScale;
-                    }
-                    else if (name is "MCALL")
-                    {
-                        hasMcall = true;
-                    }
-                    else if (name.StartsWith("CYCLE", StringComparison.Ordinal))
-                    {
-                        if (name is "CYCLE81" or "CYCLE82" or "CYCLE83")
-                        {
-                            keywords.CycleCall = statement;
-                        }
-                        else
-                        {
-                            Warning(line, statement, $"Ciclo {name} ainda não é suportado e foi ignorado.");
-                        }
-                    }
-                    else if (name is "TRANS")
-                    {
-                        keywords.Frame = FrameKind.Trans;
-                    }
-                    else if (name is "ATRANS")
-                    {
-                        keywords.Frame = FrameKind.ATrans;
-                    }
-                    else if (name is ",R" or ",C")
-                    {
-                        Warning(line, statement, "Arredondamento/chanfro de canto (,R / ,C) será aplicado na Fase 1B: o canto aparece vivo.");
-                    }
-                    else if (!SilentKeywords.Contains(name))
-                    {
-                        Warning(line, statement, $"'{name}' não é suportado e foi ignorado.");
-                    }
-
-                    break;
+            string name = statement.Name;
+            if (name is "CR")
+            {
+                keywords.ArcRadius = statement.Value * _unitScale;
+            }
+            else if (name is "MCALL")
+            {
+                hasMcall = true;
+            }
+            else if (name.StartsWith("CYCLE", StringComparison.Ordinal))
+            {
+                if (name is "CYCLE81" or "CYCLE82" or "CYCLE83")
+                {
+                    keywords.CycleCall = statement;
+                }
+                else
+                {
+                    Warning(line, statement, $"Ciclo {name} ainda não é suportado e foi ignorado.");
+                }
+            }
+            else if (name is "TRANS")
+            {
+                keywords.Frame = FrameKind.Trans;
+            }
+            else if (name is "ATRANS")
+            {
+                keywords.Frame = FrameKind.ATrans;
+            }
+            else if (name is ",R")
+            {
+                keywords.CornerRadius = statement.Value * _unitScale;
+            }
+            else if (name is ",C")
+            {
+                keywords.CornerChamfer = statement.Value * _unitScale;
+            }
+            else if (!SilentKeywords.Contains(name))
+            {
+                Warning(line, statement, $"'{name}' não é suportado e foi ignorado.");
             }
         }
 
@@ -290,14 +249,8 @@ public sealed partial class MachineExecutor
             _modalCycle = keywords.CycleCall;
         }
 
-        return true;
+        return keywords;
     }
-
-    private static bool IsFlowKeyword(string name) =>
-        FlowKeywords.Contains(name)
-        || (name.StartsWith("GOTO", StringComparison.Ordinal))
-        || (name.Length > 2 && name.StartsWith("DO", StringComparison.Ordinal) && char.IsAsciiDigit(name[2]))
-        || (name.Length > 3 && name.StartsWith("END", StringComparison.Ordinal) && char.IsAsciiDigit(name[3]));
 
     private void ApplyFrame(NcBlock block, FrameKind kind)
     {
@@ -326,6 +279,9 @@ public sealed partial class MachineExecutor
         public bool CompensationOn { get; set; }
         public bool SuppressMotion { get; set; }     // G04, G53, G28...: eixos do bloco não são destino
         public bool EndsProgram { get; set; }
+        public bool CallSubprogram { get; set; }     // M98
+        public bool ReturnFromSubprogram { get; set; } // M99 / M17
+        public int? SiemensSubprogram { get; set; }  // L123
 
         // Ciclos de furação Fanuc
         public DrillCycle? Cycle { get; set; }
@@ -358,7 +314,10 @@ public sealed partial class MachineExecutor
                 break;
             case 'R': Set(line, word, ref w.R); break;
             case 'Q': Set(line, word, ref w.Q); break;
-            case 'P': Set(line, word, ref w.P); break;
+            case 'P':
+                // Siemens: P é o número de repetições de uma chamada de subprograma
+                Set(line, word, ref w.P);
+                break;
             case 'F':
                 w.Feed = word.Value;
                 break;
@@ -373,7 +332,7 @@ public sealed partial class MachineExecutor
             case 'L':
                 if (_dialect == Dialect.Siemens)
                 {
-                    Warning(line, word, "Chamada de subprograma (L) será interpretada na Fase 1B: ignorada.");
+                    w.SiemensSubprogram = (int)word.Value; // L123 = chamada do subprograma L123
                 }
                 else
                 {
@@ -481,12 +440,12 @@ public sealed partial class MachineExecutor
             case 2 or 30:
                 w.EndsProgram = true;
                 return;
-            case 98:
-                w.SuppressMotion = true;
-                Warning(line, word, "Chamada de subprograma (M98) será interpretada na Fase 1B: ignorada.");
+            case 98 when _dialect == Dialect.Fanuc:
+                w.CallSubprogram = true; // P = programa (eixos do bloco ainda movem antes da chamada)
                 return;
-            case 99 or 17:
-                Warning(line, word, $"M{code} (retorno de subprograma) será interpretado na Fase 1B.");
+            case 99 when _dialect == Dialect.Fanuc:
+            case 17:
+                w.ReturnFromSubprogram = true;
                 return;
         }
 
@@ -762,17 +721,29 @@ public sealed partial class MachineExecutor
     private static double Sqr(double v) => v * v;
 
     private void Warning(int line, AddressWord word, string message) =>
-        _diagnostics.Add(new ParseDiagnostic(line, word.Column, word.Length, DiagnosticSeverity.Warning, message));
+        Report(line, word.Column, word.Length, DiagnosticSeverity.Warning, message);
 
     private void Warning(int line, Statement statement, string message) =>
-        _diagnostics.Add(new ParseDiagnostic(line, statement.Column, statement.Length, DiagnosticSeverity.Warning, message));
+        Report(line, statement.Column, statement.Length, DiagnosticSeverity.Warning, message);
 
     private void Warning(int line, int column, int length, string message) =>
-        _diagnostics.Add(new ParseDiagnostic(line, column, length, DiagnosticSeverity.Warning, message));
+        Report(line, column, length, DiagnosticSeverity.Warning, message);
 
     private void Error(int line, AddressWord word, string message) =>
-        _diagnostics.Add(new ParseDiagnostic(line, word.Column, word.Length, DiagnosticSeverity.Error, message));
+        Report(line, word.Column, word.Length, DiagnosticSeverity.Error, message);
+
+    private void Error(int line, Statement statement, string message) =>
+        Report(line, statement.Column, statement.Length, DiagnosticSeverity.Error, message);
 
     private void Error(int line, int column, int length, string message) =>
-        _diagnostics.Add(new ParseDiagnostic(line, column, length, DiagnosticSeverity.Error, message));
+        Report(line, column, length, DiagnosticSeverity.Error, message);
+
+    /// <summary>Registra o diagnóstico uma única vez (laços repetem a mesma linha milhares de vezes).</summary>
+    private void Report(int line, int column, int length, DiagnosticSeverity severity, string message)
+    {
+        if (_reported.Add((line, column, message)))
+        {
+            _diagnostics.Add(new ParseDiagnostic(line, column, length, severity, message));
+        }
+    }
 }

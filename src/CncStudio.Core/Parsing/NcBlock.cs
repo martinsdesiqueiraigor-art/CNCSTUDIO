@@ -53,6 +53,12 @@ public sealed class NcBlock
     /// <summary>Número N do bloco, se existir.</summary>
     public int? BlockNumber { get; init; }
 
+    /// <summary>
+    /// Início de programa nesta linha: Fanuc "O1234" → "1234"; Siemens "%_N_FURO_SPF" → "FURO".
+    /// Usado para achar subprogramas no mesmo arquivo.
+    /// </summary>
+    public string? ProgramId { get; init; }
+
     /// <summary>Palavras de endereço na ordem em que aparecem.</summary>
     public IReadOnlyList<AddressWord> Words { get; init; } = [];
 

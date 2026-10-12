@@ -25,7 +25,10 @@ public class ParserTests
     {
         ParseResult result = GCodeParser.Parse("(SO COMENTARIO)\n%\nO1001 (PROGRAMA)", Dialect.Fanuc);
 
-        Assert.Empty(result.Blocks);
+        // Só a linha O1001 gera bloco (marca o início do programa)
+        NcBlock block = Assert.Single(result.Blocks);
+        Assert.Equal("1001", block.ProgramId);
+        Assert.Empty(block.Words);
     }
 
     [Fact]
