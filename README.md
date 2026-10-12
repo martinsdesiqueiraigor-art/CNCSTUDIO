@@ -25,7 +25,9 @@ As configurações ficam em `%APPDATA%\CncStudio\config.json` (valem para as dua
 
 O programa abre já com o `EXEMPLO.nc` carregado.
 
-## Versão web (protótipo)
+## Versão web (app instalável)
+
+No ar em **https://casillas-code.pages.dev** — abre no navegador do PC ou do celular e pode ser instalada como app (botão "Instalar" ou menu do Chrome → Instalar app).
 
 `src/CncStudio.Web` é a versão para navegador (PC e celular), com o mesmo Core. Fica fora da solução porque
 precisa do workload de WebAssembly:
@@ -35,7 +37,7 @@ dotnet workload install wasm-tools
 dotnet publish src/CncStudio.Web -c Release -o publish/web   # site estático em publish/web/wwwroot
 ```
 
-O CI publica o resultado no ramo `ci-web` a cada commit.
+O CI publica o resultado no ramo `ci-web` e no Cloudflare Pages a cada commit (segredos `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`).
 
 ## Compilar e rodar a partir do código (Windows 11)
 
