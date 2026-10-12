@@ -21,6 +21,16 @@
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Padding" Value="6,4,6,2" />
     </Style>
+    <!-- Abas dos programas abertos -->
+    <Style Selector="Border.documentTab">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.documentTab:pointerover">
+      <Setter Property="Background" Value="#2A2E35" />
+    </Style>
+    <Style Selector="Border.documentTab.active">
+      <Setter Property="Background" Value="#33404F" />
+    </Style>
     <Style Selector="TextBlock.groupLabel">
       <Setter Property="FontSize" Value="11" />
       <Setter Property="Opacity" Value="0.6" />
@@ -39,7 +49,9 @@
             <Border Classes="group">
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="NewButton" Content="Novo" ToolTip.Tip="Programa novo em outra aba (Ctrl+N)" />
                   <Button x:Name="OpenButton" Content="Abrir" ToolTip.Tip="Abrir programa (Ctrl+O)" />
+                  <Button x:Name="RecentButton" Content="Recentes ▾" ToolTip.Tip="Arquivos abertos recentemente" />
                   <Button x:Name="SaveButton" Content="Salvar" ToolTip.Tip="Salvar (Ctrl+S)" />
                   <Button x:Name="SaveAsButton" Content="Salvar como…" ToolTip.Tip="Salvar com outro nome (Ctrl+Shift+S)" />
                 </StackPanel>
@@ -173,18 +185,22 @@
     <!-- Área principal: editor à esquerda, painéis gráficos à direita -->
     <Grid Grid.Row="1" ColumnDefinitions="2*,4,3*">
 
-      <Grid Grid.Column="0" RowDefinitions="Auto,*,4,140">
-        <controls:SearchBar x:Name="Search" Grid.Row="0" />
+      <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*,4,140">
+        <!-- Abas dos programas abertos (Ctrl+Tab troca, Ctrl+W fecha, botão do meio fecha) -->
+        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="TabStrip" Orientation="Horizontal" Margin="0,2,0,0" />
+        </ScrollViewer>
+        <controls:SearchBar x:Name="Search" Grid.Row="1" />
         <ae:TextEditor x:Name="Editor"
-                       Grid.Row="1"
+                       Grid.Row="2"
                        ShowLineNumbers="True"
                        FontFamily="Cascadia Mono, Consolas, Menlo, monospace"
                        FontSize="14"
                        HorizontalScrollBarVisibility="Auto"
                        VerticalScrollBarVisibility="Auto" />
-        <GridSplitter Grid.Row="2" ResizeDirection="Rows" />
+        <GridSplitter Grid.Row="3" ResizeDirection="Rows" />
         <!-- Painel de diagnósticos: filtro por tipo e contagem; clique para ir à linha -->
-        <DockPanel Grid.Row="3">
+        <DockPanel Grid.Row="4">
           <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,2">
             <ToggleButton x:Name="ShowErrorsToggle" IsChecked="True" FontSize="12" Padding="8,2"
                           ToolTip.Tip="Mostrar/esconder erros" />

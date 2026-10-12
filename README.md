@@ -39,6 +39,8 @@ Para testar desempenho com um arquivo grande (10 MB):
 
 ## O que o protótipo faz
 
+- **Vários programas em abas:** Ctrl+N novo, Ctrl+Tab troca, Ctrl+W fecha (pergunta se quer salvar);
+  cada aba guarda o próprio desfazer, cursor, dialeto e bruto. **Recentes ▾** lista os últimos 12 arquivos.
 - **Editor:** highlighting Fanuc/Siemens, números de linha, Ctrl+O / Ctrl+S, dialeto pela extensão
   (com troca manual), análise automática 500 ms após digitar, painel de avisos/erros clicável.
 - **Backplot:** vistas XY, XZ, YZ, isométrica e Torno (ZX); cores G00 vermelho (tracejado), G01 verde,

@@ -56,6 +56,9 @@ public sealed class AppSettings
 
     public double EditorFontSize { get; set; } = 14;
 
+    /// <summary>Arquivos abertos recentemente (o mais recente primeiro).</summary>
+    public List<string> RecentFiles { get; set; } = [];
+
     /// <summary>Brutos informados, por programa (os mais recentes no fim).</summary>
     public List<StockEntry> Stocks { get; set; } = [];
 
@@ -206,6 +209,7 @@ public sealed class AppSettings
     {
         Tools ??= [];
         Stocks ??= [];
+        RecentFiles ??= [];
         WorkOffsets ??= [];
         for (int code = 54; code <= 59; code++)
         {

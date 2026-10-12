@@ -38,9 +38,6 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _analysisCancellation;
     private int _analysisVersion;
 
-    private string? _currentFilePath;
-    private string _displayName = "sem título";
-    private bool _isDirty;
     private bool _isLoading;
     private bool _suppressDialectEvent;
     private bool _fitOnNextAnalysis = true;
@@ -76,7 +73,7 @@ public partial class MainWindow : Window
         SetupSheetButton.Click += async (_, _) => await OpenSetupSheetAsync();
         CompareButton.Click += async (_, _) =>
         {
-            var window = new CompareWindow(Editor.Text, _displayName, CurrentDialect);
+            var window = new CompareWindow(Editor.Text, _active.DisplayName, CurrentDialect);
             window.Show(this);
             await window.ChooseRightFileAsync();
         };
@@ -128,7 +125,9 @@ public partial class MainWindow : Window
         Statistics.DiameterOf = tool => _settings.DiameterOf(tool);
         Statistics.LineRequested += (_, line) => GoToLine(line);
         MachineSettingsButton.Click += async (_, _) => await OpenMachineSettingsAsync();
-        Closing += (_, _) => _settings.Save();
+        Closing += OnWindowClosing;
+        NewButton.Click += (_, _) => NewDocument();
+        RecentButton.Click += (_, _) => ShowRecentMenu();
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
         SiemensSampleButton.Click += (_, _) => LoadSample("EXEMPLO.mpf");
         LatheFanucSampleButton.Click += (_, _) => LoadSample(Path.Combine("torno", "EXEMPLO_TORNO.nc"));
@@ -213,7 +212,7 @@ public partial class MainWindow : Window
 
     private async Task SaveFileAsync(bool saveAs)
     {
-        string? path = saveAs ? null : _currentFilePath;
+        string? path = saveAs ? null : _active.FilePath;
         if (path is null)
         {
             IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -232,12 +231,15 @@ public partial class MainWindow : Window
         try
         {
             await File.WriteAllTextAsync(path, Editor.Text);
-            _currentFilePath = path;
-            _displayName = Path.GetFileName(path);
-            _isDirty = false;
-            if (_stock is not null)
+            _active.FilePath = path;
+            _active.DisplayName = Path.GetFileName(path);
+            _active.IsDirty = false;
+            _active.IsSample = false;
+            AddRecent(path);
+            RebuildTabs();
+            if (_active.Stock is not null)
             {
-                _settings.SetStock(StockKey, _stock); // "salvar como": o bruto acompanha o arquivo novo
+                _settings.SetStock(StockKey, _active.Stock); // "salvar como": o bruto acompanha o arquivo novo
             }
 
             FileStatus.Text = path;
@@ -259,27 +261,284 @@ public partial class MainWindow : Window
             return;
         }
 
-        LoadText(File.ReadAllText(path), null, fileName);
-        FileStatus.Text = $"{fileName} (exemplo)";
+        LoadText(File.ReadAllText(path), null, Path.GetFileName(fileName), isSample: true);
     }
 
-    private void LoadText(string text, string? path, string displayName)
+    /// <summary>
+    /// Abre o texto numa aba. Se o arquivo já está aberto, só mostra a aba dele. Se a aba atual é
+    /// um exemplo ou uma aba vazia sem alterações, ela é substituída (não acumula abas à toa).
+    /// </summary>
+    private void LoadText(string text, string? path, string displayName, bool isSample = false)
     {
-        _isLoading = true;
-        Editor.Document = new TextDocument(text);
-        _isLoading = false;
+        if (path is not null && _documents.Find(d => SamePath(d.FilePath, path)) is { } alreadyOpen)
+        {
+            SwitchTo(alreadyOpen);
+            return;
+        }
 
-        _currentFilePath = path;
-        _displayName = displayName;
-        _isDirty = false;
-        _stock = _settings.StockFor(StockKey);
+        var document = new OpenProgram
+        {
+            Text = new TextDocument(text),
+            FilePath = path,
+            DisplayName = displayName,
+            IsSample = isSample,
+            Dialect = DialectDetector.FromFileName(displayName),
+        };
+        document.Stock = _settings.StockFor(document.StockKey);
+
+        int index = _documents.IndexOf(_active);
+        if (index >= 0 && _active.IsDisposable)
+        {
+            _documents[index] = document;
+        }
+        else
+        {
+            _documents.Add(document);
+        }
+
+        SwitchTo(document);
+        if (path is not null)
+        {
+            AddRecent(path);
+        }
+    }
+
+    // ───────────────────────── Abas ─────────────────────────
+
+    private readonly List<OpenProgram> _documents = [];
+    private OpenProgram _active = new() { Text = new TextDocument() };
+    private int _untitledCount;
+    private bool _closeConfirmed;
+
+    private static bool SamePath(string? a, string? b) =>
+        a is not null && b is not null && string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Mostra a aba no editor: texto (com o desfazer dela), cursor, dialeto, bruto.</summary>
+    private void SwitchTo(OpenProgram document)
+    {
+        if (_documents.Contains(_active) && _active != document)
+        {
+            _active.CaretOffset = Editor.CaretOffset;
+            _active.Dialect = CurrentDialect;
+        }
+
+        _active = document;
+        _isLoading = true;
+        Editor.Document = document.Text;
+        _isLoading = false;
+        Editor.CaretOffset = Math.Min(document.CaretOffset, document.Text.TextLength);
+        Editor.ScrollToLine(Editor.TextArea.Caret.Line);
+
         _fitOnNextAnalysis = true;
-        FileStatus.Text = path ?? displayName;
+        FileStatus.Text = document.FilePath ?? (document.IsSample ? $"{document.DisplayName} (exemplo)" : document.DisplayName);
         UpdateTitle();
         UpdateCaretStatus();
+        RebuildTabs();
+        SetDialect(document.Dialect); // reanalisa
+    }
 
-        // Detecção automática pela extensão; o usuário pode trocar na combo
-        SetDialect(DialectDetector.FromFileName(displayName));
+    /// <summary>Programa novo, vazio (Ctrl+N).</summary>
+    private void NewDocument()
+    {
+        _untitledCount++;
+        var document = new OpenProgram
+        {
+            Text = new TextDocument(),
+            DisplayName = _untitledCount == 1 ? "sem título" : $"sem título {_untitledCount}",
+            Dialect = CurrentDialect,
+        };
+        _documents.Add(document);
+        SwitchTo(document);
+    }
+
+    /// <summary>Fecha a aba; se tem alterações, pergunta se quer salvar. Retorna false se cancelou.</summary>
+    private async Task<bool> CloseDocumentAsync(OpenProgram document)
+    {
+        if (document.IsDirty)
+        {
+            SwitchTo(document);
+            var dialog = new ConfirmDialog($"Salvar as alterações em \"{document.DisplayName}\"?",
+                ["Salvar", "Não salvar", "Cancelar"], defaultButton: 0, cancelButton: 2);
+            int? answer = await dialog.ShowDialog<int?>(this);
+            if (answer is null or 2)
+            {
+                return false;
+            }
+
+            if (answer == 0)
+            {
+                await SaveFileAsync(saveAs: false);
+                if (document.IsDirty)
+                {
+                    return false; // não salvou (cancelou o "salvar como")
+                }
+            }
+        }
+
+        int index = _documents.IndexOf(document);
+        _documents.Remove(document);
+        if (_documents.Count == 0)
+        {
+            NewDocument();
+        }
+        else if (document == _active)
+        {
+            SwitchTo(_documents[Math.Min(index, _documents.Count - 1)]);
+        }
+        else
+        {
+            RebuildTabs();
+        }
+
+        return true;
+    }
+
+    private void SwitchRelative(int step)
+    {
+        if (_documents.Count < 2)
+        {
+            return;
+        }
+
+        int index = (_documents.IndexOf(_active) + step + _documents.Count) % _documents.Count;
+        SwitchTo(_documents[index]);
+    }
+
+    /// <summary>Faixa de abas acima do editor: nome (• = não salvo) e ✕ para fechar.</summary>
+    private void RebuildTabs()
+    {
+        TabStrip.Children.Clear();
+        foreach (OpenProgram document in _documents)
+        {
+            bool active = document == _active;
+            var name = new TextBlock
+            {
+                Text = document.DisplayName + (document.IsDirty ? " •" : ""),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                FontSize = 12,
+                FontWeight = active ? Avalonia.Media.FontWeight.SemiBold : Avalonia.Media.FontWeight.Normal,
+            };
+            var close = new Button
+            {
+                Content = "✕",
+                FontSize = 10,
+                Padding = new Avalonia.Thickness(4, 0),
+                Margin = new Avalonia.Thickness(6, 0, 0, 0),
+                Background = Avalonia.Media.Brushes.Transparent,
+                BorderThickness = new Avalonia.Thickness(0),
+            };
+            ToolTip.SetTip(close, "Fechar (Ctrl+W)");
+            close.Click += async (_, e) =>
+            {
+                e.Handled = true;
+                await CloseDocumentAsync(document);
+            };
+
+            var tab = new Border
+            {
+                Child = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { name, close } },
+                Padding = new Avalonia.Thickness(10, 3, 4, 3),
+                Margin = new Avalonia.Thickness(0, 0, 2, 0),
+                CornerRadius = new Avalonia.CornerRadius(4, 4, 0, 0),
+                Classes = { "documentTab" },
+                Cursor = new Cursor(StandardCursorType.Hand),
+            };
+            if (active)
+            {
+                tab.Classes.Add("active");
+            }
+
+            ToolTip.SetTip(tab, document.FilePath ?? document.DisplayName);
+            tab.PointerPressed += async (_, e) =>
+            {
+                if (e.GetCurrentPoint(tab).Properties.IsMiddleButtonPressed)
+                {
+                    await CloseDocumentAsync(document); // botão do meio fecha, como no navegador
+                }
+                else if (document != _active)
+                {
+                    SwitchTo(document);
+                }
+            };
+            TabStrip.Children.Add(tab);
+        }
+    }
+
+    /// <summary>Ao fechar a janela, avisa dos programas não salvos.</summary>
+    private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)
+    {
+        _settings.Save();
+        List<OpenProgram> unsaved = _documents.Where(d => d.IsDirty).ToList();
+        if (_closeConfirmed || unsaved.Count == 0)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        string names = string.Join(", ", unsaved.Select(d => d.DisplayName));
+        var dialog = new ConfirmDialog($"Há alterações não salvas em: {names}.\n\nSair mesmo assim?",
+            ["Sair sem salvar", "Cancelar"], defaultButton: 1, cancelButton: 1);
+        if (await dialog.ShowDialog<int?>(this) == 0)
+        {
+            _closeConfirmed = true;
+            Close();
+        }
+    }
+
+    // ───────────────────────── Arquivos recentes ─────────────────────────
+
+    private void AddRecent(string path)
+    {
+        string full = Path.GetFullPath(path);
+        _settings.RecentFiles.RemoveAll(p => string.Equals(p, full, StringComparison.OrdinalIgnoreCase));
+        _settings.RecentFiles.Insert(0, full);
+        if (_settings.RecentFiles.Count > 12)
+        {
+            _settings.RecentFiles.RemoveRange(12, _settings.RecentFiles.Count - 12);
+        }
+
+        _settings.Save();
+    }
+
+    private void ShowRecentMenu()
+    {
+        var menu = new MenuFlyout();
+        if (_settings.RecentFiles.Count == 0)
+        {
+            menu.Items.Add(new MenuItem { Header = "(nenhum arquivo recente)", IsEnabled = false });
+        }
+
+        foreach (string path in _settings.RecentFiles)
+        {
+            var item = new MenuItem { Header = $"{Path.GetFileName(path)}   —   {Path.GetDirectoryName(path)}" };
+            item.Click += (_, _) =>
+            {
+                if (File.Exists(path))
+                {
+                    OpenPath(path);
+                }
+                else
+                {
+                    _settings.RecentFiles.Remove(path);
+                    AnalysisStatus.Text = $"Arquivo não encontrado (removido da lista): {path}";
+                }
+            };
+            menu.Items.Add(item);
+        }
+
+        if (_settings.RecentFiles.Count > 0)
+        {
+            menu.Items.Add(new Separator());
+            var clear = new MenuItem { Header = "Limpar a lista" };
+            clear.Click += (_, _) =>
+            {
+                _settings.RecentFiles.Clear();
+                _settings.Save();
+            };
+            menu.Items.Add(clear);
+        }
+
+        menu.ShowAt(RecentButton);
     }
 
     // ───────────────────────── Dialeto ─────────────────────────
@@ -316,10 +575,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!_isDirty)
+        if (!_active.IsDirty)
         {
-            _isDirty = true;
+            _active.IsDirty = true;
             UpdateTitle();
+            RebuildTabs();
         }
 
         _analysisTimer.Stop();
@@ -340,8 +600,8 @@ public partial class MainWindow : Window
 
         string text = Editor.Text;
         Dialect dialect = CurrentDialect;
-        string? folder = _currentFilePath is not null
-            ? Path.GetDirectoryName(_currentFilePath)
+        string? folder = _active.FilePath is not null
+            ? Path.GetDirectoryName(_active.FilePath)
             : Path.Combine(AppContext.BaseDirectory, "samples", "macros");
         MachineSettings machine = _settings.ToMachineSettings(folder);
         AnalysisStatus.Text = "Analisando…";
@@ -493,7 +753,7 @@ public partial class MainWindow : Window
     {
         string text = Editor.Text;
         Dialect dialect = CurrentDialect;
-        string? filePath = _currentFilePath;
+        string? filePath = _active.FilePath;
         string fileName = filePath is null ? "sem título" : Path.GetFileName(filePath);
         MachineSettings machine = _settings.ToMachineSettings(filePath is null ? null : Path.GetDirectoryName(filePath));
         var tools = _settings.Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.Last());
@@ -534,24 +794,21 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Descrição do bruto para a folha de setup (null = não informado).</summary>
-    private string? CurrentStockDescription => CurrentAnalysis is { } analysis ? EffectiveStock(analysis)?.Describe() : _stock?.Describe();
+    private string? CurrentStockDescription => CurrentAnalysis is { } analysis ? EffectiveStock(analysis)?.Describe() : _active.Stock?.Describe();
 
     // ───────────────────────── Bruto ─────────────────────────
 
-    private Stock? _stock;
-
-    /// <summary>Chave do bruto guardado: o caminho do arquivo (ou o nome, se não salvo).</summary>
-    private string StockKey => _currentFilePath ?? _displayName;
+    private string StockKey => _active.StockKey;
 
     /// <summary>O bruto só vale se for do mesmo tipo de máquina da análise (bloco × barra).</summary>
     private Stock? EffectiveStock(ProgramAnalysis analysis) =>
-        _stock is { } stock && stock.Machine == analysis.ToolPath.Machine ? stock : null;
+        _active.Stock is { } stock && stock.Machine == analysis.ToolPath.Machine ? stock : null;
 
     private async Task OpenStockDialogAsync()
     {
         MachineKind machine = CurrentAnalysis?.ToolPath.Machine ?? MachineKind.Mill;
         Bounds3 cutting = CurrentAnalysis?.ToolPath.CuttingBounds ?? Bounds3.Empty;
-        Stock? current = _stock?.Machine == machine ? _stock : null;
+        Stock? current = _active.Stock?.Machine == machine ? _active.Stock : null;
 
         var dialog = new StockDialog(current, machine, cutting, Editor.Text);
         StockChoice? choice = await dialog.ShowDialog<StockChoice?>(this);
@@ -560,8 +817,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        _stock = choice.Stock;
-        _settings.SetStock(StockKey, _stock);
+        _active.Stock = choice.Stock;
+        _settings.SetStock(StockKey, _active.Stock);
         _settings.Save();
         StartAnalysis(); // redesenha backplot e refaz a simulação com o bruto novo
     }
@@ -670,6 +927,18 @@ public partial class MainWindow : Window
             case Key.O:
                 e.Handled = true;
                 await OpenFileAsync();
+                break;
+            case Key.N:
+                e.Handled = true;
+                NewDocument();
+                break;
+            case Key.W:
+                e.Handled = true;
+                await CloseDocumentAsync(_active);
+                break;
+            case Key.Tab:
+                e.Handled = true;
+                SwitchRelative(shift ? -1 : +1);
                 break;
             case Key.S:
                 e.Handled = true;
@@ -783,7 +1052,7 @@ public partial class MainWindow : Window
     }
 
     private void UpdateTitle() =>
-        Title = $"CncStudio — {_displayName}{(_isDirty ? " •" : "")}";
+        Title = $"CncStudio — {_active.DisplayName}{(_active.IsDirty ? " •" : "")}";
 
     private void OnCaretMoved()
     {
