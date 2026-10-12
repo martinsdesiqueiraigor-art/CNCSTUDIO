@@ -36,6 +36,11 @@
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="Padding" Value="8,4" />
     </Style>
+    <Style Selector="Button.install">
+      <Setter Property="Background" Value="{DynamicResource BrandOrange}" />
+      <Setter Property="Foreground" Value="#0D1117" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
     <Style Selector="Button.problems">
       <Setter Property="Foreground" Value="#FF7B72" />
       <Setter Property="BorderBrush" Value="#F85149" />
@@ -77,6 +82,8 @@
             <ToggleButton x:Name="HeaderCodeButton" Classes="page" Content="Código" IsChecked="True" CornerRadius="6,0,0,6" />
             <ToggleButton x:Name="HeaderGraphButton" Classes="page" Content="Gráfico" CornerRadius="0,6,6,0" />
           </StackPanel>
+          <Button x:Name="InstallButton" Classes="bar install" Content="Instalar" IsVisible="False"
+                  ToolTip.Tip="Instalar o Casillas Code como app neste aparelho" />
           <Button x:Name="OpenButton" Classes="bar" Content="Abrir" ToolTip.Tip="Abrir um programa do aparelho" />
           <Button x:Name="ExamplesButton" Classes="bar" Content="Exemplos" />
           <ComboBox x:Name="DialectCombo" MinHeight="36" SelectedIndex="0" ToolTip.Tip="Dialeto do comando">

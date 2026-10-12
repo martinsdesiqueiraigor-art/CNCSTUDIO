@@ -160,3 +160,25 @@ export function nextPickedFile() {
     if (pickedQueue.length > 0) return Promise.resolve(pickedQueue.shift());
     return new Promise(resolve => { pendingResolve = resolve; });
 }
+
+// ───────────── Instalar como app (PWA) ─────────────
+// O Chrome avisa (beforeinstallprompt) quando o site pode ser instalado; guardamos o aviso para
+// mostrar o botão "Instalar" e abrir a janela de instalação quando o usuário tocar nele.
+let installEvent = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvent = e; });
+window.addEventListener('appinstalled', () => { installEvent = null; });
+
+/** O navegador permite instalar agora? */
+export function canInstall() {
+    return installEvent !== null;
+}
+
+/** Abre a janela de instalação. Resolve com "accepted" ou "dismissed". */
+export async function promptInstall() {
+    if (!installEvent) return 'unavailable';
+    const e = installEvent;
+    installEvent = null;
+    await e.prompt();
+    const choice = await e.userChoice;
+    return choice && choice.outcome ? choice.outcome : 'dismissed';
+}

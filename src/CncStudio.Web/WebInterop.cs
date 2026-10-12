@@ -33,6 +33,16 @@ internal static partial class WebInterop
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
     public static partial Task<string?> NextPickedFileAsync();
 
+    /// <summary>O navegador permite instalar o app agora (PWA)?</summary>
+    [JSImport("canInstall", Module)]
+    [return: JSMarshalAs<JSType.Boolean>]
+    public static partial bool CanInstall();
+
+    /// <summary>Abre a janela de instalação do navegador ("accepted"/"dismissed").</summary>
+    [JSImport("promptInstall", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> PromptInstallAsync();
+
     /// <summary>Editor nativo em tela cheia; texto novo ou null se cancelar.</summary>
     [JSImport("editText", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]

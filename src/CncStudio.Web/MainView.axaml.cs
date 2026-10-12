@@ -113,6 +113,34 @@ public partial class MainView : UserControl
         // Campo de arquivo nativo por cima do botão "Abrir" (o toque cai direto nele)
         OpenButton.LayoutUpdated += (_, _) => PlaceOpenInput();
         _ = ReceivePickedFilesAsync();
+
+        // Botão "Instalar": aparece quando o navegador avisa que o app pode ser instalado
+        var installCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        installCheck.Tick += (_, _) =>
+        {
+            try
+            {
+                InstallButton.IsVisible = WebInterop.CanInstall();
+            }
+            catch
+            {
+                installCheck.Stop();
+            }
+        };
+        installCheck.Start();
+        InstallButton.Click += async (_, _) =>
+        {
+            try
+            {
+                await WebInterop.PromptInstallAsync();
+            }
+            catch
+            {
+                // navegador sem suporte: o usuário pode instalar pelo menu do navegador
+            }
+
+            InstallButton.IsVisible = false;
+        };
         BuildDisplayMenu();
         FitButton.Click += (_, _) => Backplot.Fit();
         DialectCombo.SelectionChanged += (_, _) =>
