@@ -81,11 +81,13 @@ public partial class MainView : UserControl
 
     private void FillExamplesMenu()
     {
+        var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
+        ExamplesButton.Flyout = menu;
         foreach (string name in ExampleNames())
         {
             var item = new MenuItem { Header = name };
             item.Click += (_, _) => LoadExample(name);
-            ExamplesMenu.Items.Add(item);
+            menu.Items.Add(item);
         }
     }
 
