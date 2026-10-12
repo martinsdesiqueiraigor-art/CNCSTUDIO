@@ -33,7 +33,7 @@ public class SampleFilesTests
         Assert.Equal(-6, toolPath.CuttingBounds.Min.Z, 9);
 
         HeightMap map = HeightMap.CreateForToolPath(toolPath, toolDiameter: 10);
-        var simulator = new MaterialSimulator(map, toolPath.Segments, 10);
+        var simulator = new MaterialSimulator(map, toolPath.Moves, 10);
         simulator.RunToEnd();
 
         Assert.Equal(-3f, map.GetHeightAt(40, 30));  // fundo do bolsão retangular
@@ -48,12 +48,14 @@ public class SampleFilesTests
         ToolPath fanuc = Build("EXEMPLO.nc");
         ToolPath siemens = Build("EXEMPLO.mpf");
 
-        Assert.Equal(fanuc.Segments.Count, siemens.Segments.Count);
-        for (int k = 0; k < fanuc.Segments.Count; k++)
+        Assert.Equal(fanuc.Moves.Count, siemens.Moves.Count);
+        for (int k = 0; k < fanuc.Moves.Count; k++)
         {
-            Assert.Equal(fanuc.Segments[k].End.X, siemens.Segments[k].End.X, 9);
-            Assert.Equal(fanuc.Segments[k].End.Y, siemens.Segments[k].End.Y, 9);
-            Assert.Equal(fanuc.Segments[k].End.Z, siemens.Segments[k].End.Z, 9);
+            Assert.Equal(fanuc.Moves[k].Motion, siemens.Moves[k].Motion);
+            Assert.Equal(fanuc.Moves[k].End.X, siemens.Moves[k].End.X, 9);
+            Assert.Equal(fanuc.Moves[k].End.Y, siemens.Moves[k].End.Y, 9);
+            Assert.Equal(fanuc.Moves[k].End.Z, siemens.Moves[k].End.Z, 9);
+            Assert.Equal(fanuc.Moves[k].Sweep, siemens.Moves[k].Sweep, 9);
         }
     }
 

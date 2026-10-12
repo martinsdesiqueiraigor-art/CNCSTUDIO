@@ -87,7 +87,7 @@ public class SimulationTests
             "G00 X10 Y25 Z5",
             "G01 Z-2 F100",
             "X40");
-        var simulator = new MaterialSimulator(CreateMap(), path.Segments, toolDiameter: 10);
+        var simulator = new MaterialSimulator(CreateMap(), path.Moves, toolDiameter: 10);
 
         simulator.RunToEnd();
         HeightMap map = simulator.Map;
@@ -106,7 +106,7 @@ public class SimulationTests
         ToolPath path = BuildFanuc(
             "G00 Z5",
             "G00 X40 Y40");
-        var simulator = new MaterialSimulator(CreateMap(), path.Segments, 10);
+        var simulator = new MaterialSimulator(CreateMap(), path.Moves, 10);
 
         simulator.RunToEnd();
 
@@ -114,13 +114,13 @@ public class SimulationTests
     }
 
     [Fact]
-    public void AvancoParcialParaNoMeioDoSegmento()
+    public void AvancoParcialParaNoMeioDoMovimento()
     {
         ToolPath path = BuildFanuc(
             "G00 X10 Y25 Z-1",
             "G01 X40 F100");
-        var simulator = new MaterialSimulator(CreateMap(), path.Segments, 4);
-        double rapidLength = path.Segments[0].Length;
+        var simulator = new MaterialSimulator(CreateMap(), path.Moves, 4);
+        double rapidLength = path.Moves[0].Length;
 
         simulator.Advance(rapidLength + 10);
 
@@ -140,7 +140,7 @@ public class SimulationTests
             "G00 X10 Y0",
             "G03 X0 Y10 I-10 J0 F100",
             "G01 X-10");
-        var simulator = new MaterialSimulator(CreateMap(), path.Segments, 4);
+        var simulator = new MaterialSimulator(CreateMap(), path.Moves, 4);
 
         simulator.AdvanceToNextLine(); // linha 1
         simulator.AdvanceToNextLine(); // linha 2 (arco com vários segmentos)
@@ -153,7 +153,7 @@ public class SimulationTests
     public void ResetVoltaAoInicio()
     {
         ToolPath path = BuildFanuc("G01 X10 Y10 Z-1 F100");
-        var simulator = new MaterialSimulator(CreateMap(), path.Segments, 4);
+        var simulator = new MaterialSimulator(CreateMap(), path.Moves, 4);
 
         simulator.RunToEnd();
         simulator.Reset();

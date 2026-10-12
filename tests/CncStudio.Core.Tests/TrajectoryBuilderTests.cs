@@ -7,10 +7,18 @@ namespace CncStudio.Core.Tests;
 
 public class TrajectoryBuilderTests
 {
-    private const double Tolerance = 1e-6;
+    private const double ChordTolerance = 0.005;
 
     private static ToolPath BuildFanuc(params string[] lines) =>
         TrajectoryBuilder.Build(GCodeParser.Parse(string.Join("\n", lines), Dialect.Fanuc));
+
+    /// <summary>Pontos do movimento (inclui o inicial), como o backplot e o simulador vão usar.</summary>
+    private static List<Point3> Polyline(Move move)
+    {
+        var points = new List<Point3> { move.Start };
+        move.AppendPolyline(points, ChordTolerance);
+        return points;
+    }
 
     private static double DistanceXY(Point3 p, double cx, double cy) =>
         Math.Sqrt((p.X - cx) * (p.X - cx) + (p.Y - cy) * (p.Y - cy));
@@ -23,23 +31,38 @@ public class TrajectoryBuilderTests
             "G01 Z-2 F100",
             "X20");
 
-        Assert.Equal(3, path.Segments.Count);
-        Assert.Equal(Point3.Origin, path.Segments[0].Start);
-        Assert.True(path.Segments[0].IsRapid);
-        Assert.Equal(new Point3(10, 5, -2), path.Segments[1].End);
-        Assert.Equal(new Point3(20, 5, -2), path.Segments[2].End);
-        Assert.Equal(100.0, path.Segments[2].Feed);
-        Assert.Equal(3, path.Segments[2].LineNumber);
+        Assert.Equal(3, path.Moves.Count);
+        Assert.Equal(Point3.Origin, path.Moves[0].Start);
+        Assert.True(path.Moves[0].IsRapid);
+        Assert.Equal(new Point3(10, 5, -2), path.Moves[1].End);
+        Assert.Equal(new Point3(20, 5, -2), path.Moves[2].End);
+        Assert.Equal(100.0, path.Moves[2].Feed);
+        Assert.Equal(3, path.Moves[2].LineNumber);
+        Assert.Equal(10.0, path.Moves[2].Length, 9);
     }
 
     [Fact]
-    public void MovimentoNuloNaoGeraSegmento()
+    public void MovimentoNuloNaoGeraMovimento()
     {
         ToolPath path = BuildFanuc(
             "G00 X10",
             "G00 X10");
 
-        Assert.Single(path.Segments);
+        Assert.Single(path.Moves);
+    }
+
+    [Fact]
+    public void ArcoEhGuardadoComoUmUnicoMovimento()
+    {
+        ToolPath path = BuildFanuc(
+            "G00 X10 Y0",
+            "G03 X0 Y10 I-10 J0 F100");
+
+        Assert.Equal(2, path.Moves.Count);
+        Move arc = path.Moves[1];
+        Assert.True(arc.IsArc);
+        Assert.Equal(Math.PI / 2, arc.Sweep, 9);
+        Assert.Equal(Math.PI * 10 / 2, arc.Length, 9);
     }
 
     [Fact]
@@ -49,16 +72,21 @@ public class TrajectoryBuilderTests
             "G00 X10 Y0",
             "G03 X0 Y10 I-10 J0 F100");
 
-        var arc = path.Segments.Where(s => s.Motion == MotionMode.CounterClockwiseArc).ToList();
-        Assert.True(arc.Count > 4);
-        Assert.Equal(new Point3(0, 10, 0), arc[^1].End);
+        Move arc = path.Moves[1];
+        List<Point3> points = Polyline(arc);
+        Assert.True(points.Count > 4);
+        Assert.Equal(new Point3(0, 10, 0), points[^1]);
 
         // Todos os pontos no raio 10 e no primeiro quadrante (caminho curto)
-        foreach (Segment s in arc)
+        foreach (Point3 p in points)
         {
-            Assert.Equal(10, DistanceXY(s.End, 0, 0), 6);
-            Assert.True(s.End.X >= -Tolerance && s.End.Y >= -Tolerance);
+            Assert.Equal(10, DistanceXY(p, 0, 0), 6);
+            Assert.True(p.X >= -1e-9 && p.Y >= -1e-9);
         }
+
+        Point3 middle = arc.PointAt(0.5);
+        Assert.Equal(Math.Sqrt(50), middle.X, 9);
+        Assert.Equal(Math.Sqrt(50), middle.Y, 9);
     }
 
     [Fact]
@@ -69,10 +97,9 @@ public class TrajectoryBuilderTests
             "G02 X0 Y10 I-10 J0 F100");
 
         // 270° no sentido horário: passa por (0,-10) e (-10,0)
-        double minY = path.Segments.Min(s => s.End.Y);
-        double minX = path.Segments.Min(s => s.End.X);
-        Assert.InRange(minY, -10.0 - 1e-9, -10.0 + 0.005 + 1e-9);
-        Assert.InRange(minX, -10.0 - 1e-9, -10.0 + 0.005 + 1e-9);
+        Assert.Equal(-1.5 * Math.PI, path.Moves[1].Sweep, 9);
+        Assert.Equal(-10, path.CuttingBounds.Min.X, 9);
+        Assert.Equal(-10, path.CuttingBounds.Min.Y, 9);
     }
 
     [Fact]
@@ -82,11 +109,15 @@ public class TrajectoryBuilderTests
             "G00 X15 Y10",
             "G02 I-5 F100");
 
-        var arc = path.Segments.Where(s => s.LineNumber == 2).ToList();
-        Assert.Equal(new Point3(15, 10, 0), arc[^1].End);
-        // Lado oposto do círculo de centro (10,10). Os vértices da interpolação podem não cair
-        // exatamente em 180°, então aceitamos o erro de corda padrão (0,005 mm).
-        Assert.InRange(arc.Min(s => s.End.X), 5.0 - 1e-9, 5.0 + 0.005 + 1e-9);
+        Move circle = path.Moves[1];
+        Assert.Equal(-2 * Math.PI, circle.Sweep, 9);
+        Assert.Equal(new Point3(15, 10, 0), Polyline(circle)[^1]);
+
+        // Envelope exato pelos pontos extremos do círculo de centro (10,10) e raio 5
+        Assert.Equal(5, path.CuttingBounds.Min.X, 9);
+        Assert.Equal(15, path.CuttingBounds.Max.X, 9);
+        Assert.Equal(5, path.CuttingBounds.Min.Y, 9);
+        Assert.Equal(15, path.CuttingBounds.Max.Y, 9);
     }
 
     [Fact]
@@ -96,12 +127,17 @@ public class TrajectoryBuilderTests
             "G00 X10 Y0 Z0",
             "G03 X-10 Y0 Z-4 I-10 J0 F100");
 
-        var arc = path.Segments.Where(s => s.LineNumber == 2).ToList();
-        Assert.Equal(-4, arc[^1].End.Z, 9);
+        Move helix = path.Moves[1];
+        Assert.Equal(-4, Polyline(helix)[^1].Z, 9);
+        Assert.Equal(-2, helix.PointAt(0.5).Z, 9);
+    }
 
-        // No meio do arco (topo, Y=10) a profundidade é a metade
-        Segment middle = arc.MinBy(s => Math.Abs(s.End.X))!;
-        Assert.Equal(-2, middle.End.Z, 1);
+    [Fact]
+    public void ToleranciaMaiorGeraMenosPontos()
+    {
+        Move circle = BuildFanuc("G00 X50 Y0", "G03 I-50 F100").Moves[1];
+
+        Assert.True(circle.ArcStepCount(0.1) < circle.ArcStepCount(0.005));
     }
 
     [Fact]
@@ -114,11 +150,11 @@ public class TrajectoryBuilderTests
         ParseDiagnostic warning = Assert.Single(path.Diagnostics);
         Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
         Assert.Equal(2, warning.LineNumber);
-        Assert.Equal(new Point3(0, 10.5, 0), path.Segments[^1].End);
+        Assert.Equal(new Point3(0, 10.5, 0), Polyline(path.Moves[^1])[^1]);
     }
 
     [Fact]
-    public void IntervaloDeSegmentosPorLinha()
+    public void BuscaDoMovimentoPelaLinha()
     {
         ToolPath path = BuildFanuc(
             "G00 X10 Y0",
@@ -126,13 +162,11 @@ public class TrajectoryBuilderTests
             "G03 X0 Y10 I-10 J0 F100",
             "G01 X-5");
 
-        (int start, int count) = path.GetSegmentRange(3);
-        Assert.Equal(1, start);
-        Assert.True(count > 1);
-        Assert.True(path.Segments.Skip(start).Take(count).All(s => s.LineNumber == 3));
-
-        Assert.Equal(0, path.GetSegmentRange(2).Count);
-        Assert.Equal(1, path.GetSegmentRange(4).Count);
+        Assert.Equal(0, path.IndexOfLine(1));
+        Assert.Equal(-1, path.IndexOfLine(2));
+        Assert.Equal(1, path.IndexOfLine(3));
+        Assert.Equal(2, path.IndexOfLine(4));
+        Assert.Equal(-1, path.IndexOfLine(99));
     }
 
     [Fact]

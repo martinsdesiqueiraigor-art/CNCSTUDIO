@@ -7,23 +7,31 @@ namespace CncStudio.Core.Simulation;
 /// Percorre a trajetória removendo material do <see cref="HeightMap"/> com uma
 /// fresa de topo reto. Permite avançar por distância (animação suave) ou por linha (passo a passo).
 ///
+/// Arcos são convertidos em pontos só quando o movimento começa a ser executado,
+/// com tolerância proporcional à célula da grade (não adianta ser mais fino que isso).
+///
 /// Não é thread-safe: a UI deve chamar sempre a partir da mesma thread de simulação.
 /// </summary>
 public sealed class MaterialSimulator
 {
     private readonly HeightMap _map;
-    private readonly IReadOnlyList<Segment> _segments;
+    private readonly IReadOnlyList<Move> _moves;
     private readonly double _toolRadius;
+    private readonly double _arcTolerance;
 
-    private int _segmentIndex;
-    private double _distanceInSegment;
+    // Pontos do movimento atual (começando no ponto inicial) e posição dentro deles
+    private readonly List<Point3> _polyline = [];
+    private int _moveIndex;
+    private int _pieceIndex;
+    private double _distanceInPiece;
 
-    public MaterialSimulator(HeightMap map, IReadOnlyList<Segment> segments, double toolDiameter)
+    public MaterialSimulator(HeightMap map, IReadOnlyList<Move> moves, double toolDiameter)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(toolDiameter, 0);
         _map = map;
-        _segments = segments;
+        _moves = moves;
         _toolRadius = toolDiameter / 2;
+        _arcTolerance = Math.Max(0.001, map.CellSize * 0.25);
         Reset();
     }
 
@@ -32,22 +40,22 @@ public sealed class MaterialSimulator
     /// <summary>Posição atual da ponta da ferramenta.</summary>
     public Point3 ToolPosition { get; private set; }
 
-    /// <summary>Índice do segmento em execução (igual a Segments.Count quando terminou).</summary>
-    public int CurrentSegmentIndex => _segmentIndex;
+    /// <summary>Índice do movimento em execução (igual a Moves.Count quando terminou).</summary>
+    public int CurrentMoveIndex => _moveIndex;
 
-    public bool IsFinished => _segmentIndex >= _segments.Count;
+    public bool IsFinished => _moveIndex >= _moves.Count;
 
-    /// <summary>Linha do arquivo em execução (0 se não há segmentos).</summary>
+    /// <summary>Linha do arquivo em execução (0 se não há movimentos).</summary>
     public int CurrentLineNumber =>
-        _segments.Count == 0 ? 0 : _segments[Math.Min(_segmentIndex, _segments.Count - 1)].LineNumber;
+        _moves.Count == 0 ? 0 : _moves[Math.Min(_moveIndex, _moves.Count - 1)].LineNumber;
 
     /// <summary>Volta ao início: bruto inteiro e ferramenta no primeiro ponto.</summary>
     public void Reset()
     {
         _map.Reset();
-        _segmentIndex = 0;
-        _distanceInSegment = 0;
-        ToolPosition = _segments.Count > 0 ? _segments[0].Start : Point3.Origin;
+        _moveIndex = 0;
+        ToolPosition = _moves.Count > 0 ? _moves[0].Start : Point3.Origin;
+        LoadCurrentMove();
     }
 
     /// <summary>Avança a ferramenta "distance" mm ao longo da trajetória, removendo material.</summary>
@@ -55,51 +63,17 @@ public sealed class MaterialSimulator
     {
         while (distance > 0 && !IsFinished)
         {
-            Segment segment = _segments[_segmentIndex];
-            double length = segment.Length;
-            double remaining = length - _distanceInSegment;
-            double step = Math.Min(distance, remaining);
-
-            Point3 from = ToolPosition;
-            _distanceInSegment += step;
-            distance -= step;
-
-            bool segmentDone = _distanceInSegment >= length - 1e-9;
-            Point3 to = segmentDone ? segment.End : segment.PointAt(_distanceInSegment / length);
-
-            CutAlong(from, to);
-            ToolPosition = to;
-
-            if (segmentDone)
-            {
-                _segmentIndex++;
-                _distanceInSegment = 0;
-            }
+            distance -= AdvanceWithinPiece(distance);
         }
     }
 
-    /// <summary>Executa até o fim da linha atual (todos os segmentos dela). Usado no botão "passo".</summary>
+    /// <summary>Executa até o fim do movimento (linha) atual. Usado no botão "passo".</summary>
     public void AdvanceToNextLine()
     {
-        if (IsFinished)
+        int moveIndex = _moveIndex;
+        while (!IsFinished && _moveIndex == moveIndex)
         {
-            return;
-        }
-
-        int line = _segments[_segmentIndex].LineNumber;
-        while (!IsFinished && _segments[_segmentIndex].LineNumber == line)
-        {
-            double remaining = _segments[_segmentIndex].Length - _distanceInSegment;
-            if (remaining > 0)
-            {
-                // Avança exatamente o que falta: o segmento termina sem invadir o próximo
-                Advance(remaining);
-            }
-            else
-            {
-                _segmentIndex++;
-                _distanceInSegment = 0;
-            }
+            AdvanceWithinPiece(double.PositiveInfinity);
         }
     }
 
@@ -108,8 +82,56 @@ public sealed class MaterialSimulator
     {
         while (!IsFinished)
         {
-            Advance(double.MaxValue);
+            AdvanceWithinPiece(double.PositiveInfinity);
         }
+    }
+
+    /// <summary>
+    /// Avança no máximo até o fim do trecho reto atual, cortando o material.
+    /// Retorna a distância efetivamente percorrida.
+    /// </summary>
+    private double AdvanceWithinPiece(double maxDistance)
+    {
+        Point3 a = _polyline[_pieceIndex];
+        Point3 b = _polyline[_pieceIndex + 1];
+        double length = a.DistanceTo(b);
+        double step = Math.Min(maxDistance, length - _distanceInPiece);
+
+        _distanceInPiece += step;
+        bool pieceDone = _distanceInPiece >= length - 1e-9;
+        Point3 to = pieceDone ? b : Point3.Lerp(a, b, _distanceInPiece / length);
+
+        CutAlong(ToolPosition, to);
+        ToolPosition = to;
+
+        if (pieceDone)
+        {
+            _pieceIndex++;
+            _distanceInPiece = 0;
+            if (_pieceIndex >= _polyline.Count - 1)
+            {
+                _moveIndex++;
+                LoadCurrentMove();
+            }
+        }
+
+        return step;
+    }
+
+    /// <summary>Converte o movimento atual em pontos (reta = 2 pontos, arco = vários).</summary>
+    private void LoadCurrentMove()
+    {
+        _polyline.Clear();
+        _pieceIndex = 0;
+        _distanceInPiece = 0;
+        if (IsFinished)
+        {
+            return;
+        }
+
+        Move move = _moves[_moveIndex];
+        _polyline.Add(move.Start);
+        move.AppendPolyline(_polyline, _arcTolerance);
     }
 
     /// <summary>

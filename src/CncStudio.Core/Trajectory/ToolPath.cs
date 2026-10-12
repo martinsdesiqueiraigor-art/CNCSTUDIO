@@ -6,19 +6,19 @@ namespace CncStudio.Core.Trajectory;
 /// <summary>Trajetória completa da ferramenta, pronta para backplot e simulação.</summary>
 public sealed class ToolPath
 {
-    public ToolPath(IReadOnlyList<Segment> segments, IReadOnlyList<ParseDiagnostic> diagnostics)
+    public ToolPath(IReadOnlyList<Move> moves, IReadOnlyList<ParseDiagnostic> diagnostics)
     {
-        Segments = segments;
+        Moves = moves;
         Diagnostics = diagnostics;
 
         var all = Bounds3.Empty;
         var cutting = Bounds3.Empty;
-        foreach (Segment s in segments)
+        foreach (Move move in moves)
         {
-            all = all.Include(s.Start).Include(s.End);
-            if (!s.IsRapid)
+            all = move.IncludeIn(all);
+            if (!move.IsRapid)
             {
-                cutting = cutting.Include(s.Start).Include(s.End);
+                cutting = move.IncludeIn(cutting);
             }
         }
 
@@ -26,7 +26,8 @@ public sealed class ToolPath
         CuttingBounds = cutting;
     }
 
-    public IReadOnlyList<Segment> Segments { get; }
+    /// <summary>Movimentos em ordem de execução: no máximo um por linha do arquivo.</summary>
+    public IReadOnlyList<Move> Moves { get; }
 
     /// <summary>Avisos gerados ao montar a trajetória (ex.: raio de arco inconsistente).</summary>
     public IReadOnlyList<ParseDiagnostic> Diagnostics { get; }
@@ -38,35 +39,32 @@ public sealed class ToolPath
     public Bounds3 CuttingBounds { get; }
 
     /// <summary>
-    /// Retorna o intervalo de segmentos gerados por uma linha do arquivo.
-    /// Usa busca binária, pois os segmentos estão em ordem crescente de linha.
-    /// Count = 0 se a linha não gerou movimento.
+    /// Índice do movimento gerado por uma linha do arquivo, ou -1 se a linha não gerou movimento.
+    /// Usa busca binária, pois os movimentos estão em ordem crescente de linha.
     /// </summary>
-    public (int Start, int Count) GetSegmentRange(int lineNumber)
-    {
-        int first = LowerBound(lineNumber);
-        int last = LowerBound(lineNumber + 1);
-        return (first, last - first);
-    }
-
-    /// <summary>Primeiro índice cujo LineNumber é maior ou igual ao informado.</summary>
-    private int LowerBound(int lineNumber)
+    public int IndexOfLine(int lineNumber)
     {
         int low = 0;
-        int high = Segments.Count;
-        while (low < high)
+        int high = Moves.Count - 1;
+        while (low <= high)
         {
             int mid = (low + high) / 2;
-            if (Segments[mid].LineNumber < lineNumber)
+            int midLine = Moves[mid].LineNumber;
+            if (midLine == lineNumber)
+            {
+                return mid;
+            }
+
+            if (midLine < lineNumber)
             {
                 low = mid + 1;
             }
             else
             {
-                high = mid;
+                high = mid - 1;
             }
         }
 
-        return low;
+        return -1;
     }
 }
