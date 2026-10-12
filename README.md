@@ -3,7 +3,7 @@
 Editor e simulador de programas CNC (FANUC e Siemens), leve e rápido, no estilo do CIMCO Edit.
 
 > **Status:** Etapa 2 — produto final (C# / .NET 10 + Avalonia + AvaloniaEdit).
-> Fases 1 (comandos de fresa), 1B (interpretador de macros), 2 (estatísticas), 3 (torno) 4 (backplot passe a passe), 5 (interface da simulação), 6 (editor e funções NC) e 6B (bruto, comparação, folha de setup) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
+> Fases 1 (comandos de fresa), 1B (interpretador de macros), 2 (estatísticas), 3 (torno) 4 (backplot passe a passe), 5 (interface da simulação), 6 (editor e funções NC), 6B (bruto, comparação, folha de setup) e 7 (polimento) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
 
 ## Testar sem instalar nada (executável pronto)
 
@@ -39,6 +39,7 @@ Para testar desempenho com um arquivo grande (10 MB):
 
 ## O que o protótipo faz
 
+- **Tema claro/escuro:** botão ☀/☾ ao lado do dialeto (o backplot e a simulação ficam escuros, como uma tela de CAM).
 - **Vários programas em abas:** Ctrl+N novo, Ctrl+Tab troca, Ctrl+W fecha (pergunta se quer salvar);
   cada aba guarda o próprio desfazer, cursor, dialeto e bruto. **Recentes ▾** lista os últimos 12 arquivos.
 - **Editor:** highlighting Fanuc/Siemens, números de linha, Ctrl+O / Ctrl+S, dialeto pela extensão

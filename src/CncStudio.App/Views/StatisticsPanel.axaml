@@ -15,7 +15,7 @@
       <Setter Property="Margin" Value="0,14,0,6" />
     </Style>
     <Style Selector="Border.card">
-      <Setter Property="Background" Value="#23262C" />
+      <Setter Property="Background" Value="{DynamicResource CardBackground}" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Padding" Value="10,6" />
       <Setter Property="Margin" Value="0,0,6,6" />
@@ -31,20 +31,20 @@
         <Border Classes="card">
           <StackPanel>
             <TextBlock Classes="caption" Text="Tempo total estimado" />
-            <TextBlock x:Name="TotalTimeText" Classes="big" Foreground="#FFE84D" />
+            <TextBlock x:Name="TotalTimeText" Classes="big" Foreground="{DynamicResource HighlightText}" />
           </StackPanel>
         </Border>
         <Border Classes="card">
           <StackPanel>
             <TextBlock Classes="caption" Text="Corte" />
-            <TextBlock x:Name="CuttingTimeText" Classes="big" Foreground="#3CC8FF" />
+            <TextBlock x:Name="CuttingTimeText" Classes="big" Foreground="{DynamicResource CuttingText}" />
             <TextBlock x:Name="CuttingDistanceText" Classes="caption" />
           </StackPanel>
         </Border>
         <Border Classes="card">
           <StackPanel>
             <TextBlock Classes="caption" Text="Rápido (G00)" />
-            <TextBlock x:Name="RapidTimeText" Classes="big" Foreground="#E0A030" />
+            <TextBlock x:Name="RapidTimeText" Classes="big" Foreground="{DynamicResource RapidText}" />
             <TextBlock x:Name="RapidDistanceText" Classes="caption" />
           </StackPanel>
         </Border>

@@ -15,11 +15,11 @@
       <ToggleButton x:Name="MeasureToggle" Content="📏 Medir" Margin="4,0,0,0"
                     ToolTip.Tip="Clique em dois pontos para medir (encaixa nos pontos da trajetória). Esc sai." />
       <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12">
-        <Run Text="- - G00" Foreground="#FF4D4D" />
-        <Run Text="   ── G01" Foreground="#3DDC6A" />
-        <Run Text="   ── G02" Foreground="#7FD8FF" />
-        <Run Text="   ── G03" Foreground="#3B6BFF" />
-        <Run Text="   ── linha do cursor" Foreground="#FFE84D" />
+        <Run Text="- - G00" Foreground="{DynamicResource LegendG00}" />
+        <Run Text="   ── G01" Foreground="{DynamicResource LegendG01}" />
+        <Run Text="   ── G02" Foreground="{DynamicResource LegendG02}" />
+        <Run Text="   ── G03" Foreground="{DynamicResource LegendG03}" />
+        <Run Text="   ── linha do cursor" Foreground="{DynamicResource HighlightText}" />
       </TextBlock>
     </WrapPanel>
 

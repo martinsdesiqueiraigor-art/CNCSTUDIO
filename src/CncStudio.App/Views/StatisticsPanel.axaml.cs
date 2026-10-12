@@ -15,8 +15,9 @@ namespace CncStudio.App.Views;
 /// </summary>
 public partial class StatisticsPanel : UserControl
 {
-    private static readonly IBrush HeaderBrush = new SolidColorBrush(Color.Parse("#2B2F36"));
-    private static readonly IBrush HoverBrush = new SolidColorBrush(Color.Parse("#30353D"));
+    // Cinza semitransparente: funciona no tema claro e no escuro
+    private static readonly IBrush HeaderBrush = new SolidColorBrush(Color.FromArgb(48, 128, 128, 128));
+    private static readonly IBrush HoverBrush = new SolidColorBrush(Color.FromArgb(70, 128, 128, 128));
 
     public StatisticsPanel()
     {

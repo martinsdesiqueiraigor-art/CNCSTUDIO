@@ -54,8 +54,9 @@
     </StackPanel>
 
     <!-- Painel de coordenadas -->
+    <!-- Painel de coordenadas: sempre escuro, como o display da máquina -->
     <Border DockPanel.Dock="Right" Width="150" Margin="6,0,0,0" Padding="10,4" Background="#1E2126" CornerRadius="4">
-      <StackPanel>
+      <StackPanel TextElement.Foreground="#E6E8EB">
         <TextBlock Classes="label" Text="Ferramenta" />
         <TextBlock x:Name="ToolText" Classes="value" Text="—" />
         <TextBlock Classes="label" Text="X" />

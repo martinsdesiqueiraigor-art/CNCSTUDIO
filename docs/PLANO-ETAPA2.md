@@ -103,10 +103,11 @@ A simulação de remoção de material do torno saiu do escopo; o torno usa o ba
 - Folha de setup para imprimir/PDF: informações do programa atual, lista de ferramentas, tempo por ferramenta e total.
 - Extra: aviso de G00 removendo material na simulação (colisão de rápido).
 
-### Fase 7 — Polimento
-- Tema claro/escuro, configurações salvas (fonte, tema, pastas recentes, ferramentas).
-- Arquivos recentes, ícone, instalador e executável menor.
-- Versão do Avalonia fixada.
+### Fase 7 — Polimento ✅
+- Tema claro/escuro (interface e cores do editor; gráficos sempre escuros), salvo na configuração.
+- Vários programas em abas e arquivos recentes; aviso de alterações não salvas.
+- Ícone, instalador (Inno Setup, gerado no CI) com associação opcional de .nc/.mpf/.spf.
+- Executável único compactado; versões do Avalonia (11.3.22) e AvaloniaEdit (11.3.0) fixadas.
 
 ## Fora do escopo
 

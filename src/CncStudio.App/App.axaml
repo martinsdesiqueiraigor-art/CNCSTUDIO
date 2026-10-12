@@ -2,6 +2,52 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CncStudio.App.App"
              RequestedThemeVariant="Dark">
+  <!-- Cores que mudam com o tema (claro/escuro). Os gráficos (backplot/simulação) ficam sempre escuros. -->
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="RibbonBackground" Color="#202329" />
+          <SolidColorBrush x:Key="PanelBackground" Color="#1B1D22" />
+          <SolidColorBrush x:Key="CardBackground" Color="#23262C" />
+          <SolidColorBrush x:Key="StatusBackground" Color="#1E1E1E" />
+          <SolidColorBrush x:Key="SubtleBorder" Color="#3A3F47" />
+          <SolidColorBrush x:Key="TabHoverBackground" Color="#2A2E35" />
+          <SolidColorBrush x:Key="TabActiveBackground" Color="#33404F" />
+          <SolidColorBrush x:Key="HighlightText" Color="#FFE84D" />
+          <SolidColorBrush x:Key="CuttingText" Color="#3CC8FF" />
+          <SolidColorBrush x:Key="RapidText" Color="#E0A030" />
+          <SolidColorBrush x:Key="LegendG00" Color="#FF4D4D" />
+          <SolidColorBrush x:Key="LegendG01" Color="#3DDC6A" />
+          <SolidColorBrush x:Key="LegendG02" Color="#7FD8FF" />
+          <SolidColorBrush x:Key="LegendG03" Color="#3B6BFF" />
+          <SolidColorBrush x:Key="DiffChangedText" Color="#E0B040" />
+          <SolidColorBrush x:Key="DiffRemovedText" Color="#E05555" />
+          <SolidColorBrush x:Key="DiffAddedText" Color="#4CC070" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="RibbonBackground" Color="#EEF0F3" />
+          <SolidColorBrush x:Key="PanelBackground" Color="#FAFAFB" />
+          <SolidColorBrush x:Key="CardBackground" Color="#EEF0F3" />
+          <SolidColorBrush x:Key="StatusBackground" Color="#E4E7EB" />
+          <SolidColorBrush x:Key="SubtleBorder" Color="#C5CAD1" />
+          <SolidColorBrush x:Key="TabHoverBackground" Color="#E4E7EB" />
+          <SolidColorBrush x:Key="TabActiveBackground" Color="#CFDDF0" />
+          <SolidColorBrush x:Key="HighlightText" Color="#9A7A00" />
+          <SolidColorBrush x:Key="CuttingText" Color="#0071A8" />
+          <SolidColorBrush x:Key="RapidText" Color="#A85F00" />
+          <SolidColorBrush x:Key="LegendG00" Color="#D62828" />
+          <SolidColorBrush x:Key="LegendG01" Color="#1F8A3A" />
+          <SolidColorBrush x:Key="LegendG02" Color="#1E8FC8" />
+          <SolidColorBrush x:Key="LegendG03" Color="#1D3FBF" />
+          <SolidColorBrush x:Key="DiffChangedText" Color="#A87A00" />
+          <SolidColorBrush x:Key="DiffRemovedText" Color="#C02020" />
+          <SolidColorBrush x:Key="DiffAddedText" Color="#1F8A3A" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
   <Application.Styles>
     <FluentTheme />
     <!-- Estilos do editor de texto (AvaloniaEdit) -->

@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CncStudio.App.Controls.SearchBar">
-  <Border Background="#23262C" BorderBrush="#3A3F47" BorderThickness="0,0,0,1" Padding="6,4">
+  <Border Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,0,1" Padding="6,4">
     <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" >
       <!-- Procurar -->
       <TextBlock Grid.Row="0" Grid.Column="0" Text="Procurar" VerticalAlignment="Center" Width="96" FontSize="12" />

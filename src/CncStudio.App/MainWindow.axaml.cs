@@ -127,6 +127,8 @@ public partial class MainWindow : Window
         MachineSettingsButton.Click += async (_, _) => await OpenMachineSettingsAsync();
         Closing += OnWindowClosing;
         NewButton.Click += (_, _) => NewDocument();
+        ThemeButton.Click += (_, _) => ApplyTheme(_settings.Theme == "Light" ? "Dark" : "Light");
+        ApplyTheme(_settings.Theme);
         RecentButton.Click += (_, _) => ShowRecentMenu();
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
         SiemensSampleButton.Click += (_, _) => LoadSample("EXEMPLO.mpf");
@@ -483,6 +485,24 @@ public partial class MainWindow : Window
             _closeConfirmed = true;
             Close();
         }
+    }
+
+    // ───────────────────────── Tema ─────────────────────────
+
+    /// <summary>Troca entre tema claro e escuro (interface e cores do editor).</summary>
+    private void ApplyTheme(string theme)
+    {
+        bool light = theme == "Light";
+        _settings.Theme = light ? "Light" : "Dark";
+        if (Avalonia.Application.Current is { } app)
+        {
+            app.RequestedThemeVariant = light ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark;
+        }
+
+        _colorizer.LightTheme = light;
+        Editor.TextArea.TextView.Redraw();
+        ThemeButton.Content = light ? "☾" : "☀";
+        ToolTip.SetTip(ThemeButton, light ? "Mudar para o tema escuro" : "Mudar para o tema claro");
     }
 
     // ───────────────────────── Arquivos recentes ─────────────────────────

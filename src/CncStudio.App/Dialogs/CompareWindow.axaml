@@ -19,9 +19,9 @@
 
     <!-- Legenda -->
     <TextBlock DockPanel.Dock="Bottom" FontSize="12" Margin="0,6,0,0">
-      <Run Text="■ alterada" Foreground="#E0B040" />
-      <Run Text="   ■ removida (só na esquerda)" Foreground="#E05555" />
-      <Run Text="   ■ incluída (só na direita)" Foreground="#4CC070" />
+      <Run Text="■ alterada" Foreground="{DynamicResource DiffChangedText}" />
+      <Run Text="   ■ removida (só na esquerda)" Foreground="{DynamicResource DiffRemovedText}" />
+      <Run Text="   ■ incluída (só na direita)" Foreground="{DynamicResource DiffAddedText}" />
     </TextBlock>
 
     <Grid ColumnDefinitions="*,6,*" RowDefinitions="Auto,*">
@@ -34,10 +34,10 @@
       </DockPanel>
       <ae:TextEditor x:Name="LeftEditor" Grid.Column="0" Grid.Row="1" IsReadOnly="True"
                      FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="13"
-                     HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#1B1D22" />
+                     HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="{DynamicResource PanelBackground}" />
       <ae:TextEditor x:Name="RightEditor" Grid.Column="2" Grid.Row="1" IsReadOnly="True"
                      FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="13"
-                     HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#1B1D22" />
+                     HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="{DynamicResource PanelBackground}" />
     </Grid>
   </DockPanel>
 </Window>

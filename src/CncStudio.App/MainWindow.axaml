@@ -16,7 +16,7 @@
       <Setter Property="Spacing" Value="6" />
     </Style>
     <Style Selector="Border.group">
-      <Setter Property="BorderBrush" Value="#3A3F47" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorder}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Padding" Value="6,4,6,2" />
@@ -26,10 +26,10 @@
       <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="Border.documentTab:pointerover">
-      <Setter Property="Background" Value="#2A2E35" />
+      <Setter Property="Background" Value="{DynamicResource TabHoverBackground}" />
     </Style>
     <Style Selector="Border.documentTab.active">
-      <Setter Property="Background" Value="#33404F" />
+      <Setter Property="Background" Value="{DynamicResource TabActiveBackground}" />
     </Style>
     <Style Selector="TextBlock.groupLabel">
       <Setter Property="FontSize" Value="11" />
@@ -42,7 +42,7 @@
   <Grid RowDefinitions="Auto,*,Auto">
 
     <!-- Faixa de comandos em abas (estilo "ribbon") + dialeto sempre visível -->
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Background="#202329">
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Background="{DynamicResource RibbonBackground}">
       <TabControl x:Name="Ribbon" Grid.Column="0" Padding="0">
         <TabItem Header="Arquivo">
           <StackPanel Orientation="Horizontal" Classes="ribbon">
@@ -179,6 +179,7 @@
           <ComboBoxItem Content="Fanuc" />
           <ComboBoxItem Content="Siemens" />
         </ComboBox>
+        <Button x:Name="ThemeButton" Content="☀" Margin="8,0,0,0" ToolTip.Tip="Tema claro / escuro" />
       </StackPanel>
     </Grid>
 
@@ -208,7 +209,7 @@
                           ToolTip.Tip="Mostrar/esconder avisos" />
             <TextBlock x:Name="DiagnosticsHint" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="6,0,0,0" />
           </StackPanel>
-          <ListBox x:Name="DiagnosticsList" FontSize="12" Background="#1B1D22" />
+          <ListBox x:Name="DiagnosticsList" FontSize="12" Background="{DynamicResource PanelBackground}" />
         </DockPanel>
       </Grid>
 
@@ -228,7 +229,7 @@
     </Grid>
 
     <!-- Barra de status -->
-    <Border Grid.Row="2" Padding="8,3" Background="#1E1E1E">
+    <Border Grid.Row="2" Padding="8,3" Background="{DynamicResource StatusBackground}">
       <Grid ColumnDefinitions="*,Auto,Auto">
         <TextBlock x:Name="AnalysisStatus" Grid.Column="0" FontSize="12" />
         <TextBlock x:Name="CaretStatus" Grid.Column="1" FontSize="12" Margin="16,0" />
