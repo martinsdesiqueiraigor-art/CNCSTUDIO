@@ -167,6 +167,13 @@
         </TabItem>
       </TabControl>
 
+      <!-- Marca do produto na linha das abas da faixa (espaço livre à direita dos títulos) -->
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Top"
+                  Margin="0,6,10,0" IsHitTestVisible="False">
+        <Image Source="/Assets/simbolo.png" Height="20" />
+        <TextBlock Text="Casillas Code" FontWeight="SemiBold" FontSize="13" Opacity="0.85" VerticalAlignment="Center" />
+      </StackPanel>
+
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="8,0" VerticalAlignment="Center">
         <TextBlock Text="Máquina" VerticalAlignment="Center" />
         <ComboBox x:Name="MachineCombo" Width="150" SelectedIndex="0"
@@ -181,9 +188,6 @@
           <ComboBoxItem Content="Siemens" />
         </ComboBox>
         <Button x:Name="ThemeButton" Content="☀" Margin="8,0,0,0" ToolTip.Tip="Tema claro / escuro" />
-        <!-- Marca do produto no canto da faixa de comandos -->
-        <Image Source="/Assets/simbolo.png" Height="26" Margin="12,0,2,0" VerticalAlignment="Center"
-               ToolTip.Tip="Casillas Code — editor e simulador CNC" />
       </StackPanel>
     </Grid>
 
