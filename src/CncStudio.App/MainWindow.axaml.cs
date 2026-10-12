@@ -50,7 +50,13 @@ public partial class MainWindow : Window
     private const double MinFontSize = 8;
     private const double MaxFontSize = 40;
 
+    // Construtor sem parâmetros exigido pelo carregador de XAML
     public MainWindow()
+        : this([])
+    {
+    }
+
+    public MainWindow(string[] args)
     {
         InitializeComponent();
 
@@ -145,7 +151,15 @@ public partial class MainWindow : Window
         // Atalhos capturados antes do editor (rota "tunnel")
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
 
-        LoadSample("EXEMPLO.nc");
+        string? startFile = args.FirstOrDefault(File.Exists);
+        if (startFile is not null)
+        {
+            OpenPath(startFile);
+        }
+        else
+        {
+            LoadSample("EXEMPLO.nc");
+        }
     }
 
     /// <summary>Resultado da última análise concluída (null antes da primeira).</summary>
@@ -177,14 +191,18 @@ public partial class MainWindow : Window
         });
 
         string? path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
-        if (path is null)
+        if (path is not null)
         {
-            return;
+            OpenPath(path);
         }
+    }
 
+    /// <summary>Abre o arquivo do caminho informado.</summary>
+    private void OpenPath(string path)
+    {
         try
         {
-            string text = await File.ReadAllTextAsync(path);
+            string text = File.ReadAllText(path);
             LoadText(text, path, Path.GetFileName(path));
         }
         catch (Exception ex)

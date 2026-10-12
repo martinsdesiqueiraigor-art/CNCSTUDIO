@@ -31,6 +31,7 @@ jobs:
           dotnet publish src/CncStudio.App/CncStudio.App.csproj -c Release -r win-x64
           --self-contained true -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none
+          -p:Version=1.0.${{ github.run_number }}
           -o publish/CncStudio-win-x64
 
       - name: Anexar executável ao resultado do CI
@@ -38,4 +39,33 @@ jobs:
         with:
           name: CncStudio-win-x64
           path: publish/CncStudio-win-x64
+          retention-days: 30
+
+  # Instalador (Inno Setup) a partir do executável publicado acima
+  installer:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: CncStudio-win-x64
+          path: publish/CncStudio-win-x64
+
+      - name: Gerar instalador
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc /DAppVersion=1.0.${{ github.run_number }} installer\CncStudio.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Anexar instalador ao resultado do CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: CncStudio-Setup
+          path: installer-output/*.exe
           retention-days: 30

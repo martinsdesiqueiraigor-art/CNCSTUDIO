@@ -12,7 +12,8 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow();
+            // Arquivo passado na linha de comando (duplo clique num .nc associado ao CncStudio)
+            desktop.MainWindow = new MainWindow(desktop.Args ?? []);
         }
 
         base.OnFrameworkInitializationCompleted();

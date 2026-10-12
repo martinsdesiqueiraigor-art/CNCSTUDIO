@@ -9,13 +9,27 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- Cópia direta de pixels para o WriteableBitmap da simulação -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>Assets\cncstudio.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Product>CncStudio</Product>
+    <Description>Editor e simulador de programas CNC (Fanuc e Siemens)</Description>
+
+    <!-- Executável menor: arquivo único compactado e só os idiomas usados.
+         (Trimming fica desligado: o Avalonia usa reflexão e não dá para testar aqui sem Windows.) -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>en;pt-BR</SatelliteResourceLanguages>
   </PropertyGroup>
 
+  <!-- Versões fixas: a build de hoje e a de daqui a um ano usam exatamente os mesmos pacotes -->
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.3.*" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.*" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.*" />
-    <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.*" />
+    <PackageReference Include="Avalonia" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
   <ItemGroup>

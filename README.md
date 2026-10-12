@@ -10,9 +10,14 @@ Editor e simulador de programas CNC (FANUC e Siemens), leve e rápido, no estilo
 A cada commit, o GitHub Actions compila, roda os testes e gera o executável para Windows:
 
 1. No GitHub, abra a aba **Actions** → clique na execução mais recente com ✅.
-2. Em **Artifacts**, baixe **CncStudio-win-x64** e extraia o .zip.
-3. Rode **CncStudio.exe**. Se o Windows SmartScreen avisar (o executável não é assinado),
-   clique em **Mais informações → Executar assim mesmo**.
+2. Em **Artifacts**, baixe:
+   - **CncStudio-Setup** → instalador (atalho no menu Iniciar/área de trabalho e, se quiser,
+     abrir .nc/.mpf/.spf com duplo clique); ou
+   - **CncStudio-win-x64** → versão portátil: extraia o .zip e rode **CncStudio.exe**.
+3. Se o Windows SmartScreen avisar (o programa não é assinado), clique em
+   **Mais informações → Executar assim mesmo**.
+
+As configurações ficam em `%APPDATA%\CncStudio\config.json` (valem para as duas formas).
 
 O programa abre já com o `EXEMPLO.nc` carregado.
 
@@ -74,7 +79,8 @@ src/CncStudio.Core/          Lógica pura, sem UI e sem pacotes NuGet
 src/CncStudio.App/           Interface Avalonia (editor, backplot, simulação)
 tests/CncStudio.Core.Tests/  Testes xUnit do Core
 samples/                     EXEMPLO.nc (Fanuc) e EXEMPLO.mpf (Siemens)
-tools/                       Script para gerar arquivo grande de teste
+tools/                       Arquivo grande de teste e geração do ícone
+installer/                   Script do instalador (Inno Setup)
 ```
 
 ## G-code suportado (Fase 1)
