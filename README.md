@@ -44,16 +44,15 @@ Para testar desempenho com um arquivo grande (10 MB):
   cada aba guarda o próprio desfazer, cursor, dialeto e bruto. **Recentes ▾** lista os últimos 12 arquivos.
 - **Editor:** highlighting Fanuc/Siemens, números de linha, Ctrl+O / Ctrl+S, dialeto pela extensão
   (com troca manual), análise automática 500 ms após digitar, painel de avisos/erros clicável.
-- **Backplot:** vistas XY, XZ, YZ, isométrica e Torno (ZX); cores G00 vermelho (tracejado), G01 verde,
-  G02 azul-claro, G03 azul-escuro; a linha do cursor fica em destaque; roda do mouse = zoom,
-  arrastar = mover, duplo clique = ajustar.
-- **Passe a passe:** barra embaixo do backplot (◀ Passe / Passe ▶, executar, régua) mostra o caminho de
-  cada passe, a posição da ferramenta, e o editor acompanha a linha.
-- **Simulação 2.5D (fresa):** vistas superior (cor = profundidade), frontal e lateral (perfil com corte na
-  posição da ferramenta) e isométrica; trajetória desenhada por cima do material; ferramenta com suporte;
-  barra de reprodução com régua (arraste para qualquer ponto), passo por linha, ◀ Passe / Passe ▶,
-  velocidade; painel com T/Ø, X, Y, Z, G-code e avanço, linha, passe e distância; o editor acompanha a linha.
-
+- **Área gráfica única** (como no CIMCO): sólido iluminado com a trajetória por cima (G00 vermelho tracejado,
+  G01 verde, G02 azul-claro, G03 azul-escuro), ferramenta com suporte; vistas fixas Isométrica, Topo, Frente e
+  Lado na fresa; **Torno 3D** (peça por revolução com um quarto em corte e o inserto) e **Torno ZX** no torno.
+  Opções Sólido / Trajetória / Ferramenta / Meia seção. Abre mostrando a peça pronta.
+- **Execução linha a linha** (ou contínua) com **▶ Executar** e **⏸ Pausar** separados (espaço alterna),
+  linha e passe anterior/próximo, régua para qualquer ponto, velocidade em linhas/s; painel de coordenadas
+  (X/Y/Z — X em Ø no torno —, ferramenta, G-code, avanço, linha, passe, distância); aviso de G00 dentro do material.
+- **Editor** colorido por movimento (faixa e fundo da linha: G00 vermelho, G01 verde, G02/G03 azul) e a linha
+  em execução em amarelo; clique na trajetória vai à linha; **📏 Medir** encaixa nos pontos.
 - **Busca e funções NC:** procurar/substituir em português (maiúsculas, palavra inteira, expressão regular),
   remover/inserir espaços, remover comentários e números de bloco, renumerar, maiúsculas.
 - **Ajuda no editor:** pare o mouse sobre G71, CYCLE83, #3000, GOTOF... para ver o que é e os parâmetros.
@@ -79,7 +78,7 @@ src/CncStudio.Core/          Lógica pura, sem UI e sem pacotes NuGet
   Parsing/                   Parser com estado modal e diagnósticos em português
   Trajectory/                Movimentos (arcos guardados inteiros) e polilinhas para desenho
   Simulation/                HeightMap 2.5D, simulador de remoção e geração de imagens
-src/CncStudio.App/           Interface Avalonia (editor, backplot, simulação)
+src/CncStudio.App/           Interface Avalonia (editor, área gráfica, estatísticas)
 tests/CncStudio.Core.Tests/  Testes xUnit do Core
 samples/                     EXEMPLO.nc (Fanuc) e EXEMPLO.mpf (Siemens)
 tools/                       Arquivo grande de teste e geração do ícone

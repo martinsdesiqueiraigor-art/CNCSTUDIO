@@ -109,8 +109,17 @@ A simulação de remoção de material do torno saiu do escopo; o torno usa o ba
 - Ícone, instalador (Inno Setup, gerado no CI) com associação opcional de .nc/.mpf/.spf.
 - Executável único compactado; versões do Avalonia (11.3.22) e AvaloniaEdit (11.3.0) fixadas.
 
+### Fase 8 — Interface no estilo CIMCO ✅
+Pedida depois dos testes, com imagens do CIMCO como referência.
+- Área gráfica única: sólido iluminado (motor 3D próprio, por software) + trajetória + ferramenta com suporte.
+- Torno com simulação de material e peça 3D por revolução com meia seção (substitui a decisão da Fase 4).
+- Execução linha a linha com pausa; painel de coordenadas embaixo do gráfico.
+- Editor com linhas coloridas por movimento e a linha em execução destacada; ícones na faixa de comandos.
+- Fotos da interface geradas no CI (modo headless) para conferência.
+
 ## Fora do escopo
 
 4º/5º eixos, CYCLE800, compensação G41/G42 em casos avançados (cantos agudos com
-interferência, mudança de lado no meio do contorno), DNC/serial, CAD/CAM e vista 3D girável.
+interferência, mudança de lado no meio do contorno), DNC/serial, CAD/CAM e vista 3D girável
+(as vistas 3D são fixas).
 (Programação paramétrica saiu desta lista: entrou na Fase 1B.)

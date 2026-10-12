@@ -609,7 +609,9 @@ public sealed class GraphicsView : ZoomPanControl
             _fullGeometry[i] = _figures.Count == 0 ? null : BuildGeometry(_figures.Where(f => f.Motion == motion).Select(f => (f, f.Points.Length)));
         }
 
-        _pathBounds = _path is null || _figures.Count == 0 ? null : _view.ProjectBounds(_path.Bounds);
+        // Enquadra a região de corte (rápidos de troca de ferramenta, ex.: X100 Z100, ficam de fora)
+        Bounds3? area = _path is null || _figures.Count == 0 ? null : _path.CuttingBounds.IsEmpty ? _path.Bounds : _path.CuttingBounds;
+        _pathBounds = area is { } a ? _view.ProjectBounds(_view.IsLathe() ? LatheAware(a) : a) : null;
         RebuildProgress();
         RebuildHighlight();
     }

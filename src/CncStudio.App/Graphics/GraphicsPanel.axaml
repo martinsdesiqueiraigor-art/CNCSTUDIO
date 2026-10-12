@@ -100,7 +100,7 @@
               <Button x:Name="NextLineButton" Classes="play" Content="▶|" ToolTip.Tip="Próxima linha do programa" Margin="0,0,2,0" />
               <Button x:Name="NextPassButton" Classes="play" Content="⏩" ToolTip.Tip="Próximo passe" Margin="0,0,2,0" />
               <Button x:Name="EndButton" Classes="play" Content="⏭" ToolTip.Tip="Até o fim" Margin="0,0,10,0" />
-              <ComboBox x:Name="ModeCombo" SelectedIndex="0" Width="130" Margin="0,0,6,0" ToolTip.Tip="Como a execução avança">
+              <ComboBox x:Name="ModeCombo" SelectedIndex="0" Width="150" Margin="0,0,6,0" ToolTip.Tip="Como a execução avança">
                 <ComboBoxItem Content="Linha a linha" />
                 <ComboBoxItem Content="Contínuo" />
               </ComboBox>
