@@ -48,7 +48,13 @@ para que backplot e simulação sigam saltos, repetições e variáveis.
 - **Compensação de raio G41/G42 básica** (retas e arcos, entrada/saída em G40): sem ela,
   programas como o FAMILIA1 simulam com a ferramenta em cima do contorno, e não ao lado.
 - G43/H (comprimento) e G53 (coordenada de máquina) aceitos sem afetar o desenho da peça.
-- Teste de referência: `samples/macros/FAMILIA1.nc` (exemplo enviado pelo usuário).
+- Siemens: rótulos (`VOLTA:`), `GOTOF/GOTOB`, `TRANS/ATRANS` (deslocamento de origem),
+  `MSG(...)` mostrado na barra de status; `CFTCP`, `D0` e similares aceitos sem efeito no desenho.
+- Avisos úteis do interpretador: código depois do M30 que nunca executa, laço infinito,
+  variável usada sem valor.
+- Testes de referência (exemplos enviados pelo usuário), em `samples/macros/`:
+  `FAMILIA1.nc` (Fanuc, IF/GOTO, `,R`/`,C`, G42), `ESPIRAL_WHILE.nc` (Fanuc, WHILE com
+  2.880 voltas, SIN/COS) e `CHAVETA.mpf` (Siemens, rótulos, IF/ELSE, GOTOF/GOTOB, REPEAT, TRANS).
 
 ### Fase 2 — Estatísticas
 - Tempo estimado, distância de corte e de rápido, tempo por ferramenta.
