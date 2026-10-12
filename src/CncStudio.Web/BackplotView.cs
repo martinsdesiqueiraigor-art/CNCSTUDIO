@@ -47,7 +47,7 @@ public sealed class BackplotView : Control
 
     private static readonly IBrush[] BrightBrushes = MotionColors.Select(c => (IBrush)new SolidColorBrush(c)).ToArray();
     private static readonly IBrush[] DimBrushes = MotionColors.Select(c => (IBrush)new SolidColorBrush(c, 0.22)).ToArray();
-    private static readonly DashStyle RapidDash = new([4, 3], 0);
+    private static readonly DashStyle RapidDash = new([5, 4], 0);
 
     private static readonly IBrush Background = new SolidColorBrush(Color.Parse("#0D1117"));
     private static readonly IBrush AxisBrush = new SolidColorBrush(Color.Parse("#6E7681"));
@@ -361,7 +361,7 @@ public sealed class BackplotView : Control
 
             if (_highlight is { } h)
             {
-                context.DrawGeometry(null, new Pen(HighlightBrush, 4 * px, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), h);
+                context.DrawGeometry(null, new Pen(HighlightBrush, 3 * px, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), h);
             }
         }
 
@@ -375,14 +375,14 @@ public sealed class BackplotView : Control
     {
         if (set[0] is { } rapid)
         {
-            context.DrawGeometry(null, new Pen(brushes[0], 1.2 * px, RapidDash), rapid);
+            context.DrawGeometry(null, new Pen(brushes[0], 0.9 * px, RapidDash), rapid);
         }
 
         for (int k = 1; k < 4; k++)
         {
             if (set[k] is { } g)
             {
-                context.DrawGeometry(null, new Pen(brushes[k], 1.8 * px, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), g);
+                context.DrawGeometry(null, new Pen(brushes[k], 1.15 * px, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), g);
             }
         }
     }

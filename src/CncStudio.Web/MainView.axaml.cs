@@ -45,6 +45,8 @@ public partial class MainView : UserControl
 
     // Simulação linha a linha: _stepEnds[k] = quantos movimentos existem até o fim do passo k
     private int[] _stepEnds = [];
+    private int[] _stepPass = [];      // passe do ciclo neste passo (1, 2, 3…)
+    private int[] _stepPassCount = []; // total de passes da linha (1 = linha comum)
     private int _step; // passos já executados (== _stepEnds.Length → trajetória completa)
 
     private string _fileName = "sem título.nc";
@@ -305,21 +307,51 @@ public partial class MainView : UserControl
 
     // ───────────────────────── Simulação linha a linha ─────────────────────────
 
-    /// <summary>Agrupa os movimentos por linha do programa (um passo = uma linha que gera movimento).</summary>
+    /// <summary>
+    /// Monta os passos da simulação: um passo por linha do programa que gera movimento.
+    /// Ciclos (G71, G72, G74, G75, G76, G81–G83, CYCLE95…) geram muitos movimentos numa linha só:
+    /// esses são divididos por penetração — cada passe = rápidos de posicionamento + cortes.
+    /// </summary>
     private void BuildSteps()
     {
         var ends = new List<int>();
+        var passes = new List<int>();
+        var counts = new List<int>();
         IReadOnlyList<CncStudio.Core.Trajectory.Move> moves = _analysis?.ToolPath.Moves ?? [];
+
+        int lineStart = 0;
         for (int i = 0; i < moves.Count; i++)
         {
             bool lastOfLine = i == moves.Count - 1 || moves[i + 1].LineNumber != moves[i].LineNumber;
-            if (lastOfLine)
+            if (!lastOfLine)
             {
-                ends.Add(i + 1);
+                continue;
             }
+
+            // Fronteiras de passe dentro da linha: um rápido logo depois de um corte começa outro passe
+            int firstStep = ends.Count;
+            for (int k = lineStart; k < i; k++)
+            {
+                if (!moves[k].IsRapid && moves[k + 1].IsRapid)
+                {
+                    ends.Add(k + 1);
+                }
+            }
+
+            ends.Add(i + 1);
+            int total = ends.Count - firstStep;
+            for (int n = 1; n <= total; n++)
+            {
+                passes.Add(n);
+                counts.Add(total);
+            }
+
+            lineStart = i + 1;
         }
 
         _stepEnds = ends.ToArray();
+        _stepPass = passes.ToArray();
+        _stepPassCount = counts.ToArray();
         _step = _stepEnds.Length;
         ShowSimPosition();
     }
@@ -349,7 +381,8 @@ public partial class MainView : UserControl
             Editor.TextArea.TextView.InvalidateLayer(KnownLayer.Background);
             if (line >= 1 && line <= Editor.Document.LineCount)
             {
-                StatusText.Text = $"Linha {line}: {Editor.Document.GetText(Editor.Document.GetLineByNumber(line)).Trim()}";
+                string pass = _stepPassCount[_step - 1] > 1 ? $" · passe {_stepPass[_step - 1]} de {_stepPassCount[_step - 1]}" : "";
+                StatusText.Text = $"Linha {line}{pass}: {Editor.Document.GetText(Editor.Document.GetLineByNumber(line)).Trim()}";
             }
 
             // Como na máquina: chegou numa linha com erro, a execução para com alarme
@@ -414,8 +447,10 @@ public partial class MainView : UserControl
         SimPositionText.Text = _stepEnds.Length == 0
             ? "Sem movimentos"
             : _step >= _stepEnds.Length
-                ? $"Completo · {_stepEnds.Length} linhas com movimento"
-                : $"Passo {_step} de {_stepEnds.Length}";
+                ? $"Completo · {_stepEnds.Length} passos"
+                : _step > 0 && _stepPassCount[_step - 1] > 1
+                    ? $"Passo {_step} de {_stepEnds.Length} · ciclo: passe {_stepPass[_step - 1]}/{_stepPassCount[_step - 1]}"
+                    : $"Passo {_step} de {_stepEnds.Length}";
     }
 
     private void TogglePlay()
