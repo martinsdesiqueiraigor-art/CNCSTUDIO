@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Núcleo do CncStudio: dialetos, lexer, parser, trajetória e simulação.
+    Regra de arquitetura: este projeto NÃO referencia nenhuma biblioteca de UI
+    e não tem dependências de pacotes NuGet.
+  -->
+  <PropertyGroup>
+    <RootNamespace>CncStudio.Core</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CncStudio.Core.Tests" />
+  </ItemGroup>
+
+</Project>
