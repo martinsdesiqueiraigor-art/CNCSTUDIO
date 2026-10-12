@@ -68,6 +68,12 @@ public partial class MainWindow : Window
 
         OpenButton.Click += async (_, _) => await OpenFileAsync();
         SetupSheetButton.Click += async (_, _) => await OpenSetupSheetAsync();
+        CompareButton.Click += async (_, _) =>
+        {
+            var window = new CompareWindow(Editor.Text, _displayName, CurrentDialect);
+            window.Show(this);
+            await window.ChooseRightFileAsync();
+        };
         StockSettingsButton.Click += async (_, _) => await OpenStockDialogAsync();
         Simulation.StockSettingsRequested += async (_, _) => await OpenStockDialogAsync();
         MoreSamplesButton.Click += async (_, _) => await OpenFileAsync(Path.Combine(AppContext.BaseDirectory, "samples"));

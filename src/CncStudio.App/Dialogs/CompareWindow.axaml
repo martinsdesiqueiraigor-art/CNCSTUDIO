@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ae="using:AvaloniaEdit"
+        x:Class="CncStudio.App.Dialogs.CompareWindow"
+        Title="Comparar programas"
+        Width="1200" Height="760" MinWidth="700" MinHeight="400"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="8">
+    <!-- Opções e navegação -->
+    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+      <Button x:Name="PreviousButton" Content="◀ Anterior" ToolTip.Tip="Diferença anterior (Shift+F7)" Margin="0,0,4,0" />
+      <Button x:Name="NextButton" Content="Próxima ▶" ToolTip.Tip="Próxima diferença (F7)" Margin="0,0,12,0" />
+      <CheckBox x:Name="IgnoreSpacesCheck" Content="Ignorar espaços" IsChecked="True" Margin="0,0,8,0" />
+      <CheckBox x:Name="IgnoreCaseCheck" Content="Ignorar maiúsculas" Margin="0,0,8,0" />
+      <CheckBox x:Name="IgnoreNumbersCheck" Content="Ignorar números de bloco (N)" Margin="0,0,12,0"
+                ToolTip.Tip="Útil para comparar depois de renumerar" />
+      <TextBlock x:Name="SummaryText" VerticalAlignment="Center" FontSize="12" />
+    </WrapPanel>
+
+    <!-- Legenda -->
+    <TextBlock DockPanel.Dock="Bottom" FontSize="12" Margin="0,6,0,0">
+      <Run Text="■ alterada" Foreground="#E0B040" />
+      <Run Text="   ■ removida (só na esquerda)" Foreground="#E05555" />
+      <Run Text="   ■ incluída (só na direita)" Foreground="#4CC070" />
+    </TextBlock>
+
+    <Grid ColumnDefinitions="*,6,*" RowDefinitions="Auto,*">
+      <DockPanel Grid.Column="0" Grid.Row="0" Margin="0,0,0,4">
+        <TextBlock x:Name="LeftTitle" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+      <DockPanel Grid.Column="2" Grid.Row="0" Margin="0,0,0,4">
+        <Button x:Name="OpenRightButton" DockPanel.Dock="Right" Content="Abrir outro…" />
+        <TextBlock x:Name="RightTitle" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+      <ae:TextEditor x:Name="LeftEditor" Grid.Column="0" Grid.Row="1" IsReadOnly="True"
+                     FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="13"
+                     HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#1B1D22" />
+      <ae:TextEditor x:Name="RightEditor" Grid.Column="2" Grid.Row="1" IsReadOnly="True"
+                     FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="13"
+                     HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#1B1D22" />
+    </Grid>
+  </DockPanel>
+</Window>

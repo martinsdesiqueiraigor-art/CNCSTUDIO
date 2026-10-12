@@ -97,10 +97,11 @@ A simulação de remoção de material do torno saiu do escopo; o torno usa o ba
 - Explicação do código ao passar o mouse (G/M, ciclos com parâmetros, variáveis e palavras-chave).
 - Limites de curso da máquina: aviso quando o programa passa do curso configurado.
 
-### Fase 6B — Bruto, comparação e folha de setup
+### Fase 6B — Bruto, comparação e folha de setup ✅
 - Bruto informado pelo usuário (bloco X×Y×Z na fresa; Ø × comprimento no torno).
 - Comparar dois programas lado a lado, com as linhas alteradas em destaque.
-- Folha de setup para imprimir/PDF: ferramentas, zeros, limites e tempos.
+- Folha de setup para imprimir/PDF: informações do programa atual, lista de ferramentas, tempo por ferramenta e total.
+- Extra: aviso de G00 removendo material na simulação (colisão de rápido).
 
 ### Fase 7 — Polimento
 - Tema claro/escuro, configurações salvas (fonte, tema, pastas recentes, ferramentas).

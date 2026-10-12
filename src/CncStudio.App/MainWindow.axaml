@@ -62,6 +62,8 @@
                 <StackPanel Orientation="Horizontal" Spacing="4">
                   <Button x:Name="SetupSheetButton" Content="Folha de setup"
                           ToolTip.Tip="Informações do programa, ferramentas e tempos; abre no navegador para imprimir ou salvar em PDF" />
+                  <Button x:Name="CompareButton" Content="Comparar…"
+                          ToolTip.Tip="Compara o programa do editor com outro arquivo, lado a lado" />
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Relatórios" />
               </StackPanel>
