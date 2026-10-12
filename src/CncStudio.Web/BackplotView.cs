@@ -44,6 +44,7 @@ public sealed class BackplotView : Control
     private double _scale = 1;
     private Vector _offset;
     private bool _fitPending = true;
+    private bool _userMovedView; // depois que o usuário mexe no zoom, mudar o tamanho não reajusta mais
 
     // Ponteiros ativos (mouse ou dedos) para arrastar e pinçar
     private readonly Dictionary<int, Point> _pointers = [];
@@ -73,6 +74,7 @@ public sealed class BackplotView : Control
         if (!keepView || latheChanged)
         {
             _fitPending = true;
+            _userMovedView = false;
         }
 
         InvalidateVisual();
@@ -95,6 +97,7 @@ public sealed class BackplotView : Control
     public void Fit()
     {
         _fitPending = true;
+        _userMovedView = false;
         InvalidateVisual();
     }
 
@@ -321,6 +324,7 @@ public sealed class BackplotView : Control
         // Mantém o ponto sob o cursor/dedos parado
         _offset = new Vector(screen.X - (screen.X - _offset.X) * factor, screen.Y - (screen.Y - _offset.Y) * factor);
         _scale = newScale;
+        _userMovedView = true;
         InvalidateVisual();
     }
 
@@ -373,6 +377,7 @@ public sealed class BackplotView : Control
             }
 
             _moved = true;
+            _userMovedView = true;
             _offset += p - previous;
             InvalidateVisual();
         }
@@ -461,9 +466,11 @@ public sealed class BackplotView : Control
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         base.OnSizeChanged(e);
-        if (e.PreviousSize.Width < 2)
+        // Tela girou, coluna mudou etc.: reajusta, a menos que o usuário já tenha mexido na vista
+        if (e.PreviousSize.Width < 2 || !_userMovedView)
         {
             _fitPending = true;
+            InvalidateVisual();
         }
     }
 }
