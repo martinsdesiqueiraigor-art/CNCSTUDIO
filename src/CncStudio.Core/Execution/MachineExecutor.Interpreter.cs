@@ -119,6 +119,7 @@ public sealed partial class MachineExecutor
         NcBlock block = frame.Program.Blocks[frame.Pc];
         int line = frame.CallerLine > 0 ? frame.CallerLine : block.LineNumber;
         _currentLine = line;
+        _currentFrame = frame;
         _jump = null;
         _call = null;
         _return = null;
@@ -555,6 +556,14 @@ public sealed partial class MachineExecutor
             string left = text[..equals].Trim();
             string right = text[(equals + 1)..].Trim();
 
+            // Palavras-chave com valor calculado: CR=R1, LIMS=R5
+            if (left.ToUpperInvariant() is "CR" or "LIMS")
+            {
+                double value = ExpressionEvaluator.Evaluate(right, _dialect, _variables, Warn);
+                machineKeywords.Add(statement with { Kind = StatementKind.Keyword, Name = left.ToUpperInvariant(), Value = value });
+                return;
+            }
+
             if (left.Length == 1 && char.IsAsciiLetter(left[0]))
             {
                 char letter = char.ToUpperInvariant(left[0]);
@@ -603,7 +612,7 @@ public sealed partial class MachineExecutor
         // Converte para o modo atual (G90/G91), para o resto do executor não precisar saber
         double current = letter switch
         {
-            'X' => ProgramPosition.X,
+            'X' => ProgramPosition.X * XFactor, // torno: X em diâmetro
             'Y' => ProgramPosition.Y,
             _ => ProgramPosition.Z,
         } / _unitScale;
@@ -714,7 +723,7 @@ public sealed partial class MachineExecutor
         Point3Like position = new(ProgramPosition.X, ProgramPosition.Y, ProgramPosition.Z);
         return name switch
         {
-            "#5001" or "#5041" or "#5021" => position.X / _unitScale,
+            "#5001" or "#5041" or "#5021" => position.X * XFactor / _unitScale,
             "#5002" or "#5042" or "#5022" => position.Y / _unitScale,
             "#5003" or "#5043" or "#5023" => position.Z / _unitScale,
             "#4001" => (int)_motion,

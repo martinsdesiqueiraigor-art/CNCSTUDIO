@@ -3,7 +3,7 @@
 Editor e simulador de programas CNC (FANUC e Siemens), leve e rápido, no estilo do CIMCO Edit.
 
 > **Status:** Etapa 2 — produto final (C# / .NET 10 + Avalonia + AvaloniaEdit).
-> Fases 1 (comandos de fresa), 1B (interpretador de macros) e 2 (estatísticas) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
+> Fases 1 (comandos de fresa), 1B (interpretador de macros), 2 (estatísticas) e 3 (torno: núcleo) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
 
 ## Testar sem instalar nada (executável pronto)
 
@@ -87,6 +87,18 @@ tools/                       Script para gerar arquivo grande de teste
 - Tempo de corte = comprimento ÷ avanço (arcos pelo comprimento real); rápido pela velocidade de
   *Máquina → Ferramentas e zeros de peça → Programa* (padrão 10.000 mm/min). Sem aceleração.
 - Esperas: `G04 X`/`G04 P` (Fanuc), `G4 F`/`G4 S` (Siemens), `G82 P`, DTB do CYCLE82/CYCLE83.
+
+## Torno (Fase 3)
+
+- **Tipo de máquina:** *Automático* (detecta pelo programa: G71/G70/G76, U/W, G96, CYCLE95/97, DIAMON...), *Fresa* ou *Torno*,
+  na caixa **Máquina** ao lado do dialeto. Programas de torno abrem o backplot na vista **Torno (ZX)**.
+- **Coordenadas:** X em diâmetro (DIAMON/DIAMOF no Siemens), U/W incrementais (Fanuc), plano G18, ferramenta T0101.
+- **Avanço e rotação:** G99/G98 (Fanuc) e G95/G94 (Siemens), G96/G97, limite G50 S / LIMS= / G26 S
+  (padrão em *Máquina → Programa*). O avanço por rotação vira mm/min com a rotação no diâmetro do movimento.
+- **Fanuc:** G71/G72 (desbaste tipo I) + G70 (acabamento), G76 (rosca em passes), G90/G92/G94, G32.
+- **Siemens:** CYCLE95 (contorno por subprograma `"KONTUR"` ou rótulos `"INICIO:FIM"`; VARI 1–12), CYCLE97, G33.
+- A simulação de remoção de material do torno vem na Fase 4; por enquanto, use o backplot.
+- Exemplos: `samples/torno/EXEMPLO_TORNO.nc` e `EXEMPLO_TORNO.mpf` (botões *Torno Fanuc* / *Torno Siemens*).
 
 ## Licença
 

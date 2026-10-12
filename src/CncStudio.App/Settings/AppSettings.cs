@@ -42,6 +42,12 @@ public sealed class AppSettings
 
     public double EditorFontSize { get; set; } = 14;
 
+    /// <summary>Tipo de máquina: "Auto" (pelo programa), "Mill" ou "Lathe".</summary>
+    public string Machine { get; set; } = "Auto";
+
+    /// <summary>Rotação máxima do fuso (rpm) no G96 quando o programa não limita.</summary>
+    public double MaxSpindleSpeed { get; set; } = 4000;
+
     /// <summary>Velocidade de rápido (G00) em mm/min, usada na estimativa de tempo.</summary>
     public double RapidRate { get; set; } = 10_000;
 
@@ -113,6 +119,13 @@ public sealed class AppSettings
         {
             WorkOffsets = WorkOffsets.ToDictionary(o => o.Code, o => new Point3(o.X, o.Y, o.Z)),
             RapidRate = RapidRate,
+            MaxSpindleSpeed = MaxSpindleSpeed,
+            Machine = Machine switch
+            {
+                "Mill" => MachineKind.Mill,
+                "Lathe" => MachineKind.Lathe,
+                _ => null,
+            },
             FanucIntegers = FanucIntegersAsThousandths ? FanucIntegerMode.Thousandths : FanucIntegerMode.Millimeters,
             ToolDiameterOf = tool => diameters.TryGetValue(tool, out double d) ? d : defaultDiameter,
             LoadSubprogram = programFolder is null ? null : name => SubprogramFiles.Load(programFolder, name),
@@ -141,6 +154,13 @@ public sealed class AppSettings
         {
             DefaultToolDiameter = 10;
         }
+
+        if (MaxSpindleSpeed <= 0)
+        {
+            MaxSpindleSpeed = 4000;
+        }
+
+        Machine ??= "Auto";
 
         if (RapidRate <= 0)
         {

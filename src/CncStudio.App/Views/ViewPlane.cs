@@ -18,6 +18,9 @@ public enum ViewPlane
 
     /// <summary>Isométrica: mesma projeção da simulação (canto X+ / Y−, de cima).</summary>
     Iso,
+
+    /// <summary>Torno: Z para a direita, X (raio) para cima, como no painel do CNC.</summary>
+    Lathe,
 }
 
 public static class ViewPlaneExtensions
@@ -28,6 +31,7 @@ public static class ViewPlaneExtensions
         ViewPlane.XY => new Point(p.X, p.Y),
         ViewPlane.XZ => new Point(p.X, p.Z),
         ViewPlane.YZ => new Point(p.Y, p.Z),
+        ViewPlane.Lathe => new Point(p.Z, p.X),
         _ => new Point(IsoProjection.U(p.X, p.Y), IsoProjection.V(p.X, p.Y, p.Z)),
     };
 
@@ -40,6 +44,7 @@ public static class ViewPlaneExtensions
         ViewPlane.XY => [("X", 1, 0), ("Y", 0, 1)],
         ViewPlane.XZ => [("X", 1, 0), ("Z", 0, 1)],
         ViewPlane.YZ => [("Y", 1, 0), ("Z", 0, 1)],
+        ViewPlane.Lathe => [("Z", 1, 0), ("X", 0, 1)],
         _ =>
         [
             ("X", IsoProjection.Cos30, -IsoProjection.Sin30),
@@ -54,6 +59,7 @@ public static class ViewPlaneExtensions
         ViewPlane.XY => "Vista XY",
         ViewPlane.XZ => "Vista XZ",
         ViewPlane.YZ => "Vista YZ",
+        ViewPlane.Lathe => "Torno (ZX)",
         _ => "Isométrica",
     };
 

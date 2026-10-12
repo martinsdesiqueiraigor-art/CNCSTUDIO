@@ -49,6 +49,8 @@
                 <StackPanel Orientation="Horizontal" Spacing="4">
                   <Button x:Name="FanucSampleButton" Content="Fanuc" ToolTip.Tip="Abrir EXEMPLO.nc" />
                   <Button x:Name="SiemensSampleButton" Content="Siemens" ToolTip.Tip="Abrir EXEMPLO.mpf" />
+                  <Button x:Name="LatheFanucSampleButton" Content="Torno Fanuc" ToolTip.Tip="Abrir torno/EXEMPLO_TORNO.nc (G71, G70, G76)" />
+                  <Button x:Name="LatheSiemensSampleButton" Content="Torno Siemens" ToolTip.Tip="Abrir torno/EXEMPLO_TORNO.mpf (CYCLE95, CYCLE97)" />
                   <Button x:Name="MoreSamplesButton" Content="Outros…" ToolTip.Tip="Abrir a pasta de exemplos (furação, macros)" />
                 </StackPanel>
                 <TextBlock Classes="groupLabel" Text="Exemplos" />
@@ -120,7 +122,14 @@
       </TabControl>
 
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="8,0" VerticalAlignment="Center">
-        <TextBlock Text="Dialeto" VerticalAlignment="Center" />
+        <TextBlock Text="Máquina" VerticalAlignment="Center" />
+        <ComboBox x:Name="MachineCombo" Width="150" SelectedIndex="0"
+                  ToolTip.Tip="Automático: descobre pelo programa (G71, U/W, CYCLE95... = torno)">
+          <ComboBoxItem Content="Automático" />
+          <ComboBoxItem Content="Fresa" />
+          <ComboBoxItem Content="Torno" />
+        </ComboBox>
+        <TextBlock Text="Dialeto" VerticalAlignment="Center" Margin="8,0,0,0" />
         <ComboBox x:Name="DialectCombo" Width="120" SelectedIndex="0">
           <ComboBoxItem Content="Fanuc" />
           <ComboBoxItem Content="Siemens" />
@@ -154,6 +163,7 @@
               <RadioButton x:Name="BackplotXZ" GroupName="BackplotPlane" Content="Frontal (XZ)" />
               <RadioButton x:Name="BackplotYZ" GroupName="BackplotPlane" Content="Lateral (YZ)" />
               <RadioButton x:Name="BackplotIso" GroupName="BackplotPlane" Content="Isométrica" />
+              <RadioButton x:Name="BackplotLathe" GroupName="BackplotPlane" Content="Torno (ZX)" />
               <Button x:Name="BackplotFitButton" Content="Ajustar" Margin="8,0,0,0" />
               <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12">
                 <Run Text="- - G00" Foreground="#E0A030" />

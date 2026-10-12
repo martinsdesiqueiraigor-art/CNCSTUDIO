@@ -54,10 +54,20 @@ public sealed partial class MachineExecutor
     // ── Fim de programa ──
     private bool _ended;
 
-    private MachineExecutor(Dialect dialect, MachineSettings settings)
+    private MachineExecutor(Dialect dialect, MachineSettings settings, MachineKind machine)
     {
         _dialect = dialect;
         _settings = settings;
+        _machine = machine;
+        _lathe = machine == MachineKind.Lathe;
+        if (_lathe)
+        {
+            // Torno: plano ZX, X em diâmetro e avanço por rotação (G99 / G95) por padrão
+            _plane = WorkPlane.ZX;
+            _diameterMode = settings.LatheDiameterProgramming;
+            _feedPerRevolution = true;
+        }
+
         _workOffset = OffsetFor(54);
         _position = settings.StartPosition + Offset;
         _variables.SystemVariables = ReadSystemVariable;
@@ -71,11 +81,13 @@ public sealed partial class MachineExecutor
     /// <summary>Executa o programa e devolve a trajetória (com os diagnósticos de execução).</summary>
     public static ToolPath Execute(ParseResult parse, MachineSettings? settings = null)
     {
-        var executor = new MachineExecutor(parse.Dialect, settings ?? MachineSettings.Default);
+        settings ??= MachineSettings.Default;
+        MachineKind machine = settings.Machine ?? MachineDetector.Detect(parse);
+        var executor = new MachineExecutor(parse.Dialect, settings, machine);
         executor.Run(parse);
         executor.PostProcess();
         executor._moves.TrimExcess();
-        return new ToolPath(executor._moves, executor._diagnostics, executor._messages, executor._dwells);
+        return new ToolPath(executor._moves, executor._diagnostics, executor._messages, executor._dwells, machine);
     }
 
     // ───────────────────────── Bloco ─────────────────────────
@@ -114,6 +126,16 @@ public sealed partial class MachineExecutor
             ChangeWorkOffset(offsetCode);
         }
 
+        if (words.FeedPerRevolution is { } perRevolution)
+        {
+            _feedPerRevolution = perRevolution;
+        }
+
+        if (words.ConstantSurfaceSpeed is { } css)
+        {
+            _constantSurfaceSpeed = css;
+        }
+
         // Siemens "G4 F2": F é o tempo de espera, não o avanço
         bool siemensDwell = words.Dwell && _dialect == Dialect.Siemens;
         if (words.Feed is { } feed && !siemensDwell)
@@ -123,13 +145,20 @@ public sealed partial class MachineExecutor
 
         if (words.Spindle is { } spindle && !siemensDwell)
         {
-            _spindleSpeed = Math.Abs(spindle);
+            if (words.SpindleLimit)
+            {
+                _maxSpindleSpeed = Math.Abs(spindle); // G50 S (Fanuc torno) / G26 S (Siemens)
+            }
+            else
+            {
+                _spindleSpeed = Math.Abs(spindle);
+            }
         }
 
         if (words.Tool is { } tool)
         {
             _selectedTool = tool;
-            if (_activeTool == 0)
+            if (_activeTool == 0 || _lathe) // no torno, T troca a ferramenta na hora (sem M06)
             {
                 _activeTool = tool; // primeira ferramenta: considera ativa mesmo sem M06
             }
@@ -147,10 +176,19 @@ public sealed partial class MachineExecutor
 
         ApplyCycleModes(words);
 
+        if (_lathe)
+        {
+            ApplyLatheModes(block, words);
+        }
+
         // Siemens: TRANS/ATRANS usam os eixos do bloco como deslocamento, não como movimento
         if (keywords.Frame is { } frameKind)
         {
             ApplyFrame(block, frameKind);
+        }
+        else if (words.LatheCycle is { } latheCycle)
+        {
+            ExecuteLatheCycle(block, words, latheCycle);
         }
         else if (!words.SuppressMotion)
         {
@@ -284,9 +322,21 @@ public sealed partial class MachineExecutor
             {
                 hasMcall = true;
             }
+            else if (name is "DIAMON" or "DIAM90" && _lathe)
+            {
+                _diameterMode = true;
+            }
+            else if (name is "DIAMOF" && _lathe)
+            {
+                _diameterMode = false;
+            }
+            else if (name is "LIMS")
+            {
+                _maxSpindleSpeed = Math.Abs(statement.Value ?? 0);
+            }
             else if (name.StartsWith("CYCLE", StringComparison.Ordinal))
             {
-                if (name is "CYCLE81" or "CYCLE82" or "CYCLE83")
+                if (name is "CYCLE81" or "CYCLE82" or "CYCLE83" || (_lathe && name is "CYCLE95" or "CYCLE97"))
                 {
                     keywords.CycleCall = statement;
                 }
@@ -366,6 +416,13 @@ public sealed partial class MachineExecutor
         public double? Spindle { get; set; }         // S (rotação; no Siemens G4, rotações de espera)
         public bool Dwell { get; set; }              // G04
         public bool CycleDwell { get; set; }         // G82: espera no fundo do furo
+        public bool? FeedPerRevolution { get; set; } // G95/G99 (true) — G94/G98 (false)
+        public bool? ConstantSurfaceSpeed { get; set; } // G96 (true) — G97 (false)
+        public bool SpindleLimit { get; set; }       // G50 S (Fanuc torno) / G26 S (Siemens): S é a rotação máxima
+        public bool CoordinateSet { get; set; }      // G50 X Z (Fanuc torno): define a posição atual
+        public bool Thread { get; set; }             // G32 (Fanuc) / G33 (Siemens): rosca, avanço = passo
+        public int? SimpleCycle { get; set; }        // G90/G92/G94 do torno Fanuc
+        public int? LatheCycle { get; set; }         // G70/G71/G72/G76 do torno Fanuc
         public int? Tool { get; set; }
         public bool ToolChange { get; set; }
         public sbyte? CompensationSide { get; set; }   // G40 = 0, G41 = +1, G42 = −1
@@ -380,7 +437,7 @@ public sealed partial class MachineExecutor
         public bool CycleCancel { get; set; }
         public bool? ReturnToR { get; set; }         // G99 (true) / G98 (false)
 
-        public AddressWord? X, Y, Z, I, J, K, R, Q, P;
+        public AddressWord? X, Y, Z, I, J, K, R, Q, P, U, W;
         public int Repeat = 1;                        // K/L nos ciclos Fanuc
     }
 
@@ -414,10 +471,17 @@ public sealed partial class MachineExecutor
                 w.Feed = word.Value;
                 break;
             case 'T':
-                w.Tool = (int)word.Value;
+                // Torno Fanuc: T0101 = ferramenta 01, corretor 01
+                w.Tool = _lathe && _dialect == Dialect.Fanuc && word.Value >= 100 ? (int)word.Value / 100 : (int)word.Value;
                 break;
             case 'S':
                 w.Spindle = word.Value;
+                break;
+            case 'U' when _lathe && _dialect == Dialect.Fanuc:
+                Set(line, word, ref w.U); // incremental de X (em diâmetro)
+                break;
+            case 'W' when _lathe && _dialect == Dialect.Fanuc:
+                Set(line, word, ref w.W); // incremental de Z
                 break;
             case 'D':
             case 'H':
@@ -461,6 +525,11 @@ public sealed partial class MachineExecutor
         }
 
         bool siemens = _dialect == Dialect.Siemens;
+        if ((_lathe && ReadLatheG(line, word, code, w)) || ReadFeedModeG(code, w))
+        {
+            return;
+        }
+
         switch (code)
         {
             case >= 0 and <= 3:
@@ -502,7 +571,7 @@ public sealed partial class MachineExecutor
             case 91: w.Incremental = true; return;
             case 98 when !siemens: w.ReturnToR = false; return;
             case 99 when !siemens: w.ReturnToR = true; return;
-            case 9 or 43 or 44 or 49 or 60 or 61 or 64 or 94 or 95 or 96 or 97:
+            case 9 or 43 or 44 or 49 or 60 or 61 or 64:
                 return; // sem efeito na trajetória desenhada
             case 28 or 30:
                 w.SuppressMotion = true;
@@ -571,7 +640,14 @@ public sealed partial class MachineExecutor
             _motion = motion;
         }
 
-        bool hasAxis = w.X.HasValue || w.Y.HasValue || w.Z.HasValue;
+        bool hasAxis = w.X.HasValue || w.Y.HasValue || w.Z.HasValue || w.U.HasValue || w.W.HasValue;
+
+        // Torno Fanuc: G90/G92/G94 ativos repetem o ciclo a cada novo X/Z
+        if (_simpleCycle != 0 && hasAxis)
+        {
+            ExecuteSimpleCycle(block, w);
+            return;
+        }
 
         // Ciclo de furação Fanuc ativo
         if (_drillCycle != DrillCycle.None && (hasAxis || w.R.HasValue || w.Cycle.HasValue))
@@ -611,6 +687,11 @@ public sealed partial class MachineExecutor
                 _position = target;
             }
         }
+        else if (_threading && _motion == MotionMode.Linear)
+        {
+            // Passo: F no Fanuc (G32), K no Siemens (G33)
+            AddThreadLine(block.LineNumber, target, _dialect == Dialect.Siemens ? _threadLead : _feed);
+        }
         else
         {
             AddLine(block.LineNumber, target, _motion);
@@ -635,11 +716,38 @@ public sealed partial class MachineExecutor
     private Point3 TargetPosition(BlockWords w)
     {
         Point3 program = _position - Offset;
-        double x = Resolve(w.X, program.X);
+        double x = ResolveX(w.X, program.X);
         double y = Resolve(w.Y, program.Y);
         double z = Resolve(w.Z, program.Z);
+
+        // Torno Fanuc: U/W são sempre incrementais (U em diâmetro)
+        if (Length(w.U) is { } u)
+        {
+            x = program.X + u / XFactor;
+        }
+
+        if (Length(w.W) is { } dz)
+        {
+            z = program.Z + dz;
+        }
+
         return new Point3(x, y, z) + Offset;
     }
+
+    /// <summary>X do programa → raio (no torno em diâmetro, X é o dobro do raio).</summary>
+    private double ResolveX(AddressWord? word, double current)
+    {
+        if (Length(word) is not { } value)
+        {
+            return current;
+        }
+
+        value /= XFactor;
+        return _incremental ? current + value : value;
+    }
+
+    /// <summary>2 quando X é programado em diâmetro (torno), 1 nos outros casos.</summary>
+    private double XFactor => _lathe && _diameterMode ? 2 : 1;
 
     private double Resolve(AddressWord? word, double current)
     {
@@ -784,6 +892,12 @@ public sealed partial class MachineExecutor
     /// <summary>Guarda o movimento junto com o estado da compensação.</summary>
     private void AddMove(Move move)
     {
+        // Avanço por rotação (G95/G99): o movimento guarda mm/min, calculado com a rotação no ponto
+        if (!move.IsRapid && _feedPerRevolution && !_capturing)
+        {
+            move = move with { Feed = move.Feed * SpindleRpm(move, move.LineNumber) };
+        }
+
         _moves.Add(move);
         _tags.Add(new MoveTag { CompensationSide = _compensationSide, CompensationRadius = _compensationRadius });
     }
@@ -791,7 +905,7 @@ public sealed partial class MachineExecutor
     private void SetCompensation(int line, sbyte side)
     {
         _compensationSide = side;
-        if (side == 0)
+        if (side == 0 || _lathe) // torno: raio do inserto é pequeno, desenha o programado
         {
             _compensationRadius = 0;
             return;
@@ -835,7 +949,7 @@ public sealed partial class MachineExecutor
 
     private void CheckFeed(int line)
     {
-        if (_feed <= 0 && !_feedWarned)
+        if (_feed <= 0 && !_feedWarned && !_capturing) // no perfil de ciclo o avanço vem do ciclo
         {
             _feedWarned = true;
             Warning(line, 0, 0, "Movimento de corte sem avanço (F) definido.");
@@ -847,6 +961,11 @@ public sealed partial class MachineExecutor
         // Heurística: G00 movendo em XY com a ferramenta abaixo do Z0 da peça
         double startZ = _position.Z - Offset.Z;
         double endZ = target.Z - Offset.Z;
+        if (_lathe)
+        {
+            return; // no torno Z0 é a face, e G00 com Z negativo é normal (fora do diâmetro)
+        }
+
         bool movesXY = Math.Abs(target.X - _position.X) > 1e-6 || Math.Abs(target.Y - _position.Y) > 1e-6;
         if (movesXY && startZ < -1e-6 && endZ < -1e-6)
         {

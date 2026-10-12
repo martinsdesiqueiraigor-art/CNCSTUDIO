@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using CncStudio.Core.Execution;
 using CncStudio.Core.Simulation;
 using CncStudio.Core.Trajectory;
 
@@ -84,6 +85,19 @@ public partial class SimulationPanel : UserControl
     /// <summary>Carrega uma nova trajetória: recria o bruto e volta ao início.</summary>
     public void SetToolPath(ToolPath path)
     {
+        if (path.Machine == MachineKind.Lathe)
+        {
+            // Remoção de material do torno (bruto cilíndrico) chega na Fase 4
+            Pause();
+            _path = null;
+            _simulator = null;
+            _generation++;
+            _fitOnNextFrame = true;
+            View.Clear();
+            StatusText.Text = "Simulação de torno ainda não disponível (próxima fase). Use o Backplot na vista Torno (ZX).";
+            return;
+        }
+
         bool firstLoad = _path is null;
         _path = path;
         _fitOnNextFrame |= firstLoad;

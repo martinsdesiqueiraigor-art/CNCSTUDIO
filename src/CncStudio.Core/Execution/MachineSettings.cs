@@ -13,9 +13,21 @@ public enum FanucIntegerMode
 }
 
 /// <summary>Configuração da máquina usada na execução do programa.</summary>
-public sealed class MachineSettings
+public sealed record MachineSettings
 {
     public static MachineSettings Default { get; } = new();
+
+    /// <summary>Fresa ou torno. Null = descobrir pelo programa (<see cref="MachineDetector"/>).</summary>
+    public MachineKind? Machine { get; init; }
+
+    /// <summary>Torno: X programado em diâmetro (padrão dos tornos). False = X em raio.</summary>
+    public bool LatheDiameterProgramming { get; init; } = true;
+
+    /// <summary>
+    /// Rotação máxima do fuso (rpm), usada na velocidade de corte constante (G96) quando o
+    /// programa não limita com G50 S (Fanuc) ou LIMS= (Siemens).
+    /// </summary>
+    public double MaxSpindleSpeed { get; init; } = 4000;
 
     /// <summary>Posição da ferramenta antes do primeiro movimento (coordenadas da peça).</summary>
     public Point3 StartPosition { get; init; } = Point3.Origin;

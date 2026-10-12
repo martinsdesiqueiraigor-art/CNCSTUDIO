@@ -130,9 +130,14 @@ public sealed partial class MachineExecutor
     private void ExecuteSiemensCycle(NcBlock block, Statement cycle)
     {
         int line = block.LineNumber;
-        if (!TryParseArguments(cycle.Arguments, out double?[] args))
+        if (cycle.Name is "CYCLE95" or "CYCLE97")
         {
-            Warning(line, cycle, $"Parâmetros do {cycle.Name} com variáveis/expressões serão interpretados na Fase 1B: ciclo ignorado.");
+            ExecuteSiemensLatheCycle(line, cycle);
+            return;
+        }
+
+        if (!ReadCycleArguments(line, cycle, out double?[] args, out _))
+        {
             return;
         }
 
@@ -243,18 +248,19 @@ public sealed partial class MachineExecutor
 
     private Point3 ToMachine(double x, double y, double z) => new Point3(x, y, z) + Offset;
 
-    /// <summary>"10,0,2,-5,,1" → [10, 0, 2, -5, null, 1]. Falha se algum argumento não for número.</summary>
-    private static bool TryParseArguments(string? text, out double?[] values)
+    /// <summary>
+    /// Argumentos de um ciclo Siemens: "10, 0, R2+1, , \"KONTUR\"" → números (expressões avaliadas)
+    /// e textos (entre aspas). Argumento vazio = null nos dois. Retorna false (com erro) se algum
+    /// argumento não puder ser avaliado.
+    /// </summary>
+    private bool ReadCycleArguments(int line, Statement cycle, out double?[] numbers, out string?[] texts)
     {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            values = [];
-            return true;
-        }
+        string text = cycle.Arguments ?? "";
+        List<string> parts = string.IsNullOrWhiteSpace(text) ? [] : SplitTopLevelOperator(text, ",");
+        numbers = new double?[parts.Count];
+        texts = new string?[parts.Count];
 
-        string[] parts = text.Split(',');
-        values = new double?[parts.Length];
-        for (int i = 0; i < parts.Length; i++)
+        for (int i = 0; i < parts.Count; i++)
         {
             string part = parts[i].Trim();
             if (part.Length == 0)
@@ -262,12 +268,27 @@ public sealed partial class MachineExecutor
                 continue;
             }
 
-            if (!double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
+            if (part.StartsWith('"'))
             {
-                return false;
+                texts[i] = part.Trim('"');
+                continue;
             }
 
-            values[i] = value;
+            if (double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
+            {
+                numbers[i] = value;
+                continue;
+            }
+
+            try
+            {
+                numbers[i] = Expressions.ExpressionEvaluator.Evaluate(part, _dialect, _variables, m => Warning(line, cycle, m));
+            }
+            catch (Expressions.ExpressionException ex)
+            {
+                Error(line, cycle, $"{cycle.Name}: parâmetro {i + 1} ('{part}') inválido: {ex.Message}");
+                return false;
+            }
         }
 
         return true;

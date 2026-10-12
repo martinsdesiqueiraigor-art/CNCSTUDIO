@@ -61,11 +61,14 @@ para que backplot e simulação sigam saltos, repetições e variáveis.
 - Painel de estatísticas na interface.
 - Esperas (G04, G82 P, DTB dos ciclos Siemens) entram no tempo; velocidade de rápido configurável.
 
-### Fase 3 — Torno: núcleo
+### Fase 3 — Torno: núcleo ✅
 - Tipo de máquina (fresa/torno), com detecção automática e troca manual.
 - X em diâmetro, plano G18, G96/G97 (velocidade de corte constante).
 - Ciclos G71/G70/G76 (Fanuc) e CYCLE95/CYCLE97 (Siemens), expandidos em movimentos.
 - Exemplos EXEMPLO_TORNO.nc e .mpf, com testes.
+- Extras: G72 (desbaste de face), G90/G92/G94, G32/G33, U/W, G50 S / LIMS=, G98/G99 e G94/G95
+  (avanço por rotação convertido com a rotação no ponto), vista "Torno (ZX)" no backplot.
+- Limites: G71/G72 só tipo I (perfil monotônico; rebaixos geram aviso); G73/G74/G75 ainda não.
 
 ### Fase 4 — Torno: simulação
 - Bruto cilíndrico; remoção de material no perfil.

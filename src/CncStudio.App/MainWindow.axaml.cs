@@ -89,6 +89,15 @@ public partial class MainWindow : Window
         Closing += (_, _) => _settings.Save();
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
         SiemensSampleButton.Click += (_, _) => LoadSample("EXEMPLO.mpf");
+        LatheFanucSampleButton.Click += (_, _) => LoadSample(Path.Combine("torno", "EXEMPLO_TORNO.nc"));
+        LatheSiemensSampleButton.Click += (_, _) => LoadSample(Path.Combine("torno", "EXEMPLO_TORNO.mpf"));
+
+        MachineCombo.SelectedIndex = _settings.Machine switch { "Mill" => 1, "Lathe" => 2, _ => 0 };
+        MachineCombo.SelectionChanged += (_, _) =>
+        {
+            _settings.Machine = MachineCombo.SelectedIndex switch { 1 => "Mill", 2 => "Lathe", _ => "Auto" };
+            StartAnalysis();
+        };
         DialectCombo.SelectionChanged += OnDialectComboChanged;
         DiagnosticsList.SelectionChanged += OnDiagnosticSelected;
 
@@ -96,6 +105,7 @@ public partial class MainWindow : Window
         BackplotXZ.IsCheckedChanged += (_, _) => { if (BackplotXZ.IsChecked == true) Backplot.Plane = ViewPlane.XZ; };
         BackplotYZ.IsCheckedChanged += (_, _) => { if (BackplotYZ.IsChecked == true) Backplot.Plane = ViewPlane.YZ; };
         BackplotIso.IsCheckedChanged += (_, _) => { if (BackplotIso.IsChecked == true) Backplot.Plane = ViewPlane.Iso; };
+        BackplotLathe.IsCheckedChanged += (_, _) => { if (BackplotLathe.IsChecked == true) Backplot.Plane = ViewPlane.Lathe; };
         BackplotFitButton.Click += (_, _) => Backplot.FitToContent();
 
         // Atalhos capturados antes do editor (rota "tunnel")
@@ -309,6 +319,15 @@ public partial class MainWindow : Window
 
     private void ApplyAnalysis(ProgramAnalysis analysis, List<PathPolyline> figures)
     {
+        // Troca de fresa para torno (ou o contrário): escolhe a vista que faz sentido
+        bool lathe = analysis.ToolPath.Machine == MachineKind.Lathe;
+        bool wasLathe = CurrentAnalysis?.ToolPath.Machine == MachineKind.Lathe;
+        if (CurrentAnalysis is null || lathe != wasLathe)
+        {
+            (lathe ? BackplotLathe : BackplotXY).IsChecked = true;
+            _fitOnNextAnalysis = true;
+        }
+
         CurrentAnalysis = analysis;
         Backplot.SetToolPath(analysis.ToolPath, figures, _fitOnNextAnalysis);
         Simulation.SetToolPath(analysis.ToolPath);
@@ -328,8 +347,14 @@ public partial class MainWindow : Window
         string tools = analysis.ToolPath.Tools.Count == 0
             ? ""
             : " · ferramentas " + string.Join(", ", analysis.ToolPath.Tools.Select(t => $"T{t}"));
+        string machineName = lathe ? "Torno" : "Fresa";
+        if (_settings.Machine == "Auto")
+        {
+            machineName += " (automático)";
+        }
+
         AnalysisStatus.Text =
-            $"{analysis.BlockCount} blocos · {analysis.ToolPath.Moves.Count} movimentos{tools} · " +
+            $"{machineName} · {analysis.BlockCount} blocos · {analysis.ToolPath.Moves.Count} movimentos{tools} · " +
             $"tempo estimado {DurationFormat.Format(analysis.Statistics.TotalTime)} · " +
             $"{analysis.ErrorCount} erros · {analysis.WarningCount} avisos{extra} · " +
             $"análise em {analysis.Elapsed.TotalMilliseconds:0} ms";

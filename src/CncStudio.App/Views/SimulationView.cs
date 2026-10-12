@@ -46,6 +46,13 @@ public sealed class SimulationView : ZoomPanControl
         }
     }
 
+    /// <summary>Limpa a vista (ex.: programa de torno, ainda sem simulação).</summary>
+    public void Clear()
+    {
+        _frame = null;
+        InvalidateVisual();
+    }
+
     protected override Rect? ContentBounds
     {
         get

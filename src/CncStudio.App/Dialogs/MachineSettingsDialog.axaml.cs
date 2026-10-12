@@ -42,6 +42,7 @@ public partial class MachineSettingsDialog : Window
         IntegerThousandthsOption.IsChecked = _settings.FanucIntegersAsThousandths;
         IntegerMmOption.IsChecked = !_settings.FanucIntegersAsThousandths;
         RapidRateInput.Value = (decimal)_settings.RapidRate;
+        MaxSpindleInput.Value = (decimal)_settings.MaxSpindleSpeed;
 
         AddToolButton.Click += (_, _) =>
         {
@@ -120,6 +121,7 @@ public partial class MachineSettingsDialog : Window
         _settings.DefaultToolDiameter = (double)(DefaultDiameterInput.Value ?? 10);
         _settings.FanucIntegersAsThousandths = IntegerThousandthsOption.IsChecked == true;
         _settings.RapidRate = (double)(RapidRateInput.Value ?? 10_000);
+        _settings.MaxSpindleSpeed = (double)(MaxSpindleInput.Value ?? 4000);
 
         // Uma entrada por número de ferramenta (a última vence), em ordem
         _settings.Tools = _toolRows

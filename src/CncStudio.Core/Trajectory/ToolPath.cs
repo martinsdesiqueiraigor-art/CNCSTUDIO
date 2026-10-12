@@ -10,8 +10,10 @@ public sealed class ToolPath
     private int[]? _lineOrder; // índices dos movimentos ordenados por linha (montado sob demanda)
 
     public ToolPath(IReadOnlyList<Move> moves, IReadOnlyList<ParseDiagnostic> diagnostics,
-        IReadOnlyList<ProgramMessage>? messages = null, IReadOnlyList<ProgramDwell>? dwells = null)
+        IReadOnlyList<ProgramMessage>? messages = null, IReadOnlyList<ProgramDwell>? dwells = null,
+        MachineKind machine = MachineKind.Mill)
     {
+        Machine = machine;
         Moves = moves;
         Diagnostics = diagnostics;
         Messages = messages ?? [];
@@ -53,6 +55,9 @@ public sealed class ToolPath
 
     /// <summary>Ferramentas usadas, em ordem crescente.</summary>
     public IReadOnlyList<int> Tools { get; }
+
+    /// <summary>Fresa ou torno. No torno, X é o raio (Y = 0) e o desenho é no plano ZX.</summary>
+    public MachineKind Machine { get; }
 
     /// <summary>Tempos de espera (G04, G82...), em ordem de execução.</summary>
     public IReadOnlyList<ProgramDwell> Dwells { get; }
