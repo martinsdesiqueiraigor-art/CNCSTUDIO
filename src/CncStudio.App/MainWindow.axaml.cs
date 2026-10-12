@@ -8,6 +8,8 @@ using CncStudio.App.Highlighting;
 using CncStudio.Core;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Parsing;
+using CncStudio.Core.Trajectory;
+using CncStudio.App.Views;
 
 namespace CncStudio.App;
 
@@ -30,6 +32,7 @@ public partial class MainWindow : Window
     private bool _isDirty;
     private bool _isLoading;
     private bool _suppressDialectEvent;
+    private bool _fitOnNextAnalysis = true;
 
     public MainWindow()
     {
@@ -37,7 +40,7 @@ public partial class MainWindow : Window
 
         Editor.TextArea.TextView.LineTransformers.Add(_colorizer);
         Editor.TextChanged += OnEditorTextChanged;
-        Editor.TextArea.Caret.PositionChanged += (_, _) => UpdateCaretStatus();
+        Editor.TextArea.Caret.PositionChanged += (_, _) => OnCaretMoved();
 
         // Reanalisa 500 ms depois da última tecla
         _analysisTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
@@ -53,6 +56,11 @@ public partial class MainWindow : Window
         SiemensSampleButton.Click += (_, _) => LoadSample("EXEMPLO.mpf");
         DialectCombo.SelectionChanged += OnDialectComboChanged;
         DiagnosticsList.SelectionChanged += OnDiagnosticSelected;
+
+        BackplotXY.IsCheckedChanged += (_, _) => { if (BackplotXY.IsChecked == true) Backplot.Plane = ViewPlane.XY; };
+        BackplotXZ.IsCheckedChanged += (_, _) => { if (BackplotXZ.IsChecked == true) Backplot.Plane = ViewPlane.XZ; };
+        BackplotYZ.IsCheckedChanged += (_, _) => { if (BackplotYZ.IsChecked == true) Backplot.Plane = ViewPlane.YZ; };
+        BackplotFitButton.Click += (_, _) => Backplot.FitToContent();
 
         // Atalhos capturados antes do editor (rota "tunnel")
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
@@ -156,6 +164,7 @@ public partial class MainWindow : Window
         _currentFilePath = path;
         _displayName = displayName;
         _isDirty = false;
+        _fitOnNextAnalysis = true;
         FileStatus.Text = path ?? displayName;
         UpdateTitle();
         UpdateCaretStatus();
@@ -226,13 +235,18 @@ public partial class MainWindow : Window
 
         try
         {
-            ProgramAnalysis analysis = await Task.Run(
-                () => ProgramAnalyzer.Analyze(text, dialect, cancellation.Token),
-                cancellation.Token);
+            // Parse, trajetória e figuras do backplot: tudo fora da thread de UI
+            (ProgramAnalysis analysis, List<PathFigure> figures) = await Task.Run(() =>
+            {
+                ProgramAnalysis result = ProgramAnalyzer.Analyze(text, dialect, cancellation.Token);
+                List<PathFigure> pathFigures = PathFigureBuilder.Build(
+                    result.ToolPath.Moves, PathFigureBuilder.ScreenTolerance(result.ToolPath));
+                return (result, pathFigures);
+            }, cancellation.Token);
 
             if (version == _analysisVersion)
             {
-                ApplyAnalysis(analysis);
+                ApplyAnalysis(analysis, figures);
             }
         }
         catch (OperationCanceledException)
@@ -248,9 +262,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyAnalysis(ProgramAnalysis analysis)
+    private void ApplyAnalysis(ProgramAnalysis analysis, List<PathFigure> figures)
     {
         CurrentAnalysis = analysis;
+        Backplot.SetToolPath(analysis.ToolPath, figures, _fitOnNextAnalysis);
+        Backplot.SetHighlightedLine(Editor.TextArea.Caret.Line);
+        _fitOnNextAnalysis = false;
 
         var items = analysis.Diagnostics
             .Take(MaxDiagnosticsShown)
@@ -319,6 +336,12 @@ public partial class MainWindow : Window
 
     private void UpdateTitle() =>
         Title = $"CncStudio — {_displayName}{(_isDirty ? " •" : "")}";
+
+    private void OnCaretMoved()
+    {
+        UpdateCaretStatus();
+        Backplot.SetHighlightedLine(Editor.TextArea.Caret.Line);
+    }
 
     private void UpdateCaretStatus()
     {

@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ae="using:AvaloniaEdit"
+        xmlns:views="using:CncStudio.App.Views"
         x:Class="CncStudio.App.MainWindow"
         Title="CncStudio"
         Width="1280" Height="800"
@@ -41,7 +42,20 @@
 
       <TabControl x:Name="ViewTabs" Grid.Column="2" Margin="4,0,0,0">
         <TabItem Header="Backplot">
-          <TextBlock Text="Backplot: incremento 3" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,4">
+              <RadioButton x:Name="BackplotXY" GroupName="BackplotPlane" Content="Superior (XY)" IsChecked="True" />
+              <RadioButton x:Name="BackplotXZ" GroupName="BackplotPlane" Content="Frontal (XZ)" />
+              <RadioButton x:Name="BackplotYZ" GroupName="BackplotPlane" Content="Lateral (YZ)" />
+              <Button x:Name="BackplotFitButton" Content="Ajustar" Margin="8,0,0,0" />
+              <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12">
+                <Run Text="- - G00" Foreground="#E0A030" />
+                <Run Text="   ── corte" Foreground="#3CC8FF" />
+                <Run Text="   ── linha do cursor" Foreground="#FFE84D" />
+              </TextBlock>
+            </StackPanel>
+            <views:BackplotView x:Name="Backplot" />
+          </DockPanel>
         </TabItem>
         <TabItem Header="Simulação">
           <TextBlock Text="Simulação: incremento 4" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
