@@ -8,6 +8,7 @@ using CncStudio.App.Highlighting;
 using CncStudio.Core;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Execution;
+using CncStudio.Core.Parsing;
 using CncStudio.Core.Statistics;
 
 namespace CncStudio.Web;
@@ -21,11 +22,17 @@ public partial class MainView : UserControl
     /// <summary>Abaixo desta largura (px) a tela vira o modo celular.</summary>
     private const double NarrowWidth = 760;
 
+    /// <summary>Abaixo desta altura (celular deitado) tudo fica mais compacto para o gráfico caber.</summary>
+    private const double CompactHeight = 520;
+
     /// <summary>Exemplo aberto na primeira vez.</summary>
     private const string FirstExample = "REBAIXO_CANAL.nc";
 
     private readonly GCodeColorizer _colorizer = new();
     private readonly LineMotionRenderer _lineMotion = new();
+    private readonly DiagnosticRenderer _diagnosticMarks = new();
+    private int _problemIndex = -1;
+    private bool? _compact;
     private readonly DispatcherTimer _analysisTimer;
     private readonly DispatcherTimer _simTimer;
 
@@ -51,6 +58,8 @@ public partial class MainView : UserControl
 
         Editor.TextArea.TextView.LineTransformers.Add(_colorizer);
         Editor.TextArea.TextView.BackgroundRenderers.Add(_lineMotion);
+        Editor.TextArea.TextView.BackgroundRenderers.Add(_diagnosticMarks);
+        ProblemsButton.Click += (_, _) => GoToNextProblem();
         Editor.Options.HighlightCurrentLine = true;
         Editor.TextChanged += (_, _) => ScheduleAnalysis();
         Editor.TextArea.Caret.PositionChanged += (_, _) => OnCaretMoved();
@@ -111,6 +120,8 @@ public partial class MainView : UserControl
 
         CodePageButton.Click += (_, _) => ShowPage(graph: false);
         GraphPageButton.Click += (_, _) => ShowPage(graph: true);
+        HeaderCodeButton.Click += (_, _) => ShowPage(graph: false);
+        HeaderGraphButton.Click += (_, _) => ShowPage(graph: true);
 
         FillExamplesMenu();
         LoadExample(FirstExample);
@@ -227,6 +238,8 @@ public partial class MainView : UserControl
             _analysis = null;
             StatusText.Text = "Erro ao analisar: " + ex.Message;
             Backplot.SetPath(null, keepView);
+            _diagnosticMarks.Update([]);
+            UpdateProblemsButton();
             _stepEnds = [];
             _step = 0;
             return;
@@ -237,6 +250,9 @@ public partial class MainView : UserControl
         _lineMotion.Update(_analysis.ToolPath);
         _lineMotion.ExecutingLine = 0;
         BuildSteps();
+        _diagnosticMarks.Update(_analysis.Diagnostics);
+        _problemIndex = -1;
+        UpdateProblemsButton();
         bool lathe = _analysis.ToolPath.Machine == MachineKind.Lathe;
         LatheLabel.IsVisible = lathe;
         MillViews.IsVisible = !lathe;
@@ -335,6 +351,13 @@ public partial class MainView : UserControl
             {
                 StatusText.Text = $"Linha {line}: {Editor.Document.GetText(Editor.Document.GetLineByNumber(line)).Trim()}";
             }
+
+            // Como na máquina: chegou numa linha com erro, a execução para com alarme
+            if (ErrorBetween(_step == 1 ? 1 : a.ToolPath.Moves[_stepEnds[_step - 2] - 1].LineNumber + 1, line) is { } alarm)
+            {
+                StopSimulation();
+                StatusText.Text = $"Alarme na linha {alarm.LineNumber}: {alarm.Message}";
+            }
         }
         else
         {
@@ -344,6 +367,46 @@ public partial class MainView : UserControl
         }
 
         ShowSimPosition();
+    }
+
+    /// <summary>Primeiro erro entre duas linhas (inclusive): as linhas sem movimento também contam.</summary>
+    private ParseDiagnostic? ErrorBetween(int fromLine, int toLine) =>
+        _analysis?.Diagnostics.FirstOrDefault(d =>
+            d.Severity == DiagnosticSeverity.Error && d.LineNumber >= fromLine && d.LineNumber <= toLine);
+
+    // ───────────────────────── Erros e avisos ─────────────────────────
+
+    private void UpdateProblemsButton()
+    {
+        int errors = _analysis?.ErrorCount ?? 0;
+        int warnings = _analysis?.WarningCount ?? 0;
+        ProblemsButton.IsVisible = errors + warnings > 0;
+        ProblemsButton.Classes.Set("warnings", errors == 0);
+        ProblemsButton.Content = errors > 0
+            ? (errors == 1 ? "1 erro" : $"{errors} erros")
+            : (warnings == 1 ? "1 aviso" : $"{warnings} avisos");
+        Editor.TextArea.TextView.InvalidateLayer(KnownLayer.Selection);
+    }
+
+    /// <summary>Vai para o próximo problema (erros primeiro, depois avisos) e mostra a mensagem no rodapé.</summary>
+    private void GoToNextProblem()
+    {
+        if (_analysis is not { } a || a.Diagnostics.Count == 0)
+        {
+            return;
+        }
+
+        List<ParseDiagnostic> ordered = a.Diagnostics
+            .OrderByDescending(d => d.Severity == DiagnosticSeverity.Error)
+            .ThenBy(d => d.LineNumber)
+            .ToList();
+        _problemIndex = (_problemIndex + 1) % ordered.Count;
+        ParseDiagnostic d = ordered[_problemIndex];
+
+        ShowPage(graph: false);
+        GoToLine(d.LineNumber);
+        string kind = d.Severity == DiagnosticSeverity.Error ? "Erro" : "Aviso";
+        StatusText.Text = $"{kind} {_problemIndex + 1}/{ordered.Count} · linha {d.LineNumber}: {d.Message}";
     }
 
     private void ShowSimPosition()
@@ -412,6 +475,7 @@ public partial class MainView : UserControl
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         base.OnSizeChanged(e);
+        ApplyCompact(e.NewSize.Height < CompactHeight);
         bool narrow = e.NewSize.Width < NarrowWidth;
         if (narrow == _narrow)
         {
@@ -419,7 +483,8 @@ public partial class MainView : UserControl
         }
 
         _narrow = narrow;
-        PageSwitch.IsVisible = narrow;
+        PageSwitch.IsVisible = narrow && _compact != true;
+        HeaderPages.IsVisible = narrow && _compact == true;
         BrandText.IsVisible = !narrow; // no celular fica só o símbolo, para caber os botões
         Splitter.IsVisible = !narrow;
 
@@ -438,10 +503,33 @@ public partial class MainView : UserControl
         }
     }
 
+    /// <summary>
+    /// Tela baixa (celular deitado): botões Código/Gráfico sobem para o cabeçalho, os botões da vista
+    /// flutuam sobre o gráfico e a linha da legenda some — o gráfico fica com quase toda a altura.
+    /// </summary>
+    private void ApplyCompact(bool compact)
+    {
+        if (compact == _compact)
+        {
+            return;
+        }
+
+        _compact = compact;
+        bool narrow = _narrow == true;
+        PageSwitch.IsVisible = narrow && !compact;
+        HeaderPages.IsVisible = narrow && compact;
+        SimInfoRow.IsVisible = !compact;
+        Grid.SetRow(GraphHeader, compact ? 1 : 0);
+        GraphHeader.ZIndex = compact ? 1 : 0;
+        Workspace.Margin = compact ? new Thickness(0, 2, 0, 0) : new Thickness(0, 6, 0, 0);
+    }
+
     private void ShowPage(bool graph)
     {
         CodePageButton.IsChecked = !graph;
         GraphPageButton.IsChecked = graph;
+        HeaderCodeButton.IsChecked = !graph;
+        HeaderGraphButton.IsChecked = graph;
         if (_narrow != true)
         {
             return;

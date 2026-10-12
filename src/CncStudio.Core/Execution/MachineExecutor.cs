@@ -363,7 +363,16 @@ public sealed partial class MachineExecutor
             }
             else if (!SilentKeywords.Contains(name))
             {
-                Warning(line, statement, $"'{name}' não é suportado e foi ignorado.");
+                if (_dialect == Dialect.Fanuc)
+                {
+                    // No Fanuc, palavra que não é endereço nem função de macro para a máquina com alarme
+                    Error(line, statement, $"'{name}' não é um endereço válido: a máquina pararia com alarme nesta linha.");
+                }
+                else
+                {
+                    // No Siemens pode ser variável ou subprograma de usuário que o simulador não conhece
+                    Warning(line, statement, $"'{name}' não é reconhecido (variável ou subprograma?) e foi ignorado.");
+                }
             }
         }
 

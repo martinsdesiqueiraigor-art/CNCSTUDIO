@@ -30,6 +30,14 @@
       <Setter Property="Foreground" Value="#0D1117" />
       <Setter Property="MinWidth" Value="56" />
     </Style>
+    <Style Selector="Button.problems">
+      <Setter Property="Foreground" Value="#FF7B72" />
+      <Setter Property="BorderBrush" Value="#F85149" />
+    </Style>
+    <Style Selector="Button.problems.warnings">
+      <Setter Property="Foreground" Value="#E3B341" />
+      <Setter Property="BorderBrush" Value="#E3B341" />
+    </Style>
     <Style Selector="ToggleButton.view">
       <Setter Property="MinHeight" Value="34" />
       <Setter Property="Padding" Value="12,4" />
@@ -53,6 +61,11 @@
           </TextBlock>
         </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <!-- Celular deitado: alternar Código/Gráfico aqui em cima, para sobrar altura -->
+          <StackPanel x:Name="HeaderPages" Orientation="Horizontal" IsVisible="False" Margin="0,0,6,0">
+            <ToggleButton x:Name="HeaderCodeButton" Classes="page" Content="Código" IsChecked="True" CornerRadius="6,0,0,6" />
+            <ToggleButton x:Name="HeaderGraphButton" Classes="page" Content="Gráfico" CornerRadius="0,6,6,0" />
+          </StackPanel>
           <Button x:Name="OpenButton" Classes="bar" Content="Abrir" ToolTip.Tip="Abrir um programa do aparelho" />
           <Button x:Name="ExamplesButton" Classes="bar" Content="Exemplos" />
           <ComboBox x:Name="DialectCombo" MinHeight="36" SelectedIndex="0" ToolTip.Tip="Dialeto do comando">
@@ -77,6 +90,8 @@
             <!-- Celular: edição no editor nativo do aparelho (o teclado virtual funciona direito lá) -->
             <Button x:Name="EditButton" DockPanel.Dock="Right" Classes="bar" Content="Editar" IsVisible="False"
                     ToolTip.Tip="Editar o programa com o teclado do aparelho" />
+            <Button x:Name="ProblemsButton" DockPanel.Dock="Right" Classes="bar problems" IsVisible="False" Margin="0,0,6,0"
+                    ToolTip.Tip="Ir para o próximo erro ou aviso" />
             <TextBlock x:Name="FileNameText" VerticalAlignment="Center" FontWeight="SemiBold" Opacity="0.85" Text="sem título"
                        TextTrimming="CharacterEllipsis" />
           </DockPanel>
@@ -90,7 +105,7 @@
       <GridSplitter x:Name="Splitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SubtleBorder}" />
       <Grid x:Name="GraphHost" Grid.Column="2" RowDefinitions="Auto,*,Auto">
         <!-- Cabeçalho do gráfico: vista (fresa) ou plano do torno -->
-        <DockPanel Grid.Row="0" Margin="8,4" LastChildFill="False">
+        <DockPanel x:Name="GraphHeader" Grid.Row="0" Margin="8,4" LastChildFill="False">
           <TextBlock x:Name="LatheLabel" DockPanel.Dock="Left" VerticalAlignment="Center" Text="Torno · plano ZX" Opacity="0.7" />
           <StackPanel x:Name="MillViews" DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4">
             <ToggleButton x:Name="IsoViewButton" Classes="view" Content="2,5D" IsChecked="True" ToolTip.Tip="Isométrica: mostra as profundidades" />
@@ -126,7 +141,7 @@
                 <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="12" Width="70" Text="5 linhas/s" />
               </StackPanel>
             </WrapPanel>
-            <WrapPanel>
+            <WrapPanel x:Name="SimInfoRow">
               <TextBlock x:Name="SimPositionText" FontSize="12" Opacity="0.85" VerticalAlignment="Center" Margin="0,0,16,2" />
               <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <TextBlock Text="- - G00" Foreground="#FF4D4D" FontSize="12" />
