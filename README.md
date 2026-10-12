@@ -3,7 +3,7 @@
 Editor e simulador de programas CNC (FANUC e Siemens), leve e rápido, no estilo do CIMCO Edit.
 
 > **Status:** Etapa 2 — produto final (C# / .NET 10 + Avalonia + AvaloniaEdit).
-> Fases 1 (comandos de fresa), 1B (interpretador de macros), 2 (estatísticas), 3 (torno) 4 (backplot passe a passe) e 5 (interface da simulação) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
+> Fases 1 (comandos de fresa), 1B (interpretador de macros), 2 (estatísticas), 3 (torno) 4 (backplot passe a passe), 5 (interface da simulação) e 6 (editor e funções NC) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md).
 
 ## Testar sem instalar nada (executável pronto)
 
@@ -45,6 +45,13 @@ Para testar desempenho com um arquivo grande (10 MB):
   posição da ferramenta) e isométrica; trajetória desenhada por cima do material; ferramenta com suporte;
   barra de reprodução com régua (arraste para qualquer ponto), passo por linha, ◀ Passe / Passe ▶,
   velocidade; painel com T/Ø, X, Y, Z, G-code e avanço, linha, passe e distância; o editor acompanha a linha.
+
+- **Busca e funções NC:** procurar/substituir em português (maiúsculas, palavra inteira, expressão regular),
+  remover/inserir espaços, remover comentários e números de bloco, renumerar, maiúsculas.
+- **Ajuda no editor:** pare o mouse sobre G71, CYCLE83, #3000, GOTOF... para ver o que é e os parâmetros.
+- **Clique na trajetória** (backplot ou simulação) para ir à linha; **📏 Medir** no backplot (encaixa nos pontos).
+- **Limites de curso** (Máquina → Limites de curso): avisa a linha em que o programa passa do curso.
+- **Painel de avisos/erros** com filtro e contagem.
 
 ## Estrutura
 

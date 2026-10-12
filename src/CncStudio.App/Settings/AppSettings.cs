@@ -42,6 +42,18 @@ public sealed class AppSettings
 
     public double EditorFontSize { get; set; } = 14;
 
+    /// <summary>Mostrar a explicação do código ao parar o mouse no editor.</summary>
+    public bool ShowCodeHelp { get; set; } = true;
+
+    /// <summary>Verificar limites de curso (coordenadas do programa; no torno, X em diâmetro).</summary>
+    public bool TravelLimitsEnabled { get; set; }
+    public double? LimitMinX { get; set; }
+    public double? LimitMaxX { get; set; }
+    public double? LimitMinY { get; set; }
+    public double? LimitMaxY { get; set; }
+    public double? LimitMinZ { get; set; }
+    public double? LimitMaxZ { get; set; }
+
     /// <summary>Tipo de máquina: "Auto" (pelo programa), "Mill" ou "Lathe".</summary>
     public string Machine { get; set; } = "Auto";
 
@@ -119,6 +131,9 @@ public sealed class AppSettings
         {
             WorkOffsets = WorkOffsets.ToDictionary(o => o.Code, o => new Point3(o.X, o.Y, o.Z)),
             RapidRate = RapidRate,
+            TravelLimits = TravelLimitsEnabled
+                ? new TravelLimits(LimitMinX, LimitMaxX, LimitMinY, LimitMaxY, LimitMinZ, LimitMaxZ)
+                : null,
             MaxSpindleSpeed = MaxSpindleSpeed,
             Machine = Machine switch
             {

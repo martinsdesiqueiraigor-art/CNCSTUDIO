@@ -44,6 +44,25 @@ public partial class SimulationPanel : UserControl
         FitButton.Click += (_, _) => View.FitToContent();
 
         ShowPathCheck.IsCheckedChanged += (_, _) => View.ShowPath = ShowPathCheck.IsChecked == true;
+        View.Clicked += (_, click) =>
+        {
+            // Clique na trajetória desenhada: vai para a linha no editor
+            if (_path is null || !View.ShowPath)
+            {
+                return;
+            }
+
+            SimulationViewMode mode = Mode;
+            int index = PathHitTest.NearestMove(_path.Moves, p =>
+            {
+                var q = SimulationView.Project(mode, p);
+                return (q.X, q.Y);
+            }, click.World.X, click.World.Y, click.Tolerance, PathPolylineBuilder.ScreenTolerance(_path));
+            if (index >= 0)
+            {
+                LineRequested?.Invoke(this, _path.Moves[index].LineNumber);
+            }
+        };
 
         PlayButton.Click += (_, _) => TogglePlay();
         PreviousPassButton.Click += (_, _) =>
@@ -111,6 +130,9 @@ public partial class SimulationPanel : UserControl
 
     /// <summary>O usuário pediu para editar as ferramentas.</summary>
     public event EventHandler? ToolSettingsRequested;
+
+    /// <summary>Clicou na trajetória: ir para a linha no editor.</summary>
+    public event EventHandler<int>? LineRequested;
 
     /// <summary>A simulação chegou a outra linha do programa: o editor pode acompanhar.</summary>
     public event EventHandler<int>? LineReached;

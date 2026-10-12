@@ -91,6 +91,13 @@
                 <TextBlock Classes="groupLabel" Text="Fonte" />
               </StackPanel>
             </Border>
+            <Border Classes="group">
+              <StackPanel>
+                <CheckBox x:Name="CodeHelpCheck" Content="Explicar código ao parar o mouse"
+                          ToolTip.Tip="Mostra o que é G71, CYCLE83, #3000... e os parâmetros" />
+                <TextBlock Classes="groupLabel" Text="Ajuda" />
+              </StackPanel>
+            </Border>
           </StackPanel>
         </TabItem>
 

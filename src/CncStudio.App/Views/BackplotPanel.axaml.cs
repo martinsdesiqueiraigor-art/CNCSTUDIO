@@ -35,6 +35,14 @@ public partial class BackplotPanel : UserControl
         PlaneIso.IsCheckedChanged += (_, _) => OnPlaneChecked(PlaneIso, ViewPlane.Iso);
         PlaneLathe.IsCheckedChanged += (_, _) => OnPlaneChecked(PlaneLathe, ViewPlane.Lathe);
         FitButton.Click += (_, _) => View.FitToContent();
+        MeasureToggle.IsCheckedChanged += (_, _) => View.MeasureMode = MeasureToggle.IsChecked == true;
+        View.MoveClicked += (_, index) =>
+        {
+            if (_path is not null && index < _path.Moves.Count)
+            {
+                LineRequested?.Invoke(this, _path.Moves[index].LineNumber);
+            }
+        };
 
         StartButton.Click += (_, _) => { Pause(); SetLimit(0); };
         EndButton.Click += (_, _) => { Pause(); SetLimit(null); };
@@ -55,6 +63,9 @@ public partial class BackplotPanel : UserControl
         _timer.Tick += OnTick;
         UpdateStatus();
     }
+
+    /// <summary>Clicou num movimento: ir para a linha dele no editor.</summary>
+    public event EventHandler<int>? LineRequested;
 
     /// <summary>A barra passe a passe chegou a outra linha: o editor pode acompanhar.</summary>
     public event EventHandler<int>? LineReached;
@@ -99,7 +110,12 @@ public partial class BackplotPanel : UserControl
     /// <summary>Atalhos: Page Up / Page Down = passe anterior / próximo (quando o backplot tem o foco).</summary>
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        if (e.Key == Key.PageDown)
+        if (e.Key == Key.Escape && MeasureToggle.IsChecked == true)
+        {
+            MeasureToggle.IsChecked = false;
+            e.Handled = true;
+        }
+        else if (e.Key == Key.PageDown)
         {
             NextPass();
             e.Handled = true;

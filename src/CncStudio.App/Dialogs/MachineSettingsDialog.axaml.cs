@@ -42,6 +42,13 @@ public partial class MachineSettingsDialog : Window
         IntegerThousandthsOption.IsChecked = _settings.FanucIntegersAsThousandths;
         IntegerMmOption.IsChecked = !_settings.FanucIntegersAsThousandths;
         RapidRateInput.Value = (decimal)_settings.RapidRate;
+        LimitsEnabledCheck.IsChecked = _settings.TravelLimitsEnabled;
+        MinXInput.Value = (decimal?)_settings.LimitMinX;
+        MaxXInput.Value = (decimal?)_settings.LimitMaxX;
+        MinYInput.Value = (decimal?)_settings.LimitMinY;
+        MaxYInput.Value = (decimal?)_settings.LimitMaxY;
+        MinZInput.Value = (decimal?)_settings.LimitMinZ;
+        MaxZInput.Value = (decimal?)_settings.LimitMaxZ;
         MaxSpindleInput.Value = (decimal)_settings.MaxSpindleSpeed;
 
         AddToolButton.Click += (_, _) =>
@@ -121,6 +128,13 @@ public partial class MachineSettingsDialog : Window
         _settings.DefaultToolDiameter = (double)(DefaultDiameterInput.Value ?? 10);
         _settings.FanucIntegersAsThousandths = IntegerThousandthsOption.IsChecked == true;
         _settings.RapidRate = (double)(RapidRateInput.Value ?? 10_000);
+        _settings.TravelLimitsEnabled = LimitsEnabledCheck.IsChecked == true;
+        _settings.LimitMinX = (double?)MinXInput.Value;
+        _settings.LimitMaxX = (double?)MaxXInput.Value;
+        _settings.LimitMinY = (double?)MinYInput.Value;
+        _settings.LimitMaxY = (double?)MaxYInput.Value;
+        _settings.LimitMinZ = (double?)MinZInput.Value;
+        _settings.LimitMaxZ = (double?)MaxZInput.Value;
         _settings.MaxSpindleSpeed = (double)(MaxSpindleInput.Value ?? 4000);
 
         // Uma entrada por número de ferramenta (a última vence), em ordem

@@ -12,6 +12,8 @@
       <RadioButton x:Name="PlaneIso" GroupName="BackplotPlane" Content="Isométrica" Margin="0,0,4,0" />
       <RadioButton x:Name="PlaneLathe" GroupName="BackplotPlane" Content="Torno (ZX)" Margin="0,0,4,0" />
       <Button x:Name="FitButton" Content="Ajustar" Margin="8,0,0,0" />
+      <ToggleButton x:Name="MeasureToggle" Content="📏 Medir" Margin="4,0,0,0"
+                    ToolTip.Tip="Clique em dois pontos para medir (encaixa nos pontos da trajetória). Esc sai." />
       <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12">
         <Run Text="- - G00" Foreground="#FF4D4D" />
         <Run Text="   ── G01" Foreground="#3DDC6A" />

@@ -129,9 +129,26 @@ public abstract class ZoomPanControl : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        bool wasDragging = _dragging;
         _dragging = false;
         e.Pointer.Capture(null);
+
+        // Clique (sem arrastar): a vista decide o que fazer com o ponto
+        Point p = e.GetPosition(this);
+        if (wasDragging && Math.Abs(p.X - _dragStart.X) < 4 && Math.Abs(p.Y - _dragStart.Y) < 4
+            && e.InitialPressMouseButton == MouseButton.Left)
+        {
+            OnClick(p);
+        }
     }
+
+    /// <summary>Clique sem arrastar, na posição da tela. Padrão: nada.</summary>
+    protected virtual void OnClick(Point screen)
+    {
+    }
+
+    /// <summary>Quantas unidades do mundo cabem em "pixels" pixels na tela (tolerância de clique).</summary>
+    protected double PixelsToWorld(double pixels) => pixels / Scale;
 
     /// <summary>Texto simples (rótulos de eixo, legendas).</summary>
     protected static void DrawLabel(DrawingContext context, string text, Point position, IBrush brush, double size = 12)

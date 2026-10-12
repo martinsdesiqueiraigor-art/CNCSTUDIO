@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Media;
+using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Trajectory;
 
@@ -39,6 +40,15 @@ public sealed class BackplotView : ZoomPanControl
     private static readonly MotionMode[] Motions =
         [MotionMode.Rapid, MotionMode.Linear, MotionMode.ClockwiseArc, MotionMode.CounterClockwiseArc];
 
+    private static readonly Pen MeasurePen = new(Brushes.White, 1.2, new DashStyle([5, 3], 0));
+    private static readonly IBrush MeasureTextBackground = new SolidColorBrush(Color.FromArgb(210, 24, 26, 31)).ToImmutable();
+
+    /// <summary>Ponto de medição: posição na vista e, se encaixou na trajetória, o ponto 3D.</summary>
+    private readonly record struct MeasurePoint(Point View, Point3? Actual);
+
+    private readonly List<MeasurePoint> _measure = [];
+    private bool _measureMode;
+
     private ToolPath? _path;
     private IReadOnlyList<PathPolyline> _figures = [];
     private ViewPlane _plane = ViewPlane.XY;
@@ -65,6 +75,8 @@ public sealed class BackplotView : ZoomPanControl
             }
 
             _plane = value;
+            _measure.Clear();
+            MeasureText = _measureMode ? BuildMeasureText() : "";
             RebuildAll();
             FitToContent();
         }
@@ -115,6 +127,106 @@ public sealed class BackplotView : ZoomPanControl
     }
 
     protected override Rect? ContentBounds => _contentBounds;
+
+    /// <summary>Clicou num movimento (fora do modo de medição): índice na trajetória.</summary>
+    public event EventHandler<int>? MoveClicked;
+
+    /// <summary>Modo medição: cada clique marca um ponto (encaixa nos pontos da trajetória).</summary>
+    public bool MeasureMode
+    {
+        get => _measureMode;
+        set
+        {
+            _measureMode = value;
+            _measure.Clear();
+            MeasureText = value ? BuildMeasureText() : "";
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>Texto da medição atual (para a barra de status também).</summary>
+    public string MeasureText { get; private set; } = "";
+
+    /// <summary>Medição mudou (para mostrar o texto fora da vista).</summary>
+    public event EventHandler? MeasureChanged;
+
+    private (double U, double V) ProjectTuple(Point3 p)
+    {
+        Point q = _plane.Project(p);
+        return (q.X, q.Y);
+    }
+
+    protected override void OnClick(Point screen)
+    {
+        if (_path is null || _path.Moves.Count == 0)
+        {
+            return;
+        }
+
+        Point world = ToWorld(screen);
+        if (_measureMode)
+        {
+            if (_measure.Count >= 2)
+            {
+                _measure.Clear(); // terceiro clique: começa outra medição
+            }
+
+            Point3? snapped = PathHitTest.NearestPoint(_path.Moves, ProjectTuple, world.X, world.Y, PixelsToWorld(10));
+            _measure.Add(new MeasurePoint(snapped is { } p ? _plane.Project(p) : world, snapped));
+            MeasureText = BuildMeasureText();
+            MeasureChanged?.Invoke(this, EventArgs.Empty);
+            InvalidateVisual();
+            return;
+        }
+
+        int index = PathHitTest.NearestMove(_path.Moves, ProjectTuple, world.X, world.Y,
+            PixelsToWorld(6), PathPolylineBuilder.ScreenTolerance(_path));
+        if (index >= 0)
+        {
+            MoveClicked?.Invoke(this, index);
+        }
+    }
+
+    /// <summary>Distâncias da medição, com ΔX/ΔY/ΔZ quando os dois pontos estão na trajetória.</summary>
+    private string BuildMeasureText()
+    {
+        bool lathe = _path?.Machine == MachineKind.Lathe;
+        string Describe(Point3 p) => lathe ? $"Ø{p.X * 2:0.###} Z{p.Z:0.###}" : $"X{p.X:0.###} Y{p.Y:0.###} Z{p.Z:0.###}";
+
+        if (_measure.Count == 0)
+        {
+            return "Medir: clique no 1º ponto (encaixa nos pontos da trajetória).";
+        }
+
+        MeasurePoint a = _measure[0];
+        if (_measure.Count == 1)
+        {
+            return a.Actual is { } p1 ? $"Ponto 1: {Describe(p1)} — clique no 2º ponto." : "Ponto 1 marcado — clique no 2º ponto.";
+        }
+
+        MeasurePoint b = _measure[1];
+        if (a.Actual is { } pa && b.Actual is { } pb)
+        {
+            double dx = pb.X - pa.X, dy = pb.Y - pa.Y, dz = pb.Z - pa.Z;
+            double distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            return lathe
+                ? $"Distância {distance:0.###} · ΔZ {dz:0.###} · ΔØ {2 * dx:0.###}   ({Describe(pa)} → {Describe(pb)})"
+                : $"Distância {distance:0.###} · ΔX {dx:0.###} · ΔY {dy:0.###} · ΔZ {dz:0.###}";
+        }
+
+        if (_plane == ViewPlane.Iso)
+        {
+            return "Na isométrica, clique perto dos pontos da trajetória para medir em 3D.";
+        }
+
+        // Ponto solto: medida no plano da vista
+        (string Name, double U, double V)[] axes = _plane.AxisDirections();
+        double du = b.View.X - a.View.X, dv = b.View.Y - a.View.Y;
+        double planeDistance = Math.Sqrt(du * du + dv * dv);
+        string uName = axes[0].Name, vName = axes[1].Name;
+        string vText = lathe && vName == "X" ? $"ΔØ {2 * dv:0.###}" : $"Δ{vName} {dv:0.###}";
+        return $"Distância no plano {planeDistance:0.###} · Δ{uName} {du:0.###} · {vText}";
+    }
 
     protected override void RenderContent(DrawingContext context)
     {
@@ -167,8 +279,35 @@ public sealed class BackplotView : ZoomPanControl
             context.DrawEllipse(ToolBrush, ToolPen, ToScreen(tool.X, tool.Y), 6, 6);
         }
 
+        if (_measureMode)
+        {
+            DrawMeasure(context);
+        }
+
         DrawLabel(context, $"{_plane.Caption()}  ·  roda = zoom  ·  arrastar = mover  ·  duplo clique = ajustar",
             new Point(8, Bounds.Height - 20), LabelBrush, 11);
+    }
+
+    private void DrawMeasure(DrawingContext context)
+    {
+        Point? previous = null;
+        foreach (MeasurePoint point in _measure)
+        {
+            Point screen = ToScreen(point.View.X, point.View.Y);
+            if (previous is { } p)
+            {
+                context.DrawLine(MeasurePen, p, screen);
+            }
+
+            context.DrawEllipse(null, MeasurePen, screen, 5, 5);
+            previous = screen;
+        }
+
+        var text = new FormattedText(MeasureText, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+            Typeface.Default, 12, Brushes.White);
+        var box = new Rect(6, 6, text.Width + 12, text.Height + 8);
+        context.DrawRectangle(MeasureTextBackground, null, box, 4, 4);
+        context.DrawText(text, new Point(12, 10));
     }
 
     private static Pen PenFor(MotionMode motion) => motion switch

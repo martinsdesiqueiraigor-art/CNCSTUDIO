@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using CncStudio.App.Dialogs;
 using CncStudio.App.Highlighting;
@@ -82,6 +83,18 @@ public partial class MainWindow : Window
         RemoveCommentsButton.Click += (_, _) => ApplyTextTool(text => NcTextTools.RemoveComments(text, CurrentDialect));
 
         Search.Attach(Editor);
+
+        // Explicação do código ao parar o mouse
+        CodeHelpCheck.IsChecked = _settings.ShowCodeHelp;
+        CodeHelpCheck.IsCheckedChanged += (_, _) =>
+        {
+            _settings.ShowCodeHelp = CodeHelpCheck.IsChecked == true;
+            HideCodeHelp();
+        };
+        _helpTimer.Tick += (_, _) => ShowCodeHelp();
+        Editor.TextArea.PointerMoved += OnEditorPointerMoved;
+        Editor.TextArea.PointerExited += (_, _) => HideCodeHelp();
+        Editor.TextArea.KeyDown += (_, _) => HideCodeHelp();
         ShowErrorsToggle.IsCheckedChanged += (_, _) => RefreshDiagnostics();
         ShowWarningsToggle.IsCheckedChanged += (_, _) => RefreshDiagnostics();
         RefreshDiagnostics();
@@ -113,6 +126,8 @@ public partial class MainWindow : Window
 
         Backplot.LineReached += (_, line) => ShowLine(line); // passe a passe: o editor acompanha
         Simulation.LineReached += (_, line) => ShowLine(line);
+        Backplot.LineRequested += (_, line) => GoToLine(line);   // clique na trajetória
+        Simulation.LineRequested += (_, line) => GoToLine(line);
 
         // Atalhos capturados antes do editor (rota "tunnel")
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
@@ -423,6 +438,79 @@ public partial class MainWindow : Window
 
         Editor.TextArea.Caret.Offset = document.GetLineByNumber(lineNumber).Offset;
         Editor.ScrollToLine(lineNumber);
+    }
+
+    // ───────────────────────── Explicação do código (mouse) ─────────────────────────
+
+    private readonly DispatcherTimer _helpTimer = new() { Interval = TimeSpan.FromMilliseconds(450) };
+    private string? _pendingHelp;
+    private string? _shownHelp;
+
+    private void OnEditorPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_settings.ShowCodeHelp)
+        {
+            return;
+        }
+
+        string? help = HelpAt(e.GetPosition(Editor));
+        if (help == _shownHelp && help is not null)
+        {
+            return; // continua sobre o mesmo código
+        }
+
+        HideCodeHelp();
+        _pendingHelp = help;
+        if (help is not null)
+        {
+            _helpTimer.Start();
+        }
+    }
+
+    /// <summary>Explicação do código sob o ponto (coordenadas do editor), ou null.</summary>
+    private string? HelpAt(Avalonia.Point point)
+    {
+        TextViewPosition? position = Editor.GetPositionFromPoint(point);
+        if (position is not { } p || p.Line < 1 || p.Line > Editor.Document.LineCount)
+        {
+            return null;
+        }
+
+        DocumentLine line = Editor.Document.GetLineByNumber(p.Line);
+        string text = Editor.Document.GetText(line.Offset, line.Length);
+        int column = p.Column - 1;
+        if (column < 0 || column >= text.Length)
+        {
+            return null;
+        }
+
+        MachineKind machine = CurrentAnalysis?.ToolPath.Machine ?? MachineKind.Mill;
+        return GCodeHelp.Describe(text, column, CurrentDialect, machine);
+    }
+
+    private void ShowCodeHelp()
+    {
+        _helpTimer.Stop();
+        if (_pendingHelp is null)
+        {
+            return;
+        }
+
+        _shownHelp = _pendingHelp;
+        ToolTip.SetTip(Editor, new TextBlock { Text = _shownHelp, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MaxWidth = 520 });
+        ToolTip.SetIsOpen(Editor, true);
+    }
+
+    private void HideCodeHelp()
+    {
+        _helpTimer.Stop();
+        _pendingHelp = null;
+        if (_shownHelp is not null)
+        {
+            _shownHelp = null;
+            ToolTip.SetIsOpen(Editor, false);
+            ToolTip.SetTip(Editor, null);
+        }
     }
 
     // ───────────────────────── Atalhos e status ─────────────────────────

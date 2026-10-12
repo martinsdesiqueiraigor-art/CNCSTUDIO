@@ -88,7 +88,7 @@ A simulação de remoção de material do torno saiu do escopo; o torno usa o ba
 - Editor acompanha a linha em execução.
 - Também: navegação por passes (◀ Passe / Passe ▶) e distância percorrida no painel.
 
-### Fase 6 — Editor e funções NC
+### Fase 6 — Editor e funções NC ✅
 - Barra de busca/substituição própria, em português (maiúsculas, palavra inteira, expressão regular).
 - Painel de erros com filtro (erros/avisos) e contagem.
 - Funções NC extras: remover/inserir espaços, remover comentários, remover números de bloco.

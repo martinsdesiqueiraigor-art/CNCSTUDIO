@@ -45,8 +45,11 @@ public static class ProgramAnalyzer
         ToolPath toolPath = MachineExecutor.Execute(parse, settings);
         cancellationToken.ThrowIfCancellationRequested();
 
+        List<ParseDiagnostic> limits = settings.TravelLimits?.Check(toolPath) ?? [];
+
         List<ParseDiagnostic> diagnostics = parse.Diagnostics
             .Concat(toolPath.Diagnostics)
+            .Concat(limits)
             .OrderBy(d => d.LineNumber)
             .ThenBy(d => d.Column)
             .ToList();

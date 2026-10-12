@@ -17,6 +17,9 @@ public sealed record MachineSettings
 {
     public static MachineSettings Default { get; } = new();
 
+    /// <summary>Limites de curso (avisos quando o programa passa deles). Null = sem verificação.</summary>
+    public TravelLimits? TravelLimits { get; init; }
+
     /// <summary>Fresa ou torno. Null = descobrir pelo programa (<see cref="MachineDetector"/>).</summary>
     public MachineKind? Machine { get; init; }
 

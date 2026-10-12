@@ -48,6 +48,27 @@
         </StackPanel>
       </TabItem>
 
+      <TabItem Header="Limites de curso">
+        <StackPanel Margin="0,8,0,0" Spacing="8">
+          <CheckBox x:Name="LimitsEnabledCheck" Content="Avisar quando o programa passar dos limites" />
+          <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                     Text="Em coordenadas do programa (zero de peça aplicado). No torno, X em diâmetro. Campo vazio = sem limite naquele sentido." />
+          <Grid ColumnDefinitions="40,160,160" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4,0,0">
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="Mínimo" Opacity="0.7" />
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="Máximo" Opacity="0.7" />
+            <TextBlock Grid.Row="1" Text="X" VerticalAlignment="Center" />
+            <NumericUpDown x:Name="MinXInput" Grid.Row="1" Grid.Column="1" Width="150" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+            <NumericUpDown x:Name="MaxXInput" Grid.Row="1" Grid.Column="2" Width="150" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+            <TextBlock Grid.Row="2" Text="Y" VerticalAlignment="Center" />
+            <NumericUpDown x:Name="MinYInput" Grid.Row="2" Grid.Column="1" Width="150" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+            <NumericUpDown x:Name="MaxYInput" Grid.Row="2" Grid.Column="2" Width="150" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+            <TextBlock Grid.Row="3" Text="Z" VerticalAlignment="Center" />
+            <NumericUpDown x:Name="MinZInput" Grid.Row="3" Grid.Column="1" Width="150" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+            <NumericUpDown x:Name="MaxZInput" Grid.Row="3" Grid.Column="2" Width="150" HorizontalAlignment="Left" FormatString="0.###" Margin="0,2" />
+          </Grid>
+        </StackPanel>
+      </TabItem>
+
       <TabItem Header="Programa">
         <StackPanel Margin="0,8,0,0" Spacing="10">
           <TextBlock Text="Números sem ponto decimal no Fanuc (ex.: X10)" FontWeight="SemiBold" />

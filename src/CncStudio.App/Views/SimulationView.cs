@@ -65,6 +65,20 @@ public sealed class SimulationView : ZoomPanControl
         }
     }
 
+    /// <summary>Clique sem arrastar: ponto na vista (mundo) e a tolerância de 6 px em unidades do mundo.</summary>
+    public event EventHandler<(Point World, double Tolerance)>? Clicked;
+
+    protected override void OnClick(Point screen) => Clicked?.Invoke(this, (ToWorld(screen), PixelsToWorld(6)));
+
+    /// <summary>Projeção 3D → vista usada em cada modo (a mesma do desenho da trajetória).</summary>
+    public static Point Project(SimulationViewMode mode, Point3 p) => mode switch
+    {
+        SimulationViewMode.Top => new Point(p.X, p.Y),
+        SimulationViewMode.Front => new Point(p.X, p.Z),
+        SimulationViewMode.Side => new Point(p.Y, p.Z),
+        _ => new Point(IsoProjection.U(p.X, p.Y), IsoProjection.V(p.X, p.Y, p.Z)),
+    };
+
     /// <summary>Trajetória desenhada por cima do material (figuras do backplot).</summary>
     public void SetPath(IReadOnlyList<PathPolyline> figures)
     {
@@ -249,14 +263,6 @@ public sealed class SimulationView : ZoomPanControl
 
     private static StreamGeometry PathGeometry(IEnumerable<PathPolyline> figures, SimulationViewMode mode)
     {
-        static Point Project(SimulationViewMode mode, Point3 p) => mode switch
-        {
-            SimulationViewMode.Top => new Point(p.X, p.Y),
-            SimulationViewMode.Front => new Point(p.X, p.Z),
-            SimulationViewMode.Side => new Point(p.Y, p.Z),
-            _ => new Point(IsoProjection.U(p.X, p.Y), IsoProjection.V(p.X, p.Y, p.Z)),
-        };
-
         var geometry = new StreamGeometry();
         using (StreamGeometryContext g = geometry.Open())
         {
