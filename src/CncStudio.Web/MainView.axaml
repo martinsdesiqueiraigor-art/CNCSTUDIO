@@ -126,15 +126,15 @@
                 <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="12" Width="70" Text="5 linhas/s" />
               </StackPanel>
             </WrapPanel>
-            <Grid ColumnDefinitions="Auto,*">
-              <TextBlock x:Name="SimPositionText" Grid.Column="0" FontSize="12" Opacity="0.85" VerticalAlignment="Center" />
-              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
+            <WrapPanel>
+              <TextBlock x:Name="SimPositionText" FontSize="12" Opacity="0.85" VerticalAlignment="Center" Margin="0,0,16,2" />
+              <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <TextBlock Text="- - G00" Foreground="#FF4D4D" FontSize="12" />
                 <TextBlock Text="— G01" Foreground="#3DDC6A" FontSize="12" />
                 <TextBlock Text="— G02" Foreground="#7FD8FF" FontSize="12" />
                 <TextBlock Text="— G03" Foreground="#3D6BFF" FontSize="12" />
               </StackPanel>
-            </Grid>
+            </WrapPanel>
           </StackPanel>
         </Border>
       </Grid>

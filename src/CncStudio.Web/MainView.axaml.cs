@@ -132,7 +132,7 @@ public partial class MainView : UserControl
         ExamplesButton.Flyout = menu;
         foreach (string name in ExampleNames())
         {
-            var item = new MenuItem { Header = name };
+            var item = new MenuItem { Header = name.Replace("_", "__") }; // "_" sozinho vira tecla de atalho
             item.Click += (_, _) => LoadExample(name);
             menu.Items.Add(item);
         }
