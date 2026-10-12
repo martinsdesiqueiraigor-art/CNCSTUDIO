@@ -1,3 +1,4 @@
+using CncStudio.Core.Execution;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Parsing;
@@ -12,7 +13,7 @@ public class SimulationTests
     private static HeightMap CreateMap() => new(0, 0, 100, 100, 0.5, 0, -10);
 
     private static ToolPath BuildFanuc(params string[] lines) =>
-        TrajectoryBuilder.Build(GCodeParser.Parse(string.Join("\n", lines), Dialect.Fanuc));
+        MachineExecutor.Execute(GCodeParser.Parse(string.Join("\n", lines), Dialect.Fanuc));
 
     [Fact]
     public void BrutoNovoTemTudoNoTopo()

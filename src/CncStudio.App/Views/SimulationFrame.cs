@@ -35,6 +35,7 @@ public sealed class SimulationFrame
 
     public required Point3 ToolPosition { get; init; }
     public required double ToolDiameter { get; init; }
+    public required int Tool { get; init; }
     public required int LineNumber { get; init; }
     public required bool IsFinished { get; init; }
 
@@ -52,7 +53,7 @@ public sealed class SimulationFrame
     public double ToolDrawLength => Math.Max(20, ToolDiameter * 3);
 
     /// <summary>Captura o estado atual. Deve rodar na mesma thread que mexe no simulador.</summary>
-    public static SimulationFrame Capture(MaterialSimulator simulator, SimulationViewMode mode, int generation, double toolDiameter)
+    public static SimulationFrame Capture(MaterialSimulator simulator, SimulationViewMode mode, int generation)
     {
         HeightMap map = simulator.Map;
         uint[]? top = null;
@@ -101,7 +102,8 @@ public sealed class SimulationFrame
             TopZ = map.TopZ,
             BottomZ = map.BottomZ,
             ToolPosition = tool,
-            ToolDiameter = toolDiameter,
+            ToolDiameter = simulator.CurrentToolDiameter,
+            Tool = simulator.CurrentTool,
             LineNumber = simulator.CurrentLineNumber,
             IsFinished = simulator.IsFinished,
             TopPixels = top,

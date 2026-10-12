@@ -13,6 +13,7 @@ public sealed class ToolPath
 
         var all = Bounds3.Empty;
         var cutting = Bounds3.Empty;
+        var tools = new SortedSet<int>();
         foreach (Move move in moves)
         {
             all = move.IncludeIn(all);
@@ -20,16 +21,22 @@ public sealed class ToolPath
             {
                 cutting = move.IncludeIn(cutting);
             }
+
+            if (move.Tool != 0)
+            {
+                tools.Add(move.Tool);
+            }
         }
 
         Bounds = all;
         CuttingBounds = cutting;
+        Tools = tools.ToArray();
     }
 
-    /// <summary>Movimentos em ordem de execução: no máximo um por linha do arquivo.</summary>
+    /// <summary>Movimentos em ordem de execução.</summary>
     public IReadOnlyList<Move> Moves { get; }
 
-    /// <summary>Avisos gerados ao montar a trajetória (ex.: raio de arco inconsistente).</summary>
+    /// <summary>Avisos e erros de execução (comandos não suportados, raio de arco inconsistente...).</summary>
     public IReadOnlyList<ParseDiagnostic> Diagnostics { get; }
 
     /// <summary>Envelope de todos os movimentos, inclusive rápidos.</summary>
@@ -38,33 +45,50 @@ public sealed class ToolPath
     /// <summary>Envelope só dos movimentos de corte (G01/G02/G03).</summary>
     public Bounds3 CuttingBounds { get; }
 
+    /// <summary>Ferramentas usadas, em ordem crescente.</summary>
+    public IReadOnlyList<int> Tools { get; }
+
     /// <summary>
-    /// Índice do movimento gerado por uma linha do arquivo, ou -1 se a linha não gerou movimento.
-    /// Usa busca binária, pois os movimentos estão em ordem crescente de linha.
+    /// Índices dos movimentos gerados por uma linha do arquivo (vazio se a linha não gerou movimento).
+    /// Uma linha pode gerar vários movimentos (ciclo de furação, repetições).
+    /// Hoje os movimentos de uma linha são contíguos e em ordem; a busca é binária.
     /// </summary>
-    public int IndexOfLine(int lineNumber)
+    public IReadOnlyList<int> MovesForLine(int lineNumber)
+    {
+        int first = LowerBound(lineNumber);
+        int last = LowerBound(lineNumber + 1);
+        if (first >= last)
+        {
+            return [];
+        }
+
+        var indices = new int[last - first];
+        for (int k = 0; k < indices.Length; k++)
+        {
+            indices[k] = first + k;
+        }
+
+        return indices;
+    }
+
+    /// <summary>Primeiro índice cujo LineNumber é maior ou igual ao informado.</summary>
+    private int LowerBound(int lineNumber)
     {
         int low = 0;
-        int high = Moves.Count - 1;
-        while (low <= high)
+        int high = Moves.Count;
+        while (low < high)
         {
             int mid = (low + high) / 2;
-            int midLine = Moves[mid].LineNumber;
-            if (midLine == lineNumber)
-            {
-                return mid;
-            }
-
-            if (midLine < lineNumber)
+            if (Moves[mid].LineNumber < lineNumber)
             {
                 low = mid + 1;
             }
             else
             {
-                high = mid - 1;
+                high = mid;
             }
         }
 
-        return -1;
+        return low;
     }
 }

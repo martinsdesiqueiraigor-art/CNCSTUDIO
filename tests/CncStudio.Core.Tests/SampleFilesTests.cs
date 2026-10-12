@@ -1,3 +1,4 @@
+using CncStudio.Core.Execution;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Parsing;
 using CncStudio.Core.Simulation;
@@ -21,11 +22,11 @@ public class SampleFilesTests
         Assert.Equal(expectedDialect, dialect);
 
         ParseResult parse = GCodeParser.Parse(File.ReadAllText(path), dialect);
-        ToolPath toolPath = TrajectoryBuilder.Build(parse);
+        ToolPath toolPath = MachineExecutor.Execute(parse);
 
         Assert.Empty(parse.Diagnostics);
         Assert.Empty(toolPath.Diagnostics);
-        Assert.True(parse.Blocks[^1].EndsProgram);
+        Assert.Equal(30.0, parse.Blocks[^1].Find('M')!.Value.Value); // termina com M30
 
         // Peça de 100 x 60 mm com zero no canto: o corte fica perto dessa área
         Assert.InRange(toolPath.CuttingBounds.Min.X, -10, 0);
@@ -40,6 +41,26 @@ public class SampleFilesTests
         Assert.Equal(-6f, map.GetHeightAt(80, 30));  // fundo do bolsão circular
         Assert.Equal(-6f, map.GetHeightAt(8, 8));    // furo
         Assert.Equal(-0.5f, map.GetHeightAt(20, 4)); // faceamento
+    }
+
+    [Theory]
+    [InlineData("FURACAO.nc")]
+    [InlineData("FURACAO.mpf")]
+    public void ExemplosDeFuracaoFuramNasPosicoesCertas(string fileName)
+    {
+        string path = SamplePath(fileName);
+        ToolPath toolPath = MachineExecutor.Execute(GCodeParser.Parse(File.ReadAllText(path), DialectDetector.FromFileName(path)));
+
+        Assert.Empty(toolPath.Diagnostics);
+        Assert.Equal(new[] { 2, 3 }, toolPath.Tools);
+
+        // Profundidade máxima em alguns furos
+        double Bottom(double x, double y) => toolPath.Moves
+            .Where(m => Math.Abs(m.End.X - x) < 1e-6 && Math.Abs(m.End.Y - y) < 1e-6)
+            .Min(m => m.End.Z);
+
+        Assert.Equal(-18, Bottom(15, 15), 6);
+        Assert.Equal(-18, Bottom(85, 45), 6);
     }
 
     [Fact]
@@ -62,6 +83,6 @@ public class SampleFilesTests
     private static ToolPath Build(string fileName)
     {
         string path = SamplePath(fileName);
-        return TrajectoryBuilder.Build(GCodeParser.Parse(File.ReadAllText(path), DialectDetector.FromFileName(path)));
+        return MachineExecutor.Execute(GCodeParser.Parse(File.ReadAllText(path), DialectDetector.FromFileName(path)));
     }
 }

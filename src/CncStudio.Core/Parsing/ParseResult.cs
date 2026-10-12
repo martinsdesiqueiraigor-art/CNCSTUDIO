@@ -2,10 +2,10 @@ using CncStudio.Core.Dialects;
 
 namespace CncStudio.Core.Parsing;
 
-/// <summary>Resultado do parse de um programa inteiro.</summary>
+/// <summary>Resultado do parse (só sintaxe) de um programa inteiro.</summary>
 public sealed record ParseResult(
     Dialect Dialect,
-    IReadOnlyList<Block> Blocks,
+    IReadOnlyList<NcBlock> Blocks,
     IReadOnlyList<ParseDiagnostic> Diagnostics)
 {
     public bool HasErrors => Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error);

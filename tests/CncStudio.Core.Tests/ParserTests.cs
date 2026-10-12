@@ -3,203 +3,107 @@ using CncStudio.Core.Parsing;
 
 namespace CncStudio.Core.Tests;
 
+/// <summary>O parser só cuida da sintaxe: palavras, palavras-chave, rótulos e erros de escrita.</summary>
 public class ParserTests
 {
-    private static ParseResult ParseFanuc(params string[] lines) =>
-        GCodeParser.Parse(string.Join("\n", lines), Dialect.Fanuc);
-
     [Fact]
-    public void MovimentoEAvancoSaoModais()
+    public void BlocoGuardaPalavrasNaOrdemENumeroDaLinha()
     {
-        ParseResult result = ParseFanuc(
-            "G01 X10 F100",
-            "X20",
-            "G00 X0");
+        ParseResult result = GCodeParser.Parse("%\n(CABECALHO)\n\nN100 G01 X10. Y5 F200", Dialect.Fanuc);
 
-        Assert.Equal(3, result.Blocks.Count);
-        Assert.Equal(MotionMode.Linear, result.Blocks[1].Motion);
-        Assert.Equal(100.0, result.Blocks[1].Feed);
-        Assert.Equal(20.0, result.Blocks[1].X!.Value);
-        Assert.Null(result.Blocks[1].Y);
-        Assert.Equal(MotionMode.Rapid, result.Blocks[2].Motion);
+        NcBlock block = Assert.Single(result.Blocks);
+        Assert.Equal(4, block.LineNumber);
+        Assert.Equal(100, block.BlockNumber!.Value);
+        Assert.Equal(new[] { 'G', 'X', 'Y', 'F' }, block.Words.Select(w => w.Letter));
+        Assert.True(block.Find('X')!.Value.HasDecimalPoint);
+        Assert.False(block.Find('Y')!.Value.HasDecimalPoint);
         Assert.Empty(result.Diagnostics);
     }
 
     [Fact]
-    public void MovimentoInicialEhRapido()
+    public void LinhasSoComComentarioNaoGeramBloco()
     {
-        ParseResult result = ParseFanuc("X5 Y5");
+        ParseResult result = GCodeParser.Parse("(SO COMENTARIO)\n%\nO1001 (PROGRAMA)", Dialect.Fanuc);
 
-        Assert.Equal(MotionMode.Rapid, Assert.Single(result.Blocks).Motion);
+        Assert.Empty(result.Blocks);
     }
 
     [Fact]
-    public void LinhasDeComentarioNaoGeramBlocoMasContamNaNumeracao()
+    public void TextoNaoReconhecidoEhErroComPosicao()
     {
-        ParseResult result = ParseFanuc(
-            "%",
-            "(CABECALHO)",
-            "",
-            "N100 G01 X1 F50");
-
-        Block block = Assert.Single(result.Blocks);
-        Assert.Equal(4, block.LineNumber);
-        Assert.Equal(100, block.BlockNumber!.Value);
-    }
-
-    [Fact]
-    public void SpindleLigaEDesliga()
-    {
-        ParseResult result = ParseFanuc(
-            "S3000 M03",
-            "G01 X10 F200",
-            "M05");
-
-        Assert.Equal(SpindleState.Clockwise, result.Blocks[0].Spindle);
-        Assert.Equal(3000.0, result.Blocks[1].SpindleSpeed);
-        Assert.Equal(SpindleState.Clockwise, result.Blocks[1].Spindle);
-        Assert.Equal(SpindleState.Off, result.Blocks[2].Spindle);
-    }
-
-    [Fact]
-    public void ArcoGuardaCentroIJ()
-    {
-        Block block = Assert.Single(ParseFanuc("G03 X0 Y10 I-10 J0").Blocks);
-
-        Assert.Equal(MotionMode.CounterClockwiseArc, block.Motion);
-        Assert.Equal(-10.0, block.I!.Value);
-        Assert.Equal(0.0, block.J!.Value);
-        Assert.True(block.HasMotion);
-    }
-
-    [Fact]
-    public void ArcoSoComIJEhMovimento_CirculoCompletoFanuc()
-    {
-        Block block = Assert.Single(ParseFanuc("G02 I-5").Blocks);
-
-        Assert.True(block.HasMotion);
-    }
-
-    [Fact]
-    public void ArcoSemIJGeraErro()
-    {
-        ParseResult result = ParseFanuc("G02 X10 Y10");
-
-        ParseDiagnostic error = Assert.Single(result.Diagnostics);
-        Assert.Equal(DiagnosticSeverity.Error, error.Severity);
-        Assert.Equal(1, error.LineNumber);
-    }
-
-    [Fact]
-    public void G91GeraErroComPosicaoDoToken()
-    {
-        ParseResult result = ParseFanuc(
-            "G00 X0",
-            "G91 G01 X5");
+        ParseResult result = GCodeParser.Parse("G00 X0\nG01 X10 $", Dialect.Fanuc);
 
         ParseDiagnostic error = Assert.Single(result.Diagnostics);
         Assert.Equal(DiagnosticSeverity.Error, error.Severity);
         Assert.Equal(2, error.LineNumber);
-        Assert.Equal(0, error.Column);
-        Assert.Equal(3, error.Length);
-        Assert.True(result.HasErrors);
+        Assert.Equal(8, error.Column);
     }
 
     [Fact]
-    public void DoisCodigosDeMovimentoNoMesmoBlocoGeramErro()
+    public void Siemens_CicloViraStatementComArgumentos()
     {
-        ParseResult result = ParseFanuc("G00 G01 X5");
+        NcBlock block = Assert.Single(GCodeParser.Parse("MCALL CYCLE81(10,0,2,-5)", Dialect.Siemens).Blocks);
 
-        Assert.Contains(result.Diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        Assert.Equal(2, block.Statements.Count);
+        Assert.Equal("MCALL", block.Statements[0].Name);
+        Statement cycle = block.Statements[1];
+        Assert.Equal("CYCLE81", cycle.Name);
+        Assert.Equal("10,0,2,-5", cycle.Arguments);
     }
 
     [Fact]
-    public void EixoRepetidoGeraErro()
+    public void Siemens_RotuloERaioCr()
     {
-        ParseResult result = ParseFanuc("G01 X5 X6");
+        ParseResult result = GCodeParser.Parse("VOLTA:\nG3 X-3. Y66. CR=3", Dialect.Siemens);
 
-        Assert.Contains(result.Diagnostics, d => d.Message.Contains("repetido"));
-    }
-
-    [Fact]
-    public void CodigosComunsSaoAceitosSemAviso()
-    {
-        ParseResult result = ParseFanuc(
-            "G21 G17 G40 G49 G80 G90",
-            "T1 M06",
-            "G54",
-            "M08");
-
+        Assert.Equal(StatementKind.Label, result.Blocks[0].Statements[0].Kind);
+        Assert.Equal("VOLTA", result.Blocks[0].Statements[0].Name);
+        Statement radius = result.Blocks[1].Statements[0];
+        Assert.Equal("CR", radius.Name);
+        Assert.Equal(3.0, radius.Value!.Value);
         Assert.Empty(result.Diagnostics);
     }
 
     [Fact]
-    public void CodigoNaoSuportadoGeraAviso()
-    {
-        ParseResult result = ParseFanuc("G28 X0 Y0");
-
-        ParseDiagnostic warning = Assert.Single(result.Diagnostics);
-        Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
-        Assert.False(result.HasErrors);
-    }
-
-    [Fact]
-    public void BlocosDepoisDoM30SaoIgnoradosComUmAviso()
-    {
-        ParseResult result = ParseFanuc(
-            "G01 X10 F100",
-            "M30",
-            "G00 X99",
-            "G00 X98");
-
-        Assert.Equal(2, result.Blocks.Count);
-        Assert.True(result.Blocks[1].EndsProgram);
-        ParseDiagnostic warning = Assert.Single(result.Diagnostics);
-        Assert.Equal(3, warning.LineNumber);
-    }
-
-    [Fact]
-    public void Siemens_ProgramaBasico()
+    public void Fanuc_MacrosSaoReconhecidasSemErro()
     {
         const string program = """
-            %_N_TESTE_MPF
-            ;$PATH=/_N_MPF_DIR
-            N10 G17 G71 G90 ; preparacao
-            N20 T1 D1
-            N30 M6
-            N40 S2000 M3
-            N50 G0 X=10 Y=5
-            N60 G1 Z-2 F=150
-            N70 G2 X20 Y5 I5 J0
-            N80 M30
+            #1=48;
+            WHILE[#1 GE 0] DO2;
+            #7=#1*COS[#2];
+            G1 X#7 Y#8 F800;
+            IF [#20 GT #12] GOTO260
+            X[#1] ,R[#8]
+            END2;
             """;
 
-        ParseResult result = GCodeParser.Parse(program, Dialect.Siemens);
+        ParseResult result = GCodeParser.Parse(program, Dialect.Fanuc);
 
         Assert.Empty(result.Diagnostics);
-        Block arc = result.Blocks.Single(b => b.BlockNumber == 70);
-        Assert.Equal(MotionMode.ClockwiseArc, arc.Motion);
-        Assert.Equal(150.0, arc.Feed);
-        Assert.True(result.Blocks[^1].EndsProgram);
+        Assert.Equal(StatementKind.Expression, result.Blocks[0].Statements[0].Kind);
+        Assert.Equal("WHILE", result.Blocks[1].Statements[0].Name);
+        Assert.Equal("#1 GE 0", result.Blocks[1].Statements[0].Arguments);
+        Assert.Equal(2, result.Blocks[3].Statements.Count); // X#7 e Y#8
+        Assert.Equal(",R", result.Blocks[5].Statements[1].Name);
     }
 
     [Fact]
-    public void Siemens_CicloGeraAvisoENaoBloco()
+    public void Siemens_ExemploChavetaNaoTemErroDeSintaxe()
     {
-        ParseResult result = GCodeParser.Parse("CYCLE81(10,0,2,-5)", Dialect.Siemens);
+        string path = Path.Combine(AppContext.BaseDirectory, "samples", "macros", "CHAVETA.mpf");
 
-        Assert.Empty(result.Blocks);
-        ParseDiagnostic warning = Assert.Single(result.Diagnostics);
-        Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
-        Assert.Contains("CYCLE81", warning.Message);
+        ParseResult result = GCodeParser.Parse(File.ReadAllText(path), Dialect.Siemens);
+
+        Assert.Empty(result.Diagnostics);
     }
 
     [Fact]
-    public void Siemens_RaioCrAindaNaoSuportado()
+    public void Fanuc_ExemploEspiralNaoTemErroDeSintaxe()
     {
-        ParseResult result = GCodeParser.Parse("G2 X10 Y0 CR=5", Dialect.Siemens);
+        string path = Path.Combine(AppContext.BaseDirectory, "samples", "macros", "ESPIRAL_WHILE.nc");
 
-        Assert.Contains(result.Diagnostics, d => d.Message.Contains("CR"));
-        Assert.True(result.HasErrors); // arco sem I/J
+        ParseResult result = GCodeParser.Parse(File.ReadAllText(path), Dialect.Fanuc);
+
+        Assert.Empty(result.Diagnostics);
     }
 }

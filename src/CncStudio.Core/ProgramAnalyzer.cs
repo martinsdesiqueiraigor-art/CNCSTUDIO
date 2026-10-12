@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using CncStudio.Core.Dialects;
+using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
 using CncStudio.Core.Trajectory;
 
@@ -28,14 +29,17 @@ public sealed record ProgramAnalysis(
 /// </summary>
 public static class ProgramAnalyzer
 {
-    public static ProgramAnalysis Analyze(string text, Dialect dialect, CancellationToken cancellationToken = default)
+    public static ProgramAnalysis Analyze(string text, Dialect dialect, CancellationToken cancellationToken = default) =>
+        Analyze(text, dialect, MachineSettings.Default, cancellationToken);
+
+    public static ProgramAnalysis Analyze(string text, Dialect dialect, MachineSettings settings, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
 
         ParseResult parse = GCodeParser.Parse(text, dialect);
         cancellationToken.ThrowIfCancellationRequested();
 
-        ToolPath toolPath = TrajectoryBuilder.Build(parse);
+        ToolPath toolPath = MachineExecutor.Execute(parse, settings);
         cancellationToken.ThrowIfCancellationRequested();
 
         List<ParseDiagnostic> diagnostics = parse.Diagnostics

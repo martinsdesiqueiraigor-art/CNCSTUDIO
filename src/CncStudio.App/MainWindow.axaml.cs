@@ -6,9 +6,11 @@ using Avalonia.Threading;
 using AvaloniaEdit.Document;
 using CncStudio.App.Dialogs;
 using CncStudio.App.Highlighting;
+using CncStudio.App.Settings;
 using CncStudio.Core;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Editing;
+using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
 using CncStudio.Core.Trajectory;
 using CncStudio.App.Views;
@@ -25,6 +27,7 @@ public partial class MainWindow : Window
     private const int MaxDiagnosticsShown = 2000;
 
     private readonly GCodeColorizer _colorizer = new();
+    private AppSettings _settings = AppSettings.Load();
     private readonly DispatcherTimer _analysisTimer;
     private CancellationTokenSource? _analysisCancellation;
     private int _analysisVersion;
@@ -73,7 +76,13 @@ public partial class MainWindow : Window
 
         // Ctrl + roda do mouse no editor = zoom da fonte
         Editor.AddHandler(PointerWheelChangedEvent, OnEditorWheel, RoutingStrategies.Tunnel);
-        SetFontSize(DefaultFontSize);
+        SetFontSize(_settings.EditorFontSize);
+
+        // Configuração da máquina (ferramentas, zeros de peça)
+        Simulation.DiameterOf = tool => _settings.DiameterOf(tool);
+        Simulation.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
+        MachineSettingsButton.Click += async (_, _) => await OpenMachineSettingsAsync();
+        Closing += (_, _) => _settings.Save();
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
         SiemensSampleButton.Click += (_, _) => LoadSample("EXEMPLO.mpf");
         DialectCombo.SelectionChanged += OnDialectComboChanged;
@@ -254,6 +263,7 @@ public partial class MainWindow : Window
 
         string text = Editor.Text;
         Dialect dialect = CurrentDialect;
+        MachineSettings machine = _settings.ToMachineSettings();
         AnalysisStatus.Text = "Analisando…";
 
         try
@@ -261,7 +271,7 @@ public partial class MainWindow : Window
             // Parse, trajetória e figuras do backplot: tudo fora da thread de UI
             (ProgramAnalysis analysis, List<PathPolyline> figures) = await Task.Run(() =>
             {
-                ProgramAnalysis result = ProgramAnalyzer.Analyze(text, dialect, cancellation.Token);
+                ProgramAnalysis result = ProgramAnalyzer.Analyze(text, dialect, machine, cancellation.Token);
                 List<PathPolyline> pathPolylines = PathPolylineBuilder.Build(
                     result.ToolPath.Moves, PathPolylineBuilder.ScreenTolerance(result.ToolPath));
                 return (result, pathPolylines);
@@ -302,8 +312,11 @@ public partial class MainWindow : Window
         string extra = analysis.Diagnostics.Count > MaxDiagnosticsShown
             ? $" (mostrando {MaxDiagnosticsShown})"
             : "";
+        string tools = analysis.ToolPath.Tools.Count == 0
+            ? ""
+            : " · ferramentas " + string.Join(", ", analysis.ToolPath.Tools.Select(t => $"T{t}"));
         AnalysisStatus.Text =
-            $"{analysis.BlockCount} blocos · {analysis.ToolPath.Moves.Count} movimentos · " +
+            $"{analysis.BlockCount} blocos · {analysis.ToolPath.Moves.Count} movimentos{tools} · " +
             $"{analysis.ErrorCount} erros · {analysis.WarningCount} avisos{extra} · " +
             $"análise em {analysis.Elapsed.TotalMilliseconds:0} ms";
     }
@@ -416,6 +429,23 @@ public partial class MainWindow : Window
         search.Open();
     }
 
+    /// <summary>Edita ferramentas, zeros de peça e opções; ao salvar, reanalisa e refaz a simulação.</summary>
+    private async Task OpenMachineSettingsAsync()
+    {
+        IReadOnlyList<int> toolsInProgram = CurrentAnalysis?.ToolPath.Tools ?? [];
+        var dialog = new MachineSettingsDialog(_settings, toolsInProgram);
+        AppSettings? edited = await dialog.ShowDialog<AppSettings?>(this);
+        if (edited is null)
+        {
+            return;
+        }
+
+        edited.EditorFontSize = _settings.EditorFontSize;
+        _settings = edited;
+        _settings.Save();
+        StartAnalysis(); // zeros e números sem ponto mudam a trajetória; a simulação é refeita junto
+    }
+
     private async Task AskGoToLineAsync()
     {
         var dialog = new GoToLineDialog(Editor.TextArea.Caret.Line, Editor.Document.LineCount);
@@ -467,6 +497,7 @@ public partial class MainWindow : Window
     private void SetFontSize(double size)
     {
         Editor.FontSize = Math.Clamp(size, MinFontSize, MaxFontSize);
+        _settings.EditorFontSize = Editor.FontSize;
         FontSizeText.Text = $"{Editor.FontSize:0} pt";
     }
 

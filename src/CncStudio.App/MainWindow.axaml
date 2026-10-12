@@ -103,6 +103,19 @@
             </Border>
           </StackPanel>
         </TabItem>
+        <TabItem Header="Máquina">
+          <StackPanel Orientation="Horizontal" Classes="ribbon">
+            <Border Classes="group">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button x:Name="MachineSettingsButton" Content="Ferramentas e zeros de peça…"
+                          ToolTip.Tip="Diâmetros das ferramentas, G54–G59 e números sem ponto no Fanuc" />
+                </StackPanel>
+                <TextBlock Classes="groupLabel" Text="Configuração" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </TabItem>
       </TabControl>
 
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="8,0" VerticalAlignment="Center">

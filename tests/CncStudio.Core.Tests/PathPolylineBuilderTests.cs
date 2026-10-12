@@ -1,3 +1,4 @@
+using CncStudio.Core.Execution;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Parsing;
@@ -8,7 +9,7 @@ namespace CncStudio.Core.Tests;
 public class PathPolylineBuilderTests
 {
     private static ToolPath BuildFanuc(params string[] lines) =>
-        TrajectoryBuilder.Build(GCodeParser.Parse(string.Join("\n", lines), Dialect.Fanuc));
+        MachineExecutor.Execute(GCodeParser.Parse(string.Join("\n", lines), Dialect.Fanuc));
 
     [Fact]
     public void JuntaMovimentosEncadeadosDoMesmoTipo()

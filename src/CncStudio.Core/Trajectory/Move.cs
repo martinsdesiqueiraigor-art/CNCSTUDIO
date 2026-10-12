@@ -1,28 +1,44 @@
 using CncStudio.Core.Geometry;
-using CncStudio.Core.Parsing;
 
 namespace CncStudio.Core.Trajectory;
 
+/// <summary>Tipo de movimento (grupo modal 01).</summary>
+public enum MotionMode
+{
+    /// <summary>G00 — avanço rápido.</summary>
+    Rapid = 0,
+
+    /// <summary>G01 — interpolação linear.</summary>
+    Linear = 1,
+
+    /// <summary>G02 — arco horário.</summary>
+    ClockwiseArc = 2,
+
+    /// <summary>G03 — arco anti-horário.</summary>
+    CounterClockwiseArc = 3,
+}
+
 /// <summary>
-/// Um movimento da ferramenta: reta (G00/G01) ou arco/hélice (G02/G03).
+/// Um movimento da ferramenta: reta (G00/G01) ou arco/hélice (G02/G03) em qualquer plano.
 ///
-/// O arco é guardado como UM movimento (centro, raios, ângulos) e só vira
+/// O arco é guardado como UM movimento (centro, raios, ângulos no plano) e só vira
 /// pontos quando alguém precisa desenhar ou simular — cada consumidor escolhe
 /// a sua tolerância (<see cref="AppendPolyline"/>). Assim a memória não explode
 /// em arquivos cheios de arcos.
 /// </summary>
 public readonly record struct Move
 {
-    public Move(Point3 start, Point3 end, MotionMode motion, int lineNumber, double feed)
+    public Move(Point3 start, Point3 end, MotionMode motion, int lineNumber, double feed, int tool = 0)
     {
         Start = start;
         End = end;
         Motion = motion;
         LineNumber = lineNumber;
         Feed = feed;
+        Tool = tool;
     }
 
-    /// <summary>Ponto inicial (mm).</summary>
+    /// <summary>Ponto inicial (mm, coordenadas com o zero de peça aplicado).</summary>
     public Point3 Start { get; init; }
 
     /// <summary>Ponto final (mm).</summary>
@@ -37,9 +53,13 @@ public readonly record struct Move
     /// <summary>Avanço em mm/min (sem uso em G00).</summary>
     public double Feed { get; init; }
 
-    // Geometria do arco (só vale quando IsArc)
-    public double CenterX { get; init; }
-    public double CenterY { get; init; }
+    /// <summary>Número da ferramenta ativa (0 = nenhuma definida).</summary>
+    public int Tool { get; init; }
+
+    // Geometria do arco (só vale quando IsArc), em coordenadas do plano (u, v)
+    public WorkPlane Plane { get; init; }
+    public double CenterU { get; init; }
+    public double CenterV { get; init; }
     public double StartRadius { get; init; }
     public double EndRadius { get; init; }
     public double StartAngle { get; init; }
@@ -50,7 +70,7 @@ public readonly record struct Move
     public bool IsRapid => Motion == MotionMode.Rapid;
     public bool IsArc => Motion is MotionMode.ClockwiseArc or MotionMode.CounterClockwiseArc;
 
-    /// <summary>Comprimento percorrido (mm). Para hélices, combina o arco com a descida em Z.</summary>
+    /// <summary>Comprimento percorrido (mm). Para hélices, combina o arco com o deslocamento perpendicular.</summary>
     public double Length
     {
         get
@@ -61,8 +81,8 @@ public readonly record struct Move
             }
 
             double arcLength = (StartRadius + EndRadius) / 2 * Math.Abs(Sweep);
-            double dz = End.Z - Start.Z;
-            return Math.Sqrt(arcLength * arcLength + dz * dz);
+            double dw = Plane.ToPlane(End).W - Plane.ToPlane(Start).W;
+            return Math.Sqrt(arcLength * arcLength + dw * dw);
         }
     }
 
@@ -79,12 +99,14 @@ public readonly record struct Move
             return Point3.Lerp(Start, End, t);
         }
 
+        double startW = Plane.ToPlane(Start).W;
+        double endW = Plane.ToPlane(End).W;
         double angle = StartAngle + Sweep * t;
         double radius = StartRadius + (EndRadius - StartRadius) * t;
-        return new Point3(
-            CenterX + radius * Math.Cos(angle),
-            CenterY + radius * Math.Sin(angle),
-            Start.Z + (End.Z - Start.Z) * t);
+        return Plane.FromPlane(
+            CenterU + radius * Math.Cos(angle),
+            CenterV + radius * Math.Sin(angle),
+            startW + (endW - startW) * t);
     }
 
     /// <summary>
@@ -122,7 +144,7 @@ public readonly record struct Move
 
     /// <summary>
     /// Inclui o movimento no envelope. Para arcos, considera também os pontos extremos
-    /// (0°, 90°, 180°, 270°) que caem dentro da varredura — não só início e fim.
+    /// (0°, 90°, 180°, 270° no plano) que caem dentro da varredura — não só início e fim.
     /// </summary>
     public Bounds3 IncludeIn(Bounds3 bounds)
     {

@@ -43,7 +43,7 @@ public static class NcTextTools
         {
             GCodeLexer.TokenizeLine(line, dialect, tokens);
             int blockIndex = tokens.FindIndex(t => t.Kind == TokenKind.BlockNumber);
-            bool hasContent = tokens.Exists(t => t.Kind is TokenKind.Word or TokenKind.Keyword);
+            bool hasContent = tokens.Exists(t => t.Kind is TokenKind.Word or TokenKind.Keyword or TokenKind.Expression or TokenKind.Label);
 
             switch (options.Mode)
             {

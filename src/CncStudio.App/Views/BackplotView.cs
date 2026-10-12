@@ -149,17 +149,25 @@ public sealed class BackplotView : ZoomPanControl
             return;
         }
 
-        int index = _path.IndexOfLine(_highlightedLine);
-        if (index < 0)
+        // Uma linha pode gerar vários movimentos (ciclo de furação): destaca todos
+        IReadOnlyList<int> indices = _path.MovesForLine(_highlightedLine);
+        if (indices.Count == 0)
         {
             return;
         }
 
-        Move move = _path.Moves[index];
-        var points = new List<Point3> { move.Start };
-        move.AppendPolyline(points, PathPolylineBuilder.ScreenTolerance(_path));
-        _highlightGeometry = BuildGeometry([new PathPolyline(move.IsRapid, points.ToArray())]);
-        _highlightStart = _plane.Project(move.Start);
+        double tolerance = PathPolylineBuilder.ScreenTolerance(_path);
+        var polylines = new List<PathPolyline>(indices.Count);
+        foreach (int index in indices)
+        {
+            Move move = _path.Moves[index];
+            var points = new List<Point3> { move.Start };
+            move.AppendPolyline(points, tolerance);
+            polylines.Add(new PathPolyline(move.IsRapid, points.ToArray()));
+        }
+
+        _highlightGeometry = BuildGeometry(polylines);
+        _highlightStart = _plane.Project(_path.Moves[indices[0]].Start);
     }
 
     private StreamGeometry BuildGeometry(IEnumerable<PathPolyline> figures)

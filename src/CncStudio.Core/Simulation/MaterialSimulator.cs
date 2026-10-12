@@ -16,8 +16,9 @@ public sealed class MaterialSimulator
 {
     private readonly HeightMap _map;
     private readonly IReadOnlyList<Move> _moves;
-    private readonly double _toolRadius;
+    private readonly Func<int, double> _diameterOf;
     private readonly double _arcTolerance;
+    private double _toolRadius;
 
     // Pontos do movimento atual (começando no ponto inicial) e posição dentro deles
     private readonly List<Point3> _polyline = [];
@@ -25,15 +26,28 @@ public sealed class MaterialSimulator
     private int _pieceIndex;
     private double _distanceInPiece;
 
+    /// <summary>Simulação com o mesmo diâmetro para todas as ferramentas.</summary>
     public MaterialSimulator(HeightMap map, IReadOnlyList<Move> moves, double toolDiameter)
+        : this(map, moves, _ => toolDiameter)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(toolDiameter, 0);
+    }
+
+    /// <summary>Simulação com diâmetro por ferramenta (número T → diâmetro em mm).</summary>
+    public MaterialSimulator(HeightMap map, IReadOnlyList<Move> moves, Func<int, double> diameterOfTool)
+    {
         _map = map;
         _moves = moves;
-        _toolRadius = toolDiameter / 2;
+        _diameterOf = diameterOfTool;
         _arcTolerance = Math.Max(0.001, map.CellSize * 0.25);
         Reset();
     }
+
+    /// <summary>Diâmetro da ferramenta do movimento atual.</summary>
+    public double CurrentToolDiameter => _toolRadius * 2;
+
+    /// <summary>Número da ferramenta do movimento atual (0 = não definida).</summary>
+    public int CurrentTool => _moves.Count == 0 ? 0 : _moves[Math.Min(_moveIndex, _moves.Count - 1)].Tool;
 
     public HeightMap Map => _map;
 
@@ -130,6 +144,7 @@ public sealed class MaterialSimulator
         }
 
         Move move = _moves[_moveIndex];
+        _toolRadius = Math.Max(0.01, _diameterOf(move.Tool)) / 2;
         _polyline.Add(move.Start);
         move.AppendPolyline(_polyline, _arcTolerance);
     }

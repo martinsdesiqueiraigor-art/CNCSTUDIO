@@ -24,7 +24,7 @@
 
   <!-- Exemplos acessíveis pelos botões "Exemplo Fanuc" / "Exemplo Siemens" -->
   <ItemGroup>
-    <None Include="..\..\samples\*.*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\samples\**\*.*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -61,7 +61,7 @@ public partial class SimulationPanel : UserControl
                 UpdateSpeedLabel();
             }
         };
-        ToolDiameterInput.ValueChanged += (_, _) => Rebuild();
+        ToolsButton.Click += (_, _) => ToolSettingsRequested?.Invoke(this, EventArgs.Empty);
 
         _timer.Tick += OnTick;
         UpdateSpeedLabel();
@@ -72,7 +72,14 @@ public partial class SimulationPanel : UserControl
     /// <summary>Velocidade de avanço da simulação (mm de trajetória por segundo), escala logarítmica.</summary>
     private double SpeedMmPerSecond => 10 * Math.Pow(10, SpeedSlider.Value / 25); // 10 a 100.000 mm/s
 
-    private double ToolDiameter => (double)(ToolDiameterInput.Value ?? 10m);
+    /// <summary>Diâmetro de cada ferramenta (T → mm). Definido pela janela principal a partir da configuração.</summary>
+    public Func<int, double> DiameterOf { get; set; } = _ => 10;
+
+    /// <summary>O usuário pediu para editar as ferramentas.</summary>
+    public event EventHandler? ToolSettingsRequested;
+
+    /// <summary>Recria a simulação (ex.: diâmetros das ferramentas mudaram).</summary>
+    public void Refresh() => Rebuild();
 
     /// <summary>Carrega uma nova trajetória: recria o bruto e volta ao início.</summary>
     public void SetToolPath(ToolPath path)
@@ -92,9 +99,10 @@ public partial class SimulationPanel : UserControl
             return;
         }
 
-        double diameter = ToolDiameter;
-        HeightMap map = HeightMap.CreateForToolPath(_path, diameter);
-        _simulator = new MaterialSimulator(map, _path.Moves, diameter);
+        Func<int, double> diameterOf = DiameterOf;
+        double largest = _path.Tools.Count == 0 ? diameterOf(0) : _path.Tools.Max(diameterOf);
+        HeightMap map = HeightMap.CreateForToolPath(_path, largest);
+        _simulator = new MaterialSimulator(map, _path.Moves, diameterOf);
         _generation++;
         Enqueue(null);
     }
@@ -168,7 +176,6 @@ public partial class SimulationPanel : UserControl
 
         SimulationViewMode mode = Mode;
         int generation = _generation;
-        double diameter = ToolDiameter;
         Interlocked.Increment(ref _pendingWork);
 
         _workQueue = _workQueue.ContinueWith(_ =>
@@ -176,7 +183,7 @@ public partial class SimulationPanel : UserControl
             try
             {
                 action?.Invoke(simulator);
-                SimulationFrame frame = SimulationFrame.Capture(simulator, mode, generation, diameter);
+                SimulationFrame frame = SimulationFrame.Capture(simulator, mode, generation);
                 Dispatcher.UIThread.Post(() => ShowFrame(frame));
             }
             catch (Exception ex)
@@ -203,7 +210,8 @@ public partial class SimulationPanel : UserControl
 
         var p = frame.ToolPosition;
         string state = frame.IsFinished ? " · concluído" : "";
-        StatusText.Text = $"Linha {frame.LineNumber} · X {p.X:0.###}  Y {p.Y:0.###}  Z {p.Z:0.###}" +
+        string tool = frame.Tool == 0 ? "" : $"T{frame.Tool} Ø{frame.ToolDiameter:0.##} · ";
+        StatusText.Text = $"{tool}Linha {frame.LineNumber} · X {p.X:0.###}  Y {p.Y:0.###}  Z {p.Z:0.###}" +
                           $" · bruto {frame.Width:0.#} × {frame.Height:0.#} mm, grade {frame.Columns} × {frame.Rows}{state}";
 
         if (frame.IsFinished)

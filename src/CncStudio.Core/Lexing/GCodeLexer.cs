@@ -7,6 +7,10 @@ namespace CncStudio.Core.Lexing;
 /// Quebra uma linha de G-code em tokens.
 /// É usado pelo parser e também pelo syntax highlighting do editor — por isso
 /// trabalha linha a linha e cada token guarda coluna e tamanho.
+///
+/// Reconhece (sem avaliar) a sintaxe de macros e parâmetros — #1=..., X[#1+2], IF [...],
+/// R1=..., Z=R1, rótulos "VOLTA:" — para que programas paramétricos não virem uma
+/// avalanche de erros. A avaliação é feita pelo interpretador.
 /// </summary>
 public static class GCodeLexer
 {
@@ -27,6 +31,7 @@ public static class GCodeLexer
         output.Clear();
         int i = 0;
         int n = line.Length;
+        bool fanuc = dialect == Dialect.Fanuc;
 
         while (i < n)
         {
@@ -47,7 +52,7 @@ public static class GCodeLexer
 
             if (c == ';')
             {
-                if (dialect == Dialect.Siemens)
+                if (!fanuc)
                 {
                     // Siemens: comentário até o fim da linha
                     output.Add(new Token(TokenKind.Comment, i, n - i, '\0', null));
@@ -59,7 +64,7 @@ public static class GCodeLexer
                 continue;
             }
 
-            if (c == '(' && dialect == Dialect.Fanuc)
+            if (c == '(' && fanuc)
             {
                 // Fanuc: comentário entre parênteses (se não fechar, vai até o fim da linha)
                 int close = line.IndexOf(')', i + 1);
@@ -71,14 +76,38 @@ public static class GCodeLexer
 
             if (c == '/')
             {
-                // "/" no início do bloco = bloco opcional (block delete). No protótipo o bloco é executado.
+                // "/" no início do bloco = bloco opcional (block delete). Ele é executado.
                 i++;
+                continue;
+            }
+
+            if (fanuc && c == '#')
+            {
+                // Fanuc: atribuição de variável "#1=48" (até o fim do bloco)
+                int end = ReadUntilStatementEnd(line, i);
+                output.Add(new Token(TokenKind.Expression, i, end - i, '\0', null));
+                i = end;
+                continue;
+            }
+
+            if (fanuc && c == '[')
+            {
+                int end = ReadGroup(line, i, '[', ']');
+                output.Add(new Token(TokenKind.Expression, i, end - i, '\0', null));
+                i = end;
+                continue;
+            }
+
+            if (fanuc && c == ',' && i + 1 < n && char.IsAsciiLetter(line[i + 1]))
+            {
+                // Fanuc: canto arredondado ",R5." ou chanfro ",C2."
+                i = ReadCornerWord(line, i, output);
                 continue;
             }
 
             if (char.IsAsciiLetter(c))
             {
-                // Conta quantas letras seguidas existem para decidir entre endereço (G01) e palavra-chave (CYCLE81)
+                // Conta as letras seguidas para decidir entre endereço (G01) e palavra-chave (CYCLE81)
                 int j = i + 1;
                 while (j < n && char.IsAsciiLetter(line[j]))
                 {
@@ -96,28 +125,62 @@ public static class GCodeLexer
         }
     }
 
-    /// <summary>Lê uma palavra de endereço (letra + número). Retorna a posição após o token.</summary>
+    /// <summary>Lê uma palavra de endereço (letra + número, ou letra + expressão). Retorna a posição após o token.</summary>
     private static int ReadAddressWord(string line, int start, Dialect dialect, List<Token> output)
     {
+        int n = line.Length;
         char letter = char.ToUpperInvariant(line[start]);
         int k = start + 1;
+        bool siemens = dialect == Dialect.Siemens;
 
         // Siemens aceita "X=10" além de "X10"
-        if (dialect == Dialect.Siemens && k < line.Length && line[k] == '=')
+        bool hasEquals = siemens && k < n && line[k] == '=';
+        if (hasEquals)
         {
             k++;
         }
 
-        if (TryReadNumber(line, k, out double value, out int end))
+        if (TryReadNumber(line, k, out double value, out int end, out bool hasPoint))
         {
+            // Siemens: "R1=..." é atribuição de parâmetro, não palavra de endereço
+            if (siemens && !hasEquals && end < n && line[end] == '=')
+            {
+                int expressionEnd = ReadUntilWhitespace(line, end + 1);
+                output.Add(new Token(TokenKind.Expression, start, expressionEnd - start, letter, null));
+                return expressionEnd;
+            }
+
             TokenKind kind = letter switch
             {
                 'N' => TokenKind.BlockNumber,
-                'O' when dialect == Dialect.Fanuc => TokenKind.ProgramMarker,
+                'O' when !siemens => TokenKind.ProgramMarker,
                 _ => TokenKind.Word,
             };
-            output.Add(new Token(kind, start, end - start, letter, value));
+            output.Add(new Token(kind, start, end - start, letter, value, hasPoint));
             return end;
+        }
+
+        // Endereço com expressão: "X#7", "X-[#9+#14]" (Fanuc) ou "Z=R1", "X=IC(5)" (Siemens)
+        int p = k;
+        if (!siemens && p < n && (line[p] == '-' || line[p] == '+'))
+        {
+            p++;
+        }
+
+        if (!siemens && p < n && (line[p] == '#' || line[p] == '['))
+        {
+            int expressionEnd = line[p] == '['
+                ? ReadGroup(line, p, '[', ']')
+                : ReadVariableReference(line, p);
+            output.Add(new Token(TokenKind.Expression, start, expressionEnd - start, letter, null));
+            return expressionEnd;
+        }
+
+        if (hasEquals && k < n && !char.IsWhiteSpace(line[k]))
+        {
+            int expressionEnd = ReadUntilWhitespace(line, k);
+            output.Add(new Token(TokenKind.Expression, start, expressionEnd - start, letter, null));
+            return expressionEnd;
         }
 
         // Letra sem número válido depois dela
@@ -126,8 +189,8 @@ public static class GCodeLexer
     }
 
     /// <summary>
-    /// Lê um identificador de várias letras: "CYCLE81(10,0,2,-5)", "CR=5", "DIAMOF".
-    /// Retorna a posição após o token.
+    /// Lê um identificador de várias letras: "CYCLE81(10,0,2,-5)", "CR=5", "DIAMOF", "IF [...]",
+    /// "VOLTA:" (rótulo Siemens). Retorna a posição após o token.
     /// </summary>
     private static int ReadKeyword(string line, int start, Dialect dialect, List<Token> output)
     {
@@ -138,44 +201,173 @@ public static class GCodeLexer
             j++;
         }
 
-        // Atribuição numérica: CR=5, AP=90...
-        if (dialect == Dialect.Siemens && j < n && line[j] == '='
-            && TryReadNumber(line, j + 1, out double value, out int numberEnd))
+        bool siemens = dialect == Dialect.Siemens;
+
+        // Rótulo Siemens: "VOLTA:"
+        if (siemens && j < n && line[j] == ':')
         {
-            output.Add(new Token(TokenKind.Keyword, start, numberEnd - start, '\0', value));
-            return numberEnd;
+            output.Add(new Token(TokenKind.Label, start, j + 1 - start, '\0', null));
+            return j + 1;
         }
 
-        // Chamada com argumentos: CYCLE81(...), MSG("...") — inclui até o ")" correspondente
-        if (j < n && line[j] == '(')
+        // Atribuição: CR=5 (número) ou T="FRESA", AP=R2 (expressão)
+        if (siemens && j < n && line[j] == '=')
         {
-            int depth = 0;
-            int k = j;
-            while (k < n)
+            if (TryReadNumber(line, j + 1, out double value, out int numberEnd, out _))
             {
-                if (line[k] == '(') depth++;
-                else if (line[k] == ')') depth--;
-                k++;
-                if (depth == 0) break;
+                output.Add(new Token(TokenKind.Keyword, start, numberEnd - start, '\0', value));
+                return numberEnd;
             }
 
-            output.Add(new Token(TokenKind.Keyword, start, k - start, '\0', null));
-            return k;
+            int expressionEnd = ReadUntilWhitespace(line, j + 1);
+            output.Add(new Token(TokenKind.Expression, start, expressionEnd - start, '\0', null));
+            return expressionEnd;
+        }
+
+        // Argumentos entre parênteses (Siemens) ou colchetes (Fanuc), com ou sem espaço antes:
+        // CYCLE81(...), MSG("..."), IF (R1<=R2), IF [#20 GT #12], WHILE [#1 GE 0]
+        char open = siemens ? '(' : '[';
+        char close = siemens ? ')' : ']';
+        int p = j;
+        while (p < n && line[p] == ' ')
+        {
+            p++;
+        }
+
+        if (p < n && line[p] == open)
+        {
+            int end = ReadGroup(line, p, open, close);
+            output.Add(new Token(TokenKind.Keyword, start, end - start, '\0', null));
+            return end;
         }
 
         output.Add(new Token(TokenKind.Keyword, start, j - start, '\0', null));
         return j;
     }
 
+    /// <summary>Fanuc ",R5." / ",C[#5]": canto arredondado ou chanfro.</summary>
+    private static int ReadCornerWord(string line, int start, List<Token> output)
+    {
+        int k = start + 2;
+        if (TryReadNumber(line, k, out double value, out int end, out _))
+        {
+            output.Add(new Token(TokenKind.Keyword, start, end - start, char.ToUpperInvariant(line[start + 1]), value));
+            return end;
+        }
+
+        if (k < line.Length && (line[k] == '[' || line[k] == '#'))
+        {
+            int expressionEnd = line[k] == '[' ? ReadGroup(line, k, '[', ']') : ReadVariableReference(line, k);
+            output.Add(new Token(TokenKind.Expression, start, expressionEnd - start, char.ToUpperInvariant(line[start + 1]), null));
+            return expressionEnd;
+        }
+
+        output.Add(new Token(TokenKind.Unknown, start, 2, '\0', null));
+        return start + 2;
+    }
+
+    /// <summary>A partir de um caractere de abertura, vai até o fechamento correspondente (respeitando aspas).</summary>
+    private static int ReadGroup(string line, int start, char open, char close)
+    {
+        int n = line.Length;
+        int depth = 0;
+        int k = start;
+        while (k < n)
+        {
+            char c = line[k];
+            if (c == '"')
+            {
+                int quoteEnd = line.IndexOf('"', k + 1);
+                k = quoteEnd < 0 ? n : quoteEnd + 1;
+                continue;
+            }
+
+            if (c == open) depth++;
+            else if (c == close) depth--;
+            k++;
+            if (depth == 0) break;
+        }
+
+        return k;
+    }
+
+    /// <summary>"#12" ou "#[...]".</summary>
+    private static int ReadVariableReference(string line, int start)
+    {
+        int k = start + 1;
+        if (k < line.Length && line[k] == '[')
+        {
+            return ReadGroup(line, k, '[', ']');
+        }
+
+        while (k < line.Length && char.IsAsciiDigit(line[k]))
+        {
+            k++;
+        }
+
+        return k;
+    }
+
+    /// <summary>Fim de uma instrução de macro Fanuc: ";" ou início de comentário, fora de colchetes.</summary>
+    private static int ReadUntilStatementEnd(string line, int start)
+    {
+        int depth = 0;
+        int k = start;
+        while (k < line.Length)
+        {
+            char c = line[k];
+            if (c == '[') depth++;
+            else if (c == ']') depth--;
+            else if (depth == 0 && (c == ';' || c == '(')) break;
+            k++;
+        }
+
+        // Não inclui espaços finais
+        while (k > start && char.IsWhiteSpace(line[k - 1]))
+        {
+            k--;
+        }
+
+        return k;
+    }
+
+    /// <summary>Até o próximo espaço fora de parênteses/colchetes (expressões Siemens: "R1=R1-(R1-R2)").</summary>
+    private static int ReadUntilWhitespace(string line, int start)
+    {
+        int depth = 0;
+        int k = start;
+        while (k < line.Length)
+        {
+            char c = line[k];
+            if (c == '"')
+            {
+                int quoteEnd = line.IndexOf('"', k + 1);
+                k = quoteEnd < 0 ? line.Length : quoteEnd + 1;
+                continue;
+            }
+
+            if (c is '(' or '[') depth++;
+            else if (c is ')' or ']') depth--;
+            else if (depth <= 0 && (char.IsWhiteSpace(c) || c == ';')) break;
+            k++;
+        }
+
+        return k;
+    }
+
     /// <summary>
     /// Lê um número no formato G-code: sinal opcional, dígitos e ponto decimal opcional.
     /// Aceita "10", "10.", ".5", "-.5", "+3.25". Precisa de pelo menos um dígito.
     /// </summary>
-    internal static bool TryReadNumber(string s, int start, out double value, out int end)
+    internal static bool TryReadNumber(string s, int start, out double value, out int end) =>
+        TryReadNumber(s, start, out value, out end, out _);
+
+    internal static bool TryReadNumber(string s, int start, out double value, out int end, out bool hasPoint)
     {
         int n = s.Length;
         int i = start;
         bool anyDigit = false;
+        hasPoint = false;
 
         if (i < n && (s[i] == '+' || s[i] == '-'))
         {
@@ -190,6 +382,7 @@ public static class GCodeLexer
 
         if (i < n && s[i] == '.')
         {
+            hasPoint = true;
             i++;
             while (i < n && char.IsAsciiDigit(s[i]))
             {
@@ -202,11 +395,10 @@ public static class GCodeLexer
         {
             value = 0;
             end = start;
+            hasPoint = false;
             return false;
         }
 
-        // Observação: no Fanuc real, "X10" sem ponto pode significar 0,010 mm (depende de parâmetro).
-        // No protótipo, todo número é interpretado em milímetros.
         value = double.Parse(s.AsSpan(start, i - start), NumberStyles.Float, CultureInfo.InvariantCulture);
         end = i;
         return true;

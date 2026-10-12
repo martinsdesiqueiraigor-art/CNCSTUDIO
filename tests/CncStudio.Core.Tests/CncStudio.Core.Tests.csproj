@@ -21,7 +21,7 @@
 
   <!-- Copia os arquivos de exemplo para a pasta de saída, para os testes de amostra -->
   <ItemGroup>
-    <None Include="..\..\samples\*.*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\**\*.*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

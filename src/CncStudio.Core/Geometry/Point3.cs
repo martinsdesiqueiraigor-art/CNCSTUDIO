@@ -14,6 +14,10 @@ public readonly record struct Point3(double X, double Y, double Z)
         return Math.Sqrt(dx * dx + dy * dy + dz * dz);
     }
 
+    public static Point3 operator +(Point3 a, Point3 b) => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
+
+    public static Point3 operator -(Point3 a, Point3 b) => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+
     /// <summary>Interpolação linear: t = 0 retorna "a", t = 1 retorna "b".</summary>
     public static Point3 Lerp(Point3 a, Point3 b, double t) =>
         new(a.X + (b.X - a.X) * t,

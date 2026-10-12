@@ -25,6 +25,8 @@ public sealed class GCodeColorizer : DocumentColorizingTransformer
     private static readonly IBrush KeywordBrush = Brush("#C586C0");    // CYCLE81, CR=...
     private static readonly IBrush ProgramBrush = Brush("#FFD700");    // %, O1001
     private static readonly IBrush UnknownBrush = Brush("#F44747");
+    private static readonly IBrush LabelBrush = Brush("#4EC9B0");      // rótulos Siemens
+    private static readonly IBrush ExpressionBrush = Brush("#9CDCFE"); // #1=..., X[#1], R1=...
 
     private readonly List<Token> _tokens = [];
 
@@ -52,6 +54,8 @@ public sealed class GCodeColorizer : DocumentColorizingTransformer
         TokenKind.Keyword => KeywordBrush,
         TokenKind.ProgramMarker => ProgramBrush,
         TokenKind.Unknown => UnknownBrush,
+        TokenKind.Label => LabelBrush,
+        TokenKind.Expression => ExpressionBrush,
         _ => token.Letter switch
         {
             'G' when token.Value is >= 0 and <= 3 => MotionBrush,

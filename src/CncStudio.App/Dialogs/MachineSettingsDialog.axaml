@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="CncStudio.App.Dialogs.MachineSettingsDialog"
+        Title="Configuração da máquina"
+        Width="620" Height="600"
+        MinWidth="520" MinHeight="420"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+      <Button x:Name="OkButton" Content="Salvar" IsDefault="True" />
+      <Button x:Name="CancelButton" Content="Cancelar" IsCancel="True" />
+    </StackPanel>
+
+    <TabControl>
+      <TabItem Header="Ferramentas">
+        <DockPanel Margin="0,8,0,0">
+          <StackPanel DockPanel.Dock="Top" Spacing="8">
+            <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                       Text="Diâmetro de cada ferramenta (T) usado na simulação. Ferramentas que não estão na lista usam o diâmetro padrão." />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Diâmetro padrão (mm)" VerticalAlignment="Center" />
+              <NumericUpDown x:Name="DefaultDiameterInput" Width="130" Minimum="0.1" Maximum="500" Increment="1" FormatString="0.###" />
+              <Button x:Name="AddToolButton" Content="+ Adicionar ferramenta" Margin="12,0,0,0" />
+              <Button x:Name="AddUsedToolsButton" Content="+ Ferramentas do programa" ToolTip.Tip="Adiciona as ferramentas usadas no programa aberto que ainda não estão na lista" />
+            </StackPanel>
+            <Grid ColumnDefinitions="90,130,*,40" Margin="0,6,0,0" Opacity="0.7">
+              <TextBlock Grid.Column="0" Text="T" />
+              <TextBlock Grid.Column="1" Text="Diâmetro (mm)" />
+              <TextBlock Grid.Column="2" Text="Descrição" />
+            </Grid>
+          </StackPanel>
+          <ScrollViewer>
+            <StackPanel x:Name="ToolRows" Spacing="4" />
+          </ScrollViewer>
+        </DockPanel>
+      </TabItem>
+
+      <TabItem Header="Zeros de peça">
+        <StackPanel Margin="0,8,0,0" Spacing="6">
+          <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                     Text="Deslocamento de cada zero de peça em relação ao desenho. Com tudo em zero, o desenho fica nas coordenadas do programa." />
+          <Grid ColumnDefinitions="70,*,*,*" Opacity="0.7" Margin="0,6,0,0">
+            <TextBlock Grid.Column="1" Text="X" />
+            <TextBlock Grid.Column="2" Text="Y" />
+            <TextBlock Grid.Column="3" Text="Z" />
+          </Grid>
+          <StackPanel x:Name="OffsetRows" Spacing="4" />
+        </StackPanel>
+      </TabItem>
+
+      <TabItem Header="Programa">
+        <StackPanel Margin="0,8,0,0" Spacing="10">
+          <TextBlock Text="Números sem ponto decimal no Fanuc (ex.: X10)" FontWeight="SemiBold" />
+          <RadioButton x:Name="IntegerMmOption" GroupName="Integers" Content="X10 = 10 mm (modo calculadora — padrão dos CAMs)" />
+          <RadioButton x:Name="IntegerThousandthsOption" GroupName="Integers" Content="X10 = 0,010 mm (menor incremento — padrão de fábrica do comando)" />
+          <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                     Text="No Siemens, números sem ponto sempre valem em milímetros." />
+        </StackPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

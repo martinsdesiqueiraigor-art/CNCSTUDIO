@@ -1,3 +1,4 @@
+using CncStudio.Core.Execution;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Parsing;
@@ -5,12 +6,12 @@ using CncStudio.Core.Trajectory;
 
 namespace CncStudio.Core.Tests;
 
-public class TrajectoryBuilderTests
+public class ArcAndLineTests
 {
     private const double ChordTolerance = 0.005;
 
     private static ToolPath BuildFanuc(params string[] lines) =>
-        TrajectoryBuilder.Build(GCodeParser.Parse(string.Join("\n", lines), Dialect.Fanuc));
+        MachineExecutor.Execute(GCodeParser.Parse(string.Join("\n", lines), Dialect.Fanuc));
 
     /// <summary>Pontos do movimento (inclui o inicial), como o backplot e o simulador vão usar.</summary>
     private static List<Point3> Polyline(Move move)
@@ -162,11 +163,11 @@ public class TrajectoryBuilderTests
             "G03 X0 Y10 I-10 J0 F100",
             "G01 X-5");
 
-        Assert.Equal(0, path.IndexOfLine(1));
-        Assert.Equal(-1, path.IndexOfLine(2));
-        Assert.Equal(1, path.IndexOfLine(3));
-        Assert.Equal(2, path.IndexOfLine(4));
-        Assert.Equal(-1, path.IndexOfLine(99));
+        Assert.Equal(new[] { 0 }, path.MovesForLine(1));
+        Assert.Empty(path.MovesForLine(2));
+        Assert.Equal(new[] { 1 }, path.MovesForLine(3));
+        Assert.Equal(new[] { 2 }, path.MovesForLine(4));
+        Assert.Empty(path.MovesForLine(99));
     }
 
     [Fact]

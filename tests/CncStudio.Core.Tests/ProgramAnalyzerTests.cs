@@ -11,14 +11,14 @@ public class ProgramAnalyzerTests
         const string program = """
             G00 X10 Y0
             G03 X0 Y10.5 I-10 J0 F100
-            G91 G01 X1
+            G01 X1 $
             """;
 
         ProgramAnalysis analysis = ProgramAnalyzer.Analyze(program, Dialect.Fanuc);
 
         Assert.Equal(2, analysis.Diagnostics.Count);
         Assert.Equal(2, analysis.Diagnostics[0].LineNumber); // aviso de raio (trajetória)
-        Assert.Equal(3, analysis.Diagnostics[1].LineNumber); // erro G91 (parser)
+        Assert.Equal(3, analysis.Diagnostics[1].LineNumber); // texto não reconhecido (parser)
         Assert.Equal(1, analysis.ErrorCount);
         Assert.Equal(1, analysis.WarningCount);
         Assert.Equal(3, analysis.BlockCount);

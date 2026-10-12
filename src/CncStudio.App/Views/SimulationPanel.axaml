@@ -22,9 +22,8 @@
       <TextBlock Text="Velocidade" VerticalAlignment="Center" Margin="0,0,6,4" />
       <Slider x:Name="SpeedSlider" Minimum="0" Maximum="100" Value="50" Width="140" Margin="0,0,6,4" />
       <TextBlock x:Name="SpeedLabel" VerticalAlignment="Center" MinWidth="90" Margin="0,0,12,4" />
-      <TextBlock Text="Ø ferramenta (mm)" VerticalAlignment="Center" Margin="0,0,6,4" />
-      <NumericUpDown x:Name="ToolDiameterInput" Value="10" Minimum="0.1" Maximum="100" Increment="1"
-                     FormatString="0.##" Width="120" Margin="0,0,0,4" />
+      <Button x:Name="ToolsButton" Content="Ferramentas…" Margin="0,0,0,4"
+              ToolTip.Tip="Diâmetro de cada ferramenta (T) usado na simulação" />
     </WrapPanel>
 
     <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" FontSize="12" Margin="4,2" />
