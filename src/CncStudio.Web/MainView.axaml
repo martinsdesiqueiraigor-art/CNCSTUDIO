@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ae="using:AvaloniaEdit"
+             xmlns:web="using:CncStudio.Web"
+             x:Class="CncStudio.Web.MainView"
+             Background="{DynamicResource AppBackground}">
+
+  <UserControl.Styles>
+    <!-- Botões da barra: grandes o bastante para o dedo -->
+    <Style Selector="Button.bar">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ToggleButton.page">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="18,6" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+    <!-- Barra superior: marca + ações -->
+    <Border Grid.Row="0" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,0,1">
+      <DockPanel Margin="10,6" LastChildFill="False">
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Image Source="/Assets/simbolo.png" Height="24" />
+          <TextBlock x:Name="BrandText" VerticalAlignment="Center" FontSize="16" FontWeight="Bold">
+            <Run Text="Casillas" /><Run Text=" Code" Foreground="{DynamicResource BrandBlue}" />
+          </TextBlock>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button x:Name="OpenButton" Classes="bar" Content="Abrir" ToolTip.Tip="Abrir um programa do aparelho" />
+          <Button x:Name="ExamplesButton" Classes="bar" Content="Exemplos ▾">
+            <Button.Flyout>
+              <MenuFlyout x:Name="ExamplesMenu" Placement="BottomEdgeAlignedRight" />
+            </Button.Flyout>
+          </Button>
+          <ComboBox x:Name="DialectCombo" MinHeight="36" SelectedIndex="0" ToolTip.Tip="Dialeto do comando">
+            <ComboBoxItem Content="Fanuc" />
+            <ComboBoxItem Content="Siemens" />
+          </ComboBox>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Celular: alterna entre código e gráfico (no PC os dois ficam lado a lado) -->
+    <Grid x:Name="PageSwitch" Grid.Row="1" ColumnDefinitions="*,*" Margin="8,6,8,0" IsVisible="False">
+      <ToggleButton x:Name="CodePageButton" Grid.Column="0" Classes="page" Content="Código" IsChecked="True" HorizontalAlignment="Stretch" CornerRadius="6,0,0,6" />
+      <ToggleButton x:Name="GraphPageButton" Grid.Column="1" Classes="page" Content="Gráfico" HorizontalAlignment="Stretch" CornerRadius="0,6,6,0" />
+    </Grid>
+
+    <!-- Área principal: editor e backplot -->
+    <Grid x:Name="Workspace" Grid.Row="2" ColumnDefinitions="*,6,*" Margin="0,6,0,0">
+      <Border x:Name="EditorHost" Grid.Column="0" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,1,1">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock x:Name="FileNameText" Grid.Row="0" Margin="10,4" FontWeight="SemiBold" Opacity="0.85" Text="sem título" />
+          <ae:TextEditor x:Name="Editor" Grid.Row="1"
+                         FontFamily="{StaticResource CodeFont}" FontSize="14"
+                         ShowLineNumbers="True" WordWrap="False"
+                         HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                         Background="{DynamicResource AppBackground}" Foreground="#D4D4D4" />
+        </Grid>
+      </Border>
+      <GridSplitter x:Name="Splitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SubtleBorder}" />
+      <Grid x:Name="GraphHost" Grid.Column="2" RowDefinitions="*,Auto">
+        <web:BackplotView x:Name="Backplot" Grid.Row="0" />
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="10,6">
+          <Button x:Name="FitButton" Classes="bar" Content="Ajustar" ToolTip.Tip="Mostrar a peça inteira (ou duplo toque no gráfico)" />
+          <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <TextBlock Text="- - G00" Foreground="#FF4D4D" FontSize="12" />
+            <TextBlock Text="— G01" Foreground="#3DDC6A" FontSize="12" />
+            <TextBlock Text="— G02" Foreground="#7FD8FF" FontSize="12" />
+            <TextBlock Text="— G03" Foreground="#3D6BFF" FontSize="12" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+    </Grid>
+
+    <!-- Rodapé: resumo da análise -->
+    <Border Grid.Row="3" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,0,0">
+      <TextBlock x:Name="StatusText" Margin="10,5" FontSize="12" TextTrimming="CharacterEllipsis" Opacity="0.85" />
+    </Border>
+  </Grid>
+</UserControl>

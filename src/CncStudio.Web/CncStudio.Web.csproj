@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!--
+    Casillas Code para navegador (PC e celular): Avalonia rodando em WebAssembly.
+    Usa o mesmo Core do desktop. Fica fora da solução principal porque precisa do
+    workload "wasm-tools" (dotnet workload install wasm-tools); o CI compila num passo próprio.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-browser</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>CncStudio.Web</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Números sempre com ponto decimal e download menor (sem tabelas de cultura) -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Corte de código conservador: só nas bibliotecas que declaram suporte -->
+    <TrimMode>partial</TrimMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Browser" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.22" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CncStudio.Core\CncStudio.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Cores do editor: o mesmo código do desktop -->
+  <ItemGroup>
+    <Compile Include="..\CncStudio.App\Highlighting\GCodeColorizer.cs" Link="Shared\GCodeColorizer.cs" />
+    <Compile Include="..\CncStudio.App\Highlighting\LineMotionRenderer.cs" Link="Shared\LineMotionRenderer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\Fonts\*.txt" />
+    <!-- Programas de exemplo embutidos (no navegador não há pasta samples ao lado) -->
+    <EmbeddedResource Include="..\..\samples\EXEMPLO.nc" LogicalName="samples/EXEMPLO.nc" />
+    <EmbeddedResource Include="..\..\samples\EXEMPLO.mpf" LogicalName="samples/EXEMPLO.mpf" />
+    <EmbeddedResource Include="..\..\samples\FURACAO.nc" LogicalName="samples/FURACAO.nc" />
+    <EmbeddedResource Include="..\..\samples\torno\EXEMPLO_TORNO.nc" LogicalName="samples/EXEMPLO_TORNO.nc" />
+    <EmbeddedResource Include="..\..\samples\torno\EXEMPLO_TORNO.mpf" LogicalName="samples/EXEMPLO_TORNO.mpf" />
+    <EmbeddedResource Include="..\..\samples\torno\REBAIXO_CANAL.nc" LogicalName="samples/REBAIXO_CANAL.nc" />
+  </ItemGroup>
+
+</Project>

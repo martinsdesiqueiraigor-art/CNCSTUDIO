@@ -95,3 +95,45 @@ jobs:
           name: CasillasCode-Setup
           path: installer-output/*.exe
           retention-days: 30
+
+  # Versão web (Avalonia em WebAssembly): compila e publica os arquivos no ramo ci-web
+  web:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # para publicar a versão web no ramo ci-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Instalar ferramentas de WebAssembly
+        run: dotnet workload install wasm-tools
+
+      - name: Publicar versão web
+        run: dotnet publish src/CncStudio.Web/CncStudio.Web.csproj -c Release -o publish/web
+
+      - name: Conferir arquivos gerados
+        run: |
+          ls -la publish/web/wwwroot
+          du -sh publish/web/wwwroot publish/web/wwwroot/_framework
+
+      - name: Anexar versão web
+        uses: actions/upload-artifact@v4
+        with:
+          name: CasillasCode-web
+          path: publish/web/wwwroot
+          retention-days: 14
+
+      - name: Publicar no ramo ci-web
+        if: github.event_name == 'push'
+        run: |
+          cd publish/web/wwwroot
+          touch .nojekyll
+          git init -q -b ci-web
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Versão web (${{ github.sha }})"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-web
