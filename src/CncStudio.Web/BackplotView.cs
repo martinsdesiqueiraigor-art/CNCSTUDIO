@@ -4,41 +4,70 @@ using Avalonia.Input;
 using Avalonia.Media;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
+using CncStudio.Core.Rendering;
 using CncStudio.Core.Trajectory;
 
 namespace CncStudio.Web;
 
+/// <summary>Vista da fresa no backplot web (no torno é sempre o plano ZX).</summary>
+public enum MillView
+{
+    /// <summary>Isométrica: mostra as profundidades (2,5D).</summary>
+    Iso,
+
+    /// <summary>Topo (plano XY).</summary>
+    Top,
+
+    /// <summary>Frente (plano XZ).</summary>
+    Front,
+}
+
 /// <summary>
-/// Backplot 2D leve para o navegador:
+/// Backplot leve para o navegador (só linhas, sem sólido):
 ///   torno → plano ZX (Z para a direita, X/raio para cima), com a linha de centro;
-///   fresa → vista de topo XY.
+///   fresa → isométrica 2,5D, topo ou frente.
 /// Cores dos movimentos: G00 vermelho tracejado, G01 verde, G02 azul claro, G03 azul escuro.
+/// Na simulação, o caminho inteiro fica apagado e o já executado aparece aceso, com a ferramenta.
 /// Toque/clique: vai à linha do programa. Arrastar: move. Roda ou pinça com dois dedos: zoom.
 /// Duplo toque: ajusta à peça.
 /// </summary>
 public sealed class BackplotView : Control
 {
+    /// <summary>Movimentos por bloco da simulação (blocos completos ficam guardados, prontos para desenhar).</summary>
+    private const int BlockSize = 256;
+
     // Mesmas cores do desktop
-    private static readonly IPen RapidPen = new Pen(new SolidColorBrush(Color.Parse("#FF4D4D")), 1, new DashStyle([4, 3], 0));
-    private static readonly IBrush[] MotionBrushes =
+    private static readonly Color[] MotionColors =
     [
-        new SolidColorBrush(Color.Parse("#FF4D4D")), // G00
-        new SolidColorBrush(Color.Parse("#3DDC6A")), // G01
-        new SolidColorBrush(Color.Parse("#7FD8FF")), // G02
-        new SolidColorBrush(Color.Parse("#3D6BFF")), // G03
+        Color.Parse("#FF4D4D"), // G00
+        Color.Parse("#3DDC6A"), // G01
+        Color.Parse("#7FD8FF"), // G02
+        Color.Parse("#3D6BFF"), // G03
     ];
+
+    private static readonly IBrush[] BrightBrushes = MotionColors.Select(c => (IBrush)new SolidColorBrush(c)).ToArray();
+    private static readonly IBrush[] DimBrushes = MotionColors.Select(c => (IBrush)new SolidColorBrush(c, 0.22)).ToArray();
+    private static readonly DashStyle RapidDash = new([4, 3], 0);
 
     private static readonly IBrush Background = new SolidColorBrush(Color.Parse("#0D1117"));
     private static readonly IBrush AxisBrush = new SolidColorBrush(Color.Parse("#6E7681"));
     private static readonly IBrush HighlightBrush = new SolidColorBrush(Color.Parse("#FFD33D"));
     private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#8B949E"));
+    private static readonly IBrush ToolBrush = new SolidColorBrush(Color.Parse("#F0883E"));
+    private static readonly IBrush ToolFill = new SolidColorBrush(Color.Parse("#F0883E"), 0.35);
 
     private ToolPath? _path;
     private bool _lathe;
-    private StreamGeometry?[] _geometries = new StreamGeometry?[4];
+    private MillView _millView = MillView.Iso;
+    private double _arcTolerance = 0.01;
+
+    // Cada movimento já projetado no plano da vista (mm), com o ponto inicial
+    private Point[][] _polys = [];
+    private StreamGeometry?[] _full = new StreamGeometry?[4];
+    private readonly List<StreamGeometry?[]> _blocks = [];
     private StreamGeometry? _highlight;
     private int _highlightLine;
-    private double _arcTolerance = 0.01;
+    private int? _visibleMoves;
 
     // Transformação mundo (mm) → tela: tela = (u * escala + desloc.X, −v * escala + desloc.Y)
     private double _scale = 1;
@@ -62,6 +91,46 @@ public sealed class BackplotView : Control
     /// <summary>O usuário tocou num movimento: número da linha no editor.</summary>
     public event EventHandler<int>? LineRequested;
 
+    public bool IsLathe => _lathe;
+
+    /// <summary>Vista usada na fresa.</summary>
+    public MillView MillView
+    {
+        get => _millView;
+        set
+        {
+            if (_millView == value)
+            {
+                return;
+            }
+
+            _millView = value;
+            if (!_lathe)
+            {
+                Rebuild();
+                Fit();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Simulação: quantos movimentos já foram executados (null = sem simulação, tudo aceso).
+    /// </summary>
+    public int? VisibleMoves
+    {
+        get => _visibleMoves;
+        set
+        {
+            if (_visibleMoves == value)
+            {
+                return;
+            }
+
+            _visibleMoves = value;
+            InvalidateVisual();
+        }
+    }
+
     /// <summary>Mostra uma nova trajetória. "keepView" mantém zoom e posição (edição no mesmo programa).</summary>
     public void SetPath(ToolPath? path, bool keepView)
     {
@@ -69,12 +138,11 @@ public sealed class BackplotView : Control
         _path = path;
         _lathe = path?.Machine == MachineKind.Lathe;
         _arcTolerance = path is null ? 0.01 : Math.Max(0.002, PathPolylineBuilder.ScreenTolerance(path));
-        BuildGeometries();
-        BuildHighlight();
+        _visibleMoves = null;
+        Rebuild();
         if (!keepView || latheChanged)
         {
-            _fitPending = true;
-            _userMovedView = false;
+            Fit();
         }
 
         InvalidateVisual();
@@ -103,51 +171,92 @@ public sealed class BackplotView : Control
 
     // ───────────────────────── Geometria (em mm, montada uma vez) ─────────────────────────
 
-    private (double U, double V) Project(Point3 p) => _lathe ? (p.Z, p.X) : (p.X, p.Y);
-
-    private void BuildGeometries()
+    private (double U, double V) Project(Point3 p)
     {
-        _geometries = new StreamGeometry?[4];
-        if (_path is null || _path.Moves.Count == 0)
+        if (_lathe)
         {
+            return (p.Z, p.X);
+        }
+
+        return _millView switch
+        {
+            MillView.Top => ViewCamera.Top.Project(p),
+            MillView.Front => ViewCamera.Front.Project(p),
+            _ => ViewCamera.Iso.Project(p),
+        };
+    }
+
+    private Point ProjectPoint(Point3 p)
+    {
+        (double u, double v) = Project(p);
+        return new Point(u, v);
+    }
+
+    private void Rebuild()
+    {
+        _blocks.Clear();
+        if (_path is null)
+        {
+            _polys = [];
+            _full = new StreamGeometry?[4];
+            BuildHighlight();
             return;
         }
 
-        var contexts = new StreamGeometryContext?[4];
-        var last = new Point3?[4]; // último ponto de cada geometria (para não abrir figura nova à toa)
         var points = new List<Point3>();
-
-        foreach (Move move in _path.Moves)
+        _polys = new Point[_path.Moves.Count][];
+        for (int i = 0; i < _polys.Length; i++)
         {
-            int kind = (int)move.Motion;
+            Move move = _path.Moves[i];
+            points.Clear();
+            points.Add(move.Start);
+            move.AppendPolyline(points, _arcTolerance);
+            _polys[i] = points.Select(ProjectPoint).ToArray();
+        }
+
+        _full = BuildRange(0, _polys.Length);
+        BuildHighlight();
+    }
+
+    /// <summary>Geometrias (uma por tipo de movimento) dos movimentos [from, to).</summary>
+    private StreamGeometry?[] BuildRange(int from, int to)
+    {
+        var result = new StreamGeometry?[4];
+        if (_path is null || from >= to)
+        {
+            return result;
+        }
+
+        var contexts = new StreamGeometryContext?[4];
+        var last = new Point?[4]; // último ponto de cada geometria (para não abrir figura nova à toa)
+
+        for (int i = from; i < to; i++)
+        {
+            int kind = (int)_path.Moves[i].Motion;
+            Point[] poly = _polys[i];
             if (contexts[kind] is null)
             {
-                _geometries[kind] = new StreamGeometry();
-                contexts[kind] = _geometries[kind]!.Open();
+                result[kind] = new StreamGeometry();
+                contexts[kind] = result[kind]!.Open();
             }
 
             StreamGeometryContext ctx = contexts[kind]!;
-            points.Clear();
-            move.AppendPolyline(points, _arcTolerance);
-
-            if (last[kind] is not { } previous || previous != move.Start)
+            if (last[kind] is not { } previous || previous != poly[0])
             {
                 if (last[kind] is not null)
                 {
                     ctx.EndFigure(false);
                 }
 
-                (double u0, double v0) = Project(move.Start);
-                ctx.BeginFigure(new Point(u0, v0), false);
+                ctx.BeginFigure(poly[0], false);
             }
 
-            foreach (Point3 p in points)
+            for (int k = 1; k < poly.Length; k++)
             {
-                (double u, double v) = Project(p);
-                ctx.LineTo(new Point(u, v));
+                ctx.LineTo(poly[k]);
             }
 
-            last[kind] = move.End;
+            last[kind] = poly[^1];
         }
 
         for (int k = 0; k < 4; k++)
@@ -158,6 +267,8 @@ public sealed class BackplotView : Control
                 ctx.Dispose();
             }
         }
+
+        return result;
     }
 
     private void BuildHighlight()
@@ -170,24 +281,20 @@ public sealed class BackplotView : Control
 
         var geometry = new StreamGeometry();
         bool any = false;
-        var points = new List<Point3>();
         using (StreamGeometryContext ctx = geometry.Open())
         {
-            foreach (Move move in _path.Moves)
+            for (int i = 0; i < _polys.Length; i++)
             {
-                if (move.LineNumber != _highlightLine)
+                if (_path.Moves[i].LineNumber != _highlightLine)
                 {
                     continue;
                 }
 
-                points.Clear();
-                move.AppendPolyline(points, _arcTolerance);
-                (double u0, double v0) = Project(move.Start);
-                ctx.BeginFigure(new Point(u0, v0), false);
-                foreach (Point3 p in points)
+                Point[] poly = _polys[i];
+                ctx.BeginFigure(poly[0], false);
+                for (int k = 1; k < poly.Length; k++)
                 {
-                    (double u, double v) = Project(p);
-                    ctx.LineTo(new Point(u, v));
+                    ctx.LineTo(poly[k]);
                 }
 
                 ctx.EndFigure(false);
@@ -225,20 +332,31 @@ public sealed class BackplotView : Control
         // Mundo → tela: escala com Y invertido. A espessura da caneta é dividida pela escala
         // para continuar com o mesmo tamanho na tela em qualquer zoom.
         var matrix = new Matrix(_scale, 0, 0, -_scale, _offset.X, _offset.Y);
+        double px = 1 / _scale;
         using (context.PushTransform(matrix))
         {
-            double px = 1 / _scale;
-            if (_geometries[0] is { } rapid)
+            if (_visibleMoves is not { } visible)
             {
-                context.DrawGeometry(null, new Pen(RapidPen.Brush, 1.2 * px, RapidPen.DashStyle), rapid);
+                DrawSet(context, _full, BrightBrushes, px);
             }
-
-            for (int k = 1; k < 4; k++)
+            else
             {
-                if (_geometries[k] is { } g)
+                // Simulação: tudo apagado + o que já foi executado aceso
+                DrawSet(context, _full, DimBrushes, px);
+                visible = Math.Clamp(visible, 0, _polys.Length);
+                int complete = visible / BlockSize;
+                for (int b = 0; b < complete; b++)
                 {
-                    context.DrawGeometry(null, new Pen(MotionBrushes[k], 1.8 * px, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), g);
+                    while (_blocks.Count <= b)
+                    {
+                        int start = _blocks.Count * BlockSize;
+                        _blocks.Add(BuildRange(start, start + BlockSize));
+                    }
+
+                    DrawSet(context, _blocks[b], BrightBrushes, px);
                 }
+
+                DrawSet(context, BuildRange(complete * BlockSize, visible), BrightBrushes, px);
             }
 
             if (_highlight is { } h)
@@ -247,24 +365,104 @@ public sealed class BackplotView : Control
             }
         }
 
-        DrawText(context, _lathe ? "Torno · plano ZX" : "Fresa · vista de topo XY", new Point(12, 10));
+        if (_visibleMoves is { } executed)
+        {
+            DrawTool(context, executed);
+        }
+    }
+
+    private static void DrawSet(DrawingContext context, StreamGeometry?[] set, IBrush[] brushes, double px)
+    {
+        if (set[0] is { } rapid)
+        {
+            context.DrawGeometry(null, new Pen(brushes[0], 1.2 * px, RapidDash), rapid);
+        }
+
+        for (int k = 1; k < 4; k++)
+        {
+            if (set[k] is { } g)
+            {
+                context.DrawGeometry(null, new Pen(brushes[k], 1.8 * px, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), g);
+            }
+        }
+    }
+
+    /// <summary>Ferramenta na ponta do último movimento executado.</summary>
+    private void DrawTool(DrawingContext context, int executed)
+    {
+        if (_polys.Length == 0)
+        {
+            return;
+        }
+
+        Point world = executed <= 0 ? _polys[0][0] : _polys[Math.Min(executed, _polys.Length) - 1][^1];
+        Point tip = ToScreen(world.X, world.Y);
+        var pen = new Pen(ToolBrush, 1.5);
+
+        if (_lathe)
+        {
+            // Pastilha rômbica com a ponta no ponto programado (acima da peça, lado +X)
+            var insert = new StreamGeometry();
+            using (StreamGeometryContext ctx = insert.Open())
+            {
+                ctx.BeginFigure(tip, true);
+                ctx.LineTo(tip + new Vector(9, -9));
+                ctx.LineTo(tip + new Vector(0, -18));
+                ctx.LineTo(tip + new Vector(-9, -9));
+                ctx.EndFigure(true);
+            }
+
+            context.DrawGeometry(ToolFill, pen, insert);
+            return;
+        }
+
+        // Fresa: ponta + haste na direção do eixo Z da vista
+        Vector up = ScreenDirection(new Point3(0, 0, 1));
+        if (up.Length > 0.1)
+        {
+            context.DrawLine(new Pen(ToolBrush, 6) { LineCap = PenLineCap.Round }, tip, tip + up * 34);
+        }
+
+        context.DrawEllipse(ToolFill, pen, tip, 6, 6);
+    }
+
+    /// <summary>Direção na tela (unitária) de um eixo do mundo; comprimento 0 se ele aponta para o observador.</summary>
+    private Vector ScreenDirection(Point3 axis)
+    {
+        (double u0, double v0) = Project(new Point3(0, 0, 0));
+        (double u1, double v1) = Project(axis);
+        var d = new Vector(u1 - u0, -(v1 - v0));
+        return d.Length < 1e-6 ? default : d / d.Length;
     }
 
     private void DrawAxes(DrawingContext context, Size size)
     {
         Point origin = ToScreen(0, 0);
-        var axisPen = new Pen(AxisBrush, 1);
         if (_lathe)
         {
             // Linha de centro (traço-ponto), como no desenho técnico
             context.DrawLine(new Pen(AxisBrush, 1, new DashStyle([10, 3, 2, 3], 0)), new Point(0, origin.Y), new Point(size.Width, origin.Y));
+            DrawAxis(context, origin, new Vector(1, 0), "Z");
+            DrawAxis(context, origin, new Vector(0, -1), "X");
+            return;
         }
 
-        // Zero peça: pequena cruz com os nomes dos eixos
-        context.DrawLine(axisPen, origin, origin + new Vector(28, 0));
-        context.DrawLine(axisPen, origin, origin + new Vector(0, -28));
-        DrawText(context, _lathe ? "Z" : "X", origin + new Vector(31, -8));
-        DrawText(context, _lathe ? "X" : "Y", origin + new Vector(-4, -45));
+        // Fresa: triedro XYZ no zero peça (eixos que apontam para o observador não aparecem)
+        DrawAxis(context, origin, ScreenDirection(new Point3(1, 0, 0)), "X");
+        DrawAxis(context, origin, ScreenDirection(new Point3(0, 1, 0)), "Y");
+        DrawAxis(context, origin, ScreenDirection(new Point3(0, 0, 1)), "Z");
+    }
+
+    private static void DrawAxis(DrawingContext context, Point origin, Vector direction, string name)
+    {
+        if (direction.Length < 0.1)
+        {
+            return;
+        }
+
+        Point end = origin + direction * 28;
+        context.DrawLine(new Pen(AxisBrush, 1), origin, end);
+        DrawText(context, name, end + direction * 6 + new Vector(-4, -8));
     }
 
     private static void DrawText(DrawingContext context, string text, Point at)
@@ -291,7 +489,7 @@ public sealed class BackplotView : Control
         // Ajusta pela região de corte (os rápidos de troca de ferramenta vão longe e encolheriam a peça)
         Bounds3 b = _path.CuttingBounds.IsEmpty ? _path.Bounds : _path.CuttingBounds;
         double minU = double.MaxValue, minV = double.MaxValue, maxU = double.MinValue, maxV = double.MinValue;
-        foreach (Point3 corner in new[] { b.Min, b.Max })
+        foreach (Point3 corner in ViewCamera.Corners(b))
         {
             (double u, double v) = Project(corner);
             minU = Math.Min(minU, u);
@@ -308,13 +506,13 @@ public sealed class BackplotView : Control
 
         double width = Math.Max(maxU - minU, 1);
         double height = Math.Max(maxV - minV, 1);
-        const double margin = 28;
-        _scale = Math.Min((size.Width - 2 * margin) / width, (size.Height - 2 * margin - 20) / height);
+        const double margin = 30;
+        _scale = Math.Min((size.Width - 2 * margin) / width, (size.Height - 2 * margin) / height);
         _scale = Math.Clamp(_scale, 0.01, 10_000);
 
         double centerU = (minU + maxU) / 2;
         double centerV = (minV + maxV) / 2;
-        _offset = new Vector(size.Width / 2 - centerU * _scale, (size.Height + 20) / 2 + centerV * _scale);
+        _offset = new Vector(size.Width / 2 - centerU * _scale, size.Height / 2 + centerV * _scale);
     }
 
     private void ZoomAt(Point screen, double factor)

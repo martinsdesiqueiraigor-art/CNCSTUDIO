@@ -14,6 +14,26 @@
       <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorder}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
+    <Style Selector="Button.sim">
+      <Setter Property="MinWidth" Value="44" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Margin" Value="2,3" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.sim PathIcon">
+      <Setter Property="Width" Value="14" />
+      <Setter Property="Height" Value="14" />
+    </Style>
+    <Style Selector="Button.play">
+      <Setter Property="Background" Value="{DynamicResource BrandOrange}" />
+      <Setter Property="Foreground" Value="#0D1117" />
+      <Setter Property="MinWidth" Value="56" />
+    </Style>
+    <Style Selector="ToggleButton.view">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="12,4" />
+    </Style>
     <Style Selector="ToggleButton.page">
       <Setter Property="MinHeight" Value="36" />
       <Setter Property="Padding" Value="18,6" />
@@ -53,7 +73,13 @@
     <Grid x:Name="Workspace" Grid.Row="2" ColumnDefinitions="*,6,*" Margin="0,6,0,0">
       <Border x:Name="EditorHost" Grid.Column="0" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,1,1">
         <Grid RowDefinitions="Auto,*">
-          <TextBlock x:Name="FileNameText" Grid.Row="0" Margin="10,4" FontWeight="SemiBold" Opacity="0.85" Text="sem título" />
+          <DockPanel Grid.Row="0" Margin="10,4,6,4">
+            <!-- Celular: edição no editor nativo do aparelho (o teclado virtual funciona direito lá) -->
+            <Button x:Name="EditButton" DockPanel.Dock="Right" Classes="bar" Content="Editar" IsVisible="False"
+                    ToolTip.Tip="Editar o programa com o teclado do aparelho" />
+            <TextBlock x:Name="FileNameText" VerticalAlignment="Center" FontWeight="SemiBold" Opacity="0.85" Text="sem título"
+                       TextTrimming="CharacterEllipsis" />
+          </DockPanel>
           <ae:TextEditor x:Name="Editor" Grid.Row="1"
                          FontFamily="{StaticResource CodeFont}" FontSize="14"
                          ShowLineNumbers="True" WordWrap="False"
@@ -62,17 +88,55 @@
         </Grid>
       </Border>
       <GridSplitter x:Name="Splitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SubtleBorder}" />
-      <Grid x:Name="GraphHost" Grid.Column="2" RowDefinitions="*,Auto">
-        <web:BackplotView x:Name="Backplot" Grid.Row="0" />
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="10,6">
-          <Button x:Name="FitButton" Classes="bar" Content="Ajustar" ToolTip.Tip="Mostrar a peça inteira (ou duplo toque no gráfico)" />
-          <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-            <TextBlock Text="- - G00" Foreground="#FF4D4D" FontSize="12" />
-            <TextBlock Text="— G01" Foreground="#3DDC6A" FontSize="12" />
-            <TextBlock Text="— G02" Foreground="#7FD8FF" FontSize="12" />
-            <TextBlock Text="— G03" Foreground="#3D6BFF" FontSize="12" />
+      <Grid x:Name="GraphHost" Grid.Column="2" RowDefinitions="Auto,*,Auto">
+        <!-- Cabeçalho do gráfico: vista (fresa) ou plano do torno -->
+        <DockPanel Grid.Row="0" Margin="8,4" LastChildFill="False">
+          <TextBlock x:Name="LatheLabel" DockPanel.Dock="Left" VerticalAlignment="Center" Text="Torno · plano ZX" Opacity="0.7" />
+          <StackPanel x:Name="MillViews" DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4">
+            <ToggleButton x:Name="IsoViewButton" Classes="view" Content="2,5D" IsChecked="True" ToolTip.Tip="Isométrica: mostra as profundidades" />
+            <ToggleButton x:Name="TopViewButton" Classes="view" Content="Topo" ToolTip.Tip="Vista de cima (XY)" />
+            <ToggleButton x:Name="FrontViewButton" Classes="view" Content="Frente" ToolTip.Tip="Vista de frente (XZ)" />
           </StackPanel>
-        </StackPanel>
+          <Button x:Name="FitButton" DockPanel.Dock="Right" Classes="bar" Content="Ajustar" ToolTip.Tip="Mostrar a peça inteira (ou duplo toque no gráfico)" />
+        </DockPanel>
+
+        <web:BackplotView x:Name="Backplot" Grid.Row="1" />
+
+        <!-- Simulação: linha a linha do programa, com pausa -->
+        <Border Grid.Row="2" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,0,0">
+          <StackPanel Margin="8,6" Spacing="6">
+            <WrapPanel HorizontalAlignment="Center">
+              <Button x:Name="SimStartButton" Classes="sim" ToolTip.Tip="Voltar ao início">
+                <PathIcon Data="M0,0 H2.5 V12 H0 Z M12,0 L3.5,6 L12,12 Z" />
+              </Button>
+              <Button x:Name="SimBackButton" Classes="sim" ToolTip.Tip="Linha anterior">
+                <PathIcon Data="M0,0 H2.5 V12 H0 Z M11,0 L3.5,6 L11,12 Z" />
+              </Button>
+              <Button x:Name="SimPlayButton" Classes="sim play" ToolTip.Tip="Executar / pausar">
+                <PathIcon x:Name="SimPlayIcon" Data="M0,0 L11,6 L0,12 Z" />
+              </Button>
+              <Button x:Name="SimStepButton" Classes="sim" ToolTip.Tip="Próxima linha">
+                <PathIcon Data="M0,0 L7.5,6 L0,12 Z M8.5,0 H11 V12 H8.5 Z" />
+              </Button>
+              <Button x:Name="SimEndButton" Classes="sim" ToolTip.Tip="Ir ao fim (trajetória completa)">
+                <PathIcon Data="M0,0 L8.5,6 L0,12 Z M9.5,0 H12 V12 H9.5 Z" />
+              </Button>
+              <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0,0,0">
+                <Slider x:Name="SpeedSlider" Width="110" Minimum="1" Maximum="50" Value="5" VerticalAlignment="Center" />
+                <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="12" Width="70" Text="5 linhas/s" />
+              </StackPanel>
+            </WrapPanel>
+            <Grid ColumnDefinitions="Auto,*">
+              <TextBlock x:Name="SimPositionText" Grid.Column="0" FontSize="12" Opacity="0.85" VerticalAlignment="Center" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <TextBlock Text="- - G00" Foreground="#FF4D4D" FontSize="12" />
+                <TextBlock Text="— G01" Foreground="#3DDC6A" FontSize="12" />
+                <TextBlock Text="— G02" Foreground="#7FD8FF" FontSize="12" />
+                <TextBlock Text="— G03" Foreground="#3D6BFF" FontSize="12" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
       </Grid>
     </Grid>
 
