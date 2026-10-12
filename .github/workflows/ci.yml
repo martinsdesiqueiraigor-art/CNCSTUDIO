@@ -25,3 +25,17 @@ jobs:
 
       - name: Testes
         run: dotnet test --no-build -c Release --logger "console;verbosity=normal"
+
+      - name: Publicar executável Windows (x64)
+        run: >
+          dotnet publish src/CncStudio.App/CncStudio.App.csproj -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none
+          -o publish/CncStudio-win-x64
+
+      - name: Anexar executável ao resultado do CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: CncStudio-win-x64
+          path: publish/CncStudio-win-x64
+          retention-days: 30

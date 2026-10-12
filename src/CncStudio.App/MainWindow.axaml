@@ -1,0 +1,61 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ae="using:AvaloniaEdit"
+        x:Class="CncStudio.App.MainWindow"
+        Title="CncStudio"
+        Width="1280" Height="800"
+        MinWidth="800" MinHeight="500">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Barra de ferramentas -->
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="8,6">
+      <Button x:Name="OpenButton" Content="Abrir (Ctrl+O)" />
+      <Button x:Name="SaveButton" Content="Salvar (Ctrl+S)" />
+      <Button x:Name="FanucSampleButton" Content="Exemplo Fanuc" />
+      <Button x:Name="SiemensSampleButton" Content="Exemplo Siemens" />
+      <TextBlock Text="Dialeto:" VerticalAlignment="Center" Margin="12,0,0,0" />
+      <ComboBox x:Name="DialectCombo" Width="120" SelectedIndex="0">
+        <ComboBoxItem Content="Fanuc" />
+        <ComboBoxItem Content="Siemens" />
+      </ComboBox>
+    </StackPanel>
+
+    <!-- Área principal: editor à esquerda, painéis gráficos à direita -->
+    <Grid Grid.Row="1" ColumnDefinitions="2*,4,3*">
+
+      <Grid Grid.Column="0" RowDefinitions="*,4,120">
+        <ae:TextEditor x:Name="Editor"
+                       Grid.Row="0"
+                       ShowLineNumbers="True"
+                       FontFamily="Cascadia Mono, Consolas, Menlo, monospace"
+                       FontSize="14"
+                       HorizontalScrollBarVisibility="Auto"
+                       VerticalScrollBarVisibility="Auto" />
+        <GridSplitter Grid.Row="1" ResizeDirection="Rows" />
+        <!-- Painel de diagnósticos: clique para ir à linha -->
+        <ListBox x:Name="DiagnosticsList" Grid.Row="2" FontSize="12" />
+      </Grid>
+
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <TabControl x:Name="ViewTabs" Grid.Column="2" Margin="4,0,0,0">
+        <TabItem Header="Backplot">
+          <TextBlock Text="Backplot: incremento 3" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
+        </TabItem>
+        <TabItem Header="Simulação">
+          <TextBlock Text="Simulação: incremento 4" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
+        </TabItem>
+      </TabControl>
+    </Grid>
+
+    <!-- Barra de status -->
+    <Border Grid.Row="2" Padding="8,3" Background="#1E1E1E">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <TextBlock x:Name="AnalysisStatus" Grid.Column="0" FontSize="12" />
+        <TextBlock x:Name="CaretStatus" Grid.Column="1" FontSize="12" Margin="16,0" />
+        <TextBlock x:Name="FileStatus" Grid.Column="2" FontSize="12" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

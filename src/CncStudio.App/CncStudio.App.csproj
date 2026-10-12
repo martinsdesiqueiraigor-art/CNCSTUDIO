@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Interface desktop do CncStudio (Avalonia). Toda a lógica de G-code fica no Core. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>CncStudio.App</RootNamespace>
+    <AssemblyName>CncStudio</AssemblyName>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.*" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.*" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.*" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CncStudio.Core\CncStudio.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Exemplos acessíveis pelos botões "Exemplo Fanuc" / "Exemplo Siemens" -->
+  <ItemGroup>
+    <None Include="..\..\samples\*.*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
