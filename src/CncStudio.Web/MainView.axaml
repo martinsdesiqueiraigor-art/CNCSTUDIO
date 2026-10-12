@@ -34,7 +34,7 @@
         </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
           <Button x:Name="OpenButton" Classes="bar" Content="Abrir" ToolTip.Tip="Abrir um programa do aparelho" />
-          <Button x:Name="ExamplesButton" Classes="bar" Content="Exemplos ▾" />
+          <Button x:Name="ExamplesButton" Classes="bar" Content="Exemplos" />
           <ComboBox x:Name="DialectCombo" MinHeight="36" SelectedIndex="0" ToolTip.Tip="Dialeto do comando">
             <ComboBoxItem Content="Fanuc" />
             <ComboBoxItem Content="Siemens" />

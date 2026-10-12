@@ -245,6 +245,7 @@ public partial class MainView : UserControl
 
         _narrow = narrow;
         PageSwitch.IsVisible = narrow;
+        BrandText.IsVisible = !narrow; // no celular fica só o símbolo, para caber os botões
         Splitter.IsVisible = !narrow;
 
         if (narrow)
