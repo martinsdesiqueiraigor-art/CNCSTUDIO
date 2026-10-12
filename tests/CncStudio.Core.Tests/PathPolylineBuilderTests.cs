@@ -5,7 +5,7 @@ using CncStudio.Core.Trajectory;
 
 namespace CncStudio.Core.Tests;
 
-public class PathFigureBuilderTests
+public class PathPolylineBuilderTests
 {
     private static ToolPath BuildFanuc(params string[] lines) =>
         TrajectoryBuilder.Build(GCodeParser.Parse(string.Join("\n", lines), Dialect.Fanuc));
@@ -21,7 +21,7 @@ public class PathFigureBuilderTests
             "Y20",
             "G00 Z5");
 
-        List<PathFigure> figures = PathFigureBuilder.Build(path.Moves, 0.01);
+        List<PathPolyline> figures = PathPolylineBuilder.Build(path.Moves, 0.01);
 
         Assert.Equal(3, figures.Count);
         Assert.True(figures[0].IsRapid);
@@ -39,9 +39,9 @@ public class PathFigureBuilderTests
             "G00 X10 Y0",
             "G03 I-10 F100");
 
-        List<PathFigure> figures = PathFigureBuilder.Build(path.Moves, 0.01);
+        List<PathPolyline> figures = PathPolylineBuilder.Build(path.Moves, 0.01);
 
-        PathFigure circle = figures[1];
+        PathPolyline circle = figures[1];
         Assert.True(circle.Points.Length > 20);
         Assert.Equal(circle.Points[0], circle.Points[^1]);
     }
@@ -49,6 +49,6 @@ public class PathFigureBuilderTests
     [Fact]
     public void TrajetoriaVaziaNaoGeraFiguras()
     {
-        Assert.Empty(PathFigureBuilder.Build([], 0.01));
+        Assert.Empty(PathPolylineBuilder.Build([], 0.01));
     }
 }

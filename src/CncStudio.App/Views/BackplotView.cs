@@ -22,7 +22,7 @@ public sealed class BackplotView : ZoomPanControl
     private static readonly Pen AxisYPen = new(new SolidColorBrush(Color.Parse("#50C050")).ToImmutable(), 1.5);
 
     private ToolPath? _path;
-    private IReadOnlyList<PathFigure> _figures = [];
+    private IReadOnlyList<PathPolyline> _figures = [];
     private ViewPlane _plane = ViewPlane.XY;
     private int _highlightedLine;
 
@@ -50,7 +50,7 @@ public sealed class BackplotView : ZoomPanControl
     }
 
     /// <summary>Troca a trajetória exibida. "fit" = reenquadrar (ao abrir arquivo).</summary>
-    public void SetToolPath(ToolPath path, IReadOnlyList<PathFigure> figures, bool fit)
+    public void SetToolPath(ToolPath path, IReadOnlyList<PathPolyline> figures, bool fit)
     {
         _path = path;
         _figures = figures;
@@ -153,17 +153,17 @@ public sealed class BackplotView : ZoomPanControl
 
         Move move = _path.Moves[index];
         var points = new List<Point3> { move.Start };
-        move.AppendPolyline(points, PathFigureBuilder.ScreenTolerance(_path));
-        _highlightGeometry = BuildGeometry([new PathFigure(move.IsRapid, points.ToArray())]);
+        move.AppendPolyline(points, PathPolylineBuilder.ScreenTolerance(_path));
+        _highlightGeometry = BuildGeometry([new PathPolyline(move.IsRapid, points.ToArray())]);
         _highlightStart = _plane.Project(move.Start);
     }
 
-    private StreamGeometry BuildGeometry(IEnumerable<PathFigure> figures)
+    private StreamGeometry BuildGeometry(IEnumerable<PathPolyline> figures)
     {
         var geometry = new StreamGeometry();
         using (StreamGeometryContext context = geometry.Open())
         {
-            foreach (PathFigure figure in figures)
+            foreach (PathPolyline figure in figures)
             {
                 context.BeginFigure(_plane.Project(figure.Points[0]), false);
                 for (int i = 1; i < figure.Points.Length; i++)

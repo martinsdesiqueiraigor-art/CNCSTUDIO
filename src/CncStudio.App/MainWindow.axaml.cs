@@ -236,12 +236,12 @@ public partial class MainWindow : Window
         try
         {
             // Parse, trajetória e figuras do backplot: tudo fora da thread de UI
-            (ProgramAnalysis analysis, List<PathFigure> figures) = await Task.Run(() =>
+            (ProgramAnalysis analysis, List<PathPolyline> figures) = await Task.Run(() =>
             {
                 ProgramAnalysis result = ProgramAnalyzer.Analyze(text, dialect, cancellation.Token);
-                List<PathFigure> pathFigures = PathFigureBuilder.Build(
-                    result.ToolPath.Moves, PathFigureBuilder.ScreenTolerance(result.ToolPath));
-                return (result, pathFigures);
+                List<PathPolyline> pathPolylines = PathPolylineBuilder.Build(
+                    result.ToolPath.Moves, PathPolylineBuilder.ScreenTolerance(result.ToolPath));
+                return (result, pathPolylines);
             }, cancellation.Token);
 
             if (version == _analysisVersion)
@@ -262,7 +262,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyAnalysis(ProgramAnalysis analysis, List<PathFigure> figures)
+    private void ApplyAnalysis(ProgramAnalysis analysis, List<PathPolyline> figures)
     {
         CurrentAnalysis = analysis;
         Backplot.SetToolPath(analysis.ToolPath, figures, _fitOnNextAnalysis);
