@@ -1,0 +1,6 @@
+# Painel de ativação: nunca indexar, nunca abrir dentro de outro site, sempre a versão nova
+/*
+  X-Robots-Tag: noindex, nofollow
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Cache-Control: no-cache

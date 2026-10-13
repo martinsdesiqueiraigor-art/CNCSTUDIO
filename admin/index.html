@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="theme-color" content="#0d1117" />
+<title>Painel de ativação · Casillas Code</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --field: #0d1117; --line: #30363d; --text: #e6edf3; --soft: #8b949e;
+    --brand: #f0883e; --blue: #58a6ff; --ok: #3fb950; --warn: #d29922; --bad: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line);
+           padding: 10px 16px; display: flex; align-items: center; gap: 10px; }
+  header img { height: 26px; }
+  header .who { margin-left: auto; font-size: 12px; color: var(--soft); text-align: right; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  h2 { font-size: 16px; margin: 0 0 10px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--soft); }
+  input, select, textarea { font: inherit; font-size: 16px; color: var(--text); background: var(--field);
+           border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; width: 100%; }
+  textarea { min-height: 60px; resize: vertical; }
+  button { font: inherit; min-height: 40px; padding: 8px 14px; border-radius: 9px; cursor: pointer;
+           background: transparent; color: var(--text); border: 1px solid var(--line); }
+  button.primary { background: var(--brand); color: #0d1117; border-color: var(--brand); font-weight: 600; }
+  button.danger { color: #ff7b72; border-color: #da3633; }
+  button.small { min-height: 32px; padding: 4px 10px; font-size: 13px; }
+  button:disabled { opacity: .55; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+  .row > * { flex: 1 1 140px; }
+  .row > button { flex: 0 0 auto; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .muted { color: var(--soft); font-size: 13px; }
+  .msg { padding: 10px 12px; border-radius: 9px; font-size: 14px; display: none; }
+  .msg.ok { display: block; background: rgba(63,185,80,.12); color: #7ee787; }
+  .msg.bad { display: block; background: rgba(248,81,73,.14); color: #ffa198; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+  .b-ok { background: rgba(63,185,80,.15); color: #7ee787; }
+  .b-trial { background: rgba(88,166,255,.15); color: #79c0ff; }
+  .b-bad { background: rgba(248,81,73,.15); color: #ffa198; }
+  .b-off { background: rgba(139,148,158,.18); color: var(--soft); }
+  .customer { display: flex; flex-direction: column; gap: 10px; }
+  .customer .top { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+  .customer .email { font-weight: 600; word-break: break-all; }
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .item { border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  .item .grow { flex: 1 1 200px; }
+  details > summary { cursor: pointer; color: var(--blue); font-size: 14px; }
+  .hidden { display: none !important; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat { background: var(--field); border: 1px solid var(--line); border-radius: 9px; padding: 8px; text-align: center; }
+  .stat b { display: block; font-size: 20px; }
+  .stat span { font-size: 12px; color: var(--soft); }
+  @media (max-width: 480px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<header>
+  <img src="./assinatura.svg" alt="Casillas Code" />
+  <span class="muted">Painel de ativação</span>
+  <div class="who" id="who"></div>
+</header>
+
+<main>
+  <!-- Entrar -->
+  <section class="card" id="login">
+    <h2>Entrar como administrador</h2>
+    <div class="list">
+      <label>E-mail <input id="l-email" type="email" autocomplete="username" /></label>
+      <label>Senha <input id="l-pass" type="password" autocomplete="current-password" /></label>
+      <div class="msg" id="l-msg"></div>
+      <button class="primary" id="l-go">Entrar</button>
+    </div>
+  </section>
+
+  <!-- Painel -->
+  <section id="panel" class="hidden" style="display:flex;flex-direction:column;gap:14px">
+    <div class="card">
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <label>Procurar cliente (e-mail ou nome) <input id="q" type="search" placeholder="ex.: joao@" /></label>
+        <label style="flex:0 0 150px">Mostrar
+          <select id="filter">
+            <option value="all">Todos</option>
+            <option value="trial">Em teste</option>
+            <option value="licensed">Com licença</option>
+            <option value="expired">Teste encerrado</option>
+          </select>
+        </label>
+        <button id="reload">Atualizar</button>
+      </div>
+      <div class="msg" id="p-msg" style="margin-top:10px"></div>
+    </div>
+
+    <div id="customers" style="display:flex;flex-direction:column;gap:12px"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+const SUPABASE_URL = 'https://jdjlcekavnwuiiaoevvd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Rr3IWTffW7E8eENbKSOjkQ_WBGMnL9Z';
+const $ = id => document.getElementById(id);
+let session = null;   // { access_token, refresh_token, expires_at, email, user_id }
+let customers = [];
+
+// ───────── API ─────────
+async function call(path, { method = 'GET', body, prefer } = {}) {
+  if (session && session.expires_at - 60 < Date.now() / 1000) await refresh();
+  const headers = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' };
+  if (session) headers.Authorization = 'Bearer ' + session.access_token;
+  if (prefer) headers.Prefer = prefer;
+  const r = await fetch(SUPABASE_URL + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await r.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!r.ok) throw new Error((data && (data.msg || data.message || data.error_description || data.error)) || 'erro ' + r.status);
+  return data;
+}
+
+function keep(data, email) {
+  session = {
+    access_token: data.access_token, refresh_token: data.refresh_token,
+    expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+    email: email || (data.user && data.user.email), user_id: (data.user && data.user.id) || (session && session.user_id),
+  };
+  sessionStorage.setItem('cc.admin', JSON.stringify(session)); // só nesta aba: fechou, saiu
+}
+
+async function refresh() {
+  const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+    method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: session.refresh_token }),
+  });
+  if (!r.ok) { logout(); throw new Error('Sessão expirada: entre de novo.'); }
+  keep(await r.json(), session.email);
+}
+
+function logout() {
+  sessionStorage.removeItem('cc.admin');
+  session = null;
+  location.reload();
+}
+
+// ───────── Utilidades ─────────
+const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+const fmtDateTime = iso => iso ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+const money = cents => cents == null ? '' : (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const addMonths = (base, months) => { const d = new Date(base); d.setMonth(d.getMonth() + months); return d.toISOString(); };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function show(el, text, ok) { el.textContent = text; el.className = 'msg ' + (text ? (ok ? 'ok' : 'bad') : ''); }
+
+function activeLicense(c) {
+  const now = Date.now();
+  return (c.licenses || [])
+    .filter(l => l.status === 'active' && Date.parse(l.starts_at) <= now && (!l.expires_at || Date.parse(l.expires_at) > now))
+    .sort((a, b) => (b.kind === 'perpetual') - (a.kind === 'perpetual') || Date.parse(b.expires_at || 0) - Date.parse(a.expires_at || 0))[0];
+}
+
+function stateOf(c) {
+  const lic = activeLicense(c);
+  if (lic) return { key: 'licensed', label: lic.kind === 'perpetual' ? 'Perpétua' : 'Assinatura até ' + fmtDate(lic.expires_at), cls: 'b-ok' };
+  if (Date.parse(c.trial_ends_at) > Date.now()) {
+    const d = Math.ceil((Date.parse(c.trial_ends_at) - Date.now()) / 86400000);
+    return { key: 'trial', label: 'Teste: ' + d + (d === 1 ? ' dia' : ' dias'), cls: 'b-trial' };
+  }
+  return { key: 'expired', label: 'Teste encerrado', cls: 'b-bad' };
+}
+
+// ───────── Entrar ─────────
+async function login() {
+  const email = $('l-email').value.trim().toLowerCase(), pass = $('l-pass').value;
+  show($('l-msg'), '');
+  $('l-go').disabled = true;
+  try {
+    const data = await call('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password: pass } });
+    keep(data, email);
+    await enter();
+  } catch (e) {
+    show($('l-msg'), /invalid login/i.test(e.message) ? 'E-mail ou senha incorretos.' : e.message);
+  } finally { $('l-go').disabled = false; }
+}
+
+async function enter() {
+  // Só quem está na tabela de administradores enxerga a própria linha
+  const me = await call('/rest/v1/admins?select=user_id&user_id=eq.' + encodeURIComponent(session.user_id || ''));
+  if (!me || me.length === 0) {
+    sessionStorage.removeItem('cc.admin'); session = null;
+    show($('l-msg'), 'Esta conta não é de administrador.');
+    return;
+  }
+  $('login').classList.add('hidden');
+  $('panel').classList.remove('hidden');
+  $('who').innerHTML = esc(session.email) + '<br><a href="#" id="out" style="color:var(--blue)">sair</a>';
+  $('out').addEventListener('click', e => { e.preventDefault(); logout(); });
+  await load();
+}
+
+// ───────── Clientes ─────────
+async function load() {
+  show($('p-msg'), '');
+  try {
+    customers = await call('/rest/v1/profiles?select=*,licenses(*),devices(*)&order=created_at.desc&limit=500');
+    render();
+  } catch (e) { show($('p-msg'), 'Não foi possível carregar: ' + e.message); }
+}
+
+function render() {
+  const q = $('q').value.trim().toLowerCase(), f = $('filter').value;
+  const counts = { total: customers.length, trial: 0, licensed: 0, expired: 0 };
+  for (const c of customers) counts[stateOf(c).key]++;
+  $('stats').innerHTML =
+    `<div class="stat"><b>${counts.total}</b><span>contas</span></div>` +
+    `<div class="stat"><b>${counts.trial}</b><span>em teste</span></div>` +
+    `<div class="stat"><b>${counts.licensed}</b><span>com licença</span></div>` +
+    `<div class="stat"><b>${counts.expired}</b><span>teste encerrado</span></div>`;
+
+  const list = customers.filter(c =>
+    (!q || (c.email || '').toLowerCase().includes(q) || (c.full_name || '').toLowerCase().includes(q)) &&
+    (f === 'all' || stateOf(c).key === f));
+
+  const box = $('customers');
+  box.innerHTML = list.length ? '' : '<div class="card muted">Nenhum cliente encontrado.</div>';
+  for (const c of list) box.appendChild(customerCard(c));
+}
+
+function customerCard(c) {
+  const st = stateOf(c);
+  const el = document.createElement('div');
+  el.className = 'card customer';
+  const lic = activeLicense(c);
+  const maxDevices = lic ? lic.max_devices : 2;
+  const devices = (c.devices || []).sort((a, b) => Date.parse(b.last_seen) - Date.parse(a.last_seen));
+  const licenses = (c.licenses || []).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+
+  el.innerHTML = `
+    <div class="top">
+      <div>
+        <div class="email">${esc(c.email)}</div>
+        <div class="muted">${c.full_name ? esc(c.full_name) + ' · ' : ''}conta criada em ${fmtDate(c.created_at)} · teste até ${fmtDate(c.trial_ends_at)}</div>
+      </div>
+      <span class="badge ${st.cls}">${esc(st.label)}</span>
+    </div>
+
+    <details ${lic ? '' : 'open'}>
+      <summary>Ativar licença</summary>
+      <div class="grid" style="margin-top:10px">
+        <label>Tipo
+          <select data-f="kind">
+            <option value="subscription">Assinatura</option>
+            <option value="perpetual">Perpétua</option>
+          </select>
+        </label>
+        <label data-for="subscription">Duração
+          <select data-f="months">
+            <option value="1">1 mês</option><option value="3">3 meses</option><option value="6">6 meses</option>
+            <option value="12" selected>1 ano</option><option value="24">2 anos</option>
+          </select>
+        </label>
+        <label data-for="perpetual" class="hidden">Atualizações por
+          <select data-f="updates">
+            <option value="12" selected>1 ano</option><option value="24">2 anos</option><option value="0">sem atualizações</option>
+          </select>
+        </label>
+        <label>Aparelhos <input data-f="devices" type="number" min="1" max="20" value="2" inputmode="numeric" /></label>
+        <label>Valor recebido (R$) <input data-f="amount" type="text" inputmode="decimal" placeholder="ex.: 350,00" /></label>
+        <label>Referência do Pix <input data-f="ref" type="text" placeholder="id do comprovante" /></label>
+      </div>
+      <label style="margin-top:10px">Observação <textarea data-f="notes" placeholder="ex.: pagou pelo WhatsApp em 12/10"></textarea></label>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" data-a="activate">Ativar</button>
+      </div>
+    </details>
+
+    <div>
+      <div class="muted" style="margin-bottom:6px">Licenças</div>
+      <div class="list">${licenses.length ? licenses.map(licenseRow).join('') : '<div class="muted">Nenhuma ainda.</div>'}</div>
+    </div>
+
+    <div>
+      <div class="muted" style="margin-bottom:6px">Aparelhos (${devices.filter(d => !d.revoked).length} de ${maxDevices})</div>
+      <div class="list">${devices.length ? devices.map(deviceRow).join('') : '<div class="muted">Nenhum ainda.</div>'}</div>
+    </div>
+
+    <div class="row">
+      <button class="small" data-a="trial7">Estender teste +7 dias</button>
+      <button class="small" data-a="copy">Copiar mensagem para o WhatsApp</button>
+    </div>
+    <div class="msg" data-msg></div>`;
+
+  const msg = el.querySelector('[data-msg]');
+  const kind = el.querySelector('[data-f=kind]');
+  kind.addEventListener('change', () => {
+    el.querySelector('[data-for=subscription]').classList.toggle('hidden', kind.value !== 'subscription');
+    el.querySelector('[data-for=perpetual]').classList.toggle('hidden', kind.value !== 'perpetual');
+  });
+
+  el.addEventListener('click', async ev => {
+    const b = ev.target.closest('button[data-a]');
+    if (!b) return;
+    b.disabled = true;
+    try {
+      const done = await action(b.dataset.a, b.dataset.id, c, el);
+      if (done) { show(msg, done, true); await load(); }
+    } catch (e) {
+      show(msg, 'Não deu certo: ' + e.message, false);
+    } finally { b.disabled = false; }
+  });
+  return el;
+}
+
+function licenseRow(l) {
+  const now = Date.now();
+  const valid = l.status === 'active' && (!l.expires_at || Date.parse(l.expires_at) > now);
+  const badge = l.status === 'revoked' ? '<span class="badge b-bad">revogada</span>'
+    : valid ? '<span class="badge b-ok">ativa</span>' : '<span class="badge b-off">vencida</span>';
+  const what = l.kind === 'perpetual'
+    ? 'Perpétua' + (l.updates_until ? ' · atualizações até ' + fmtDate(l.updates_until) : '')
+    : 'Assinatura até ' + fmtDate(l.expires_at);
+  const extra = [money(l.amount_cents), l.payment_ref ? 'Pix ' + esc(l.payment_ref) : '', l.max_devices + ' aparelhos', 'criada ' + fmtDate(l.created_at)]
+    .filter(Boolean).join(' · ');
+  return `<div class="item">
+    <div class="grow">${badge} ${esc(what)}<div class="muted">${extra}${l.notes ? '<br>' + esc(l.notes) : ''}</div></div>
+    ${l.kind === 'subscription' && l.status === 'active' ? `<button class="small" data-a="renew" data-id="${l.id}">Renovar +1 ano</button>` : ''}
+    <button class="small" data-a="devplus" data-id="${l.id}">+1 aparelho</button>
+    ${l.status === 'active'
+      ? `<button class="small danger" data-a="revoke" data-id="${l.id}">Revogar</button>`
+      : `<button class="small" data-a="restore" data-id="${l.id}">Reativar</button>`}
+  </div>`;
+}
+
+function deviceRow(d) {
+  return `<div class="item">
+    <div class="grow">${d.revoked ? '<span class="badge b-bad">bloqueado</span> ' : ''}${esc(d.label || 'Aparelho')} · ${d.platform}
+      <div class="muted">último uso ${fmtDateTime(d.last_seen)} · desde ${fmtDate(d.first_seen)}</div></div>
+    ${d.revoked
+      ? `<button class="small" data-a="unblock" data-id="${d.id}">Desbloquear</button>`
+      : `<button class="small danger" data-a="block" data-id="${d.id}">Bloquear</button>`}
+    <button class="small" data-a="remove" data-id="${d.id}">Liberar vaga</button>
+  </div>`;
+}
+
+async function action(name, id, c, el) {
+  const lic = id && (c.licenses || []).find(l => l.id === id);
+  const f = k => el.querySelector('[data-f=' + k + ']').value;
+  switch (name) {
+    case 'activate': {
+      const kind = f('kind');
+      const amountText = f('amount').trim().replace(/\./g, '').replace(',', '.');
+      const amount = amountText ? Math.round(parseFloat(amountText) * 100) : null;
+      if (amountText && !(amount >= 0)) throw new Error('valor inválido');
+      const devices = Math.max(1, Math.min(20, parseInt(f('devices'), 10) || 2));
+      const now = new Date().toISOString();
+      // Assinatura nova começa quando a atual terminar (renovação antecipada não perde dias)
+      const current = activeLicense(c);
+      const start = kind === 'subscription' && current && current.kind === 'subscription' ? current.expires_at : now;
+      const body = {
+        user_id: c.id, kind, max_devices: devices, amount_cents: amount,
+        payment_ref: f('ref').trim() || null, notes: f('notes').trim() || null, created_by: session.user_id,
+        starts_at: now,
+        expires_at: kind === 'subscription' ? addMonths(start, parseInt(f('months'), 10)) : null,
+        updates_until: kind === 'perpetual' && f('updates') !== '0' ? addMonths(now, parseInt(f('updates'), 10)) : null,
+      };
+      if (!confirm(`Ativar ${kind === 'perpetual' ? 'licença PERPÉTUA' : 'assinatura até ' + fmtDate(body.expires_at)} para ${c.email}?`)) return null;
+      await call('/rest/v1/licenses', { method: 'POST', body, prefer: 'return=minimal' });
+      return 'Licença ativada. O cliente vê na próxima vez que abrir o app.';
+    }
+    case 'renew': {
+      const base = Date.parse(lic.expires_at) > Date.now() ? lic.expires_at : new Date().toISOString();
+      const until = addMonths(base, 12);
+      if (!confirm('Renovar até ' + fmtDate(until) + '?')) return null;
+      await call('/rest/v1/licenses?id=eq.' + id, { method: 'PATCH', body: { expires_at: until }, prefer: 'return=minimal' });
+      return 'Renovada até ' + fmtDate(until) + '.';
+    }
+    case 'devplus':
+      await call('/rest/v1/licenses?id=eq.' + id, { method: 'PATCH', body: { max_devices: Math.min(20, lic.max_devices + 1) }, prefer: 'return=minimal' });
+      return 'Limite de aparelhos: ' + Math.min(20, lic.max_devices + 1) + '.';
+    case 'revoke':
+      if (!confirm('Revogar esta licença? O cliente volta às restrições na próxima abertura.')) return null;
+      await call('/rest/v1/licenses?id=eq.' + id, { method: 'PATCH', body: { status: 'revoked' }, prefer: 'return=minimal' });
+      return 'Licença revogada.';
+    case 'restore':
+      await call('/rest/v1/licenses?id=eq.' + id, { method: 'PATCH', body: { status: 'active' }, prefer: 'return=minimal' });
+      return 'Licença reativada.';
+    case 'block':
+      if (!confirm('Bloquear este aparelho para esta conta?')) return null;
+      await call('/rest/v1/devices?id=eq.' + id, { method: 'PATCH', body: { revoked: true }, prefer: 'return=minimal' });
+      return 'Aparelho bloqueado.';
+    case 'unblock':
+      await call('/rest/v1/devices?id=eq.' + id, { method: 'PATCH', body: { revoked: false }, prefer: 'return=minimal' });
+      return 'Aparelho desbloqueado.';
+    case 'remove':
+      if (!confirm('Liberar a vaga deste aparelho? (ele entra de novo se houver vaga)')) return null;
+      await call('/rest/v1/devices?id=eq.' + id, { method: 'DELETE', prefer: 'return=minimal' });
+      return 'Vaga liberada.';
+    case 'trial7': {
+      const base = Math.max(Date.parse(c.trial_ends_at), Date.now());
+      const until = new Date(base + 7 * 86400000).toISOString();
+      await call('/rest/v1/profiles?id=eq.' + c.id, { method: 'PATCH', body: { trial_ends_at: until }, prefer: 'return=minimal' });
+      return 'Teste estendido até ' + fmtDate(until) + '.';
+    }
+    case 'copy': {
+      const l = activeLicense(c);
+      const text = l
+        ? `Olá! Sua licença do Casillas Code está ativa (${l.kind === 'perpetual' ? 'perpétua' : 'assinatura até ' + fmtDate(l.expires_at)}), ` +
+          `para até ${l.max_devices} aparelhos. Abra o app (https://casillas-code.pages.dev) e entre com ${c.email}. Obrigado pela compra!`
+        : `Olá! Recebemos seu contato sobre o Casillas Code. Assim que o Pix for confirmado, ativo a licença no e-mail ${c.email}.`;
+      try { await navigator.clipboard.writeText(text); } catch { prompt('Copie a mensagem:', text); return null; }
+      return 'Mensagem copiada: cole no WhatsApp do cliente.';
+    }
+  }
+  return null;
+}
+
+// ───────── Início ─────────
+$('l-go').addEventListener('click', login);
+$('l-pass').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+$('q').addEventListener('input', render);
+$('filter').addEventListener('change', render);
+$('reload').addEventListener('click', load);
+
+try { session = JSON.parse(sessionStorage.getItem('cc.admin') || 'null'); } catch { session = null; }
+if (session) enter().catch(() => logout());
+</script>
+</body>
+</html>

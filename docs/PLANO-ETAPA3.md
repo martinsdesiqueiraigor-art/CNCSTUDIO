@@ -22,7 +22,7 @@ Decisões tomadas com o dono do produto:
 | 11 | **Web — estatísticas e folha de setup** (tempos por ferramenta, limites, folha de setup para compartilhar) | |
 | 12 | **PWA** no ar em https://casillas-code.pages.dev — manifesto, ícones, service worker (offline), botão Instalar; publicação automática no Cloudflare Pages a cada commit. Instalação, atualização e botão Abrir confirmados no Android | ✅ |
 | 13 | **Contas e licenças**: Supabase (login e-mail/Google), trial de 14 dias, limite de dispositivos, restrições pós-trial; no desktop, licença assinada (Ed25519) com tolerância offline. Feito: projeto `Casillas Code`, tabelas, regras e funções (ver `supabase/README.md`); na web, entrar/criar conta/recuperar senha por e-mail, item Conta (situação, aparelhos, Sair da conta), 7 dias sem internet com a última confirmação, salvar/exportar bloqueados sem trial ou licença. Falta: licença no desktop | 🔶 |
-| 14 | **Painel de ativação** (Pix manual): lista de clientes, ativar/renovar/revogar licença, e-mails de boas-vindas | |
+| 14 | **Painel de ativação** (Pix manual), fora do app em https://casillas-code-painel.pages.dev (pasta `admin/`): entrar só como administrador; clientes com situação, ativar assinatura/perpétua com valor e referência do Pix, renovar, +1 aparelho, revogar, bloquear/liberar aparelho, estender teste, mensagem pronta para o WhatsApp. Preço sob consulta; aviso de pagamento pelo WhatsApp | ✅ |
 | 15 | **Lançamento**: termos de uso (com aviso de que a simulação não garante ausência de colisão), política de privacidade (LGPD), página de vendas | |
 
 ## Restrições depois do trial (proposta)
@@ -36,7 +36,7 @@ Decisões tomadas com o dono do produto:
 
 ## O que depende do dono do produto
 
-- Fase 14: chave Pix e e-mail remetente.
+- Fase 14: e-mail dedicado do Casillas (remetente dos e-mails) e definição de preços.
 - Fase 15: revisão jurídica dos termos e consulta ao contador sobre o recebimento.
 
 ## Melhorias da versão web (feitas)

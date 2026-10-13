@@ -35,3 +35,13 @@ A chave `service_role` / secreta **nunca** vai para o repositório nem para o ap
 - **Sign In / Providers › Email:** ligado, com "Confirm email" ligado.
 - O envio padrão de e-mails do Supabase tem limite baixo por hora: antes do lançamento,
   configurar um SMTP próprio (ex.: Resend) em **Emails › SMTP Settings**.
+
+## Painel de ativação
+
+`admin/index.html`, publicado pelo CI em https://casillas-code-painel.pages.dev (sem link no app).
+A proteção não depende do endereço ficar secreto: só contas na tabela `admins` conseguem ler
+outros clientes ou criar/alterar licenças (regras RLS testadas). Novo administrador:
+
+```sql
+insert into public.admins (user_id) select id from auth.users where email = 'email@exemplo.com';
+```
