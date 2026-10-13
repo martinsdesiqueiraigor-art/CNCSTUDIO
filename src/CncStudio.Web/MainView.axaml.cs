@@ -228,6 +228,9 @@ public partial class MainView : UserControl
             UpdateTimeChip();
         };
         TimeChip.Click += (_, _) => OpenStats();
+        // Barra de simulação: sem espaço (celular, ou gráfico na metade da tela deitada), some o controle
+        // deslizante de velocidade; o − e o + continuam
+        GraphHost.SizeChanged += (_, e) => SpeedSlider.IsVisible = e.NewSize.Width >= 470;
         StatsView.Closed += (_, _) => StatsHost.IsVisible = false;
         StatsView.SetupSheetRequested += async (_, _) => await OpenSetupSheetAsync();
         StatsView.AccountRequested += async (_, _) =>
@@ -1409,7 +1412,6 @@ public partial class MainView : UserControl
     /// <summary>
     /// Cabeçalho: no celular em pé, marca "Casillas Code" e situação na 1ª linha e os botões na 2ª
     /// (sobra altura); deitado, uma linha só e compacta; no PC, tudo numa linha.
-    /// A barra de simulação esconde o controle deslizante no celular em pé (ficam o − e o +).
     /// </summary>
     private void ApplyHeaderLayout()
     {
@@ -1424,7 +1426,6 @@ public partial class MainView : UserControl
         HeaderActions.Margin = twoRows ? new Thickness(0, 10, 0, 0) : new Thickness(0);
         BrandText.IsVisible = !(narrow && compact); // deitado no celular: só o símbolo
         HeaderGrid.Margin = compact ? new Thickness(10, 5) : new Thickness(12, 10);
-        SpeedSlider.IsVisible = !twoRows;
     }
 
     private void ShowPage(bool graph)
