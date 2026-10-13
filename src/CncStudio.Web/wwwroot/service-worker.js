@@ -4,7 +4,7 @@
 //    chegarem; sem internet, usa a cópia guardada.
 // Ao publicar uma versão nova, os arquivos .wasm mudam de nome, então não há risco de misturar versões.
 
-const CACHE = 'casillas-code-v2';
+const CACHE = 'casillas-code-v3';
 
 self.addEventListener('install', event => {
     event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(['./', './index.html'])).catch(() => {}));
@@ -31,7 +31,10 @@ self.addEventListener('fetch', event => {
 
     event.respondWith((async () => {
         const cache = await caches.open(CACHE);
-        const key = request.mode === 'navigate' ? './index.html' : request;
+        // Só a abertura do app (raiz ou index.html) usa a página do app guardada; outras páginas
+        // (termos, privacidade, conheca) são guardadas com o próprio endereço
+        const appShell = request.mode === 'navigate' && /\/(index\.html)?$/.test(url.pathname);
+        const key = appShell ? './index.html' : request;
 
         if (immutable) {
             const cached = await cache.match(key);
