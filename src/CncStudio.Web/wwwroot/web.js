@@ -1,6 +1,9 @@
 // Funções do navegador usadas pelo Casillas Code (chamadas do C# via JSImport).
 // Usam elementos HTML nativos onde o celular funciona melhor: seletor de arquivo e editor de texto.
 
+// Conta (entrar, situação da licença, sair): ver account.js
+export * from './account.js';
+
 /** Aparelho de toque (celular/tablet): teclado virtual, sem mouse. */
 export function isTouch() {
     return window.matchMedia('(pointer: coarse)').matches;

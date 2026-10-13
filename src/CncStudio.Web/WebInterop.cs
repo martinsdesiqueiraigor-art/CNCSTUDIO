@@ -117,4 +117,36 @@ internal static partial class WebInterop
         [JSMarshalAs<JSType.String>] string text,
         [JSMarshalAs<JSType.Number>] int line,
         [JSMarshalAs<JSType.String>] string title);
+
+    // ───────────── Conta (account.js) ─────────────
+
+    /// <summary>Situação da conta neste aparelho (JSON; ver account.js).</summary>
+    [JSImport("accountCheck", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> AccountCheckAsync();
+
+    /// <summary>Tela de entrar/criar conta: "ok" ou "guest".</summary>
+    [JSImport("accountLogin", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> AccountLoginAsync([JSMarshalAs<JSType.String>] string reason);
+
+    /// <summary>Senha nova depois do link de recuperação.</summary>
+    [JSImport("accountNewPassword", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
+    public static partial Task<bool> AccountNewPasswordAsync();
+
+    /// <summary>Frase curta da situação ("teste grátis: 12 dias").</summary>
+    [JSImport("accountSummary", Module)]
+    [return: JSMarshalAs<JSType.String>]
+    public static partial string AccountSummary([JSMarshalAs<JSType.String>] string json);
+
+    /// <summary>Painel da conta: "signout", "login" ou "close".</summary>
+    [JSImport("accountPanel", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> AccountPanelAsync([JSMarshalAs<JSType.String>] string json);
+
+    /// <summary>Sair da conta (libera a vaga do aparelho).</summary>
+    [JSImport("accountSignOut", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
+    public static partial Task<bool> AccountSignOutAsync();
 }

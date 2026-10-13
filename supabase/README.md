@@ -27,3 +27,11 @@ A chave `service_role` / secreta **nunca** vai para o repositório nem para o ap
 
 `migrations/` na ordem dos números; aplicadas no projeto em 12/10/2026 e testadas
 (trial, limite de 2 aparelhos, sair libera vaga, trial vencido, assinatura ativa, RLS).
+
+## Configuração no painel (Authentication)
+
+- **URL Configuration › Site URL:** `https://casillas-code.pages.dev`
+- **URL Configuration › Redirect URLs:** `https://casillas-code.pages.dev/**`
+- **Sign In / Providers › Email:** ligado, com "Confirm email" ligado.
+- O envio padrão de e-mails do Supabase tem limite baixo por hora: antes do lançamento,
+  configurar um SMTP próprio (ex.: Resend) em **Emails › SMTP Settings**.

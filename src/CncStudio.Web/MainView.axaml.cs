@@ -141,6 +141,7 @@ public partial class MainView : UserControl
         };
         Library.Saved += (_, path) => MarkSaved(path);
         Library.Message += (_, text) => SetStatus(text);
+        Library.AllowSave = EnsureFullAccessAsync;
         Library.Closed += (_, _) => CloseLibrary();
 
         // Botão "Instalar": aparece quando o navegador avisa que o app pode ser instalado
@@ -238,6 +239,9 @@ public partial class MainView : UserControl
         {
             LoadExample(FirstExample);
         }
+
+        // Conta: confere a situação ao abrir (e pede para entrar se não houver conta)
+        Dispatcher.UIThread.Post(async () => await RefreshAccountAsync(askLogin: true), DispatcherPriority.Background);
     }
 
     private Dialect CurrentDialect => DialectCombo.SelectedIndex == 1 ? Dialect.Siemens : Dialect.Fanuc;
@@ -262,6 +266,8 @@ public partial class MainView : UserControl
             menu.Items.Add(item);
         }
 
+        Add("Conta…", OpenAccountAsync);
+        menu.Items.Add(new Separator());
         Add("Biblioteca…", OpenLibraryAsync);
         Add("Salvar", SaveAsync);
         Add("Salvar como…", SaveAsAsync);
@@ -360,6 +366,139 @@ public partial class MainView : UserControl
         ScheduleSave();
     }
 
+    // ───────────────────────── Conta e licença ─────────────────────────
+
+    /// <summary>Última situação da conta (JSON do account.js).</summary>
+    private string _accountJson = "{}";
+
+    /// <summary>Trial ou licença ativa: salvar e exportar liberados.</summary>
+    private bool _fullAccess;
+
+    private bool _accountChecked;
+
+    private static (bool SignedIn, string State, bool Recovery) ReadAccount(string json)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            System.Text.Json.JsonElement root = doc.RootElement;
+            bool signedIn = root.TryGetProperty("signedIn", out var a) && a.ValueKind == System.Text.Json.JsonValueKind.True;
+            string state = root.TryGetProperty("state", out var b) && b.ValueKind == System.Text.Json.JsonValueKind.String ? b.GetString()! : "";
+            bool recovery = root.TryGetProperty("recovery", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.True;
+            return (signedIn, state, recovery);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return (false, "", false);
+        }
+    }
+
+    /// <summary>
+    /// Confere a conta no servidor (ou a última confirmação, sem internet) e aplica as restrições.
+    /// askLogin: sem conta, mostra a tela de entrar.
+    /// </summary>
+    private async Task RefreshAccountAsync(bool askLogin, string reason = "")
+    {
+        try
+        {
+            string json = await WebInterop.AccountCheckAsync() ?? "{}";
+            var account = ReadAccount(json);
+
+            if (account.Recovery && await WebInterop.AccountNewPasswordAsync())
+            {
+                _statusNote = "Senha nova salva";
+            }
+
+            if (!account.SignedIn && askLogin && await WebInterop.AccountLoginAsync(reason) == "ok")
+            {
+                json = await WebInterop.AccountCheckAsync() ?? "{}";
+                account = ReadAccount(json);
+            }
+
+            ApplyAccount(json);
+            if (account.SignedIn && account.State is "device_limit" or "device_revoked")
+            {
+                await OpenAccountAsync(); // explica e oferece "Sair da conta"
+            }
+        }
+        catch (Exception ex)
+        {
+            // Sem o módulo da conta (navegador antigo): o app segue funcionando sem restrição
+            _fullAccess = true;
+            SetStatus("Não foi possível conferir a conta: " + ex.Message);
+        }
+    }
+
+    private void ApplyAccount(string json)
+    {
+        _accountJson = json;
+        _accountChecked = true;
+        var account = ReadAccount(json);
+        _fullAccess = account.SignedIn && account.State is "licensed" or "trial";
+        string summary;
+        try
+        {
+            summary = WebInterop.AccountSummary(json);
+        }
+        catch
+        {
+            summary = "";
+        }
+
+        VersionText.Text = summary.Length == 0 ? AppVersion() : AppVersion() + " · " + summary;
+        if (_analysis is not null)
+        {
+            ShowSummary();
+        }
+    }
+
+    /// <summary>Menu Arquivos › Conta: situação, aparelhos e "Sair da conta".</summary>
+    private async Task OpenAccountAsync()
+    {
+        string? action = await WebInterop.AccountPanelAsync(_accountJson);
+        switch (action)
+        {
+            case "signout":
+                await WebInterop.AccountSignOutAsync();
+                ApplyAccount("{}");
+                _statusNote = "Você saiu da conta";
+                await RefreshAccountAsync(askLogin: true);
+                break;
+            case "login":
+                await RefreshAccountAsync(askLogin: true);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Salvar e exportar: liberados no trial e com licença. Sem isso, explica e oferece entrar
+    /// (ou ver a conta). Retorna true se pode seguir.
+    /// </summary>
+    private async Task<bool> EnsureFullAccessAsync()
+    {
+        if (!_accountChecked)
+        {
+            await RefreshAccountAsync(askLogin: false);
+        }
+
+        if (_fullAccess)
+        {
+            return true;
+        }
+
+        var account = ReadAccount(_accountJson);
+        if (!account.SignedIn)
+        {
+            await RefreshAccountAsync(askLogin: true, "Salvar e exportar precisam de uma conta. Crie a sua e use tudo grátis por 14 dias.");
+        }
+        else
+        {
+            await OpenAccountAsync();
+        }
+
+        return _fullAccess;
+    }
+
     // ───────────────────────── Biblioteca ─────────────────────────
 
     private async Task OpenLibraryAsync()
@@ -385,6 +524,11 @@ public partial class MainView : UserControl
     /// <summary>Salvar: se o programa já está na biblioteca, grava por cima; senão, "Salvar como".</summary>
     private async Task SaveAsync()
     {
+        if (!await EnsureFullAccessAsync())
+        {
+            return;
+        }
+
         if (_libraryPath is null)
         {
             await SaveAsAsync();
@@ -406,6 +550,11 @@ public partial class MainView : UserControl
     /// <summary>Salvar como: abre a biblioteca na pasta atual e pede o nome (avisa antes de substituir).</summary>
     private async Task SaveAsAsync()
     {
+        if (!await EnsureFullAccessAsync())
+        {
+            return;
+        }
+
         await OpenLibraryAsync();
         await Library.SaveHereAsync();
     }
@@ -413,6 +562,11 @@ public partial class MainView : UserControl
     /// <summary>Compartilha o programa aberto (WhatsApp, Drive, e-mail...) ou baixa o arquivo.</summary>
     private async Task ShareCurrentAsync()
     {
+        if (!await EnsureFullAccessAsync())
+        {
+            return;
+        }
+
         string json = System.Text.Json.JsonSerializer.Serialize(
             new List<Dictionary<string, string>> { new() { ["name"] = _fileName, ["text"] = Editor.Text } },
             LibraryJson.Default.ListDictionaryStringString);

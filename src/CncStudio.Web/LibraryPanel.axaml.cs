@@ -48,6 +48,9 @@ public partial class LibraryPanel : UserControl
     /// <summary>Programa aberto no editor (nome sugerido e texto), para "Salvar aqui".</summary>
     public Func<(string Name, string Text)>? CurrentProgram { get; set; }
 
+    /// <summary>Conferência antes de salvar ou compartilhar (conta/licença). Null = liberado.</summary>
+    public Func<Task<bool>>? AllowSave { get; set; }
+
     /// <summary>O usuário tocou num arquivo: caminho e texto.</summary>
     public event EventHandler<(string Path, string Text)>? OpenRequested;
 
@@ -271,6 +274,11 @@ public partial class LibraryPanel : UserControl
     /// <summary>Salva o programa aberto na pasta atual (pergunta o nome; avisa antes de substituir).</summary>
     public async Task SaveHereAsync()
     {
+        if (AllowSave is not null && !await AllowSave())
+        {
+            return;
+        }
+
         if (CurrentProgram is null)
         {
             return;
@@ -374,6 +382,11 @@ public partial class LibraryPanel : UserControl
     /// <summary>Compartilha um arquivo, ou todos os programas de uma pasta (inclusive subpastas).</summary>
     private async Task ShareAsync(string path, bool isFolder)
     {
+        if (AllowSave is not null && !await AllowSave())
+        {
+            return;
+        }
+
         List<LibraryEntry> files = isFolder
             ? _entries.Where(e => !e.IsFolder && (path.Length == 0 || e.Path.StartsWith(path + "/", StringComparison.Ordinal))).ToList()
             : _entries.Where(e => e.Path == path && !e.IsFolder).ToList();
