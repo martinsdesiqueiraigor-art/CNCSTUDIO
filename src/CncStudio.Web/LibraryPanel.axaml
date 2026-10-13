@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CncStudio.Web.LibraryPanel"
+             Background="{DynamicResource AppBackground}">
+
+  <UserControl.Styles>
+    <Style Selector="Button.act">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource BrandOrange}" />
+      <Setter Property="Foreground" Value="#0D1117" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <!-- Linha de arquivo/pasta: toque abre -->
+    <Style Selector="Button.row">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="MinHeight" Value="52" />
+    </Style>
+    <Style Selector="Button.more">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="MinWidth" Value="44" />
+      <Setter Property="MinHeight" Value="44" />
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*">
+    <!-- Título e caminho -->
+    <DockPanel Grid.Row="0" Margin="10,8,10,4">
+      <Button x:Name="CloseButton" DockPanel.Dock="Right" Classes="act" Margin="0" Content="Fechar" />
+      <Button x:Name="UpButton" DockPanel.Dock="Left" Classes="act" Margin="0,0,8,0" Content="Voltar" IsVisible="False" />
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock Text="Biblioteca" FontSize="16" FontWeight="Bold" />
+        <TextBlock x:Name="PathText" FontSize="12" Opacity="0.7" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+    </DockPanel>
+
+    <!-- Ações da pasta atual -->
+    <WrapPanel Grid.Row="1" Margin="10,4,4,4">
+      <Button x:Name="SaveHereButton" Classes="act primary" Content="Salvar aqui" ToolTip.Tip="Salvar o programa aberto nesta pasta" />
+      <Button x:Name="NewFolderButton" Classes="act" Content="Nova pasta" />
+      <Button x:Name="ImportButton" Classes="act" Content="Importar" ToolTip.Tip="Trazer arquivos do aparelho para esta pasta" />
+      <Button x:Name="ShareFolderButton" Classes="act" Content="Compartilhar pasta" ToolTip.Tip="Enviar todos os programas desta pasta" />
+    </WrapPanel>
+
+    <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel x:Name="Rows" Margin="6,0,6,12" />
+    </ScrollViewer>
+  </Grid>
+</UserControl>

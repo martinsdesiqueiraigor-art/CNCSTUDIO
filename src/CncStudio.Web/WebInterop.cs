@@ -19,19 +19,72 @@ internal static partial class WebInterop
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
     public static partial Task<string?> PickFileAsync();
 
-    /// <summary>Coloca o campo de arquivo nativo (transparente) em cima do botão "Abrir".</summary>
+    /// <summary>Coloca o campo de arquivo nativo "id" (transparente) em cima de um botão.</summary>
     [JSImport("placeFileInput", Module)]
     public static partial void PlaceFileInput(
+        [JSMarshalAs<JSType.String>] string id,
+        [JSMarshalAs<JSType.Boolean>] bool multiple,
         [JSMarshalAs<JSType.Number>] double x,
         [JSMarshalAs<JSType.Number>] double y,
         [JSMarshalAs<JSType.Number>] double width,
         [JSMarshalAs<JSType.Number>] double height,
         [JSMarshalAs<JSType.Boolean>] bool visible);
 
-    /// <summary>Próximo arquivo escolhido pelo campo sobre o botão "Abrir" ("nome\nconteúdo").</summary>
-    [JSImport("nextPickedFile", Module)]
+    /// <summary>Próxima escolha no campo "id": JSON [{name, text}].</summary>
+    [JSImport("nextPickedFiles", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
-    public static partial Task<string?> NextPickedFileAsync();
+    public static partial Task<string?> NextPickedFilesAsync([JSMarshalAs<JSType.String>] string id);
+
+    // ── Biblioteca (IndexedDB) ──
+
+    [JSImport("libList", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> LibListAsync();
+
+    [JSImport("libRead", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> LibReadAsync([JSMarshalAs<JSType.String>] string path);
+
+    [JSImport("libWrite", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
+    public static partial Task<bool> LibWriteAsync([JSMarshalAs<JSType.String>] string path, [JSMarshalAs<JSType.String>] string text);
+
+    [JSImport("libMakeFolder", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
+    public static partial Task<bool> LibMakeFolderAsync([JSMarshalAs<JSType.String>] string path);
+
+    [JSImport("libExists", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
+    public static partial Task<bool> LibExistsAsync([JSMarshalAs<JSType.String>] string path);
+
+    [JSImport("libDelete", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
+    public static partial Task<bool> LibDeleteAsync([JSMarshalAs<JSType.String>] string path);
+
+    [JSImport("libRename", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
+    public static partial Task<bool> LibRenameAsync([JSMarshalAs<JSType.String>] string from, [JSMarshalAs<JSType.String>] string to);
+
+    /// <summary>Compartilha ou baixa arquivos (JSON [{name, text}]).</summary>
+    [JSImport("shareFiles", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> ShareFilesAsync([JSMarshalAs<JSType.String>] string filesJson, [JSMarshalAs<JSType.String>] string title);
+
+    // ── Diálogos nativos ──
+
+    [JSImport("promptText", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> PromptTextAsync(
+        [JSMarshalAs<JSType.String>] string title,
+        [JSMarshalAs<JSType.String>] string initial,
+        [JSMarshalAs<JSType.String>] string okText);
+
+    [JSImport("confirmBox", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
+    public static partial Task<bool> ConfirmAsync(
+        [JSMarshalAs<JSType.String>] string message,
+        [JSMarshalAs<JSType.String>] string okText,
+        [JSMarshalAs<JSType.Boolean>] bool danger);
 
     /// <summary>O navegador permite instalar o app agora (PWA)?</summary>
     [JSImport("canInstall", Module)]

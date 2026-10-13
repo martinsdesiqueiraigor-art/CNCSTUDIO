@@ -63,7 +63,15 @@ public partial class MainView : UserControl
         Editor.TextArea.TextView.BackgroundRenderers.Add(_diagnosticMarks);
         ProblemsButton.Click += (_, _) => GoToNextProblem();
         Editor.Options.HighlightCurrentLine = true;
-        Editor.TextChanged += (_, _) => ScheduleAnalysis();
+        Editor.TextChanged += (_, _) =>
+        {
+            ScheduleAnalysis();
+            if (!_loading && !_dirty)
+            {
+                _dirty = true;
+                UpdateTitle();
+            }
+        };
         Editor.TextArea.Caret.PositionChanged += (_, _) => OnCaretMoved();
 
         // No navegador não há threads: a análise roda na thread da tela, um instante depois de parar de digitar
@@ -111,8 +119,26 @@ public partial class MainView : UserControl
 
         OpenButton.Click += async (_, _) => await OpenFromDeviceAsync();
         // Campo de arquivo nativo por cima do botão "Abrir" (o toque cai direto nele)
-        OpenButton.LayoutUpdated += (_, _) => PlaceOpenInput();
-        _ = ReceivePickedFilesAsync();
+        _openNative = new NativeFileButton(OpenButton, "open", multiple: false);
+        _openNative.Picked += (_, files) =>
+        {
+            StopSimulation();
+            CloseLibrary();
+            LoadProgram(files[0].Name, files[0].Text);
+        };
+
+        // Biblioteca de programas
+        Library.CurrentProgram = () => (_fileName, Editor.Text);
+        Library.OpenRequested += (_, item) =>
+        {
+            StopSimulation();
+            CloseLibrary();
+            string name = item.Path.Contains('/') ? item.Path[(item.Path.LastIndexOf('/') + 1)..] : item.Path;
+            LoadProgram(name, item.Text, item.Path);
+        };
+        Library.Saved += (_, path) => MarkSaved(path);
+        Library.Message += (_, text) => SetStatus(text);
+        Library.Closed += (_, _) => CloseLibrary();
 
         // Botão "Instalar": aparece quando o navegador avisa que o app pode ser instalado
         var installCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -216,20 +242,38 @@ public partial class MainView : UserControl
             .Select(n => n["samples/".Length..])
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Menu "Arquivos": biblioteca, salvar, salvar como, compartilhar, novo e exemplos.</summary>
     private void FillExamplesMenu()
     {
         var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
         ExamplesButton.Flyout = menu;
-        var paste = new MenuItem { Header = "Novo programa (colar ou digitar)…" };
-        paste.Click += async (_, _) => await NewFromPasteAsync();
-        menu.Items.Add(paste);
+        void Add(string header, Func<Task> action)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += async (_, _) => await action();
+            menu.Items.Add(item);
+        }
+
+        Add("Biblioteca…", OpenLibraryAsync);
+        Add("Salvar", SaveAsync);
+        Add("Salvar como…", SaveAsAsync);
+        Add("Compartilhar / exportar", ShareCurrentAsync);
         menu.Items.Add(new Separator());
+        Add("Novo programa (colar ou digitar)…", NewFromPasteAsync);
+
+        var examples = new MenuItem { Header = "Exemplos" };
         foreach (string name in ExampleNames())
         {
             var item = new MenuItem { Header = name.Replace("_", "__") }; // "_" sozinho vira tecla de atalho
-            item.Click += (_, _) => LoadExample(name);
-            menu.Items.Add(item);
+            item.Click += (_, _) =>
+            {
+                CloseLibrary();
+                LoadExample(name);
+            };
+            examples.Items.Add(item);
         }
+
+        menu.Items.Add(examples);
     }
 
     private void LoadExample(string name)
@@ -244,57 +288,92 @@ public partial class MainView : UserControl
         LoadProgram(name, reader.ReadToEnd());
     }
 
-    private (double X, double Y, double W, double H, bool Visible) _openInputPlace;
+    private readonly NativeFileButton _openNative;
 
-    private void PlaceOpenInput()
+    /// <summary>Caminho do programa aberto na biblioteca (null = não está salvo nela).</summary>
+    private string? _libraryPath;
+
+    /// <summary>Há alterações ainda não salvas na biblioteca.</summary>
+    private bool _dirty;
+
+    private void UpdateTitle() => FileNameText.Text = (_dirty ? "• " : "") + (_libraryPath ?? _fileName);
+
+    private void MarkSaved(string path)
     {
+        _libraryPath = path;
+        _fileName = path.Contains('/') ? path[(path.LastIndexOf('/') + 1)..] : path;
+        _dirty = false;
+        UpdateTitle();
+        ScheduleSave();
+    }
+
+    // ───────────────────────── Biblioteca ─────────────────────────
+
+    private async Task OpenLibraryAsync()
+    {
+        StopSimulation();
+        LibraryHost.IsVisible = true;
+        string folder = _libraryPath is { } p && p.Contains('/') ? p[..p.LastIndexOf('/')] : "";
+        await Library.ShowFolderAsync(folder);
+        Dispatcher.UIThread.Post(() => { Library.RefreshNativeButtons(); _openNative.Refresh(); }, DispatcherPriority.Background);
+    }
+
+    private void CloseLibrary()
+    {
+        if (!LibraryHost.IsVisible)
+        {
+            return;
+        }
+
+        LibraryHost.IsVisible = false;
+        Dispatcher.UIThread.Post(() => Library.RefreshNativeButtons(), DispatcherPriority.Background);
+    }
+
+    /// <summary>Salvar: se o programa já está na biblioteca, grava por cima; senão, "Salvar como".</summary>
+    private async Task SaveAsync()
+    {
+        if (_libraryPath is null)
+        {
+            await SaveAsAsync();
+            return;
+        }
+
         try
         {
-            TopLevel? top = TopLevel.GetTopLevel(this);
-            Point? origin = top is null ? null : OpenButton.TranslatePoint(new Point(0, 0), top);
-            var place = origin is { } o
-                ? (o.X, o.Y, OpenButton.Bounds.Width, OpenButton.Bounds.Height, OpenButton.IsEffectivelyVisible)
-                : (0d, 0d, 0d, 0d, false);
-            if (place == _openInputPlace)
-            {
-                return;
-            }
-
-            _openInputPlace = place;
-            WebInterop.PlaceFileInput(place.Item1, place.Item2, place.Item3, place.Item4, place.Item5);
+            await WebInterop.LibWriteAsync(_libraryPath, Editor.Text);
+            MarkSaved(_libraryPath);
+            SetStatus("Salvo: " + _libraryPath);
         }
-        catch
+        catch (Exception ex)
         {
-            // Sem o campo nativo, o clique no botão usa o seletor por código (OpenFromDeviceAsync)
+            SetStatus("Não foi possível salvar: " + ex.Message);
         }
     }
 
-    /// <summary>Recebe, um por vez, os arquivos escolhidos no campo nativo sobre o botão "Abrir".</summary>
-    private async Task ReceivePickedFilesAsync()
+    /// <summary>Salvar como: abre a biblioteca na pasta atual e pede o nome (avisa antes de substituir).</summary>
+    private async Task SaveAsAsync()
     {
-        while (true)
+        await OpenLibraryAsync();
+        await Library.SaveHereAsync();
+    }
+
+    /// <summary>Compartilha o programa aberto (WhatsApp, Drive, e-mail...) ou baixa o arquivo.</summary>
+    private async Task ShareCurrentAsync()
+    {
+        string json = System.Text.Json.JsonSerializer.Serialize(
+            new List<Dictionary<string, string>> { new() { ["name"] = _fileName, ["text"] = Editor.Text } },
+            LibraryJson.Default.ListDictionaryStringString);
+        try
         {
-            string? picked;
-            try
+            string? result = await WebInterop.ShareFilesAsync(json, _fileName);
+            if (result == "downloaded")
             {
-                picked = await WebInterop.NextPickedFileAsync();
+                SetStatus("Arquivo baixado (pasta Downloads do aparelho).");
             }
-            catch
-            {
-                return;
-            }
-
-            if (picked is null)
-            {
-                continue;
-            }
-
-            int newline = picked.IndexOf('\n');
-            if (newline > 0)
-            {
-                StopSimulation();
-                LoadProgram(picked[..newline], picked[(newline + 1)..]);
-            }
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Não foi possível compartilhar: " + ex.Message);
         }
     }
 
@@ -364,6 +443,8 @@ public partial class MainView : UserControl
         }
 
         Store("cc.name", _fileName);
+        Store("cc.libpath", _libraryPath ?? "");
+        Store("cc.dirty", _dirty ? "1" : "0");
         Store("cc.text", text);
         Store("cc.dialect", DialectCombo.SelectedIndex.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Store("cc.line", Editor.TextArea.Caret.Line.ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -391,7 +472,14 @@ public partial class MainView : UserControl
         _restoring = true;
         try
         {
-            LoadProgram(name, text);
+            string? libPath = Stored("cc.libpath");
+            LoadProgram(name, text, string.IsNullOrEmpty(libPath) ? null : libPath);
+            if (Stored("cc.dirty") == "1")
+            {
+                _dirty = true;
+                UpdateTitle();
+            }
+
             if (int.TryParse(Stored("cc.dialect"), out int dialect) && dialect is 0 or 1 && dialect != DialectCombo.SelectedIndex)
             {
                 DialectCombo.SelectedIndex = dialect;
@@ -486,11 +574,13 @@ public partial class MainView : UserControl
         GoToLine(Math.Min(line, Editor.Document.LineCount));
     }
 
-    private void LoadProgram(string fileName, string text)
+    private void LoadProgram(string fileName, string text, string? libraryPath = null)
     {
         _loading = true;
         _fileName = fileName;
-        FileNameText.Text = fileName;
+        _libraryPath = libraryPath;
+        _dirty = false;
+        UpdateTitle();
         DialectCombo.SelectedIndex = DialectDetector.FromFileName(fileName) == Dialect.Siemens ? 1 : 0;
         Editor.Document = new TextDocument(text);
         Editor.ScrollToHome();
