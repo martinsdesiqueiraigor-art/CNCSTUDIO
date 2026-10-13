@@ -9,6 +9,7 @@
 const SUPABASE_URL = 'https://jdjlcekavnwuiiaoevvd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Rr3IWTffW7E8eENbKSOjkQ_WBGMnL9Z'; // chave pública (pode ficar no app)
 const OFFLINE_DAYS = 7;
+const SUPPORT_EMAIL = 'casillas.usinagem.br@gmail.com';
 
 // ───────────── Armazenamento ─────────────
 
@@ -432,10 +433,16 @@ export function accountPanel(json) {
         info.style.cssText = `font-size:13px;color:${COLORS.soft};line-height:1.45`;
         info.textContent =
             s.state === 'device_limit' ? 'Esta conta já está em uso no número máximo de aparelhos. Toque em "Sair da conta" em um deles para liberar a vaga.'
-          : s.state === 'device_revoked' ? 'Este aparelho foi bloqueado para esta conta. Fale com o suporte.'
+          : s.state === 'device_revoked' ? 'Este aparelho foi bloqueado para esta conta. Fale com o suporte: ' + SUPPORT_EMAIL
           : s.state === 'expired' ? 'O período de teste terminou: o app continua abrindo, editando e simulando, mas salvar e exportar precisam de licença.'
           : 'Sair da conta libera a vaga deste aparelho para usar em outro.';
         box.appendChild(info);
+
+        const support = document.createElement('a');
+        support.href = 'mailto:' + SUPPORT_EMAIL + '?subject=' + encodeURIComponent('Casillas Code - ' + (s.email || ''));
+        support.textContent = 'Suporte e licenças: ' + SUPPORT_EMAIL;
+        support.style.cssText = `font-size:13px;color:#58a6ff;text-align:center;word-break:break-all`;
+        box.appendChild(support);
 
         button(box, 'Sair da conta', 'danger').addEventListener('click', () => close('signout'));
         button(box, 'Fechar', 'normal').addEventListener('click', () => close('close'));
