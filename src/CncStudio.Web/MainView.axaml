@@ -195,8 +195,8 @@
             <Button x:Name="SimEndButton" Classes="sim" ToolTip.Tip="Ir ao fim (trajetória completa)">
               <PathIcon Data="M0,0 L8.5,6 L0,12 Z M9.5,0 H12 V12 H9.5 Z" />
             </Button>
-            <Button x:Name="SpeedDownButton" Classes="sim speed" Content="−" Margin="8,0,0,0" ToolTip.Tip="Mais devagar" />
-            <Slider x:Name="SpeedSlider" Width="72" Minimum="1" Maximum="50" Value="5" VerticalAlignment="Center" Margin="2,-6,2,-6"
+            <Button x:Name="SpeedDownButton" Classes="sim speed" Content="−" Margin="6,3,2,3" ToolTip.Tip="Mais devagar" />
+            <Slider x:Name="SpeedSlider" Width="52" Minimum="1" Maximum="50" Value="5" VerticalAlignment="Center" Margin="2,-6,2,-6"
                     ToolTip.Tip="Velocidade (passos por segundo)" />
             <Button x:Name="SpeedUpButton" Classes="sim speed" Content="+" ToolTip.Tip="Mais rápido" />
             <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="12" Width="34" Margin="4,0,0,0" Text="5/s" />
