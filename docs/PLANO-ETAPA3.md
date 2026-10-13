@@ -40,3 +40,16 @@ Decisões tomadas com o dono do produto:
 - Fase 13: criação do projeto Supabase (ou autorização para eu criar).
 - Fase 14: chave Pix e e-mail remetente.
 - Fase 15: revisão jurídica dos termos e consulta ao contador sobre o recebimento.
+
+## Melhorias da versão web (feitas)
+
+- Versão na tela de carregamento e no app; aviso "Nova versão disponível" (compara com `version.txt`).
+- Velocidade da simulação com − e +; botões arredondados com efeito mola e vibração opcional.
+- Lembra o programa, a linha, a tela, a vista e a velocidade ao reabrir.
+- Ferramenta mostrada como um ponto.
+- Menu **Arquivos**: Biblioteca (pastas, salvar, salvar como, substituir, importar vários, renomear, excluir, compartilhar), Salvar, Salvar como, Compartilhar/exportar, Novo (colar), Exemplos.
+- **Modo claro** (menu Exibir).
+
+## Próximas melhorias da versão web
+
+- Exemplos por comando e máquina (Fanuc/Siemens × torno/fresa), um por ciclo e métodos de repetição, validados no simulador.
