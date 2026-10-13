@@ -198,7 +198,7 @@ public partial class LibraryPanel : UserControl
         return new Border
         {
             Child = line,
-            BorderBrush = new SolidColorBrush(Color.Parse("#30363D")),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(70, 128, 128, 128)), // cinza translúcido: serve nos dois temas
             BorderThickness = new Thickness(0, 0, 0, 1),
         };
     }

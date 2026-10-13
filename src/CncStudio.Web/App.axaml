@@ -3,13 +3,39 @@
              x:Class="CncStudio.Web.App"
              RequestedThemeVariant="Dark">
   <Application.Resources>
-    <!-- Cores da marca Casillas -->
-    <SolidColorBrush x:Key="AppBackground" Color="#0D1117" />
-    <SolidColorBrush x:Key="BarBackground" Color="#161B22" />
-    <SolidColorBrush x:Key="SubtleBorder" Color="#30363D" />
-    <SolidColorBrush x:Key="BrandOrange" Color="#F0883E" />
-    <SolidColorBrush x:Key="BrandBlue" Color="#58A6FF" />
-    <FontFamily x:Key="CodeFont">avares://CncStudio.Web/Assets/Fonts#DejaVu Sans Mono</FontFamily>
+    <ResourceDictionary>
+      <!-- Cores que mudam com o tema (escuro / claro) -->
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AppBackground" Color="#0D1117" />
+          <SolidColorBrush x:Key="BarBackground" Color="#161B22" />
+          <SolidColorBrush x:Key="SubtleBorder" Color="#30363D" />
+          <SolidColorBrush x:Key="BrandBlue" Color="#58A6FF" />
+          <SolidColorBrush x:Key="HudBackground" Color="#C80D1117" />
+          <SolidColorBrush x:Key="EditorForeground" Color="#D4D4D4" />
+          <SolidColorBrush x:Key="Motion0" Color="#FF4D4D" />
+          <SolidColorBrush x:Key="Motion1" Color="#3DDC6A" />
+          <SolidColorBrush x:Key="Motion2" Color="#7FD8FF" />
+          <SolidColorBrush x:Key="Motion3" Color="#3D6BFF" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AppBackground" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="BarBackground" Color="#F3F4F6" />
+          <SolidColorBrush x:Key="SubtleBorder" Color="#D0D7DE" />
+          <SolidColorBrush x:Key="BrandBlue" Color="#0969DA" />
+          <SolidColorBrush x:Key="HudBackground" Color="#D9FFFFFF" />
+          <SolidColorBrush x:Key="EditorForeground" Color="#1F2328" />
+          <SolidColorBrush x:Key="Motion0" Color="#D62828" />
+          <SolidColorBrush x:Key="Motion1" Color="#16A34A" />
+          <SolidColorBrush x:Key="Motion2" Color="#0891B2" />
+          <SolidColorBrush x:Key="Motion3" Color="#2547D0" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <!-- Cores da marca (iguais nos dois temas) -->
+      <SolidColorBrush x:Key="BrandOrange" Color="#F0883E" />
+      <FontFamily x:Key="CodeFont">avares://CncStudio.Web/Assets/Fonts#DejaVu Sans Mono</FontFamily>
+    </ResourceDictionary>
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />

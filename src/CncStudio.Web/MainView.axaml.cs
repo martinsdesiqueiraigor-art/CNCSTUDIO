@@ -226,6 +226,11 @@ public partial class MainView : UserControl
         HeaderGraphButton.Click += (_, _) => ShowPage(graph: true);
 
         FillExamplesMenu();
+        if (Stored("cc.theme") == "light")
+        {
+            ApplyTheme(true);
+        }
+
         if (!RestoreState())
         {
             LoadExample(FirstExample);
@@ -390,6 +395,19 @@ public partial class MainView : UserControl
 
     /// <summary>Menu "Exibir": rápidos, percurso à frente na simulação e ferramenta.</summary>
     private bool _vibrate = true;
+
+    /// <summary>Tema claro ou escuro para o app inteiro: telas, editor e gráfico.</summary>
+    private void ApplyTheme(bool light)
+    {
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeVariant = light ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark;
+        }
+
+        _colorizer.LightTheme = light;
+        Backplot.LightTheme = light;
+        Editor.TextArea.TextView.Redraw();
+    }
     private readonly DispatcherTimer _saveTimer;
     private bool _restoring;
 
@@ -528,6 +546,11 @@ public partial class MainView : UserControl
         panel.Children.Add(Option("Rápidos (G00)", true, v => Backplot.ShowRapids = v));
         panel.Children.Add(Option("Percurso à frente (na simulação)", true, v => Backplot.ShowAhead = v));
         panel.Children.Add(Option("Ferramenta", true, v => Backplot.ShowTool = v));
+        panel.Children.Add(Option("Modo claro (oficina com muita luz)", Stored("cc.theme") == "light", v =>
+        {
+            ApplyTheme(v);
+            Store("cc.theme", v ? "light" : "dark");
+        }));
         _vibrate = Stored("cc.vibrate") != "0";
         panel.Children.Add(Option("Vibrar ao tocar nos botões", _vibrate, v =>
         {

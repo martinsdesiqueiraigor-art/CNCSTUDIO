@@ -37,24 +37,41 @@ public sealed class BackplotView : Control
     /// <summary>Movimentos por bloco da simulação (blocos completos ficam guardados, prontos para desenhar).</summary>
     private const int BlockSize = 256;
 
-    // Mesmas cores do desktop
-    private static readonly Color[] MotionColors =
-    [
-        Color.Parse("#FF4D4D"), // G00
-        Color.Parse("#3DDC6A"), // G01
-        Color.Parse("#7FD8FF"), // G02
-        Color.Parse("#3D6BFF"), // G03
-    ];
+    /// <summary>Cores de um tema (escuro ou claro).</summary>
+    private sealed record Palette(Color[] Motion, Color Background, Color Axis, Color Highlight, Color Text, Color Tool)
+    {
+        public IBrush[] Bright { get; } = Motion.Select(c => (IBrush)new SolidColorBrush(c)).ToArray();
+        public IBrush[] Dim { get; } = Motion.Select(c => (IBrush)new SolidColorBrush(c, 0.22)).ToArray();
+        public IBrush BackgroundBrush { get; } = new SolidColorBrush(Background);
+        public IBrush AxisBrush { get; } = new SolidColorBrush(Axis);
+        public IBrush HighlightBrush { get; } = new SolidColorBrush(Highlight);
+        public IBrush TextBrush { get; } = new SolidColorBrush(Text);
+        public IBrush ToolBrush { get; } = new SolidColorBrush(Tool);
+    }
 
-    private static readonly IBrush[] BrightBrushes = MotionColors.Select(c => (IBrush)new SolidColorBrush(c)).ToArray();
-    private static readonly IBrush[] DimBrushes = MotionColors.Select(c => (IBrush)new SolidColorBrush(c, 0.22)).ToArray();
+    // Tema escuro: mesmas cores do desktop (G00 vermelho, G01 verde, G02 azul claro, G03 azul escuro)
+    private static readonly Palette DarkPalette = new(
+        [Color.Parse("#FF4D4D"), Color.Parse("#3DDC6A"), Color.Parse("#7FD8FF"), Color.Parse("#3D6BFF")],
+        Color.Parse("#0D1117"), Color.Parse("#6E7681"), Color.Parse("#FFD33D"), Color.Parse("#8B949E"), Color.Parse("#F0883E"));
+
+    // Tema claro: mesmas ideias, tons mais fortes para fundo branco (bom sob luz forte na oficina)
+    private static readonly Palette LightPalette = new(
+        [Color.Parse("#D62828"), Color.Parse("#16A34A"), Color.Parse("#0891B2"), Color.Parse("#2547D0")],
+        Color.Parse("#F6F8FA"), Color.Parse("#8C959F"), Color.Parse("#E5A000"), Color.Parse("#57606A"), Color.Parse("#E8590C"));
+
+    private static Palette _palette = DarkPalette;
     private static readonly DashStyle RapidDash = new([5, 4], 0);
 
-    private static readonly IBrush Background = new SolidColorBrush(Color.Parse("#0D1117"));
-    private static readonly IBrush AxisBrush = new SolidColorBrush(Color.Parse("#6E7681"));
-    private static readonly IBrush HighlightBrush = new SolidColorBrush(Color.Parse("#FFD33D"));
-    private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#8B949E"));
-    private static readonly IBrush ToolBrush = new SolidColorBrush(Color.Parse("#F0883E"));
+    /// <summary>Usa as cores do tema claro.</summary>
+    public bool LightTheme
+    {
+        get => _palette == LightPalette;
+        set
+        {
+            _palette = value ? LightPalette : DarkPalette;
+            InvalidateVisual();
+        }
+    }
 
     private ToolPath? _path;
     private bool _lathe;
@@ -343,7 +360,7 @@ public sealed class BackplotView : Control
     public override void Render(DrawingContext context)
     {
         Rect bounds = Bounds;
-        context.FillRectangle(Background, new Rect(bounds.Size));
+        context.FillRectangle(_palette.BackgroundBrush, new Rect(bounds.Size));
         if (bounds.Width < 2 || bounds.Height < 2)
         {
             return;
@@ -370,14 +387,14 @@ public sealed class BackplotView : Control
         {
             if (_visibleMoves is not { } visible)
             {
-                DrawSet(context, _full, BrightBrushes, px);
+                DrawSet(context, _full, _palette.Bright, px);
             }
             else
             {
                 // Simulação: tudo apagado + o que já foi executado aceso
                 if (_showAhead)
                 {
-                    DrawSet(context, _full, DimBrushes, px);
+                    DrawSet(context, _full, _palette.Dim, px);
                 }
 
                 visible = Math.Clamp(visible, 0, _polys.Length);
@@ -390,15 +407,15 @@ public sealed class BackplotView : Control
                         _blocks.Add(BuildRange(start, start + BlockSize));
                     }
 
-                    DrawSet(context, _blocks[b], BrightBrushes, px);
+                    DrawSet(context, _blocks[b], _palette.Bright, px);
                 }
 
-                DrawSet(context, BuildRange(complete * BlockSize, visible), BrightBrushes, px);
+                DrawSet(context, BuildRange(complete * BlockSize, visible), _palette.Bright, px);
             }
 
             if (_highlight is { } h)
             {
-                context.DrawGeometry(null, new Pen(HighlightBrush, 3 * px, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), h);
+                context.DrawGeometry(null, new Pen(_palette.HighlightBrush, 3 * px, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), h);
             }
         }
 
@@ -436,7 +453,7 @@ public sealed class BackplotView : Control
         Point tip = ToScreen(world.X, world.Y);
 
         // A ferramenta é só um ponto na posição programada (com contorno escuro para aparecer sobre as linhas)
-        context.DrawEllipse(ToolBrush, new Pen(Background, 2), tip, 5, 5);
+        context.DrawEllipse(_palette.ToolBrush, new Pen(_palette.BackgroundBrush, 2), tip, 5, 5);
     }
 
     /// <summary>Direção na tela (unitária) de um eixo do mundo; comprimento 0 se ele aponta para o observador.</summary>
@@ -454,7 +471,7 @@ public sealed class BackplotView : Control
         if (_lathe)
         {
             // Linha de centro (traço-ponto), como no desenho técnico
-            context.DrawLine(new Pen(AxisBrush, 1, new DashStyle([10, 3, 2, 3], 0)), new Point(0, origin.Y), new Point(size.Width, origin.Y));
+            context.DrawLine(new Pen(_palette.AxisBrush, 1, new DashStyle([10, 3, 2, 3], 0)), new Point(0, origin.Y), new Point(size.Width, origin.Y));
             DrawAxis(context, origin, new Vector(1, 0), "Z");
             DrawAxis(context, origin, new Vector(0, -1), "X");
             return;
@@ -474,14 +491,14 @@ public sealed class BackplotView : Control
         }
 
         Point end = origin + direction * 28;
-        context.DrawLine(new Pen(AxisBrush, 1), origin, end);
+        context.DrawLine(new Pen(_palette.AxisBrush, 1), origin, end);
         DrawText(context, name, end + direction * 6 + new Vector(-4, -8));
     }
 
     private static void DrawText(DrawingContext context, string text, Point at)
     {
         var formatted = new FormattedText(text, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-            Typeface.Default, 12, TextBrush);
+            Typeface.Default, 12, _palette.TextBrush);
         context.DrawText(formatted, at);
     }
 
