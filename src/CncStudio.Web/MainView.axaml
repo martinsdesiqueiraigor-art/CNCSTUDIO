@@ -40,20 +40,21 @@
       <Setter Property="BorderThickness" Value="0" />
     </Style>
     <Style Selector="Button.sim">
-      <Setter Property="MinWidth" Value="36" />
-      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="MinWidth" Value="40" />
+      <Setter Property="MinHeight" Value="42" />
       <Setter Property="Padding" Value="6,2" />
+      <Setter Property="FontSize" Value="18" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.sim PathIcon">
-      <Setter Property="Width" Value="12" />
-      <Setter Property="Height" Value="12" />
+      <Setter Property="Width" Value="15" />
+      <Setter Property="Height" Value="15" />
     </Style>
     <Style Selector="Button.play">
       <Setter Property="Background" Value="{DynamicResource BrandOrange}" />
       <Setter Property="Foreground" Value="#0D1117" />
-      <Setter Property="MinWidth" Value="46" />
+      <Setter Property="MinWidth" Value="56" />
     </Style>
     <!-- Caixinhas semitransparentes por cima do gráfico -->
     <Style Selector="Border.hud">
@@ -93,18 +94,19 @@
   <Grid RowDefinitions="Auto,Auto,*,Auto">
 
     <!-- Barra superior: marca + ações -->
-    <Border Grid.Row="0" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,0,1">
-      <!-- Marca | versão e situação da conta (encolhe e quebra em 2 linhas) | ações -->
-      <Grid Margin="10,6" ColumnDefinitions="Auto,*,Auto">
+    <Border Grid.Row="0" Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource BrandOrange}" BorderThickness="0,0,0,2">
+      <!-- Marca | versão e situação da conta (encolhe e quebra em 2 linhas) | ações.
+           Celular em pé: as ações descem para uma segunda linha (ver ApplyHeaderLayout) -->
+      <Grid x:Name="HeaderGrid" Margin="12,10" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Image Source="/Assets/simbolo.png" Height="24" />
-          <TextBlock x:Name="BrandText" VerticalAlignment="Center" FontSize="16" FontWeight="Bold">
+          <Image Source="/Assets/simbolo.png" Height="30" />
+          <TextBlock x:Name="BrandText" VerticalAlignment="Center" FontSize="19" FontWeight="Bold">
             <Run Text="Casillas" /><Run Text=" Code" Foreground="{DynamicResource BrandBlue}" />
           </TextBlock>
         </StackPanel>
-        <TextBlock x:Name="VersionText" Grid.Column="1" VerticalAlignment="Center" FontSize="10" Opacity="0.55" Margin="8,0,6,0"
+        <TextBlock x:Name="VersionText" Grid.Column="1" VerticalAlignment="Center" FontSize="11" Opacity="0.65" Margin="10,0,6,0"
                    TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <StackPanel x:Name="HeaderActions" Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
           <!-- Celular deitado: alternar Código/Gráfico aqui em cima, para sobrar altura -->
           <StackPanel x:Name="HeaderPages" Orientation="Horizontal" IsVisible="False" Margin="0,0,6,0">
             <ToggleButton x:Name="HeaderCodeButton" Classes="page" Content="Código" IsChecked="True" CornerRadius="6,0,0,6" />
@@ -194,7 +196,7 @@
 
         <!-- Simulação: uma faixa baixa com os controles -->
         <Border Grid.Row="1" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,0,0">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="6,4" Spacing="3">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="6,7" Spacing="4">
             <Button x:Name="SimStartButton" Classes="sim" ToolTip.Tip="Voltar ao início">
               <PathIcon Data="M0,0 H2.5 V12 H0 Z M12,0 L3.5,6 L12,12 Z" />
             </Button>
@@ -211,10 +213,10 @@
               <PathIcon Data="M0,0 L8.5,6 L0,12 Z M9.5,0 H12 V12 H9.5 Z" />
             </Button>
             <Button x:Name="SpeedDownButton" Classes="sim speed" Content="−" Margin="6,3,2,3" ToolTip.Tip="Mais devagar" />
-            <Slider x:Name="SpeedSlider" Width="52" Minimum="1" Maximum="50" Value="5" VerticalAlignment="Center" Margin="2,-6,2,-6"
+            <Slider x:Name="SpeedSlider" Width="64" Minimum="1" Maximum="50" Value="5" VerticalAlignment="Center" Margin="2,-6,2,-6"
                     ToolTip.Tip="Velocidade (passos por segundo)" />
             <Button x:Name="SpeedUpButton" Classes="sim speed" Content="+" ToolTip.Tip="Mais rápido" />
-            <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="12" Width="34" Margin="4,0,0,0" Text="5/s" />
+            <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="13" Width="36" Margin="4,0,0,0" Text="5/s" />
           </StackPanel>
         </Border>
       </Grid>

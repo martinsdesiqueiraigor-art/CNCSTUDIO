@@ -1368,7 +1368,7 @@ public partial class MainView : UserControl
         _narrow = narrow;
         PageSwitch.IsVisible = narrow && _compact != true;
         HeaderPages.IsVisible = narrow && _compact == true;
-        BrandText.IsVisible = !narrow; // no celular fica só o símbolo, para caber os botões
+        ApplyHeaderLayout();
         Splitter.IsVisible = !narrow;
         UpdateStatusBar();
 
@@ -1403,6 +1403,28 @@ public partial class MainView : UserControl
         PageSwitch.IsVisible = narrow && !compact;
         HeaderPages.IsVisible = narrow && compact;
         Workspace.Margin = compact ? new Thickness(0, 2, 0, 0) : new Thickness(0, 6, 0, 0);
+        ApplyHeaderLayout();
+    }
+
+    /// <summary>
+    /// Cabeçalho: no celular em pé, marca "Casillas Code" e situação na 1ª linha e os botões na 2ª
+    /// (sobra altura); deitado, uma linha só e compacta; no PC, tudo numa linha.
+    /// A barra de simulação esconde o controle deslizante no celular em pé (ficam o − e o +).
+    /// </summary>
+    private void ApplyHeaderLayout()
+    {
+        bool narrow = _narrow == true;
+        bool compact = _compact == true;
+        bool twoRows = narrow && !compact;
+
+        Grid.SetRow(HeaderActions, twoRows ? 1 : 0);
+        Grid.SetColumn(HeaderActions, twoRows ? 0 : 2);
+        Grid.SetColumnSpan(HeaderActions, twoRows ? 3 : 1);
+        HeaderActions.HorizontalAlignment = twoRows ? HorizontalAlignment.Right : HorizontalAlignment.Stretch;
+        HeaderActions.Margin = twoRows ? new Thickness(0, 10, 0, 0) : new Thickness(0);
+        BrandText.IsVisible = !(narrow && compact); // deitado no celular: só o símbolo
+        HeaderGrid.Margin = compact ? new Thickness(10, 5) : new Thickness(12, 10);
+        SpeedSlider.IsVisible = !twoRows;
     }
 
     private void ShowPage(bool graph)
