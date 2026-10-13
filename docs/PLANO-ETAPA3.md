@@ -36,7 +36,7 @@ Decisões tomadas com o dono do produto:
 
 ## O que depende do dono do produto
 
-- Fase 14: definição de preços. E-mail do Casillas: casillas.usinagem.br@gmail.com (falta configurar o envio pelo Gmail no Supabase).
+- Fase 14: definição de preços. E-mail do Casillas: casillas.usinagem.br@gmail.com (envio pelo Gmail configurado e testado).
 - Fase 15: revisão jurídica dos termos e consulta ao contador sobre o recebimento.
 
 ## Melhorias da versão web (feitas)

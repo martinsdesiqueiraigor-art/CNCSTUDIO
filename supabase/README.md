@@ -38,7 +38,7 @@ A chave `service_role` / secreta **nunca** vai para o repositório nem para o ap
   host `smtp.gmail.com`, porta `465`, usuário `casillas.usinagem.br@gmail.com`,
   senha = **senha de app** do Google (16 letras; exige verificação em duas etapas ligada),
   remetente `casillas.usinagem.br@gmail.com`, nome `Casillas Code`.
-- **Emails › Templates:** textos em português em `templates/` —
+- **Emails › Templates (opcional, não aplicado — e-mails seguem em inglês por decisão do dono):** textos em português em `templates/` —
   "Confirm signup" → assunto `Confirme seu e-mail - Casillas Code`, corpo `confirmar-cadastro.html`;
   "Reset password" → assunto `Criar senha nova - Casillas Code`, corpo `nova-senha.html`.
 
