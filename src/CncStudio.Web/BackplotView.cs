@@ -55,7 +55,6 @@ public sealed class BackplotView : Control
     private static readonly IBrush HighlightBrush = new SolidColorBrush(Color.Parse("#FFD33D"));
     private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#8B949E"));
     private static readonly IBrush ToolBrush = new SolidColorBrush(Color.Parse("#F0883E"));
-    private static readonly IBrush ToolFill = new SolidColorBrush(Color.Parse("#F0883E"), 0.35);
 
     private ToolPath? _path;
     private bool _lathe;
@@ -435,33 +434,9 @@ public sealed class BackplotView : Control
 
         Point world = executed <= 0 ? _polys[0][0] : _polys[Math.Min(executed, _polys.Length) - 1][^1];
         Point tip = ToScreen(world.X, world.Y);
-        var pen = new Pen(ToolBrush, 1.5);
 
-        if (_lathe)
-        {
-            // Pastilha rômbica com a ponta no ponto programado (acima da peça, lado +X)
-            var insert = new StreamGeometry();
-            using (StreamGeometryContext ctx = insert.Open())
-            {
-                ctx.BeginFigure(tip, true);
-                ctx.LineTo(tip + new Vector(9, -9));
-                ctx.LineTo(tip + new Vector(0, -18));
-                ctx.LineTo(tip + new Vector(-9, -9));
-                ctx.EndFigure(true);
-            }
-
-            context.DrawGeometry(ToolFill, pen, insert);
-            return;
-        }
-
-        // Fresa: ponta + haste na direção do eixo Z da vista
-        Vector up = ScreenDirection(new Point3(0, 0, 1));
-        if (up.Length > 0.1)
-        {
-            context.DrawLine(new Pen(ToolBrush, 6) { LineCap = PenLineCap.Round }, tip, tip + up * 34);
-        }
-
-        context.DrawEllipse(ToolFill, pen, tip, 6, 6);
+        // A ferramenta é só um ponto na posição programada (com contorno escuro para aparecer sobre as linhas)
+        context.DrawEllipse(ToolBrush, new Pen(Background, 2), tip, 5, 5);
     }
 
     /// <summary>Direção na tela (unitária) de um eixo do mundo; comprimento 0 se ele aponta para o observador.</summary>

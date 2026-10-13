@@ -43,6 +43,20 @@ internal static partial class WebInterop
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
     public static partial Task<string?> PromptInstallAsync();
 
+    [JSImport("storageGet", Module)]
+    [return: JSMarshalAs<JSType.String>]
+    public static partial string? StorageGet([JSMarshalAs<JSType.String>] string key);
+
+    [JSImport("storageSet", Module)]
+    public static partial void StorageSet([JSMarshalAs<JSType.String>] string key, [JSMarshalAs<JSType.String>] string value);
+
+    [JSImport("vibrate", Module)]
+    public static partial void Vibrate([JSMarshalAs<JSType.Number>] int milliseconds);
+
+    /// <summary>Avisa quando o app vai para segundo plano.</summary>
+    [JSImport("onHidden", Module)]
+    public static partial void OnHidden([JSMarshalAs<JSType.Function>] Action callback);
+
     /// <summary>Editor nativo em tela cheia; texto novo ou null se cancelar.</summary>
     [JSImport("editText", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]

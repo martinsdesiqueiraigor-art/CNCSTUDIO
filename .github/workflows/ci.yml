@@ -116,7 +116,12 @@ jobs:
         run: dotnet workload install wasm-tools
 
       - name: Publicar versão web
-        run: dotnet publish src/CncStudio.Web/CncStudio.Web.csproj -c Release -o publish/web
+        run: |
+          dotnet publish src/CncStudio.Web/CncStudio.Web.csproj -c Release -o publish/web -p:Version=1.0.${{ github.run_number }}
+          # Número da versão na página (tela de carregamento) e no arquivo que o app consulta para saber se há versão nova
+          sed -i "s/__APP_VERSION__/1.0.${{ github.run_number }}/g" publish/web/wwwroot/index.html
+          rm -f publish/web/wwwroot/index.html.br publish/web/wwwroot/index.html.gz
+          echo "1.0.${{ github.run_number }}" > publish/web/wwwroot/version.txt
 
       - name: Conferir arquivos gerados
         run: |

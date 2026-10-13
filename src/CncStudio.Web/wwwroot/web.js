@@ -120,9 +120,9 @@ function ensureFileInput() {
     fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.title = 'Abrir programa CNC';
-    // Sem "accept", o Android mostra só câmera/fotos. Com tipos de arquivo + "*/*" ele abre o
+    // Sem "accept", o Android oferece câmera/fotos. Só com tipos de texto/arquivo ele vai direto ao
     // gerenciador de arquivos (Downloads, Drive, WhatsApp...), onde ficam os .nc/.mpf
-    fileInput.accept = '.nc,.mpf,.spf,.txt,.tap,.cnc,.iso,.ngc,.eia,.h,text/plain,application/octet-stream,*/*';
+    fileInput.accept = '.nc,.mpf,.spf,.txt,.tap,.cnc,.iso,.ngc,.eia,.h,text/plain,application/octet-stream';
     fileInput.style.cssText = 'position:fixed;z-index:50;opacity:0;cursor:pointer;margin:0;padding:0;border:0;font-size:0';
     fileInput.addEventListener('change', async () => {
         const file = fileInput.files && fileInput.files[0];
@@ -185,4 +185,28 @@ export async function promptInstall() {
     await e.prompt();
     const choice = await e.userChoice;
     return choice && choice.outcome ? choice.outcome : 'dismissed';
+}
+
+// ───────────── Memória do app (estado entre aberturas) e vibração ─────────────
+
+/** Lê um valor guardado no aparelho (ou null). */
+export function storageGet(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+}
+
+/** Guarda um valor no aparelho (falha em silêncio se o navegador não deixar). */
+export function storageSet(key, value) {
+    try { localStorage.setItem(key, value); } catch { }
+}
+
+/** Vibração curta no toque (Android; no iPhone o navegador não vibra). */
+export function vibrate(ms) {
+    try { if (navigator.vibrate) navigator.vibrate(ms); } catch { }
+}
+
+/** Chama o .NET quando o app vai para segundo plano (para salvar o estado na hora). */
+export function onHidden(callback) {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') callback();
+    });
 }

@@ -6,6 +6,26 @@
              Background="{DynamicResource AppBackground}">
 
   <UserControl.Styles>
+    <!-- Todos os botões: cantos arredondados e um leve "afundar e voltar" (efeito mola) ao tocar -->
+    <Style Selector=":is(Button)">
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+      <Setter Property="RenderTransform" Value="scale(1)" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="BackEaseOut" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector=":is(Button):pressed">
+      <Setter Property="RenderTransform" Value="scale(0.92)" />
+    </Style>
+    <Style Selector="Button.speed">
+      <Setter Property="MinWidth" Value="30" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Padding" Value="4,0" />
+    </Style>
     <!-- Botões da barra: grandes o bastante para o dedo -->
     <Style Selector="Button.bar">
       <Setter Property="MinHeight" Value="36" />
@@ -75,6 +95,7 @@
           <TextBlock x:Name="BrandText" VerticalAlignment="Center" FontSize="16" FontWeight="Bold">
             <Run Text="Casillas" /><Run Text=" Code" Foreground="{DynamicResource BrandBlue}" />
           </TextBlock>
+          <TextBlock x:Name="VersionText" VerticalAlignment="Center" FontSize="10" Opacity="0.55" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
           <!-- Celular deitado: alternar Código/Gráfico aqui em cima, para sobrar altura -->
@@ -174,9 +195,11 @@
             <Button x:Name="SimEndButton" Classes="sim" ToolTip.Tip="Ir ao fim (trajetória completa)">
               <PathIcon Data="M0,0 L8.5,6 L0,12 Z M9.5,0 H12 V12 H9.5 Z" />
             </Button>
-            <Slider x:Name="SpeedSlider" Width="96" Minimum="1" Maximum="50" Value="5" VerticalAlignment="Center" Margin="8,-6,4,-6"
+            <Button x:Name="SpeedDownButton" Classes="sim speed" Content="−" Margin="8,0,0,0" ToolTip.Tip="Mais devagar" />
+            <Slider x:Name="SpeedSlider" Width="72" Minimum="1" Maximum="50" Value="5" VerticalAlignment="Center" Margin="2,-6,2,-6"
                     ToolTip.Tip="Velocidade (passos por segundo)" />
-            <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="12" Width="34" Text="5/s" />
+            <Button x:Name="SpeedUpButton" Classes="sim speed" Content="+" ToolTip.Tip="Mais rápido" />
+            <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="12" Width="34" Margin="4,0,0,0" Text="5/s" />
           </StackPanel>
         </Border>
       </Grid>

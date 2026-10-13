@@ -142,6 +142,44 @@ public partial class MainView : UserControl
             InstallButton.IsVisible = false;
         };
         BuildDisplayMenu();
+
+        // Velocidade em passos de 1 com − e +
+        SpeedDownButton.Click += (_, _) => SpeedSlider.Value = Math.Max(SpeedSlider.Minimum, Math.Round(SpeedSlider.Value) - 1);
+        SpeedUpButton.Click += (_, _) => SpeedSlider.Value = Math.Min(SpeedSlider.Maximum, Math.Round(SpeedSlider.Value) + 1);
+
+        // Vibração curta em qualquer botão (opcional, menu Exibir)
+        AddHandler(Button.ClickEvent, (_, _) =>
+        {
+            if (_vibrate)
+            {
+                try
+                {
+                    WebInterop.Vibrate(12);
+                }
+                catch
+                {
+                    // sem suporte: segue sem vibrar
+                }
+            }
+        }, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+
+        VersionText.Text = AppVersion();
+
+        // Lembrar onde parou: salva pouco depois de cada mudança e quando o app vai para segundo plano
+        _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _saveTimer.Tick += (_, _) =>
+        {
+            _saveTimer.Stop();
+            SaveState();
+        };
+        try
+        {
+            WebInterop.OnHidden(SaveState);
+        }
+        catch
+        {
+            // navegador sem suporte: salva só pelo temporizador
+        }
         FitButton.Click += (_, _) => Backplot.Fit();
         DialectCombo.SelectionChanged += (_, _) =>
         {
@@ -162,7 +200,10 @@ public partial class MainView : UserControl
         HeaderGraphButton.Click += (_, _) => ShowPage(graph: true);
 
         FillExamplesMenu();
-        LoadExample(FirstExample);
+        if (!RestoreState())
+        {
+            LoadExample(FirstExample);
+        }
     }
 
     private Dialect CurrentDialect => DialectCombo.SelectedIndex == 1 ? Dialect.Siemens : Dialect.Fanuc;
@@ -269,6 +310,123 @@ public partial class MainView : UserControl
     }
 
     /// <summary>Menu "Exibir": rápidos, percurso à frente na simulação e ferramenta.</summary>
+    private bool _vibrate = true;
+    private readonly DispatcherTimer _saveTimer;
+    private bool _restoring;
+
+    /// <summary>Versão desta publicação ("v1.0.150"); o CI grava o número na compilação.</summary>
+    private static string AppVersion()
+    {
+        string? info = typeof(MainView).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion;
+        string version = (info ?? "1.0.0").Split('+')[0];
+        return version == "1.0.0" ? "dev" : "v" + version;
+    }
+
+    private static string? Stored(string key)
+    {
+        try
+        {
+            return WebInterop.StorageGet(key);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void Store(string key, string value)
+    {
+        try
+        {
+            WebInterop.StorageSet(key, value);
+        }
+        catch
+        {
+            // sem armazenamento: o app só não lembra
+        }
+    }
+
+    /// <summary>Guarda o programa aberto, a linha, a tela e a vista (para voltar ao mesmo ponto).</summary>
+    private void SaveState()
+    {
+        if (_restoring)
+        {
+            return;
+        }
+
+        string text = Editor.Text;
+        if (text.Length > 3_000_000)
+        {
+            return; // programa enorme: não cabe no armazenamento do navegador
+        }
+
+        Store("cc.name", _fileName);
+        Store("cc.text", text);
+        Store("cc.dialect", DialectCombo.SelectedIndex.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Store("cc.line", Editor.TextArea.Caret.Line.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Store("cc.page", GraphPageButton.IsChecked == true ? "graph" : "code");
+        Store("cc.view", Backplot.MillView.ToString());
+        Store("cc.speed", ((int)Math.Round(SpeedSlider.Value)).ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    private void ScheduleSave()
+    {
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    /// <summary>Reabre o último programa e volta à mesma linha, tela e vista. Falso se não havia nada guardado.</summary>
+    private bool RestoreState()
+    {
+        string? text = Stored("cc.text");
+        string? name = Stored("cc.name");
+        if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(name))
+        {
+            return false;
+        }
+
+        _restoring = true;
+        try
+        {
+            LoadProgram(name, text);
+            if (int.TryParse(Stored("cc.dialect"), out int dialect) && dialect is 0 or 1 && dialect != DialectCombo.SelectedIndex)
+            {
+                DialectCombo.SelectedIndex = dialect;
+            }
+
+            if (Enum.TryParse(Stored("cc.view"), out MillView view))
+            {
+                SetMillView(view);
+            }
+
+            if (int.TryParse(Stored("cc.speed"), out int speed))
+            {
+                SpeedSlider.Value = Math.Clamp(speed, 1, 50);
+            }
+
+            if (int.TryParse(Stored("cc.line"), out int line) && line >= 1 && line <= Editor.Document.LineCount)
+            {
+                Editor.TextArea.Caret.Line = line;
+                Editor.ScrollToLine(line);
+            }
+
+            if (Stored("cc.page") == "graph")
+            {
+                GraphPageButton.IsChecked = true;
+                ShowPage(graph: true);
+            }
+        }
+        finally
+        {
+            _restoring = false;
+        }
+
+        return true;
+    }
+
     private void BuildDisplayMenu()
     {
         CheckBox Option(string text, bool initial, Action<bool> apply)
@@ -282,6 +440,12 @@ public partial class MainView : UserControl
         panel.Children.Add(Option("Rápidos (G00)", true, v => Backplot.ShowRapids = v));
         panel.Children.Add(Option("Percurso à frente (na simulação)", true, v => Backplot.ShowAhead = v));
         panel.Children.Add(Option("Ferramenta", true, v => Backplot.ShowTool = v));
+        _vibrate = Stored("cc.vibrate") != "0";
+        panel.Children.Add(Option("Vibrar ao tocar nos botões", _vibrate, v =>
+        {
+            _vibrate = v;
+            Store("cc.vibrate", v ? "1" : "0");
+        }));
         DisplayButton.Flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
     }
 
@@ -374,6 +538,7 @@ public partial class MainView : UserControl
         _lineMotion.Update(_analysis.ToolPath);
         _lineMotion.ExecutingLine = 0;
         BuildSteps();
+        ScheduleSave();
         _diagnosticMarks.Update(_analysis.Diagnostics);
         _problemIndex = -1;
         UpdateProblemsButton();
@@ -416,6 +581,11 @@ public partial class MainView : UserControl
 
     private void OnCaretMoved()
     {
+        if (!_loading)
+        {
+            ScheduleSave();
+        }
+
         int line = Editor.TextArea.Caret.Line;
         Backplot.HighlightLine(line);
     }
