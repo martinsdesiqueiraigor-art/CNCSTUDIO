@@ -4,6 +4,9 @@
 // Conta (entrar, situação da licença, sair): ver account.js
 export * from './account.js';
 
+// Folha de setup em tela cheia (PDF / imprimir / compartilhar): ver setupsheet.js
+export * from './setupsheet.js';
+
 /** Aparelho de toque (celular/tablet): teclado virtual, sem mouse. */
 export function isTouch() {
     return window.matchMedia('(pointer: coarse)').matches;

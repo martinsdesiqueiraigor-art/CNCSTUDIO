@@ -20,7 +20,10 @@ public static class SetupSheetHtml
     private static readonly string[] MotionColors = ["#D62828", "#2A9D3F", "#2F9FD8", "#1D3FBF"];
     private const int MaxDrawingPoints = 150_000;
 
-    public static string Render(SetupSheet sheet, IReadOnlyList<PathPolyline> figures, CultureInfo? culture = null)
+    /// <param name="printHint">Mostra a dica "Ctrl+P → Salvar como PDF" (desktop). A versão web tem botões próprios.</param>
+    /// <param name="watermark">Texto em diagonal sobre a folha (ex.: "VERSÃO DE AVALIAÇÃO"); null = sem.</param>
+    public static string Render(SetupSheet sheet, IReadOnlyList<PathPolyline> figures, CultureInfo? culture = null,
+        bool printHint = true, string? watermark = null)
     {
         culture ??= CultureInfo.CurrentCulture;
         bool lathe = sheet.Machine == MachineKind.Lathe;
@@ -65,17 +68,33 @@ public static class SetupSheetHtml
               .sign div { flex: 1; border-top: 1px solid #111; padding-top: 2px; font-size: 9pt; color: #444; }
               .small { font-size: 8.5pt; color: #555; }
               .warn { color: #A00; font-weight: 600; }
+              .code { display: block; font-size: 8.5pt; color: #555; }
+              .brand { color: #E8590C; font-weight: 700; }
+              .wm { position: fixed; left: 0; right: 0; top: 40%; transform: rotate(-28deg); text-align: center; font-size: 46pt;
+                    font-weight: 800; color: rgba(214, 40, 40, .16); pointer-events: none; z-index: 10; white-space: nowrap; }
+              /* Celular: uma coluna, tabela de ferramentas sem as colunas secundárias */
+              @media screen and (max-width: 640px) {
+                body { padding: 10px; font-size: 10pt; }
+                h1 { font-size: 13pt; word-break: break-all; }
+                .grid { grid-template-columns: 1fr; }
+                .totals { flex-wrap: wrap; }
+                .totals div { flex: 1 1 40%; }
+                .opt { display: none; }
+                .drawings { flex-direction: column; }
+                .wm { font-size: 26pt; }
+              }
               @media print { body { padding: 0; } .noprint { display: none; } h2 { break-after: avoid; } tr { break-inside: avoid; } }
             </style>
             </head>
             <body>
-            <p class="noprint small">Para salvar em PDF: Ctrl+P → "Salvar como PDF" (ou "Microsoft Print to PDF").</p>
+            {{(printHint ? "<p class=\"noprint small\">Para salvar em PDF: Ctrl+P → \"Salvar como PDF\" (ou \"Microsoft Print to PDF\").</p>" : "")}}
+            {{(watermark is { Length: > 0 } ? "<div class=\"wm\">" + E(watermark) + "</div>" : "")}}
             <div class="top">
               <div>
                 <div class="small">FOLHA DE SETUP</div>
                 <h1>{{E(title)}}</h1>
               </div>
-              <div class="meta">Gerada em {{E(sheet.Generated.ToString("g", culture))}}<br>CncStudio</div>
+              <div class="meta">Gerada em {{E(sheet.Generated.ToString("g", culture))}}<br><span class="brand">Casillas Code</span></div>
             </div>
 
             """);
@@ -124,8 +143,8 @@ public static class SetupSheetHtml
         html.Append($"""
             <h2>Ferramentas</h2>
             <table>
-            <tr><th>T</th><th>Descrição</th>{(lathe ? "" : "<th class=\"n\">Ø</th>")}<th class="n">1ª linha</th><th class="n">{reachHeader}</th>
-            <th class="n">Avanço (mm/min)</th><th class="n">Corte</th><th class="n">Rápido</th><th class="n">Espera</th><th class="n">Total</th><th style="width:16%">% do tempo</th></tr>
+            <tr><th>T</th><th>Operação / ferramenta</th>{(lathe ? "" : "<th class=\"n\">Ø</th>")}<th class="n opt">1ª linha</th><th class="n">{reachHeader}</th>
+            <th class="n opt">Avanço (mm/min)</th><th class="n opt">Corte</th><th class="n opt">Rápido</th><th class="n opt">Espera</th><th class="n">Total</th><th style="width:16%">% do tempo</th></tr>
             """);
         foreach (SetupTool tool in sheet.Tools)
         {
@@ -134,18 +153,20 @@ public static class SetupSheetHtml
             string diameterCell = lathe ? "" : $"<td class=\"n\">{(tool.Diameter is { } d ? N(d) : "—")}</td>";
             string percent = N(tool.Share * 100, "0.0");
             html.Append($"""
-                <tr><td><b>{(tool.Number == 0 ? "—" : "T" + tool.Number)}</b></td><td>{E(tool.Description)}</td>{diameterCell}
-                <td class="n">{tool.FirstLine}</td><td class="n">{(tool.Reach is { } r ? N(r) : "—")}</td><td class="n">{feed}</td>
-                <td class="n">{T(t.CuttingTime)}</td><td class="n">{T(t.RapidTime)}</td><td class="n">{T(t.DwellTime)}</td>
+                <tr><td><b>{(tool.Number == 0 ? "—" : "T" + tool.Number)}</b></td><td>{E(tool.Description)}{(tool.Code is { Length: > 0 } code ? "<span class=\"code\">" + E(code) + "</span>" : "")}</td>{diameterCell}
+                <td class="n opt">{tool.FirstLine}</td><td class="n">{(tool.Reach is { } r ? N(r) : "—")}</td><td class="n opt">{feed}</td>
+                <td class="n opt">{T(t.CuttingTime)}</td><td class="n opt">{T(t.RapidTime)}</td><td class="n opt">{T(t.DwellTime)}</td>
                 <td class="n"><b>{T(t.TotalTime)}</b></td>
                 <td><div class="bar" style="width:{N(Math.Max(1, tool.Share * 100), "0.#").Replace(',', '.')}%"></div><span class="small">{percent}%</span></td></tr>
                 """);
         }
 
-        int columns = lathe ? 5 : 6;
+        // Total: as colunas antes de "Corte" (T, operação, [Ø], 1ª linha, alcance, avanço); no celular somem 1ª linha e avanço
+        int lead = lathe ? 2 : 3;
         html.Append($"""
-            <tr class="total"><td colspan="{columns}">Total ({sheet.Tools.Count(t => t.Number != 0)} ferramenta(s))</td>
-            <td class="n">{T(stats.CuttingTime)}</td><td class="n">{T(stats.RapidTime)}</td><td class="n">{T(stats.DwellTime)}</td>
+            <tr class="total"><td colspan="{lead}">Total ({sheet.Tools.Count(t => t.Number != 0)} ferramenta(s))</td>
+            <td class="opt"></td><td></td><td class="opt"></td>
+            <td class="n opt">{T(stats.CuttingTime)}</td><td class="n opt">{T(stats.RapidTime)}</td><td class="n opt">{T(stats.DwellTime)}</td>
             <td class="n">{T(stats.TotalTime)}</td><td>100%</td></tr>
             </table>
             """);

@@ -17,8 +17,13 @@ namespace CncStudio.Core.Reports;
 /// <param name="Statistics">Tempos e distâncias da ferramenta.</param>
 /// <param name="Share">Fração do tempo total (0 a 1).</param>
 /// <param name="Reach">Fresa: menor Z de corte. Torno: menor diâmetro de corte. Null se não cortou.</param>
+/// <param name="Description">Operação: comentário na linha do T ("T0101 (DESBASTE EXTERNO)") ou a descrição da tabela.</param>
+/// <param name="Code">Código da ferramenta: comentário sozinho na linha seguinte ao T ("(WNML 2525-WNMG 1608)").</param>
 public sealed record SetupTool(int Number, string Description, double? Diameter, int FirstLine,
-    ToolStatistics Statistics, double Share, double? Reach);
+    ToolStatistics Statistics, double Share, double? Reach, string? Code = null);
+
+/// <summary>Comentários de uma ferramenta no programa: operação (linha do T) e código (linha seguinte).</summary>
+public sealed record ToolNote(string? Operation, string? Code);
 
 /// <summary>
 /// Dados da folha de setup do programa atual: identificação, informações do programa,
@@ -64,7 +69,7 @@ public static partial class SetupSheetBuilder
         ParseResult parse = GCodeParser.Parse(text, dialect);
 
         (string? programNumber, List<string> header) = ReadHeader(text, parse, dialect);
-        Dictionary<int, string> toolComments = ReadToolComments(text, parse, dialect, machine);
+        Dictionary<int, ToolNote> toolComments = ReadToolComments(text, parse, dialect, machine);
         List<string> offsets = ReadWorkOffsets(parse, dialect);
         Dictionary<int, double> reach = ToolReach(analysis.ToolPath, machine);
 
@@ -73,10 +78,11 @@ public static partial class SetupSheetBuilder
         var tools = statistics.Tools.Select(t =>
         {
             (double Diameter, string Description)? table = t.Tool == 0 ? null : toolTable(t.Tool);
-            string description = toolComments.GetValueOrDefault(t.Tool) ?? table?.Description ?? "";
+            ToolNote? note = toolComments.GetValueOrDefault(t.Tool);
+            string description = note?.Operation ?? table?.Description ?? "";
             double share = totalSeconds > 0 ? t.TotalTime.TotalSeconds / totalSeconds : 0;
             double? diameter = machine == MachineKind.Mill ? table?.Diameter : null;
-            return new SetupTool(t.Tool, description, diameter, t.FirstLine, t, share, reach.TryGetValue(t.Tool, out double r) ? r : null);
+            return new SetupTool(t.Tool, description, diameter, t.FirstLine, t, share, reach.TryGetValue(t.Tool, out double r) ? r : null, note?.Code);
         }).ToList();
 
         return new SetupSheet(
@@ -130,12 +136,38 @@ public static partial class SetupSheetBuilder
         return (number, header);
     }
 
-    /// <summary>Comentário escrito na linha da troca de ferramenta: "T0101 (DESBASTE EXTERNO)".</summary>
-    internal static Dictionary<int, string> ReadToolComments(string text, ParseResult parse, Dialect dialect, MachineKind machine)
+    /// <summary>
+    /// Comentários da troca de ferramenta, no padrão:
+    /// <code>
+    /// T0101 (DESBASTE EXTERNO)      ← operação (na linha do T)
+    /// (WNML 2525-WNMG 1608)         ← código da ferramenta (linha seguinte, só comentário)
+    /// </code>
+    /// No Siemens: "T1 D1 ; DESBASTE" e "; PWLNR 2525M08".
+    /// </summary>
+    internal static Dictionary<int, ToolNote> ReadToolComments(string text, ParseResult parse, Dialect dialect, MachineKind machine)
     {
-        var comments = new Dictionary<int, string>();
+        var notes = new Dictionary<int, ToolNote>();
         string[] lines = text.Split('\n');
         var tokens = new List<Token>();
+
+        string? CommentOf(int lineIndex, bool onlyComment)
+        {
+            if (lineIndex < 0 || lineIndex >= lines.Length)
+            {
+                return null;
+            }
+
+            string line = lines[lineIndex].TrimEnd('\r');
+            GCodeLexer.TokenizeLine(line, dialect, tokens);
+            if (onlyComment && !tokens.TrueForAll(k => k.Kind == TokenKind.Comment))
+            {
+                return null;
+            }
+
+            string comment = string.Join(" ", tokens.Where(k => k.Kind == TokenKind.Comment)
+                .Select(k => CleanComment(line.Substring(k.Column, k.Length))).Where(c => c.Length > 0));
+            return comment.Length > 0 ? comment : null;
+        }
 
         foreach (NcBlock block in parse.Blocks)
         {
@@ -146,22 +178,20 @@ public static partial class SetupSheetBuilder
             }
 
             int number = machine == MachineKind.Lathe && dialect == Dialect.Fanuc && t.Value >= 100 ? (int)t.Value / 100 : (int)t.Value;
-            if (comments.ContainsKey(number))
+            if (notes.ContainsKey(number))
             {
                 continue;
             }
 
-            string line = lines[block.LineNumber - 1].TrimEnd('\r');
-            GCodeLexer.TokenizeLine(line, dialect, tokens);
-            string comment = string.Join(" ", tokens.Where(k => k.Kind == TokenKind.Comment)
-                .Select(k => CleanComment(line.Substring(k.Column, k.Length))).Where(c => c.Length > 0));
-            if (comment.Length > 0)
+            string? operation = CommentOf(block.LineNumber - 1, onlyComment: false);
+            string? code = CommentOf(block.LineNumber, onlyComment: true);
+            if (operation is not null || code is not null)
             {
-                comments[number] = comment;
+                notes[number] = new ToolNote(operation, code);
             }
         }
 
-        return comments;
+        return notes;
     }
 
     /// <summary>Zeros de peça usados, na ordem em que aparecem (G54, G55... / G500, G54...).</summary>

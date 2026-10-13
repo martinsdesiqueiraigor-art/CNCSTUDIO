@@ -101,6 +101,38 @@ public class SetupSheetTests
         Assert.Equal(1, CountOf(html, "<svg"));
     }
 
+    [Fact]
+    public void OperacaoNaLinhaDoTECodigoNaLinhaDeBaixo()
+    {
+        const string text = """
+            %
+            O1234 (PADRAO DE FERRAMENTA)
+            G21 G18 G99
+            T0101 (DESBASTE EXTERNO)
+            (WNML 2525-WNMG 1608)
+            G96 S180 M03
+            G00 X40 Z2
+            G01 Z-20 F0.2
+            T0202 (ACABAMENTO)
+            G00 X38 Z2
+            G01 Z-20 F0.1
+            M30
+            """;
+        (SetupSheet sheet, ProgramAnalysis analysis) = Build(text, table: _ => null);
+
+        SetupTool t1 = sheet.Tools.Single(t => t.Number == 1);
+        Assert.Equal("DESBASTE EXTERNO", t1.Description);
+        Assert.Equal("WNML 2525-WNMG 1608", t1.Code);
+        Assert.Null(sheet.Tools.Single(t => t.Number == 2).Code); // linha de baixo não é só comentário
+
+        string html = SetupSheetHtml.Render(sheet, PathPolylineBuilder.Build(analysis.ToolPath.Moves, 0.01),
+            new CultureInfo("pt-BR"), printHint: false, watermark: "VERSÃO DE AVALIAÇÃO");
+        Assert.Contains("WNML 2525-WNMG 1608", html);
+        Assert.Contains("class=\"wm\"", html); // marca d'água (texto vai codificado em HTML)
+        Assert.Contains("Casillas Code", html);
+        Assert.DoesNotContain("Ctrl+P", html);
+    }
+
     private static string DurationFormatFor(ProgramAnalysis analysis) =>
         CncStudio.Core.Statistics.DurationFormat.Format(analysis.Statistics.TotalTime, new CultureInfo("pt-BR"));
 

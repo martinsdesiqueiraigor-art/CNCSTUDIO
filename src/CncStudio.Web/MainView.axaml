@@ -184,6 +184,12 @@
           </StackPanel>
         </Border>
 
+        <!-- Tempo de ciclo: toque abre as estatísticas (fica acima das informações do rodapé do gráfico) -->
+        <Button x:Name="TimeChip" Grid.Row="0" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,10,52"
+                Padding="10,3" MinHeight="28" CornerRadius="14" FontSize="12" FontWeight="SemiBold" IsVisible="False"
+                Background="{DynamicResource HudBackground}" BorderBrush="{DynamicResource BrandOrange}" BorderThickness="1"
+                ToolTip.Tip="Tempo de ciclo: toque para ver as estatísticas" />
+
         <!-- Simulação: uma faixa baixa com os controles -->
         <Border Grid.Row="1" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,0,0">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="6,4" Spacing="3">
@@ -211,6 +217,11 @@
         </Border>
       </Grid>
     </Grid>
+
+    <!-- Estatísticas (sobem por cima da área de trabalho) -->
+    <Border x:Name="StatsHost" Grid.Row="1" Grid.RowSpan="2" IsVisible="False" ZIndex="6">
+      <web:StatsPanel x:Name="StatsView" />
+    </Border>
 
     <!-- Biblioteca de programas (cobre a área de trabalho quando aberta) -->
     <Border x:Name="LibraryHost" Grid.Row="1" Grid.RowSpan="2" IsVisible="False" ZIndex="5">

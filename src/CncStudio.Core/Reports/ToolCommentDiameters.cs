@@ -16,9 +16,9 @@ public static partial class ToolCommentDiameters
     public static Dictionary<int, double> Read(string text, ParseResult parse, Dialect dialect)
     {
         var diameters = new Dictionary<int, double>();
-        foreach ((int tool, string comment) in SetupSheetBuilder.ReadToolComments(text, parse, dialect, MachineKind.Mill))
+        foreach ((int tool, ToolNote note) in SetupSheetBuilder.ReadToolComments(text, parse, dialect, MachineKind.Mill))
         {
-            if (FromComment(comment) is { } diameter)
+            if ((FromComment(note.Operation ?? "") ?? FromComment(note.Code ?? "")) is { } diameter)
             {
                 diameters[tool] = diameter;
             }

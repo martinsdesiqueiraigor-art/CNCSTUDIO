@@ -12,6 +12,8 @@ using CncStudio.Core.Editing;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
 using CncStudio.Core.Statistics;
+using CncStudio.Core.Trajectory;
+using CncStudio.Core.Reports;
 
 namespace CncStudio.Web;
 
@@ -220,7 +222,19 @@ public partial class MainView : UserControl
         };
         Backplot.LineRequested += (_, line) => GoToLine(line);
         // Toque fora da trajetória: esconde/mostra as informações por cima do gráfico
-        Backplot.EmptyTapped += (_, _) => GraphInfo.IsVisible = !GraphInfo.IsVisible;
+        Backplot.EmptyTapped += (_, _) =>
+        {
+            GraphInfo.IsVisible = !GraphInfo.IsVisible;
+            UpdateTimeChip();
+        };
+        TimeChip.Click += (_, _) => OpenStats();
+        StatsView.Closed += (_, _) => StatsHost.IsVisible = false;
+        StatsView.SetupSheetRequested += async (_, _) => await OpenSetupSheetAsync();
+        StatsView.AccountRequested += async (_, _) =>
+        {
+            StatsHost.IsVisible = false;
+            await OpenAccountAsync();
+        };
         // Espaço ocupado pelos botões (em cima) e pelas informações (embaixo) ao enquadrar a peça
         Backplot.FitPadding = new Thickness(0, 40, 0, 46);
 
@@ -274,6 +288,9 @@ public partial class MainView : UserControl
         Add("Compartilhar / exportar", ShareCurrentAsync);
         menu.Items.Add(new Separator());
         Add("Novo programa (colar ou digitar)…", NewFromPasteAsync);
+        menu.Items.Add(new Separator());
+        Add("Estatísticas", () => { OpenStats(); return Task.CompletedTask; });
+        Add("Folha de setup…", OpenSetupSheetAsync);
 
         menu.Items.Add(BuildExamplesMenu());
     }
@@ -364,6 +381,79 @@ public partial class MainView : UserControl
         _dirty = false;
         UpdateTitle();
         ScheduleSave();
+    }
+
+    // ───────────────────────── Estatísticas e folha de setup ─────────────────────────
+
+    /// <summary>Botão "⏱ tempo" no gráfico: aparece com as informações do rodapé do gráfico.</summary>
+    private void UpdateTimeChip()
+    {
+        bool has = _analysis is { } a && a.ToolPath.Moves.Count > 0;
+        TimeChip.IsVisible = has && GraphInfo.IsVisible;
+        if (has)
+        {
+            TimeChip.Content = "⏱ " + DurationFormat.Format(_analysis!.Statistics.TotalTime) + "  ›";
+        }
+    }
+
+    /// <summary>Dados da folha de setup do programa aberto (bruto lido do comentário "BRUTO ...").</summary>
+    private SetupSheet? BuildSetupSheet()
+    {
+        if (_analysis is not { } analysis)
+        {
+            return null;
+        }
+
+        string text = Editor.Text;
+        SetupSheet sheet = SetupSheetBuilder.Build(text, analysis, _fileName, _libraryPath, _ => null);
+        if (sheet.Stock is null)
+        {
+            foreach (string comment in sheet.HeaderComments)
+            {
+                if (CncStudio.Core.Simulation.Stock.FromComment(comment, sheet.Machine, sheet.CuttingBounds) is { } stock)
+                {
+                    sheet = sheet with { Stock = stock.Describe(BrazilianCulture.Instance) };
+                    break;
+                }
+            }
+        }
+
+        return sheet;
+    }
+
+    private void OpenStats()
+    {
+        if (BuildSetupSheet() is not { } sheet)
+        {
+            return;
+        }
+
+        CloseLibrary();
+        StatsView.Show(sheet, _fullAccess);
+        StatsHost.IsVisible = true;
+    }
+
+    /// <summary>Folha de setup em tela cheia; depois do teste grátis, sem licença, com marca d'água.</summary>
+    private async Task OpenSetupSheetAsync()
+    {
+        if (BuildSetupSheet() is not { } sheet || _analysis is not { } analysis)
+        {
+            return;
+        }
+
+        StopSimulation();
+        try
+        {
+            List<PathPolyline> figures = PathPolylineBuilder.Build(analysis.ToolPath.Moves, PathPolylineBuilder.ScreenTolerance(analysis.ToolPath));
+            string html = SetupSheetHtml.Render(sheet, figures, BrazilianCulture.Instance, printHint: false,
+                watermark: _fullAccess ? null : "VERSÃO DE AVALIAÇÃO");
+            string fileBase = "Setup_" + Path.GetFileNameWithoutExtension(_fileName);
+            await WebInterop.ShowSetupSheetAsync(html, fileBase);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Não foi possível montar a folha de setup: " + ex.Message);
+        }
     }
 
     // ───────────────────────── Conta e licença ─────────────────────────
@@ -987,6 +1077,12 @@ public partial class MainView : UserControl
         LatheLabel.IsVisible = lathe;
         MillViews.IsVisible = !lathe;
         Editor.TextArea.TextView.Redraw();
+        UpdateTimeChip();
+        if (StatsHost.IsVisible)
+        {
+            OpenStats(); // painel aberto acompanha a edição
+        }
+
         ShowSummary();
     }
 

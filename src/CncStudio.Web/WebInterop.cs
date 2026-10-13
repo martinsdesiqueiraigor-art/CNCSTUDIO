@@ -149,4 +149,9 @@ internal static partial class WebInterop
     [JSImport("accountSignOut", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
     public static partial Task<bool> AccountSignOutAsync();
+
+    /// <summary>Folha de setup em tela cheia (PDF / imprimir / compartilhar); resolve ao voltar.</summary>
+    [JSImport("showSetupSheet", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> ShowSetupSheetAsync([JSMarshalAs<JSType.String>] string html, [JSMarshalAs<JSType.String>] string fileBase);
 }
