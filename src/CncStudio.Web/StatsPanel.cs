@@ -131,10 +131,8 @@ public sealed class StatsPanel : UserControl
         {
             ToolStatistics t = tool.Statistics;
             string name = tool.Number == 0 ? "Sem ferramenta" : "T" + tool.Number + (tool.Description.Length > 0 ? " · " + tool.Description : "");
-            var title = new DockPanel();
-            var time = new TextBlock { Text = DurationFormat.Format(t.TotalTime), FontWeight = FontWeight.Bold, FontSize = 15 };
-            DockPanel.SetDock(time, Dock.Right);
-            title.Children.Add(time);
+            // Nome à esquerda (encolhe com "…"), tempo à direita
+            var title = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
             title.Children.Add(new TextBlock
             {
                 Text = name,
@@ -143,6 +141,9 @@ public sealed class StatsPanel : UserControl
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Margin = new Thickness(0, 0, 8, 0),
             });
+            var time = new TextBlock { Text = DurationFormat.Format(t.TotalTime), FontWeight = FontWeight.Bold, FontSize = 15 };
+            Grid.SetColumn(time, 1);
+            title.Children.Add(time);
 
             var card = new StackPanel { Spacing = 3, Children = { title } };
             if (tool.Code is { Length: > 0 } code)
@@ -155,10 +156,13 @@ public sealed class StatsPanel : UserControl
             string feed = t.MaxFeed <= 0 ? "—"
                 : Math.Abs(t.MinFeed - t.MaxFeed) < 0.5 ? $"{t.MaxFeed:0} mm/min"
                 : $"{t.MinFeed:0}–{t.MaxFeed:0} mm/min";
-            string reach = tool.Reach is not { } r ? "—" : lathe ? $"Ø {r:0.###} mm" : $"Z {r:0.###}";
+            // Torno: menor diâmetro; broca no centro (Ø 0) mostra a profundidade em Z
+            bool center = lathe && tool.Reach is < 0.001;
+            string reach = center ? (t.MinZ is { } z ? $"Z {z:0.###} (no centro)" : "—")
+                : tool.Reach is not { } r ? "—" : lathe ? $"Ø {r:0.###} mm" : $"Z {r:0.###}";
             card.Children.Add(Pairs(
                 ("Avanço", feed),
-                (lathe ? "Menor Ø" : "Profundidade", reach),
+                (lathe && !center ? "Menor Ø" : "Profundidade", reach),
                 ("Corte", $"{t.CuttingDistance:0} mm · {tool.Share * 100:0}% do tempo"),
                 ("Entra na linha", tool.FirstLine.ToString())));
             _content.Children.Add(Card(card));

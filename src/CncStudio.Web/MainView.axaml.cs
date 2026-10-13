@@ -385,14 +385,14 @@ public partial class MainView : UserControl
 
     // ───────────────────────── Estatísticas e folha de setup ─────────────────────────
 
-    /// <summary>Botão "⏱ tempo" no gráfico: aparece com as informações do rodapé do gráfico.</summary>
+    /// <summary>Botão "Ciclo 3min 07s" no gráfico: aparece com as informações do rodapé do gráfico.</summary>
     private void UpdateTimeChip()
     {
         bool has = _analysis is { } a && a.ToolPath.Moves.Count > 0;
         TimeChip.IsVisible = has && GraphInfo.IsVisible;
         if (has)
         {
-            TimeChip.Content = "⏱ " + DurationFormat.Format(_analysis!.Statistics.TotalTime) + "  ›";
+            TimeChip.Content = "Ciclo " + DurationFormat.Format(_analysis!.Statistics.TotalTime) + "  ›";
         }
     }
 
@@ -535,7 +535,8 @@ public partial class MainView : UserControl
             summary = "";
         }
 
-        VersionText.Text = summary.Length == 0 ? AppVersion() : AppVersion() + " · " + summary;
+        // Duas linhas curtas: cabe no celular sem empurrar os botões
+        VersionText.Text = summary.Length == 0 ? AppVersion() : AppVersion() + "\n" + summary;
         if (_analysis is not null)
         {
             ShowSummary();

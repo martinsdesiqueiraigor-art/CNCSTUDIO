@@ -154,7 +154,7 @@ public static class SetupSheetHtml
             string percent = N(tool.Share * 100, "0.0");
             html.Append($"""
                 <tr><td><b>{(tool.Number == 0 ? "—" : "T" + tool.Number)}</b></td><td>{E(tool.Description)}{(tool.Code is { Length: > 0 } code ? "<span class=\"code\">" + E(code) + "</span>" : "")}</td>{diameterCell}
-                <td class="n opt">{tool.FirstLine}</td><td class="n">{(tool.Reach is { } r ? N(r) : "—")}</td><td class="n opt">{feed}</td>
+                <td class="n opt">{tool.FirstLine}</td><td class="n">{ReachCell(tool)}</td><td class="n opt">{feed}</td>
                 <td class="n opt">{T(t.CuttingTime)}</td><td class="n opt">{T(t.RapidTime)}</td><td class="n opt">{T(t.DwellTime)}</td>
                 <td class="n"><b>{T(t.TotalTime)}</b></td>
                 <td><div class="bar" style="width:{N(Math.Max(1, tool.Share * 100), "0.#").Replace(',', '.')}%"></div><span class="small">{percent}%</span></td></tr>
@@ -209,6 +209,11 @@ public static class SetupSheetHtml
         return html.ToString();
 
         void Row(string label, string value) => html.Append($"<tr><td>{label}</td><td>{value}</td></tr>");
+
+        // Torno: menor Ø; broca no centro (Ø 0) mostra a profundidade em Z
+        string ReachCell(SetupTool tool) =>
+            lathe && tool.Reach is < 0.001 ? (tool.Statistics.MinZ is { } z ? "Z " + N(z) : "—")
+            : tool.Reach is { } r ? N(r) : "—";
 
         string Limits(Bounds3 b)
         {

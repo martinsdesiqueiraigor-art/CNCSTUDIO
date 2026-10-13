@@ -94,15 +94,17 @@
 
     <!-- Barra superior: marca + ações -->
     <Border Grid.Row="0" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,0,1">
-      <DockPanel Margin="10,6" LastChildFill="False">
-        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <!-- Marca | versão e situação da conta (encolhe e quebra em 2 linhas) | ações -->
+      <Grid Margin="10,6" ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
           <Image Source="/Assets/simbolo.png" Height="24" />
           <TextBlock x:Name="BrandText" VerticalAlignment="Center" FontSize="16" FontWeight="Bold">
             <Run Text="Casillas" /><Run Text=" Code" Foreground="{DynamicResource BrandBlue}" />
           </TextBlock>
-          <TextBlock x:Name="VersionText" VerticalAlignment="Center" FontSize="10" Opacity="0.55" />
         </StackPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <TextBlock x:Name="VersionText" Grid.Column="1" VerticalAlignment="Center" FontSize="10" Opacity="0.55" Margin="8,0,6,0"
+                   TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
           <!-- Celular deitado: alternar Código/Gráfico aqui em cima, para sobrar altura -->
           <StackPanel x:Name="HeaderPages" Orientation="Horizontal" IsVisible="False" Margin="0,0,6,0">
             <ToggleButton x:Name="HeaderCodeButton" Classes="page" Content="Código" IsChecked="True" CornerRadius="6,0,0,6" />
@@ -117,7 +119,7 @@
             <ComboBoxItem Content="Siemens" />
           </ComboBox>
         </StackPanel>
-      </DockPanel>
+      </Grid>
     </Border>
 
     <!-- Celular: alterna entre código e gráfico (no PC os dois ficam lado a lado) -->

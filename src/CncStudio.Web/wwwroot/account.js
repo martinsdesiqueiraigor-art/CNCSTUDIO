@@ -385,7 +385,7 @@ export function accountSummary(json) {
             return s.kind === 'perpetual' ? 'licença perpétua' : 'assinatura até ' + date(s.expires_at);
         case 'trial': {
             const d = daysLeft(s.trial_ends_at);
-            return 'teste grátis: ' + (d <= 1 ? 'último dia' : d + ' dias');
+            return 'teste: ' + (d <= 1 ? 'último dia' : d + ' dias');
         }
         case 'device_limit': return 'limite de aparelhos';
         case 'device_revoked': return 'aparelho bloqueado';
