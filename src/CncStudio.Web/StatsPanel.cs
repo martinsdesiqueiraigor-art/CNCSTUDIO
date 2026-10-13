@@ -138,6 +138,8 @@ public sealed class StatsPanel : UserControl
                 Text = name,
                 FontWeight = FontWeight.Bold,
                 FontSize = 15,
+                TextWrapping = TextWrapping.Wrap, // quebrando, a largura pedida não passa do espaço disponível
+                MaxLines = 2,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Margin = new Thickness(0, 0, 8, 0),
             });
