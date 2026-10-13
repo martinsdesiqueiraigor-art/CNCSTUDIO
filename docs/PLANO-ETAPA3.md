@@ -21,7 +21,7 @@ Decisões tomadas com o dono do produto:
 | 10 | **Web — protótipo**: projeto `CncStudio.Web` (Avalonia no navegador); editor com edição pelo editor nativo do celular; backplot torno ZX e fresa 2,5D/topo/frente; simulação passo a passo (passe a passe nos ciclos) com alarme em erro; erros marcados no editor; menu Exibir; layout para celular em pé e deitado. CI publica no ramo `ci-web` | ✅ |
 | 11 | **Web — estatísticas e folha de setup** (tempos por ferramenta, limites, folha de setup para compartilhar) | |
 | 12 | **PWA** no ar em https://casillas-code.pages.dev — manifesto, ícones, service worker (offline), botão Instalar; publicação automática no Cloudflare Pages a cada commit. Instalação, atualização e botão Abrir confirmados no Android | ✅ |
-| 13 | **Contas e licenças**: Supabase (login e-mail/Google), trial de 14 dias, limite de dispositivos, restrições pós-trial; no desktop, licença assinada (Ed25519) com tolerância offline | |
+| 13 | **Contas e licenças**: Supabase (login e-mail/Google), trial de 14 dias, limite de dispositivos, restrições pós-trial; no desktop, licença assinada (Ed25519) com tolerância offline. Feito: projeto `Casillas Code` criado, tabelas, regras e funções (ver `supabase/README.md`). Falta: tela de login e uso no app | 🔶 |
 | 14 | **Painel de ativação** (Pix manual): lista de clientes, ativar/renovar/revogar licença, e-mails de boas-vindas | |
 | 15 | **Lançamento**: termos de uso (com aviso de que a simulação não garante ausência de colisão), política de privacidade (LGPD), página de vendas | |
 
@@ -36,7 +36,6 @@ Decisões tomadas com o dono do produto:
 
 ## O que depende do dono do produto
 
-- Fase 13: criação do projeto Supabase (ou autorização para eu criar).
 - Fase 14: chave Pix e e-mail remetente.
 - Fase 15: revisão jurídica dos termos e consulta ao contador sobre o recebimento.
 
