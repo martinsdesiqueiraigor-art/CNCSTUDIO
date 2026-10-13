@@ -248,6 +248,24 @@ function translate(error) {
     return 'Não deu certo: ' + (error && error.message || 'erro desconhecido');
 }
 
+/** Linha com links para os termos de uso e a política de privacidade. */
+function legalLinks(box, prefix) {
+    const p = document.createElement('div');
+    p.style.cssText = `font-size:12px;color:${COLORS.soft};text-align:center;line-height:1.5`;
+    const link = (href, text) => {
+        const a = document.createElement('a');
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = text;
+        a.style.color = '#58a6ff';
+        return a;
+    };
+    p.append(prefix, link('./termos.html', 'Termos de uso'), ' e a ', link('./privacidade.html', 'Política de privacidade'), '.');
+    box.appendChild(p);
+    return p;
+}
+
 function busy(buttons, on) {
     for (const b of buttons) { b.disabled = on; b.style.opacity = on ? '.6' : '1'; }
 }
@@ -275,6 +293,7 @@ export function accountLogin(reason) {
         const swap = button(box, 'Criar conta (14 dias grátis)', 'normal');
         const forgot = button(box, 'Esqueci a senha', 'link');
         const guest = button(box, 'Usar sem conta (sem salvar nem exportar)', 'link');
+        const consent = legalLinks(box, 'Ao criar a conta, você concorda com os ');
         let mode = 'login';
 
         const last = load('cc.lastEmail');
@@ -291,6 +310,7 @@ export function accountLogin(reason) {
             main.textContent = m === 'login' ? 'Entrar' : m === 'signup' ? 'Criar conta' : 'Enviar link por e-mail';
             swap.textContent = m === 'login' ? 'Criar conta (14 dias grátis)' : 'Já tenho conta — entrar';
             forgot.style.display = m === 'login' ? 'block' : 'none';
+            consent.firstChild.textContent = m === 'signup' ? 'Ao criar a conta, você concorda com os ' : 'Veja os ';
         }
         setMode('login');
 
@@ -445,6 +465,7 @@ export function accountPanel(json) {
         box.appendChild(support);
 
         button(box, 'Sair da conta', 'danger').addEventListener('click', () => close('signout'));
+        legalLinks(box, 'Veja os ');
         button(box, 'Fechar', 'normal').addEventListener('click', () => close('close'));
     });
 }

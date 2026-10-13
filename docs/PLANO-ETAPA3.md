@@ -23,7 +23,7 @@ Decisões tomadas com o dono do produto:
 | 12 | **PWA** no ar em https://casillas-code.pages.dev — manifesto, ícones, service worker (offline), botão Instalar; publicação automática no Cloudflare Pages a cada commit. Instalação, atualização e botão Abrir confirmados no Android | ✅ |
 | 13 | **Contas e licenças**: Supabase (login e-mail/Google), trial de 14 dias, limite de dispositivos, restrições pós-trial; no desktop, licença assinada (Ed25519) com tolerância offline. Feito: projeto `Casillas Code`, tabelas, regras e funções (ver `supabase/README.md`); na web, entrar/criar conta/recuperar senha por e-mail, item Conta (situação, aparelhos, Sair da conta), 7 dias sem internet com a última confirmação, salvar/exportar bloqueados sem trial ou licença. Falta: licença no desktop | 🔶 |
 | 14 | **Painel de ativação** (Pix manual), fora do app em https://casillas-code-painel.pages.dev (pasta `admin/`): entrar só como administrador; clientes com situação, ativar assinatura/perpétua com valor e referência do Pix, renovar, +1 aparelho, revogar, bloquear/liberar aparelho, estender teste, mensagem pronta para o WhatsApp. Preço sob consulta; aviso de pagamento pelo WhatsApp | ✅ |
-| 15 | **Lançamento**: termos de uso (com aviso de que a simulação não garante ausência de colisão), política de privacidade (LGPD), página de vendas | |
+| 15 | **Lançamento**: termos de uso (com aviso de que a simulação não garante ausência de colisão) e política de privacidade (LGPD) publicados em `/termos.html` e `/privacidade.html`, com links na criação de conta e no painel Conta — vendedor Igor Martins (MEI), foro Piracicaba/SP, reembolso em 30 dias. Falta: CNPJ do MEI nos dois textos, revisão por advogado/contador, página de vendas | 🔶 |
 
 ## Restrições depois do trial (proposta)
 
@@ -37,7 +37,7 @@ Decisões tomadas com o dono do produto:
 ## O que depende do dono do produto
 
 - Fase 14: definição de preços. E-mail do Casillas: casillas.usinagem.br@gmail.com (envio pelo Gmail configurado e testado).
-- Fase 15: revisão jurídica dos termos e consulta ao contador sobre o recebimento.
+- Fase 15: CNPJ do MEI (preencher em termos.html e privacidade.html), revisão jurídica dos termos e consulta ao contador sobre o recebimento.
 
 ## Melhorias da versão web (feitas)
 
