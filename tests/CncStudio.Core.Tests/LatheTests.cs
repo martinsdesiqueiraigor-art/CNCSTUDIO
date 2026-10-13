@@ -1,3 +1,4 @@
+using CncStudio.Core.Geometry;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
@@ -34,6 +35,43 @@ public class LatheTests
     {
         ParseResult parse = GCodeParser.Parse(Sample(file), dialect);
         Assert.Equal(expected, MachineDetector.Detect(parse));
+    }
+
+    [Theory]
+    [InlineData("T0101\nG00 X40 Z2\nG92 X29 Z-20 F1.5", MachineKind.Lathe)] // T de 4 dígitos = torno
+    [InlineData("T1 M06\nG00 X40 Y0 Z2", MachineKind.Mill)]
+    [InlineData("T0101 M06\nG00 X40 Z2", MachineKind.Mill)] // M06 manda: fresa
+    public void FerramentaComCorretorNoTFanucIndicaTorno(string program, MachineKind expected)
+    {
+        ParseResult parse = GCodeParser.Parse(program, Dialect.Fanuc);
+        Assert.Equal(expected, MachineDetector.Detect(parse));
+    }
+
+    [Fact]
+    public void G04ComUNoTornoFanucEmSegundosSemMover()
+    {
+        ToolPath path = Fanuc("G00 X40 Z2\nG01 X30 F0.1\nG04 U0.5\nG00 X40");
+
+        ProgramDwell dwell = Assert.Single(path.Dwells);
+        Assert.Equal(0.5, dwell.Seconds, 6);
+        Assert.Equal(3, path.Moves.Count);
+        AssertNoErrors(path);
+    }
+
+    [Fact]
+    public void ChanfroERaioNoTornoFicamNoPlanoZX()
+    {
+        ToolPath path = Siemens("DIAMON\nG0 X14 Z2\nG1 Z0 F0.1\nX20 CHR=1\nZ-15 RND=1\nX26");
+        AssertNoErrors(path);
+        Assert.DoesNotContain(path.Diagnostics, d => d.Message.Contains("Canto"));
+
+        // Chanfro: face até raio 9 e desce a 45° até (raio 10, Z-1)
+        Assert.Contains(path.Moves, m => Math.Abs(m.Start.X - 9) < 1e-6 && Math.Abs(m.End.X - 10) < 1e-6 && Math.Abs(m.End.Z + 1) < 1e-6);
+        // Raio no pé do degrau: arco no plano ZX terminando em (raio 11, Z-15)
+        Move arc = Assert.Single(path.Moves, m => m.IsArc);
+        Assert.Equal(WorkPlane.ZX, arc.Plane);
+        Assert.Equal(11, arc.End.X, 6);
+        Assert.Equal(-15, arc.End.Z, 6);
     }
 
     [Fact]
@@ -256,6 +294,31 @@ public class LatheTests
         Assert.Equal(11, last.LineNumber);
         Assert.Equal(26, last.Start.X, 6);
         Assert.Equal(2, last.Start.Z, 6);
+    }
+
+    [Fact]
+    public void G73RepeteOPerfilAproximandoACadaPasse()
+    {
+        ToolPath path = Fanuc("""
+            G97 S1000
+            G00 X60 Z5
+            G73 U3 W0 R3
+            G73 P10 Q20 U0.4 W0 F0.2
+            N10 G00 X20 Z2
+            G01 Z-20 F0.1
+            N20 X44
+            G70 P10 Q20
+            """);
+        AssertNoErrors(path);
+
+        // Cortes em Z (linha 4): raios 10+3+0,2 / 10+1,5+0,2 / 10+0,2
+        double[] radii = path.Moves
+            .Where(m => m.LineNumber == 4 && m.Motion == MotionMode.Linear && Math.Abs(m.Start.X - m.End.X) < 1e-9)
+            .Select(m => Math.Round(m.End.X, 6)).ToArray();
+        Assert.Equal([13.2, 11.7, 10.2], radii);
+
+        // Cada passe volta ao ponto inicial
+        Assert.Equal(3, path.Moves.Count(m => m.LineNumber == 4 && m.IsRapid && m.End.X == 30 && m.End.Z == 5));
     }
 
     [Fact]

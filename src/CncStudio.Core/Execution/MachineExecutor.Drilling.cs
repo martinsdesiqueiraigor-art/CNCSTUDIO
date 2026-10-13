@@ -15,6 +15,15 @@ public enum DrillCycle
 
     /// <summary>G83, CYCLE83: furação profunda em bicadas.</summary>
     Peck,
+
+    /// <summary>G73: bicadas com quebra-cavaco (recua só a folga).</summary>
+    ChipBreak,
+
+    /// <summary>G84: rosca com macho — desce e sobe em avanço (o fuso inverte no fundo).</summary>
+    Tap,
+
+    /// <summary>G85/G89: mandrilar/alargar — desce e sobe em avanço.</summary>
+    Bore,
 }
 
 /// <summary>Parte do executor que trata os ciclos de furação.</summary>
@@ -58,7 +67,7 @@ public sealed partial class MachineExecutor
     }
 
     /// <summary>
-    /// Executa G81/G82/G83 em cada posição programada:
+    /// Executa G73, G81–G86 e G89 em cada posição programada:
     /// rápido em XY → rápido até R → furação até Z → retorno a R (G99) ou ao nível inicial (G98).
     /// Em G91, R é medido a partir do nível inicial e Z a partir de R. K/L repetem o furo.
     /// </summary>
@@ -106,9 +115,11 @@ public sealed partial class MachineExecutor
             AddLine(line, ToMachine(x, y, program.Z), MotionMode.Rapid);
             AddLine(line, ToMachine(x, y, rLevel), MotionMode.Rapid);
 
-            if (_drillCycle == DrillCycle.Peck && _cycleQ > 0)
+            bool feedOut = _drillCycle is DrillCycle.Tap or DrillCycle.Bore;
+            if (_drillCycle is DrillCycle.Peck or DrillCycle.ChipBreak && _cycleQ > 0)
             {
-                Peck(line, x, y, rLevel, bottom, _cycleQ, 0, fullRetract: true, retractLevel: rLevel);
+                bool full = _drillCycle == DrillCycle.Peck;
+                Peck(line, x, y, rLevel, bottom, _cycleQ, 0, fullRetract: full, retractLevel: rLevel);
             }
             else
             {
@@ -119,7 +130,19 @@ public sealed partial class MachineExecutor
                 }
             }
 
-            AddLine(line, ToMachine(x, y, returnLevel), MotionMode.Rapid);
+            if (feedOut)
+            {
+                // G84/G85/G89: sobe em avanço até R; G98 completa até o nível inicial em rápido
+                AddLine(line, ToMachine(x, y, rLevel), MotionMode.Linear);
+                if (returnLevel > rLevel + 1e-9)
+                {
+                    AddLine(line, ToMachine(x, y, returnLevel), MotionMode.Rapid);
+                }
+            }
+            else
+            {
+                AddLine(line, ToMachine(x, y, returnLevel), MotionMode.Rapid);
+            }
         }
     }
 

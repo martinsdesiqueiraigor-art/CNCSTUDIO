@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit.Document;
@@ -7,6 +8,7 @@ using AvaloniaEdit.Rendering;
 using CncStudio.App.Highlighting;
 using CncStudio.Core;
 using CncStudio.Core.Dialects;
+using CncStudio.Core.Editing;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
 using CncStudio.Core.Statistics;
@@ -96,6 +98,7 @@ public partial class MainView : UserControl
         Editor.IsReadOnly = _touch;
         EditButton.IsVisible = _touch;
         EditButton.Click += async (_, _) => await EditNativeAsync();
+        BuildToolsMenu();
 
         _simTimer = new DispatcherTimer();
         _simTimer.Tick += (_, _) => SimTick();
@@ -266,19 +269,64 @@ public partial class MainView : UserControl
         menu.Items.Add(new Separator());
         Add("Novo programa (colar ou digitar)…", NewFromPasteAsync);
 
+        menu.Items.Add(BuildExamplesMenu());
+    }
+
+    /// <summary>Grupos do menu Exemplos: pasta em samples/exemplos → título.</summary>
+    private static readonly (string Folder, string Title)[] ExampleGroups =
+    [
+        ("fanuc-torno", "Fanuc · Torno"),
+        ("fanuc-fresa", "Fanuc · Fresa"),
+        ("siemens-torno", "Siemens · Torno"),
+        ("siemens-fresa", "Siemens · Fresa"),
+    ];
+
+    /// <summary>Exemplos agrupados por comando e máquina, um por ciclo/método de repetição; os antigos em "Programas completos".</summary>
+    private MenuItem BuildExamplesMenu()
+    {
         var examples = new MenuItem { Header = "Exemplos" };
-        foreach (string name in ExampleNames())
+        List<string> names = ExampleNames().ToList();
+
+        MenuItem Entry(string name)
         {
-            var item = new MenuItem { Header = name.Replace("_", "__") }; // "_" sozinho vira tecla de atalho
+            // "fanuc-torno/04_G71_G70_DESBASTE.nc" → "04  G71 G70 DESBASTE"
+            string file = Path.GetFileNameWithoutExtension(name.Split('/')[^1]);
+            int underscore = file.IndexOf('_');
+            string label = underscore is > 0 and <= 3 && file[..underscore].All(char.IsAsciiDigit)
+                ? file[..underscore] + "  " + file[(underscore + 1)..].Replace('_', ' ')
+                : file.Replace('_', ' ');
+            var item = new MenuItem { Header = label };
             item.Click += (_, _) =>
             {
                 CloseLibrary();
                 LoadExample(name);
             };
-            examples.Items.Add(item);
+            return item;
         }
 
-        menu.Items.Add(examples);
+        foreach ((string folder, string title) in ExampleGroups)
+        {
+            string prefix = "exemplos/" + folder + "/";
+            var group = new MenuItem { Header = title };
+            foreach (string name in names.Where(n => n.StartsWith(prefix, StringComparison.Ordinal)))
+            {
+                group.Items.Add(Entry(name));
+            }
+
+            if (group.Items.Count > 0)
+            {
+                examples.Items.Add(group);
+            }
+        }
+
+        var complete = new MenuItem { Header = "Programas completos" };
+        foreach (string name in names.Where(n => !n.StartsWith("exemplos/", StringComparison.Ordinal)))
+        {
+            complete.Items.Add(Entry(name));
+        }
+
+        examples.Items.Add(complete);
+        return examples;
     }
 
     private void LoadExample(string name)
@@ -290,7 +338,7 @@ public partial class MainView : UserControl
         }
 
         using var reader = new StreamReader(stream);
-        LoadProgram(name, reader.ReadToEnd());
+        LoadProgram(name.Split('/')[^1], reader.ReadToEnd());
     }
 
     private readonly NativeFileButton _openNative;
@@ -581,6 +629,132 @@ public partial class MainView : UserControl
     }
 
     /// <summary>Edição no celular: editor de texto nativo em tela cheia, com o cursor na linha atual.</summary>
+    // ───────────────────────── Funções do editor ─────────────────────────
+
+    /// <summary>
+    /// Menu "Funções": renumerar (início, incremento, todos os blocos ou só os que têm N),
+    /// remover numeração e desfazer. Só listas e botões (sem digitação, que falha no Android).
+    /// </summary>
+    private void BuildToolsMenu()
+    {
+        static ComboBox Choice(int[] values, int selected) => new()
+        {
+            ItemsSource = values,
+            SelectedItem = selected,
+            MinWidth = 90,
+        };
+
+        int Read(string key, int fallback) =>
+            int.TryParse(Stored(key), out int v) && v > 0 ? v : fallback;
+
+        ComboBox start = Choice([1, 5, 10, 100, 1000], Read("cc.rn.start", 10));
+        ComboBox increment = Choice([1, 2, 5, 10, 100], Read("cc.rn.step", 10));
+        var all = new RadioButton { Content = "Todos os blocos (cria N onde falta)", GroupName = "rn", IsChecked = Stored("cc.rn.mode") != "existing" };
+        var existing = new RadioButton { Content = "Só os blocos que já têm N", GroupName = "rn", IsChecked = Stored("cc.rn.mode") == "existing" };
+
+        var renumber = new Button { Content = "Renumerar", Classes = { "bar", "primary" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var remove = new Button { Content = "Remover numeração", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var undo = new Button { Content = "Desfazer", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+
+        Grid Row(string label, Control control)
+        {
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 2) };
+            grid.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
+            Grid.SetColumn(control, 1);
+            grid.Children.Add(control);
+            return grid;
+        }
+
+        var panel = new StackPanel { Spacing = 6, Margin = new Thickness(6), MinWidth = 260 };
+        panel.Children.Add(new TextBlock { Text = "Renumerar blocos (N)", FontWeight = FontWeight.Bold });
+        panel.Children.Add(Row("Começar em N", start));
+        panel.Children.Add(Row("Incremento", increment));
+        panel.Children.Add(all);
+        panel.Children.Add(existing);
+        panel.Children.Add(renumber);
+        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
+        panel.Children.Add(remove);
+        panel.Children.Add(undo);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "P/Q do G70–G73, GOTO e M99 P acompanham a nova numeração.",
+            FontSize = 12,
+            Opacity = 0.7,
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 260,
+        });
+
+        var flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
+        flyout.Opened += (_, _) => undo.IsEnabled = Editor.CanUndo;
+        ToolsButton.Flyout = flyout;
+
+        renumber.Click += (_, _) =>
+        {
+            int first = start.SelectedItem is int s ? s : 10;
+            int step = increment.SelectedItem is int i ? i : 10;
+            RenumberMode mode = existing.IsChecked == true ? RenumberMode.ExistingOnly : RenumberMode.AllBlocks;
+            Store("cc.rn.start", first.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Store("cc.rn.step", step.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Store("cc.rn.mode", mode == RenumberMode.ExistingOnly ? "existing" : "all");
+            flyout.Hide();
+            ApplyRenumber(new RenumberOptions(first, step, mode));
+        };
+        remove.Click += (_, _) =>
+        {
+            flyout.Hide();
+            ApplyRenumber(new RenumberOptions(Mode: RenumberMode.Remove));
+        };
+        undo.Click += (_, _) =>
+        {
+            flyout.Hide();
+            if (Editor.CanUndo)
+            {
+                StopSimulation();
+                Editor.Undo();
+                _statusNote = "Desfeito";
+            }
+        };
+    }
+
+    /// <summary>Aplica a renumeração (ou remoção) ao programa inteiro, como uma única ação desfazível.</summary>
+    private void ApplyRenumber(RenumberOptions options)
+    {
+        StopSimulation();
+        Dialect dialect = CurrentDialect;
+        string before = Editor.Text;
+        int references = NcTextTools.ReferencedBlockNumbers(before, dialect).Count;
+        string after;
+        try
+        {
+            after = NcTextTools.RenumberBlocks(before, dialect, options);
+        }
+        catch (ArgumentException)
+        {
+            return;
+        }
+
+        if (after == before)
+        {
+            SetStatus(options.Mode == RenumberMode.Remove ? "O programa não tem numeração para remover." : "Nada mudou.");
+            return;
+        }
+
+        int line = Editor.TextArea.Caret.Line;
+        Editor.Document.Replace(0, Editor.Document.TextLength, after); // uma ação só no "Desfazer"
+        GoToLine(Math.Min(line, Editor.Document.LineCount));
+
+        _statusNote = options.Mode switch
+        {
+            RenumberMode.Remove when references > 0 =>
+                $"Numeração removida; {references} bloco(s) ficaram com N por serem destino de P/Q, GOTO ou M99 P",
+            RenumberMode.Remove => "Numeração removida",
+            _ when references > 0 => $"Renumerado de N{options.Start} em {options.Increment}; {references} referência(s) atualizada(s)",
+            _ => $"Renumerado de N{options.Start} em {options.Increment}",
+        };
+        _analysisTimer.Stop();
+        Analyze(keepView: true);
+    }
+
     private async Task EditNativeAsync()
     {
         StopSimulation();
@@ -662,6 +836,9 @@ public partial class MainView : UserControl
         ShowSummary();
     }
 
+    /// <summary>Mensagem de uma ação (ex.: renumerar) mostrada junto do próximo resumo da análise.</summary>
+    private string? _statusNote;
+
     private void ShowSummary()
     {
         if (_analysis is not { } a)
@@ -673,7 +850,9 @@ public partial class MainView : UserControl
         string problems = a.ErrorCount + a.WarningCount == 0
             ? "sem problemas"
             : $"{a.ErrorCount} erro(s), {a.WarningCount} aviso(s)";
-        SetStatus($"{machine} · {a.BlockCount} blocos · {a.ToolPath.Moves.Count} movimentos · " +
+        string note = _statusNote is null ? "" : _statusNote + " · ";
+        _statusNote = null;
+        SetStatus(note + $"{machine} · {a.BlockCount} blocos · {a.ToolPath.Moves.Count} movimentos · " +
                           $"tempo estimado {DurationFormat.Format(a.Statistics.TotalTime)} · {problems}");
     }
 

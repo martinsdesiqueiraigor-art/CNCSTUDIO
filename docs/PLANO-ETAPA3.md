@@ -49,7 +49,11 @@ Decisões tomadas com o dono do produto:
 - Ferramenta mostrada como um ponto.
 - Menu **Arquivos**: Biblioteca (pastas, salvar, salvar como, substituir, importar vários, renomear, excluir, compartilhar), Salvar, Salvar como, Compartilhar/exportar, Novo (colar), Exemplos.
 - **Modo claro** (menu Exibir).
+- **Exemplos por comando e máquina** (menu Arquivos › Exemplos): Fanuc torno (11), Fanuc fresa (12), Siemens torno (9), Siemens fresa (9) — um por ciclo e por método de repetição (M98 L, G65, WHILE, FOR, REPEAT, IF/GOTOB), todos sem erros nem avisos no simulador. Fontes em `samples/exemplos/`.
+- **Funções do editor**: renumerar (início, incremento, todos os blocos ou só os que têm N), remover numeração e desfazer. P/Q do G70–G73, GOTO e M99 P acompanham a nova numeração; ao remover, os blocos que são destino mantêm o N.
+
+Novidades no simulador (valem para desktop e web): G73 do torno (repetição de perfil); G73, G84, G85, G86 e G89 na fresa Fanuc; G04 U no torno; RND/CHR do Siemens (também no plano ZX do torno); diâmetro da ferramenta lido do comentário da troca ("FRESA D10") quando não há tabela; detecção de torno pelo T0101 do Fanuc; DEF do Siemens exige nome com duas letras (como a Sinumerik).
 
 ## Próximas melhorias da versão web
 
-- Exemplos por comando e máquina (Fanuc/Siemens × torno/fresa), um por ciclo e métodos de repetição, validados no simulador.
+- Estatísticas e folha de setup (fase 11).

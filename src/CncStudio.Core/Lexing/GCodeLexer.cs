@@ -140,7 +140,11 @@ public static class GCodeLexer
             k++;
         }
 
-        if (TryReadNumber(line, k, out double value, out int end, out bool hasPoint))
+        // "X=10+NF*20": o número é só o começo de uma expressão
+        bool numberStartsExpression = hasEquals && TryReadNumber(line, k, out _, out int numberEnd, out _)
+            && numberEnd < n && !char.IsWhiteSpace(line[numberEnd]) && line[numberEnd] != ';';
+
+        if (!numberStartsExpression && TryReadNumber(line, k, out double value, out int end, out bool hasPoint))
         {
             // Siemens: "R1=..." é atribuição de parâmetro, não palavra de endereço
             if (siemens && !hasEquals && end < n && line[end] == '=')

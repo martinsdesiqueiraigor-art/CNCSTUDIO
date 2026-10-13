@@ -55,6 +55,18 @@ public class CornerAndCompensationTests
         AssertXY(46, 0, path.Moves[0].End);
     }
 
+    [Fact]
+    public void Siemens_RndEChrNosCantos()
+    {
+        ToolPath path = MachineExecutor.Execute(GCodeParser.Parse("G1 X0 Y0 F100\nX50 RND=5\nY30 CHR=4\nX0", Dialect.Siemens));
+
+        AssertXY(45, 0, path.Moves[0].End);                       // RND=5 como ,R5
+        Assert.Equal(MotionMode.CounterClockwiseArc, path.Moves[1].Motion);
+        Move beforeChamfer = path.Moves.First(m => m.Motion == MotionMode.Linear && Math.Abs(m.End.X - 50) < 1e-9 && m.End.Y > 5);
+        AssertXY(50, 26, beforeChamfer.End);                       // CHR=4 como ,C4
+        Assert.Empty(path.Diagnostics);
+    }
+
     // ───────── Compensação ─────────
 
     [Fact]

@@ -43,6 +43,9 @@
     <EmbeddedResource Include="..\..\samples\torno\EXEMPLO_TORNO.nc" LogicalName="samples/EXEMPLO_TORNO.nc" />
     <EmbeddedResource Include="..\..\samples\torno\EXEMPLO_TORNO.mpf" LogicalName="samples/EXEMPLO_TORNO.mpf" />
     <EmbeddedResource Include="..\..\samples\torno\REBAIXO_CANAL.nc" LogicalName="samples/REBAIXO_CANAL.nc" />
+    <!-- Exemplos por comando e máquina: samples/exemplos/<comando>-<máquina>/NN_*.nc|mpf -->
+    <EmbeddedResource Include="..\..\samples\exemplos\**\*.nc;..\..\samples\exemplos\**\*.mpf"
+                      LogicalName="samples/exemplos/$([System.String]::Copy('%(RecursiveDir)').Replace('\','/'))%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

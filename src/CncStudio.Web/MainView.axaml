@@ -34,6 +34,11 @@
       <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorder}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
+    <Style Selector="Button.bar.primary">
+      <Setter Property="Background" Value="{DynamicResource BrandOrange}" />
+      <Setter Property="Foreground" Value="#0D1117" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
     <Style Selector="Button.sim">
       <Setter Property="MinWidth" Value="36" />
       <Setter Property="MinHeight" Value="30" />
@@ -129,6 +134,8 @@
             <!-- Celular: edição no editor nativo do aparelho (o teclado virtual funciona direito lá) -->
             <Button x:Name="EditButton" DockPanel.Dock="Right" Classes="bar" Content="Editar" IsVisible="False"
                     ToolTip.Tip="Editar o programa com o teclado do aparelho" />
+            <Button x:Name="ToolsButton" DockPanel.Dock="Right" Classes="bar" Content="Funções" Margin="0,0,6,0"
+                    ToolTip.Tip="Renumerar, remover numeração e desfazer" />
             <Button x:Name="ProblemsButton" DockPanel.Dock="Right" Classes="bar problems" IsVisible="False" Margin="0,0,6,0"
                     ToolTip.Tip="Ir para o próximo erro ou aviso" />
             <TextBlock x:Name="FileNameText" VerticalAlignment="Center" FontWeight="SemiBold" Opacity="0.85" Text="sem título"

@@ -131,7 +131,7 @@ public static partial class SetupSheetBuilder
     }
 
     /// <summary>Comentário escrito na linha da troca de ferramenta: "T0101 (DESBASTE EXTERNO)".</summary>
-    private static Dictionary<int, string> ReadToolComments(string text, ParseResult parse, Dialect dialect, MachineKind machine)
+    internal static Dictionary<int, string> ReadToolComments(string text, ParseResult parse, Dialect dialect, MachineKind machine)
     {
         var comments = new Dictionary<int, string>();
         string[] lines = text.Split('\n');

@@ -7,7 +7,7 @@ namespace CncStudio.Core.Execution;
 
 /// <summary>
 /// Parte do executor para torno: X em diâmetro, U/W, avanço por rotação, velocidade de corte
-/// constante (G96), rosca (G32/G33) e os ciclos G90/G92/G94, G70/G71/G72, G74/G75 e G76 do Fanuc.
+/// constante (G96), rosca (G32/G33) e os ciclos G90/G92/G94, G70–G76 do Fanuc.
 ///
 /// Coordenadas internas: X guarda o RAIO (distância ao eixo de rotação) e Z o comprimento.
 /// A conversão de diâmetro → raio acontece na leitura do X (ver ResolveX / XFactor).
@@ -39,6 +39,9 @@ public sealed partial class MachineExecutor
     private double _threadMinDepth;            // Δdmin
     private double _threadAllowance;           // d
     private double _peckRetract = 0.5;         // e do G74/G75
+    private double _patternReliefX;            // Δi do G73 (raio)
+    private double _patternReliefZ;            // Δk do G73
+    private int _patternPasses = 1;            // d do G73
 
     // ── Leitura do perfil (blocos P..Q) sem gerar movimentos ──
     private bool _capturing;
@@ -77,8 +80,7 @@ public sealed partial class MachineExecutor
                 w.LatheCycle = code;
                 return true;
             case 73:
-                w.SuppressMotion = true;
-                Warning(line, word, "Ciclo G73 (repetição de padrão) ainda não é suportado.");
+                w.LatheCycle = code; // repetição de padrão (peças forjadas/fundidas)
                 return true;
             case 90 or 92 or 94:
                 w.SimpleCycle = code;
@@ -280,7 +282,83 @@ public sealed partial class MachineExecutor
             case 74 or 75:
                 ExecuteFanucGrooving(line, w, code);
                 break;
+            case 73:
+                ExecuteFanucPatternRepeat(line, w);
+                break;
         }
+    }
+
+    /// <summary>
+    /// G73 (repetição de padrão), formato de dois blocos:
+    /// G73 U(Δi) W(Δk) R(d) — G73 P(ns) Q(nf) U(Δu) W(Δw) F..
+    /// O perfil inteiro é repetido d vezes, começando afastado Δi (X, em raio) e Δk (Z) e
+    /// aproximando-se igualmente a cada passe até ficar só o sobremetal Δu/Δw. Cada passe
+    /// sai do ponto inicial e volta a ele em rápido.
+    /// </summary>
+    private void ExecuteFanucPatternRepeat(int line, BlockWords w)
+    {
+        if (w.P is null || w.Q is null)
+        {
+            // 1º bloco: afastamento total e número de passes
+            if (Length(w.U) is { } reliefX)
+            {
+                _patternReliefX = reliefX; // Δi já é em raio
+            }
+
+            if (Length(w.W) is { } reliefZ)
+            {
+                _patternReliefZ = reliefZ;
+            }
+
+            if (w.R is { } divisions)
+            {
+                _patternPasses = Math.Max(1, (int)Math.Round(divisions.Value));
+            }
+
+            return;
+        }
+
+        if (CaptureFanucContour(line, w, 73) is not { } contour)
+        {
+            return;
+        }
+
+        Point3 start = _position;
+        var finish = new Point3((Length(w.U) ?? 0) / XFactor, 0, Length(w.W) ?? 0);
+        double savedFeed = _feed;
+        bool savedThreading = _threading;
+        _threading = false;
+
+        List<Move> path = [.. contour.Approach, .. contour.Profile];
+        int passes = _patternPasses;
+        for (int pass = 1; pass <= passes; pass++)
+        {
+            // Fração do afastamento: 1 no 1º passe (Δi, Δk inteiros) ... 0 no último (só o sobremetal)
+            double remaining = passes == 1 ? 0 : (double)(passes - pass) / (passes - 1);
+            var offset = finish + new Point3(_patternReliefX * remaining, 0, _patternReliefZ * remaining);
+
+            AddLine(line, start + offset, MotionMode.Rapid);
+            foreach (Move move in path)
+            {
+                Move shifted = TranslateMove(move, offset);
+                if (shifted.IsRapid)
+                {
+                    AddLine(line, shifted.End, MotionMode.Rapid);
+                    continue;
+                }
+
+                AddMove(shifted with { Start = _position, Feed = _feed, LineNumber = line, Tool = _activeTool });
+                _position = shifted.End;
+            }
+
+            // Sai pelo X do ponto inicial e volta a ele
+            AddLine(line, new Point3(start.X, _position.Y, _position.Z), MotionMode.Rapid);
+            AddLine(line, start, MotionMode.Rapid);
+        }
+
+        _feed = savedFeed;
+        _threading = savedThreading;
+        _jump = contour.EndIndex + 1;
     }
 
     /// <summary>

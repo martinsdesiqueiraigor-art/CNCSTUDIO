@@ -656,7 +656,7 @@ public sealed partial class MachineExecutor
         _variables.Set(name, value);
     }
 
-    /// <summary>Siemens DEF REAL A=1, B — define variáveis (vazias valem 0).</summary>
+    /// <summary>Siemens DEF REAL AA=1, BB — define variáveis (vazias valem 0).</summary>
     private void Define(Statement statement, int line)
     {
         string text = statement.Arguments ?? "";
@@ -681,6 +681,14 @@ public sealed partial class MachineExecutor
             }
 
             int equals = item.IndexOf('=');
+            string name = (equals > 0 ? item[..equals] : item).Trim();
+            if (name.Length < 2 || !IsNameStart(name[0]) || !IsNameStart(name[1]))
+            {
+                // Na Sinumerik o nome começa com duas letras (ou "_"): "I" seria o endereço I
+                Error(line, statement, $"DEF {name}: o nome da variável precisa começar com duas letras (ex.: CONT, NFURO).");
+                continue;
+            }
+
             if (equals > 0)
             {
                 Assign(item[..equals], item[(equals + 1)..], line, statement);
@@ -691,6 +699,8 @@ public sealed partial class MachineExecutor
             }
         }
     }
+
+    private static bool IsNameStart(char c) => char.IsAsciiLetter(c) || c == '_';
 
     /// <summary>MSG("texto" &lt;&lt; R1 &lt;&lt; "mm"): monta a mensagem e registra junto do movimento atual.</summary>
     private void AddMessage(Statement statement, int line)

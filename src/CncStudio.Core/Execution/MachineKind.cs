@@ -17,15 +17,16 @@ public enum MachineKind
 /// Descobre se o programa é de torno olhando os códigos usados.
 ///
 /// Regra: é torno se aparece algum código típico de torno (G71/G70/G76, U/W, G96,
-/// CYCLE95/97, DIAMON, LIMS...) e nenhum sinal claro de fresa (eixo Y, M06, G43,
-/// ciclos de furação CYCLE81–83). Na dúvida, fresa.
+/// CYCLE95/97, DIAMON, LIMS, T0101 no Fanuc...) e nenhum sinal claro de fresa (eixo Y, M06, G43,
+/// CYCLE800, POCKET...). Na dúvida, fresa.
 /// </summary>
 public static class MachineDetector
 {
     private static readonly HashSet<string> SiemensLatheKeywords =
         ["CYCLE93", "CYCLE94", "CYCLE95", "CYCLE96", "CYCLE97", "CYCLE98", "DIAMON", "DIAMOF", "DIAM90", "LIMS"];
 
-    private static readonly HashSet<string> SiemensMillKeywords = ["CYCLE81", "CYCLE82", "CYCLE83", "CYCLE800", "POCKET3", "POCKET4"];
+    // CYCLE81–83 não entram: o torno também fura no centro (e, sem sinal de torno, já é fresa)
+    private static readonly HashSet<string> SiemensMillKeywords = ["CYCLE800", "POCKET3", "POCKET4", "SLOT1", "SLOT2", "HOLES1", "HOLES2"];
 
     public static MachineKind Detect(ParseResult parse)
     {
@@ -44,6 +45,9 @@ public static class MachineDetector
                         break;
                     case 'U' or 'W' when !siemens:
                         lathe++;
+                        break;
+                    case 'T' when !siemens && word.Value >= 100 && word.Value == Math.Floor(word.Value):
+                        lathe++; // Fanuc torno: T0101 = ferramenta 01 com corretor 01
                         break;
                     case 'M' when word.Value == 6:
                         mill = true;

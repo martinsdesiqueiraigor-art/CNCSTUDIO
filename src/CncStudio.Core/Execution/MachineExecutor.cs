@@ -221,7 +221,7 @@ public sealed partial class MachineExecutor
     // ───────────────────────── Tempo de espera ─────────────────────────
 
     /// <summary>
-    /// G04: Fanuc "G04 X1.5" (segundos) ou "G04 P1500" (milissegundos);
+    /// G04: Fanuc "G04 X1.5" ou, no torno, "G04 U1.5" (segundos), ou "G04 P1500" (milissegundos);
     /// Siemens "G4 F2" (segundos) ou "G4 S50" (rotações do fuso, convertidas pela última rotação S).
     /// </summary>
     private void ExecuteDwell(NcBlock block, BlockWords w)
@@ -245,6 +245,10 @@ public sealed partial class MachineExecutor
             // X segue a regra de números sem ponto (X1 = 0,001 s no modo de milésimos)
             bool thousandths = !x.HasDecimalPoint && _settings.FanucIntegers == FanucIntegerMode.Thousandths;
             seconds = thousandths ? x.Value / 1000 : x.Value;
+        }
+        else if (w.U is { } u)
+        {
+            seconds = u.Value; // torno Fanuc: "G04 U0.5" = 0,5 s
         }
         else if (w.P is { } p)
         {
@@ -296,8 +300,8 @@ public sealed partial class MachineExecutor
         public bool IsModalCall { get; set; }               // MCALL antes do ciclo
         public bool CancelModalCall { get; set; }           // MCALL sozinho
         public FrameKind? Frame { get; set; }
-        public double? CornerRadius { get; set; }           // Fanuc ,R
-        public double? CornerChamfer { get; set; }          // Fanuc ,C
+        public double? CornerRadius { get; set; }           // Fanuc ,R / Siemens RND=
+        public double? CornerChamfer { get; set; }          // Fanuc ,C / Siemens CHR= (medido no lado)
     }
 
     /// <summary>Interpreta as palavras-chave de máquina (não as de fluxo, já tratadas antes).</summary>
@@ -353,11 +357,11 @@ public sealed partial class MachineExecutor
             {
                 keywords.Frame = FrameKind.ATrans;
             }
-            else if (name is ",R")
+            else if (name is ",R" || (name is "RND" && _dialect == Dialect.Siemens))
             {
                 keywords.CornerRadius = statement.Value * _unitScale;
             }
-            else if (name is ",C")
+            else if (name is ",C" || (name is "CHR" && _dialect == Dialect.Siemens))
             {
                 keywords.CornerChamfer = statement.Value * _unitScale;
             }
@@ -576,6 +580,14 @@ public sealed partial class MachineExecutor
                 w.CycleDwell = true;
                 return;
             case 83 when !siemens: w.Cycle = DrillCycle.Peck; return;
+            case 73 when !siemens: w.Cycle = DrillCycle.ChipBreak; return;
+            case 84 when !siemens: w.Cycle = DrillCycle.Tap; return;
+            case 85 when !siemens: w.Cycle = DrillCycle.Bore; return;
+            case 86 when !siemens: w.Cycle = DrillCycle.Drill; return; // para o fuso no fundo e sai em rápido
+            case 89 when !siemens:
+                w.Cycle = DrillCycle.Bore;
+                w.CycleDwell = true;
+                return;
             case 90: w.Incremental = false; return;
             case 91: w.Incremental = true; return;
             case 98 when !siemens: w.ReturnToR = false; return;
@@ -586,9 +598,9 @@ public sealed partial class MachineExecutor
                 w.SuppressMotion = true;
                 Warning(line, word, $"G{code} (retorno à referência) não é desenhado: a posição da máquina não é conhecida.");
                 return;
-            case 73 or 74 or 76 or 84 or 85 or 86 or 87 or 88 or 89 when !siemens:
+            case 74 or 76 or 87 or 88 when !siemens:
                 w.CycleCancel = true;
-                Warning(line, word, $"Ciclo G{code} ainda não é suportado (só G81, G82 e G83).");
+                Warning(line, word, $"Ciclo G{code} ainda não é suportado (G73, G81–G86 e G89 são).");
                 return;
         }
 
@@ -921,6 +933,11 @@ public sealed partial class MachineExecutor
         }
 
         double diameter = _settings.ToolDiameterOf?.Invoke(_activeTool) ?? 0;
+        if (diameter <= 0)
+        {
+            diameter = _settings.FallbackToolDiameter;
+        }
+
         _compensationRadius = diameter / 2;
         if (diameter <= 0 && _toolsWithoutDiameter.Add(_activeTool))
         {

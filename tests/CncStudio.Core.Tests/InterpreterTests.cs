@@ -235,12 +235,30 @@ public class InterpreterTests
     [Fact]
     public void Siemens_DefEMsg()
     {
-        ToolPath path = Siemens("DEF REAL A=2.5, B\nMSG(\"A=\"<<A<<\" mm\")\nG1 X=A+B F100");
+        ToolPath path = Siemens("DEF REAL AA=2.5, BB\nMSG(\"AA=\"<<AA<<\" mm\")\nG1 X=AA+BB F100");
 
         Assert.Equal(new[] { 2.5 }, EndX(path));
         ProgramMessage message = Assert.Single(path.Messages);
-        Assert.Equal("A=2.5 mm", message.Text);
-        Assert.Equal("A=2.5 mm", path.MessageAt(0));
+        Assert.Equal("AA=2.5 mm", message.Text);
+        Assert.Equal("AA=2.5 mm", path.MessageAt(0));
+    }
+
+    [Fact]
+    public void Siemens_EixoComExpressaoComecandoPorNumero()
+    {
+        ToolPath path = Siemens("DEF INT NN=2\nG1 X=10+NN*20 Z=-8-NN*8 F100");
+
+        Assert.Empty(path.Diagnostics);
+        Assert.Equal(50, path.Moves[^1].End.X, 6);
+        Assert.Equal(-24, path.Moves[^1].End.Z, 6);
+    }
+
+    [Fact]
+    public void Siemens_DefComNomeDeUmaLetraEhErro()
+    {
+        ToolPath path = Siemens("DEF INT I\nG1 X10 F100");
+
+        Assert.Contains(path.Diagnostics, d => d.Severity == DiagnosticSeverity.Error && d.Message.Contains("duas letras"));
     }
 
     [Fact]

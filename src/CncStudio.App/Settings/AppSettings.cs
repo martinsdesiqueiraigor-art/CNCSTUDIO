@@ -198,7 +198,8 @@ public sealed class AppSettings
                 _ => null,
             },
             FanucIntegers = FanucIntegersAsThousandths ? FanucIntegerMode.Thousandths : FanucIntegerMode.Millimeters,
-            ToolDiameterOf = tool => diameters.TryGetValue(tool, out double d) ? d : defaultDiameter,
+            ToolDiameterOf = tool => diameters.TryGetValue(tool, out double d) ? d : 0,
+            FallbackToolDiameter = defaultDiameter, // vale depois da tabela e do comentário (FRESA D10)
             LoadSubprogram = programFolder is null ? null : name => SubprogramFiles.Load(programFolder, name),
         };
     }

@@ -42,6 +42,17 @@ public static class ProgramAnalyzer
         ParseResult parse = GCodeParser.Parse(text, dialect);
         cancellationToken.ThrowIfCancellationRequested();
 
+        // Sem diâmetro na tabela, usa o do comentário da troca de ferramenta ("FRESA D10")
+        Dictionary<int, double> commented = Reports.ToolCommentDiameters.Read(text, parse, dialect);
+        if (commented.Count > 0)
+        {
+            Func<int, double>? table = settings.ToolDiameterOf;
+            settings = settings with
+            {
+                ToolDiameterOf = tool => table?.Invoke(tool) is > 0 and var d ? d : commented.GetValueOrDefault(tool),
+            };
+        }
+
         ToolPath toolPath = MachineExecutor.Execute(parse, settings);
         cancellationToken.ThrowIfCancellationRequested();
 

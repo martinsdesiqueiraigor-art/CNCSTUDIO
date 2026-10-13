@@ -232,7 +232,7 @@ public static partial class GCodeHelp
         ["UNTIL"] = "UNTIL condição — Fim do REPEAT.",
         ["LOOP"] = "LOOP ... ENDLOOP — Laço sem fim (sai com GOTO).",
         ["ENDLOOP"] = "ENDLOOP — Fim do LOOP.",
-        ["DEF"] = "DEF — Declara variável: DEF REAL A=1, B / DEF INT N.",
+        ["DEF"] = "DEF — Declara variável (nome com 2 letras no início): DEF REAL AA=1, BB / DEF INT NCONT.",
         ["RET"] = "RET — Fim de subprograma (como M17).",
         ["IC"] = "IC(...) — Valor incremental só neste eixo: X=IC(5).",
         ["AC"] = "AC(...) — Valor absoluto só neste eixo: X=AC(5).",

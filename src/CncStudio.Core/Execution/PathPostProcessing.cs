@@ -20,8 +20,8 @@ internal struct MoveTag
 
 /// <summary>
 /// Ajustes feitos na trajetória depois da execução, porque dependem do movimento seguinte:
-/// cantos arredondados/chanfrados do Fanuc (,R / ,C) e compensação de raio G41/G42.
-/// Trabalham no plano XY.
+/// cantos arredondados/chanfrados (Fanuc ,R / ,C; Siemens RND / CHR) e compensação de raio G41/G42.
+/// A compensação trabalha no plano XY; os cantos, no plano das duas retas.
 /// </summary>
 internal static class PathPostProcessing
 {
@@ -29,7 +29,10 @@ internal static class PathPostProcessing
 
     // ───────────────────────── Cantos ,R / ,C ─────────────────────────
 
-    /// <summary>Insere o arredondamento ou chanfro entre duas retas consecutivas no plano XY.</summary>
+    /// <summary>
+    /// Insere o arredondamento ou chanfro entre duas retas consecutivas. O plano é o das duas
+    /// retas: XY na fresa (mesmo Z), ZX no torno (mesmo Y) ou YZ.
+    /// </summary>
     public static void ApplyCorners(List<Move> moves, List<MoveTag> tags, Action<int, string> warn)
     {
         for (int i = 0; i < moves.Count - 1; i++)
@@ -42,15 +45,24 @@ internal static class PathPostProcessing
 
             Move a = moves[i];
             Move b = moves[i + 1];
-            if (a.IsArc || b.IsArc || a.IsRapid || b.IsRapid
-                || Math.Abs(a.Start.Z - a.End.Z) > Epsilon || Math.Abs(b.Start.Z - b.End.Z) > Epsilon)
+            WorkPlane? found = a.IsArc || b.IsArc || a.IsRapid || b.IsRapid ? null : CommonPlane(a, b);
+            if (found is not { } plane)
             {
-                warn(a.LineNumber, "Canto ,R/,C só é aplicado entre duas retas de corte no mesmo Z.");
+                warn(a.LineNumber, "Canto (,R/,C, RND/CHR) só é aplicado entre duas retas de corte no mesmo plano.");
                 continue;
             }
 
-            (double ux, double uy, double lengthA) = Direction(a.Start, a.End);
-            (double vx, double vy, double lengthB) = Direction(b.Start, b.End);
+            // Trabalha nas coordenadas do plano (u, v), com w constante
+            Point3 P(Point3 p)
+            {
+                (double u, double v, double w) = plane.ToPlane(p);
+                return new Point3(u, v, w);
+            }
+
+            Point3 R(Point3 p) => plane.FromPlane(p.X, p.Y, p.Z);
+
+            (double ux, double uy, double lengthA) = Direction(P(a.Start), P(a.End));
+            (double vx, double vy, double lengthB) = Direction(P(b.Start), P(b.End));
             if (lengthA < Epsilon || lengthB < Epsilon)
             {
                 continue;
@@ -69,11 +81,11 @@ internal static class PathPostProcessing
 
             if (distance > lengthA + Epsilon || distance > lengthB + Epsilon)
             {
-                warn(a.LineNumber, "Canto ,R/,C maior que as retas do canto: não aplicado.");
+                warn(a.LineNumber, "Canto (,R/,C, RND/CHR) maior que as retas do canto: não aplicado.");
                 continue;
             }
 
-            Point3 corner = a.End;
+            Point3 corner = P(a.End);
             var t1 = new Point3(corner.X - ux * distance, corner.Y - uy * distance, corner.Z);
             var t2 = new Point3(corner.X + vx * distance, corner.Y + vy * distance, corner.Z);
 
@@ -88,19 +100,31 @@ internal static class PathPostProcessing
                 double cx = corner.X + bx / bl * centerDistance;
                 double cy = corner.Y + by / bl * centerDistance;
                 bool counterClockwise = ux * vy - uy * vx > 0; // virando à esquerda
-                inserted = ArcMove(t1, t2, cx, cy, counterClockwise, a);
+                inserted = ArcMove(t1, t2, cx, cy, counterClockwise, a) with { Start = R(t1), End = R(t2), Plane = plane };
             }
             else
             {
-                inserted = new Move(t1, t2, MotionMode.Linear, a.LineNumber, a.Feed, a.Tool);
+                inserted = new Move(R(t1), R(t2), MotionMode.Linear, a.LineNumber, a.Feed, a.Tool);
             }
 
-            moves[i] = a with { End = t1 };
-            moves[i + 1] = b with { Start = t2 };
+            moves[i] = a with { End = R(t1) };
+            moves[i + 1] = b with { Start = R(t2) };
             moves.Insert(i + 1, inserted);
             tags.Insert(i + 1, tags[i] with { CornerRadius = 0, CornerChamfer = 0 });
             i++; // pula o movimento inserido
         }
+    }
+
+    /// <summary>Plano em que as duas retas estão (o eixo perpendicular não muda em nenhuma).</summary>
+    private static WorkPlane? CommonPlane(Move a, Move b)
+    {
+        static bool Same(double p, double q, double r, double s) =>
+            Math.Abs(p - q) <= Epsilon && Math.Abs(q - r) <= Epsilon && Math.Abs(r - s) <= Epsilon;
+
+        if (Same(a.Start.Z, a.End.Z, b.Start.Z, b.End.Z)) return WorkPlane.XY;
+        if (Same(a.Start.Y, a.End.Y, b.Start.Y, b.End.Y)) return WorkPlane.ZX;
+        if (Same(a.Start.X, a.End.X, b.Start.X, b.End.X)) return WorkPlane.YZ;
+        return null;
     }
 
     // ───────────────────────── Compensação G41/G42 ─────────────────────────

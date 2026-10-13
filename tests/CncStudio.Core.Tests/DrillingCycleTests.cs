@@ -66,6 +66,45 @@ public class DrillingCycleTests
     }
 
     [Fact]
+    public void G73RecuaSoAFolgaEntreBicadas()
+    {
+        ToolPath path = Fanuc("G00 Z20\nG99 G73 X0 Y0 R2 Z-10 Q4 F100");
+
+        var feeds = path.Moves.Where(m => m.Motion == MotionMode.Linear).Select(m => Math.Round(m.End.Z, 3)).ToList();
+        Assert.Equal(new[] { -2.0, -6.0, -10.0 }, feeds);
+
+        // Entre bicadas não volta ao R (só sobe a folga)
+        double highestBetween = path.Moves.Skip(2).Take(path.Moves.Count - 3).Max(m => m.End.Z);
+        Assert.True(highestBetween < 2, $"subiu até {highestBetween}");
+        Assert.Empty(path.Diagnostics);
+    }
+
+    [Theory]
+    [InlineData("G84")]
+    [InlineData("G85")]
+    public void G84EG85SobemEmAvanco(string code)
+    {
+        ToolPath path = Fanuc($"G00 Z20\nG98 {code} X0 Y0 R3 Z-12 F100");
+
+        var cut = path.Moves.Where(m => m.Motion == MotionMode.Linear).ToList();
+        Assert.Equal(2, cut.Count);
+        Assert.Equal(-12, cut[0].End.Z, 6);
+        Assert.Equal(3, cut[1].End.Z, 6);                // sobe em avanço até R
+        Assert.Equal(20, path.Moves[^1].End.Z, 6);        // G98: completa em rápido
+        Assert.Equal(MotionMode.Rapid, path.Moves[^1].Motion);
+        Assert.Empty(path.Diagnostics);
+    }
+
+    [Fact]
+    public void G89EsperaNoFundo()
+    {
+        ToolPath path = Fanuc("G00 Z20\nG99 G89 X0 Y0 R2 Z-5 P800 F100");
+
+        Assert.Equal(0.8, Assert.Single(path.Dwells).Seconds, 6);
+        Assert.Equal(2, path.Moves[^1].End.Z, 6);
+    }
+
+    [Fact]
     public void G91ComKRepeteOsFurosComPasso()
     {
         ToolPath path = Fanuc("G00 X0 Y0 Z10\nG91 G99 G81 X10 R-8 Z-5 K3 F100");

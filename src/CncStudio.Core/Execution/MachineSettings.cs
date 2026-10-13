@@ -77,4 +77,10 @@ public sealed record MachineSettings
     /// Null ou valor ≤ 0: a compensação não é aplicada (o desenho mostra o programado).
     /// </summary>
     public Func<int, double>? ToolDiameterOf { get; init; }
+
+    /// <summary>
+    /// Diâmetro usado quando a ferramenta não está em <see cref="ToolDiameterOf"/> nem tem o
+    /// diâmetro escrito no comentário da troca ("FRESA D10"). 0 = não compensa.
+    /// </summary>
+    public double FallbackToolDiameter { get; init; }
 }
