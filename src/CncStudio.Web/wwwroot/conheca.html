@@ -249,6 +249,11 @@
     .with-mascot { display:block; }
     .band { grid-template-columns:1fr; padding:14px; }
   }
+  /* Rodada 3: topo curto no celular (os botões ficam na barra de baixo) */
+  @media (max-width: 600px) {
+    .hero .lead-more, .hero .ctas, .hero .fine { display:none; }
+    .hero .lead { margin-bottom:6px; }
+  }
 </style>
 </head>
 <body>
@@ -269,8 +274,8 @@
     <div>
       <span class="tag">Fanuc · Siemens · Torno · Fresa</span>
       <h1>Editor e simulador CNC <em>no celular e no computador</em></h1>
-      <p class="lead">Escreva, confira e simule seus programas antes de ir para a máquina. Veja cada passe dos ciclos,
-        encontre erros de código e gere a folha de setup em PDF — direto no navegador, até sem internet.</p>
+      <p class="lead">Escreva, simule e confira seus programas antes de ir para a máquina.<span class="lead-more"> Veja cada passe dos ciclos,
+        encontre erros de código e gere a folha de setup em PDF — direto no navegador, até sem internet.</span></p>
       <div class="ctas">
         <a class="btn primary" href="./">Testar grátis por 14 dias</a>
         <a class="btn whats" data-whats href="#">Comprar no WhatsApp</a>
