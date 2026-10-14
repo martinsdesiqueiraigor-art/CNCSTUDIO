@@ -22,8 +22,8 @@ Decisões tomadas com o dono do produto:
 | 11 | **Web — estatísticas e folha de setup**: botão "Ciclo" no gráfico e Arquivos › Estatísticas (tempo de ciclo por corte/rápido/espera, cartão por ferramenta com operação, código, avanço, alcance, limites); Arquivos › Folha de setup (A4, ajustada ao celular, PDF/imprimir e compartilhar em PDF gerado no app). Padrão de comentário: `T0101 (OPERAÇÃO)` e na linha de baixo `(CÓDIGO DA FERRAMENTA)`. Depois do teste sem licença: só o tempo total; folha com marca d'água | ✅ |
 | 12 | **PWA** no ar em https://casillas-code.pages.dev — manifesto, ícones, service worker (offline), botão Instalar; publicação automática no Cloudflare Pages a cada commit. Instalação, atualização e botão Abrir confirmados no Android | ✅ |
 | 13 | **Contas e licenças**: Supabase (login e-mail/Google), trial de 14 dias, limite de dispositivos, restrições pós-trial; no desktop, licença assinada (Ed25519) com tolerância offline. Feito: projeto `Casillas Code`, tabelas, regras e funções (ver `supabase/README.md`); na web, entrar/criar conta/recuperar senha por e-mail, item Conta (situação, aparelhos, Sair da conta), 7 dias sem internet com a última confirmação, salvar/exportar bloqueados sem trial ou licença. Falta: licença no desktop | 🔶 |
-| 14 | **Painel de ativação** (Pix manual), fora do app em https://casillas-code-painel.pages.dev (pasta `admin/`): entrar só como administrador; clientes com situação, ativar assinatura/perpétua com valor e referência do Pix, renovar, +1 aparelho, revogar, bloquear/liberar aparelho, estender teste, mensagem pronta para o WhatsApp. Preço sob consulta; aviso de pagamento pelo WhatsApp | ✅ |
-| 15 | **Lançamento**: termos de uso (com aviso de que a simulação não garante ausência de colisão) e política de privacidade (LGPD) publicados em `/termos.html` e `/privacidade.html`, com links na criação de conta e no painel Conta — vendedor Igor Martins (MEI), foro Piracicaba/SP, reembolso em 30 dias. Página de vendas em `/conheca` (recursos, telas reais, como comprar por Pix, planos sob consulta, garantia de 30 dias, perguntas). Falta: CNPJ do MEI nos dois textos, revisão por advogado/contador | 🔶 |
+| 14 | **Painel de ativação** (Pix manual), fora do app em https://casillas-code-painel.pages.dev (pasta `admin/`): entrar só como administrador; clientes com situação, ativar assinatura/perpétua com valor e referência do Pix, renovar, +1 aparelho, revogar, bloquear/liberar aparelho, estender teste, mensagem pronta para o WhatsApp. Licença vitalícia é o padrão (todas as atualizações, 2 aparelhos); aviso de pagamento pelo WhatsApp | ✅ |
+| 15 | **Lançamento**: termos de uso (com aviso de que a simulação não garante ausência de colisão) e política de privacidade (LGPD) publicados em `/termos.html` e `/privacidade.html`, com links na criação de conta e no painel Conta — vendedor Igor Martins (MEI), foro Piracicaba/SP, reembolso em 30 dias. Página de vendas em `/conheca` (recursos, telas reais, como comprar por Pix, licença vitalícia R$ 29,90 e combo com o Casillas App R$ 49,90 (de R$ 99,90), garantia de 30 dias, perguntas). Falta: CNPJ do MEI nos dois textos, revisão por advogado/contador | 🔶 |
 
 ## Restrições depois do trial (proposta)
 
@@ -36,7 +36,7 @@ Decisões tomadas com o dono do produto:
 
 ## O que depende do dono do produto
 
-- Fase 14: definição de preços. E-mail do Casillas: casillas.usinagem.br@gmail.com (envio pelo Gmail configurado e testado).
+- Preços: licença vitalícia R$ 29,90 por app; combo App + Code R$ 49,90 (lançamento, de R$ 99,90). Site em casillas.com.br (repo Casillas-landing: início, /app, /code; /code gerado por `tools/gerar-pagina-code.py`). E-mail do Casillas: casillas.usinagem.br@gmail.com (envio pelo Gmail configurado e testado).
 - Fase 15: CNPJ do MEI (preencher em termos.html e privacidade.html), revisão jurídica dos termos e consulta ao contador sobre o recebimento.
 
 ## Melhorias da versão web (feitas)

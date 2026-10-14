@@ -402,7 +402,7 @@ export function accountSummary(json) {
     if (!s.signedIn) return 'sem conta';
     switch (s.state) {
         case 'licensed':
-            return s.kind === 'perpetual' ? 'licença perpétua' : 'assinatura até ' + date(s.expires_at);
+            return s.kind === 'perpetual' ? 'licença vitalícia' : 'assinatura até ' + date(s.expires_at);
         case 'trial': {
             const d = daysLeft(s.trial_ends_at);
             return 'teste: ' + (d <= 1 ? 'último dia' : d + ' dias');

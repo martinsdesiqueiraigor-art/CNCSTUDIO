@@ -166,7 +166,7 @@ function activeLicense(c) {
 
 function stateOf(c) {
   const lic = activeLicense(c);
-  if (lic) return { key: 'licensed', label: lic.kind === 'perpetual' ? 'Perpétua' : 'Assinatura até ' + fmtDate(lic.expires_at), cls: 'b-ok' };
+  if (lic) return { key: 'licensed', label: lic.kind === 'perpetual' ? 'Vitalícia' : 'Assinatura até ' + fmtDate(lic.expires_at), cls: 'b-ok' };
   if (Date.parse(c.trial_ends_at) > Date.now()) {
     const d = Math.ceil((Date.parse(c.trial_ends_at) - Date.now()) / 86400000);
     return { key: 'trial', label: 'Teste: ' + d + (d === 1 ? ' dia' : ' dias'), cls: 'b-trial' };
@@ -254,23 +254,23 @@ function customerCard(c) {
       <div class="grid" style="margin-top:10px">
         <label>Tipo
           <select data-f="kind">
+            <option value="perpetual" selected>Vitalícia</option>
             <option value="subscription">Assinatura</option>
-            <option value="perpetual">Perpétua</option>
           </select>
         </label>
-        <label data-for="subscription">Duração
+        <label data-for="subscription" class="hidden">Duração
           <select data-f="months">
             <option value="1">1 mês</option><option value="3">3 meses</option><option value="6">6 meses</option>
             <option value="12" selected>1 ano</option><option value="24">2 anos</option>
           </select>
         </label>
-        <label data-for="perpetual" class="hidden">Atualizações por
+        <label data-for="perpetual">Atualizações
           <select data-f="updates">
-            <option value="12" selected>1 ano</option><option value="24">2 anos</option><option value="0">sem atualizações</option>
+            <option value="all" selected>todas (sem prazo)</option><option value="12">por 1 ano</option><option value="24">por 2 anos</option>
           </select>
         </label>
         <label>Aparelhos <input data-f="devices" type="number" min="1" max="20" value="2" inputmode="numeric" /></label>
-        <label>Valor recebido (R$) <input data-f="amount" type="text" inputmode="decimal" placeholder="ex.: 350,00" /></label>
+        <label>Valor recebido (R$) <input data-f="amount" type="text" inputmode="decimal" placeholder="ex.: 29,90" /></label>
         <label>Referência do Pix <input data-f="ref" type="text" placeholder="id do comprovante" /></label>
       </div>
       <label style="margin-top:10px">Observação <textarea data-f="notes" placeholder="ex.: pagou pelo WhatsApp em 12/10"></textarea></label>
@@ -322,7 +322,7 @@ function licenseRow(l) {
   const badge = l.status === 'revoked' ? '<span class="badge b-bad">revogada</span>'
     : valid ? '<span class="badge b-ok">ativa</span>' : '<span class="badge b-off">vencida</span>';
   const what = l.kind === 'perpetual'
-    ? 'Perpétua' + (l.updates_until ? ' · atualizações até ' + fmtDate(l.updates_until) : '')
+    ? 'Vitalícia' + (l.updates_until ? ' · atualizações até ' + fmtDate(l.updates_until) : '')
     : 'Assinatura até ' + fmtDate(l.expires_at);
   const extra = [money(l.amount_cents), l.payment_ref ? 'Pix ' + esc(l.payment_ref) : '', l.max_devices + ' aparelhos', 'criada ' + fmtDate(l.created_at)]
     .filter(Boolean).join(' · ');
@@ -366,9 +366,9 @@ async function action(name, id, c, el) {
         payment_ref: f('ref').trim() || null, notes: f('notes').trim() || null, created_by: session.user_id,
         starts_at: now,
         expires_at: kind === 'subscription' ? addMonths(start, parseInt(f('months'), 10)) : null,
-        updates_until: kind === 'perpetual' && f('updates') !== '0' ? addMonths(now, parseInt(f('updates'), 10)) : null,
+        updates_until: kind === 'perpetual' && f('updates') !== 'all' ? addMonths(now, parseInt(f('updates'), 10)) : null,
       };
-      if (!confirm(`Ativar ${kind === 'perpetual' ? 'licença PERPÉTUA' : 'assinatura até ' + fmtDate(body.expires_at)} para ${c.email}?`)) return null;
+      if (!confirm(`Ativar ${kind === 'perpetual' ? 'licença VITALÍCIA' : 'assinatura até ' + fmtDate(body.expires_at)} para ${c.email}?`)) return null;
       await call('/rest/v1/licenses', { method: 'POST', body, prefer: 'return=minimal' });
       return 'Licença ativada. O cliente vê na próxima vez que abrir o app.';
     }
@@ -409,7 +409,7 @@ async function action(name, id, c, el) {
     case 'copy': {
       const l = activeLicense(c);
       const text = l
-        ? `Olá! Sua licença do Casillas Code está ativa (${l.kind === 'perpetual' ? 'perpétua' : 'assinatura até ' + fmtDate(l.expires_at)}), ` +
+        ? `Olá! Sua licença do Casillas Code está ativa (${l.kind === 'perpetual' ? 'vitalícia' : 'assinatura até ' + fmtDate(l.expires_at)}), ` +
           `para até ${l.max_devices} aparelhos. Abra o app (https://casillas-code.pages.dev) e entre com ${c.email}. Obrigado pela compra!`
         : `Olá! Recebemos seu contato sobre o Casillas Code. Assim que o Pix for confirmado, ativo a licença no e-mail ${c.email}.`;
       try { await navigator.clipboard.writeText(text); } catch { prompt('Copie a mensagem:', text); return null; }

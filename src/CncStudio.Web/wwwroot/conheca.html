@@ -153,6 +153,13 @@
     .band { grid-template-columns:1fr; text-align:center; padding-top:18px; }
     .band img { width:130px; justify-self:center; margin:0 0 -24px; order:2; }
   }
+  .plan { position:relative; }
+  .plan .ribbon { position:absolute; top:-12px; left:18px; background:var(--brand); color:#0d1117; font-weight:800; font-size:12px; padding:3px 10px; border-radius:99px; }
+  .plan .ribbon.blue { background:var(--blue); }
+  .plan .price.big { font-size:30px; font-weight:900; color:var(--text); margin:6px 0 2px; }
+  .plan .price.big s { font-size:17px; color:var(--soft); font-weight:600; margin-right:6px; }
+  .plan .once { color:var(--green); font-weight:700; font-size:14px; margin-bottom:10px; }
+  .plan.combo { border-color:rgba(88,166,255,.6); background:linear-gradient(160deg, rgba(88,166,255,.10), var(--card) 60%); }
 </style>
 </head>
 <body>
@@ -177,7 +184,7 @@
         encontre erros de código e gere a folha de setup em PDF — direto no navegador, até sem internet.</p>
       <div class="ctas">
         <a class="btn primary" href="./">Testar grátis por 14 dias</a>
-        <a class="btn whats" data-whats href="#">Pedir preço no WhatsApp</a>
+        <a class="btn whats" data-whats href="#">Comprar no WhatsApp</a>
       </div>
       <p class="fine">Sem cartão de crédito. Crie a conta com seu e-mail e use tudo por 14 dias.</p>
     </div>
@@ -247,19 +254,25 @@
     </div>
     <div class="steps">
       <div class="step"><h3>Crie sua conta</h3><p>Abra o app, toque em "Criar conta" e use tudo grátis por 14 dias.</p></div>
-      <div class="step"><h3>Chame no WhatsApp</h3><p>Diga o e-mail da conta e o plano que prefere. Respondemos com o valor.</p></div>
+      <div class="step"><h3>Chame no WhatsApp</h3><p>Diga o e-mail da conta e se quer só o Casillas Code ou o combo com o Casillas App.</p></div>
       <div class="step"><h3>Pague por Pix</h3><p>Envie o comprovante na mesma conversa.</p></div>
       <div class="step"><h3>Pronto</h3><p>A licença é ativada na sua conta, normalmente no mesmo dia útil.</p></div>
     </div>
     <div class="plans">
-      <div class="plan"><h3>Assinatura</h3><div class="price">Preço sob consulta</div>
-        <ul><li>Uso completo pelo período contratado (ex.: 1 ano)</li><li>Todas as atualizações no período</li><li>Até 2 aparelhos (celular e computador)</li><li>Sem renovação automática</li></ul></div>
-      <div class="plan best"><h3>Licença perpétua</h3><div class="price">Preço sob consulta</div>
-        <ul><li>Uso completo sem prazo de término</li><li>Atualizações incluídas por 1 ano</li><li>Até 2 aparelhos (celular e computador)</li><li>Pague uma vez</li></ul></div>
+      <div class="plan best"><span class="ribbon">Lançamento · tempo limitado</span><h3>Licença vitalícia</h3>
+        <div class="price big">R$ 29,90</div>
+        <div class="once">Pagamento único · sem mensalidade</div>
+        <ul><li>Uso completo, sem prazo de término</li><li>Todas as atualizações incluídas</li><li>Até 2 aparelhos (celular e computador)</li><li>Mais de 40 exemplos de ciclos inclusos</li></ul>
+        <a class="btn whats" data-whats href="#" style="width:100%;margin-top:14px">Comprar por R$ 29,90 no WhatsApp</a></div>
+      <div class="plan combo"><span class="ribbon blue">Combo</span><h3>Casillas Code + Casillas App</h3>
+        <div class="price big"><s>R$ 99,90</s> R$ 49,90</div>
+        <div class="once">Os dois apps, licença vitalícia, pagamento único</div>
+        <ul><li>Casillas Code: editor e simulador CNC</li><li>Casillas App: 11 calculadoras de usinagem + Consultoria</li><li>Todas as atualizações dos dois</li><li>Do cálculo à programação CNC</li></ul>
+        <a class="btn" data-combo href="#" style="width:100%;margin-top:14px">Quero o combo por R$ 49,90</a></div>
     </div>
     <div class="guarantee"><span style="font-size:26px">✓</span><div><b>30 dias de garantia.</b> Não gostou? Devolvemos o valor integral por Pix, sem perguntas.</div></div>
     <div class="ctas" style="margin-top:20px">
-      <a class="btn whats" data-whats href="#">Pedir preço no WhatsApp</a>
+      <a class="btn whats" data-whats href="#">Comprar no WhatsApp</a>
       <a class="btn primary" href="./">Começar o teste grátis</a>
     </div>
   </div>
@@ -280,6 +293,8 @@
         <p>Fanuc e Siemens (Sinumerik), torno e fresa/centro de usinagem, com os ciclos fixos, subprogramas, macros e laços mais usados. O app reconhece sozinho se o programa é de torno ou de fresa.</p></details>
       <details><summary>Meus programas ficam onde?</summary>
         <p>No seu aparelho, na biblioteca do app. Eles não são enviados para nossos servidores. Você pode importar, organizar em pastas, salvar e compartilhar quando quiser.</p></details>
+      <details><summary>É assinatura?</summary>
+        <p>Não. É licença vitalícia com pagamento único, e todas as atualizações estão incluídas.</p></details>
       <details><summary>E depois dos 14 dias, se eu não comprar?</summary>
         <p>O app continua abrindo, editando e simulando. Salvar e exportar ficam bloqueados, as estatísticas mostram só o tempo total e a folha de setup sai com marca d'água.</p></details>
       <details><summary>Tem tutoriais?</summary>
@@ -308,7 +323,7 @@
       <div><h3>Do cálculo à programação CNC</h3>
         <p>O Casillas Code faz parte do ecossistema Casillas. Conheça também o <b>Casillas App</b>: calculadoras de usinagem,
         Guia CNC e Consultor técnico no celular.</p></div>
-      <a class="btn" href="https://martinsdesiqueiraigor-art.github.io/Casillas-landing/v7/" target="_blank" rel="noopener">Conhecer o Casillas App</a>
+      <a class="btn" href="https://martinsdesiqueiraigor-art.github.io/Casillas-landing/app/" target="_blank" rel="noopener">Conhecer o Casillas App</a>
     </div>
   </div>
 </section>
@@ -347,8 +362,14 @@
   // Número do WhatsApp de vendas (só dígitos, com 55 e DDD, ex.: 5519999999999).
   // Enquanto estiver vazio, os botões abrem um e-mail.
   const WHATSAPP = '5519996816755';
-  const MESSAGE = 'Olá! Quero saber o preço do Casillas Code. Meu e-mail da conta é: ';
+  const MESSAGE = 'Olá! Quero comprar a licença vitalícia do Casillas Code por R$ 29,90. Meu e-mail da conta é: ';
+  const COMBO = 'Olá! Quero o combo Casillas Code + Casillas App por R$ 49,90. Meu e-mail da conta é: ';
   const EMAIL = 'casillas.usinagem.br@gmail.com';
+  for (const a of document.querySelectorAll('[data-combo]')) {
+    a.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(COMBO);
+    a.target = '_blank';
+    a.rel = 'noopener';
+  }
   for (const a of document.querySelectorAll('[data-whats]')) {
     if (WHATSAPP) {
       a.href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(MESSAGE);
