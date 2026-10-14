@@ -200,6 +200,55 @@
     .hero { padding:18px 0 16px; }
     .sub { margin-bottom:14px; }
   }
+  /* Celular, rodada 2: mais compacto e com seções que abrem com um toque */
+  @media (max-width: 600px) {
+    body { zoom:.8; }
+    section { padding:20px 0; }
+    h2 { font-size:21px; }
+    .sub { margin-bottom:12px; }
+    /* Seções recolhidas: título vira uma barra tocável */
+    .wrap.acc > .acc-t { display:flex; justify-content:space-between; align-items:center; gap:10px; cursor:pointer; margin:0;
+      background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:18px; }
+    .wrap.acc > .acc-t::after { content:"+"; flex:none; width:28px; height:28px; border-radius:50%; display:grid; place-items:center;
+      background:var(--brand); color:#0d1117; font-weight:900; font-size:20px; line-height:1; }
+    .wrap.acc.open > .acc-t::after { content:"−"; }
+    .wrap.acc:not(.open) > .acc-body { display:none; }
+    .wrap.acc > .acc-body { margin-top:12px; }
+    /* Cartões que abrem com um toque (só o título aparece) */
+    .card.acc { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:10px 12px; cursor:pointer; }
+    .card.acc .ico { width:32px; height:32px; font-size:13px; margin:0; flex:none; }
+    .card.acc h3 { flex:1; margin:0; font-size:15px; }
+    .card.acc::after { content:"+"; order:1; color:var(--brand); font-weight:900; font-size:20px; line-height:1; }
+    .card.acc.open::after { content:"−"; }
+    .card.acc > p, .card.acc > .codes { order:2; flex-basis:100%; }
+    .card.acc:not(.open) > p, .card.acc:not(.open) > .codes { display:none; }
+    .grid, .two { gap:8px !important; }
+    /* Passos em linhas compactas */
+    .steps { gap:8px; }
+    .step { padding:8px 12px 8px 46px; }
+    .step::before { top:50%; left:10px; transform:translateY(-50%); }
+    .step h3 { margin:0; font-size:15px; }
+    .step p { font-size:13px; }
+    /* Redes lado a lado, só ícone e nome */
+    .social { display:grid; grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:1fr; gap:8px; }
+    .social a { flex-direction:column; text-align:center; padding:10px 4px; gap:6px; }
+    .social .ic { width:38px; height:38px; }
+    .social b { font-size:13px; }
+    .social span:not(.ic) { display:none; }
+    .eco { padding:12px; gap:10px; }
+    .eco img { width:36px; }
+    /* Mascotes decorativos e imagens grandes */
+    .combo .side, .offer .side, .pain img, .with-mascot img, .band img { display:none; }
+    .hero .frame { max-height:190px; }
+    .hero .frame img { height:190px; object-fit:cover; object-position:center 35%; }
+    .product .pic { aspect-ratio:16/8; }
+    .product ul { display:none; }
+    .pain ul { grid-template-columns:1fr 1fr; gap:6px; }
+    .pain li { font-size:13px; padding:8px 10px; gap:6px; }
+    .pain li::before { font-size:13px; }
+    .with-mascot { display:block; }
+    .band { grid-template-columns:1fr; padding:14px; }
+  }
 </style>
 </head>
 <body>
@@ -243,25 +292,25 @@
     <h2>Tudo o que o programador precisa, no bolso</h2>
     <p class="sub">Feito para quem programa e opera torno e centro de usinagem no dia a dia.</p>
     <div class="grid">
-      <div class="card"><div class="ico">G</div><h3>Editor com cores e erros marcados</h3>
+      <div class="card acc"><div class="ico">G</div><h3>Editor com cores e erros marcados</h3>
         <p>Códigos G e M coloridos, linha com erro sublinhada e a máquina avisa onde pararia com alarme. Renumerar e remover a numeração com um toque.</p></div>
-      <div class="card"><div class="ico o">▶</div><h3>Simulação passo a passo</h3>
+      <div class="card acc"><div class="ico o">▶</div><h3>Simulação passo a passo</h3>
         <p>Veja cada passe de G71, G72, G73, G76, CYCLE95… avançando ou voltando um a um, com a ferramenta e o percurso à frente.</p></div>
-      <div class="card"><div class="ico g">ZX</div><h3>Torno 2D e fresa 2,5D</h3>
+      <div class="card acc"><div class="ico g">ZX</div><h3>Torno 2D e fresa 2,5D</h3>
         <p>Torno no plano ZX com diâmetro; fresa em vista 2,5D, de topo e de frente. Zoom com os dedos e toque na trajetória para ir à linha.</p></div>
-      <div class="card"><div class="ico">⌀</div><h3>Estatísticas de tempo</h3>
+      <div class="card acc"><div class="ico">⌀</div><h3>Estatísticas de tempo</h3>
         <p>Tempo de ciclo por ferramenta, separado em corte, rápido e espera, com avanços, menor diâmetro e limites de curso.</p></div>
-      <div class="card"><div class="ico o">PDF</div><h3>Folha de setup em PDF</h3>
+      <div class="card acc"><div class="ico o">PDF</div><h3>Folha de setup em PDF</h3>
         <p>Ferramentas com operação e código do inserto, tempos, bruto, limites e desenho da trajetória. Compartilhe pelo WhatsApp ou imprima.</p></div>
-      <div class="card"><div class="ico g">⇩</div><h3>Instala como app e funciona offline</h3>
+      <div class="card acc"><div class="ico g">⇩</div><h3>Instala como app e funciona offline</h3>
         <p>Instale no celular ou no computador. Biblioteca de programas com pastas, importar, salvar e compartilhar. Modo claro para a oficina.</p></div>
     </div>
     <div class="two" style="margin-top:14px">
-      <div class="card"><h3>Ciclos que a simulação entende</h3>
+      <div class="card acc"><h3>Ciclos que a simulação entende</h3>
         <div class="codes"><span>G70</span><span>G71</span><span>G72</span><span>G73</span><span>G74</span><span>G75</span><span>G76</span>
         <span>G90</span><span>G92</span><span>G94</span><span>G81–G86</span><span>G89</span><span>G73 fresa</span>
         <span>CYCLE81</span><span>CYCLE82</span><span>CYCLE83</span><span>CYCLE95</span><span>CYCLE97</span></div></div>
-      <div class="card"><h3>Repetição e macros</h3>
+      <div class="card acc"><h3>Repetição e macros</h3>
         <div class="codes"><span>M98 P L</span><span>M99</span><span>G65</span><span>#variáveis</span><span>WHILE DO END</span><span>IF GOTO</span>
         <span>FOR ENDFOR</span><span>WHILE ENDWHILE</span><span>REPEAT</span><span>IF GOTOB</span><span>R parâmetros</span><span>TRANS/ATRANS</span><span>RND/CHR</span></div></div>
     </div>
@@ -270,8 +319,9 @@
 
 <!-- Telas -->
 <section class="alt">
-  <div class="wrap">
-    <h2>Veja como é</h2>
+  <div class="wrap acc">
+    <h2 class="acc-t">Veja como é</h2>
+    <div class="acc-body">
     <p class="sub">Telas reais do app, com os exemplos que já vêm junto (mais de 40 programas, um por ciclo).</p>
     <div class="shot" style="margin-bottom:14px"><img src="./conheca/computador.webp" alt="Casillas Code no computador: editor e simulação 2,5D de uma espiral com WHILE" loading="lazy" /></div>
     <div class="gallery">
@@ -281,6 +331,7 @@
       <figure><div class="shot"><img src="./conheca/celular-codigo.webp" alt="Editor no modo claro" loading="lazy" /></div><figcaption>Modo claro</figcaption></figure>
     </div>
     <div class="shot" style="margin-top:14px"><img src="./conheca/computador-siemens.webp" alt="Siemens CYCLE95 no modo claro" loading="lazy" /></div>
+    </div>
   </div>
 </section>
 
@@ -373,7 +424,7 @@
     <div class="band">
       <img src="./conheca/mascote-polegar.webp" alt="" loading="lazy" />
       <div><h3>Ficou com alguma dúvida?</h3>
-        <p>Chama no WhatsApp: a gente responde rapidinho, mostra o app funcionando e passa o preço.</p>
+        <p>Chama no WhatsApp: a gente responde rapidinho, mostra o app funcionando e tira suas dúvidas.</p>
         <div class="ctas"><a class="btn whats" data-whats href="#">Falar no WhatsApp</a><a class="btn primary" href="./">Testar grátis</a></div></div>
     </div>
   </div>
@@ -429,6 +480,16 @@
     if (!bar || !alvo || !('IntersectionObserver' in window)) return;
     new IntersectionObserver(function (e) { bar.classList.toggle('off', e[0].isIntersecting); }).observe(alvo);
   })();
+</script>
+<script>
+  // Seções e cartões que abrem e fecham com um toque (no celular)
+  document.querySelectorAll('.acc').forEach(function (el) {
+    var gatilho = el.querySelector(':scope > .acc-t') || el;
+    gatilho.addEventListener('click', function (ev) {
+      if (ev.target.closest('a')) return;
+      el.classList.toggle('open');
+    });
+  });
 </script>
 </body>
 </html>
