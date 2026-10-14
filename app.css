@@ -1,0 +1,12 @@
+/* Página: o Avalonia ocupa a tela inteira; a tela de carregamento some quando ele desenha */
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0d1117; }
+#out { height: 100vh; height: 100dvh; width: 100vw; }
+.avalonia-splash { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 18px; background: #0d1117; color: #9aa4b2;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.avalonia-splash img { width: 260px; max-width: 70vw; }
+.avalonia-splash .bar { width: 180px; height: 4px; border-radius: 2px; background: #30363d; overflow: hidden; }
+.avalonia-splash .bar::after { content: ""; display: block; width: 40%; height: 100%; background: #f0883e;
+  animation: carregando 1.1s ease-in-out infinite; }
+@keyframes carregando { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+.avalonia-splash.splash-close { transition: opacity .25s; opacity: 0; pointer-events: none; }
