@@ -192,6 +192,14 @@
     .combo { padding:20px 14px; }
     body { padding-bottom:54px; }
   }
+  /* Celular: escala geral menor (texto, espaços e cartões) para rolar menos */
+  html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+  @media (max-width: 600px) {
+    body { zoom:.86; }
+    section { padding:24px 0; }
+    .hero { padding:18px 0 16px; }
+    .sub { margin-bottom:14px; }
+  }
 </style>
 </head>
 <body>
