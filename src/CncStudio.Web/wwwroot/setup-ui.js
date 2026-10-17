@@ -1,5 +1,5 @@
 import { mountToolEditor } from './tools-ui.js';
-// Casillas Code: mobile setup configurator. The SVG is an illustrative projection, not collision geometry.
+// Casillas Code: configurador de setup no celular. O SVG é uma projeção ilustrativa, não geometria de colisão.
 export function openSetup(json) {
   return new Promise(resolve => {
     let data;
@@ -126,7 +126,7 @@ export function openSetup(json) {
       if(fix===1){parts+=rect(cx-fx/2,base-6,fx,Math.max(9,fixture.Height*scale*.4),'#526879','#a9b7c6');const jaw=Math.max(3,Math.min(22,+fixture.JawThickness*scale));const gap=Math.max(3,Math.min(Math.max(3,fy-jaw*2),Math.max(5,+fixture.JawOpening*scale)));const jy=base-14;parts+=rect(cx-gap/2-jaw,jy-14,jaw,29,'#91a2b0','#c2ccd6')+rect(cx+gap/2,jy-14,jaw,29,'#91a2b0','#c2ccd6');}
       if(fix===2){parts+=rect(cx-fx/2,base,fx,Math.max(7,fixture.Height*scale*.4),'#526879','#a9b7c6');parts+=rect(cx-fx*.25,base-18,fx*.5,Math.max(5,fixture.JawThickness*scale*.35),'#91a2b0','#c2ccd6');}
       if(fix===3){const r=fx/2;parts+=ell(cx,base+Math.max(6,fixture.Height*scale*.2),r,r*.48,'#3a4d5c','#a9b7c6');parts+=ell(cx,base,r,r*.48,'#526879','#a9b7c6');parts+=ell(cx,base,r*.65,r*.3,'#213a4a','#a9b7c6');}
-      // Stock rests on the fixture face; the three jaws are drawn above the stock.
+      // O bruto apoia na face da fixação; as três castanhas são desenhadas por cima dele.
       const topY=base-18-Math.min(45,sh*scale*.35);
       const stockBottom=topY+Math.max(8,sh*scale*.35);
       if(kind===0){const x=cx-sx/2,y=topY-sy*.2;parts+=rect(x,y,sx,Math.max(6,sy*.4),'#27776e','#78d4c7');parts+=rect(x,y+Math.max(6,sy*.4),sx,Math.max(6,sh*scale*.35),'#17525a','#78d4c7');}
@@ -147,9 +147,9 @@ export function openSetup(json) {
       if(fixKind!==0&&!positive(fixture.Width,fixture.Height,fixture.JawThickness,...(fixKind===3?[]:[fixture.Depth]),...(fixKind===2?[]:[fixture.JawOpening]))){error.textContent='Confira as dimensões da fixação.';return;}
       const toolError = toolEditor.validate(); if(toolError){error.textContent=toolError;return;}
       stock.Kind=stockKind;
-      // Legacy model requires these fields even for round stock.
+      // O modelo exige estes campos mesmo no bruto redondo.
       if(stockKind!==0){stock.Width=stock.Diameter;stock.Depth=stock.Diameter;}
-      // Align stock and fixture in XY, preserving the G54 program origin.
+      // Alinha bruto e fixação em XY, mantendo a origem G54 do programa.
       stock.X=origin.X-(stockKind===0?stock.Width:stock.Diameter)/2;
       stock.Y=origin.Y-(stockKind===0?stock.Depth:stock.Diameter)/2;
       stock.Z=origin.Z-stock.Height;

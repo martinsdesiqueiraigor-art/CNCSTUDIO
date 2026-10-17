@@ -1,4 +1,4 @@
-// Cadastro local de ate 20 ferramentas com desenho tecnico dinamico.
+// Cadastro local de até 20 ferramentas com desenho técnico dinâmico.
 export function mountToolEditor(parent, data) {
   const defaults = () => ({Kind:'Fresa',Number:1,Diameter:10,CuttingLength:25,HolderDiameter:35,HolderLength:45});
   const tools = Array.isArray(data.Tools) ? data.Tools.map(t => ({...defaults(),...t})).slice(0,20) : [];

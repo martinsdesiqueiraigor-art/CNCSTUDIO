@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace CncStudio.Web;
 
-/// <summary>Physical milling setup, independent from G-code and toolpath interpretation.</summary>
+/// <summary>Setup físico da fresa (bruto, zero, fixações e ferramentas), independente da interpretação do G-code.</summary>
 public sealed class MachiningSetup
 {
     public int SchemaVersion { get; set; } = 1;
@@ -23,6 +23,10 @@ public sealed class MachiningSetup
         }
         catch (JsonException) { return null; }
     }
+
+    /// <summary>Cópia independente (alterações nela não afetam o original).</summary>
+    public MachiningSetup Clone() =>
+        JsonSerializer.Deserialize(ToJson(), SetupJsonContext.Default.MachiningSetup)!;
 
     public string ToJson() => JsonSerializer.Serialize(this, SetupJsonContext.Default.MachiningSetup);
 

@@ -437,7 +437,7 @@ public sealed class BackplotView : Control
     {
         if (_machiningSetup is not { } setup || _lathe) return;
         var stock = setup.Stock;
-        // Draw fixture bases behind the stock; the jaws are drawn after the stock.
+        // Bases das fixações atrás do bruto; os mordentes são desenhados depois dele.
         foreach (var fixture in setup.Fixtures)
             DrawFixture(context, fixture, stock, FixtureColor(fixture), px, drawBase: true);
         if (stock.Kind == SetupStockKind.Prism)
@@ -502,12 +502,12 @@ public sealed class BackplotView : Control
                     ? Math.Max(stock.Width, stock.Depth) / 2 : stock.Diameter / 2;
                 double jawLength = Math.Max(f.JawThickness * 1.65, radius * 0.24);
                 double jawWidth = Math.Max(f.JawThickness * 0.55, radius * 0.085);
-                // Limitar a posicao ao raio util da placa, mesmo quando a abertura cadastrada e maior.
+                // Limita a posição ao raio útil da placa, mesmo quando a abertura cadastrada é maior.
                 double r = Math.Clamp(Math.Max(stockRadius + jawLength * 0.30, f.JawOpening / 2),
                     0, Math.Max(0, radius - jawLength / 2));
                 double x = cx + Math.Cos(angle) * r, y = cy + Math.Sin(angle) * r;
-                // Radial jaw: long axis points toward the chuck centre.
-                // Castanha em dois niveis: base radial e ressalto de contato.
+                // Castanha radial: o eixo longo aponta para o centro da placa.
+                // Castanha em dois níveis: base radial e ressalto de contato.
                 // Ambos giram em torno do mesmo centro; geometria apenas ilustrativa.
                 double jawHeight = Math.Min(f.JawThickness, stock.Height);
                 DrawBox(context, x - jawLength / 2, y - jawWidth / 2,
@@ -566,7 +566,7 @@ public sealed class BackplotView : Control
             Point bottomB = ProjectPoint(new Point3(cx + radius * Math.Cos(b), cy + radius * Math.Sin(b), z));
             Point topB = ProjectPoint(new Point3(cx + radius * Math.Cos(b), cy + radius * Math.Sin(b), z + height));
             Point topA = ProjectPoint(new Point3(cx + radius * Math.Cos(a), cy + radius * Math.Sin(a), z + height));
-            // Avoid visible vertical seams: adjacent cylinder facets have no stroke.
+            // Sem emendas verticais visíveis: as facetas vizinhas do cilindro não têm contorno.
             DrawSolidFace(context, new[] { bottomA, bottomB, topB, topA }, color, 0.78, px);
         }
         // Silhuetas das arestas: sem desenhar as emendas de cada faceta.
@@ -597,7 +597,7 @@ public sealed class BackplotView : Control
                 }, color, 0.85, px);
             }
         }
-        // Contornos finais por cima das faces: legiveis nas vistas 2,5D, topo e frente.
+        // Contornos finais por cima das faces: legíveis nas vistas 2,5D, topo e frente.
         var edge = EdgeColor(color);
         DrawRing(context, cx, cy, z + height, radius, edge, px);
         if (innerRadius > 0)
@@ -616,7 +616,7 @@ public sealed class BackplotView : Control
         }
     }
 
-    // Bright, high-contrast outlines remain readable on small mobile displays.
+    // Contornos claros e de alto contraste continuam legíveis em telas pequenas.
     private static Color EdgeColor(Color fill) => Color.FromRgb(
         (byte)Math.Min(255, 130 + fill.R * 0.25),
         (byte)Math.Min(255, 148 + fill.G * 0.24),
@@ -625,7 +625,7 @@ public sealed class BackplotView : Control
     private void DrawRing(DrawingContext context, double cx, double cy, double z,
         double radius, Color color, double px)
     {
-        // Two-pass silhouette: dark separation plus bright edge, visible on mobile.
+        // Silhueta em duas passadas: separação escura e borda clara, visível no celular.
         var shadow = new Pen(new SolidColorBrush(Color.Parse("#142534")), 2.0 * px);
         var pen = new Pen(new SolidColorBrush(color), 1.25 * px);
         Point? previous = null;
@@ -708,8 +708,8 @@ public sealed class BackplotView : Control
             var geometry = setup.Tools.FirstOrDefault(t => t.Number == toolNumber);
             if (geometry is not null)
             {
-                // Representacao esquematica: ponta no percurso, corpo alinhado ao eixo Z.
-                // Sem remocao de material ou verificacao de colisao.
+                // Representação esquemática: ponta no percurso, corpo alinhado ao eixo Z.
+                // Sem remoção de material nem verificação de colisão.
                 var pos = executed <= 0 ? path.Moves[0].Start : path.Moves[moveIndex].End;
                 Point3 upper = new(pos.X, pos.Y, pos.Z + geometry.CuttingLength);
                 // O comprimento exibido acompanha o cadastro do Setup (sem truncamento arbitrario).
@@ -722,7 +722,7 @@ public sealed class BackplotView : Control
                 var cutPen = new Pen(new SolidColorBrush(Color.Parse("#C7E8FF")), 1.4);
                 var holderPen = new Pen(new SolidColorBrush(Color.Parse("#9BAFBD")), 1.4);
                 context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#58A6FF")), Math.Max(3, radius * 1.65)), tip, cuttingTop);
-                // Corpo principal e transicao curta na ponta: silhueta do conjunto sem alterar a trajetoria.
+                // Corpo principal e transição curta na ponta: silhueta do conjunto sem alterar a trajetória.
                 Point shoulder = new(cuttingTop.X + (holderTop.X - cuttingTop.X) * 0.18,
                     cuttingTop.Y + (holderTop.Y - cuttingTop.Y) * 0.18);
                 context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#526879")), Math.Max(5, holderRadius * 1.65)), shoulder, holderTop);
