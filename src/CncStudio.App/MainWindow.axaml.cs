@@ -124,6 +124,8 @@ public partial class MainWindow : Window
 
         // Configuração da máquina (ferramentas, zeros de peça)
         Graphics.DiameterOf = tool => _settings.DiameterOf(tool);
+        // Perfil de corte: o do setup do programa ativo; senão, topo reto com o diâmetro da tabela
+        Graphics.ProfileOf = tool => SetupBinding.ProfileOf(_active.Setup, tool, _settings.DiameterOf(tool));
         Graphics.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
         Statistics.DiameterOf = tool => _settings.DiameterOf(tool);
         Statistics.LineRequested += (_, line) => GoToLine(line);

@@ -138,6 +138,70 @@ public sealed class HeightMap
     }
 
     /// <summary>
+    /// Remove material com a ferramenta de perfil dado, com a ponta em (x, y, z): cada célula a
+    /// uma distância d do eixo é rebaixada até z + altura do perfil em d (se estiver acima).
+    /// Topo reto usa <see cref="CutDisc"/> (mesmo resultado, mais rápido).
+    /// </summary>
+    public bool CutProfile(double x, double y, ToolProfile profile, double z)
+    {
+        if (profile.IsFlat)
+        {
+            return CutDisc(x, y, profile.Radius, z);
+        }
+
+        if (z >= TopZ)
+        {
+            return false;
+        }
+
+        double radius = profile.Radius;
+        double r2 = radius * radius;
+        int rowMin = Math.Max(0, (int)Math.Ceiling((y - radius - OriginY) / CellSize - 0.5));
+        int rowMax = Math.Min(Rows - 1, (int)Math.Floor((y + radius - OriginY) / CellSize - 0.5));
+        bool changed = false;
+
+        for (int row = rowMin; row <= rowMax; row++)
+        {
+            double dy = CellCenterY(row) - y;
+            double h2 = r2 - dy * dy;
+            if (h2 < 0)
+            {
+                continue;
+            }
+
+            double half = Math.Sqrt(h2);
+            int columnMin = Math.Max(0, (int)Math.Ceiling((x - half - OriginX) / CellSize - 0.5));
+            int columnMax = Math.Min(Columns - 1, (int)Math.Floor((x + half - OriginX) / CellSize - 0.5));
+            int rowStart = row * Columns;
+
+            for (int column = columnMin; column <= columnMax; column++)
+            {
+                double dx = CellCenterX(column) - x;
+                double surface = z + profile.HeightAt(Math.Sqrt(dx * dx + dy * dy));
+                if (surface >= TopZ)
+                {
+                    continue;
+                }
+
+                float cutZ = (float)Math.Max(surface, BottomZ);
+                int index = rowStart + column;
+                if (_heights[index] > cutZ)
+                {
+                    _heights[index] = cutZ;
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            Version++;
+        }
+
+        return changed;
+    }
+
+    /// <summary>
     /// Bruto informado pelo usuário (bloco da fresa). A resolução é escolhida para que o
     /// maior lado tenha no máximo "maxCellsPerSide" células.
     /// </summary>

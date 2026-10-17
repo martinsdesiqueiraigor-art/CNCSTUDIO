@@ -4,8 +4,8 @@ using CncStudio.Core.Trajectory;
 namespace CncStudio.Core.Simulation;
 
 /// <summary>
-/// Percorre a trajetória removendo material do <see cref="HeightMap"/> com uma
-/// fresa de topo reto. Permite avançar por distância (animação suave) ou por linha (passo a passo).
+/// Percorre a trajetória removendo material do <see cref="HeightMap"/> com o perfil de cada
+/// ferramenta (topo reto, esférica, toroidal ou broca; ver <see cref="ToolProfile"/>). Permite avançar por distância (animação suave) ou por linha (passo a passo).
 ///
 /// Arcos são convertidos em pontos só quando o movimento começa a ser executado,
 /// com tolerância proporcional à célula da grade (não adianta ser mais fino que isso).
@@ -16,7 +16,8 @@ public sealed class MaterialSimulator : IMaterialSimulation
 {
     private readonly HeightMap _map;
     private readonly IReadOnlyList<Move> _moves;
-    private readonly Func<int, double> _diameterOf;
+    private readonly Func<int, ToolProfile> _profileOf;
+    private ToolProfile _profile = ToolProfile.Flat(10);
     private readonly double _arcTolerance;
     private double _toolRadius;
 
@@ -33,18 +34,27 @@ public sealed class MaterialSimulator : IMaterialSimulation
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(toolDiameter, 0);
     }
 
-    /// <summary>Simulação com diâmetro por ferramenta (número T → diâmetro em mm).</summary>
+    /// <summary>Simulação com diâmetro por ferramenta (número T → diâmetro em mm), todas de topo reto.</summary>
     public MaterialSimulator(HeightMap map, IReadOnlyList<Move> moves, Func<int, double> diameterOfTool)
+        : this(map, moves, tool => ToolProfile.Flat(diameterOfTool(tool)))
+    {
+    }
+
+    /// <summary>Simulação com o perfil de cada ferramenta (número T → perfil).</summary>
+    public MaterialSimulator(HeightMap map, IReadOnlyList<Move> moves, Func<int, ToolProfile> profileOfTool)
     {
         _map = map;
         _moves = moves;
-        _diameterOf = diameterOfTool;
+        _profileOf = profileOfTool;
         _arcTolerance = Math.Max(0.001, map.CellSize * 0.25);
         Reset();
     }
 
     /// <summary>Diâmetro da ferramenta do movimento atual.</summary>
     public double CurrentToolDiameter => _toolRadius * 2;
+
+    /// <summary>Perfil da ferramenta do movimento atual.</summary>
+    public ToolProfile CurrentToolProfile => _profile;
 
     /// <summary>Número da ferramenta do movimento atual (0 = não definida).</summary>
     public int CurrentTool => _moves.Count == 0 ? 0 : _moves[Math.Min(_moveIndex, _moves.Count - 1)].Tool;
@@ -205,13 +215,14 @@ public sealed class MaterialSimulator : IMaterialSimulation
         }
 
         Move move = _moves[_moveIndex];
-        _toolRadius = Math.Max(0.01, _diameterOf(move.Tool)) / 2;
+        _profile = _profileOf(move.Tool) ?? ToolProfile.Flat(10);
+        _toolRadius = _profile.Radius;
         _polyline.Add(move.Start);
         move.AppendPolyline(_polyline, _arcTolerance);
     }
 
     /// <summary>
-    /// Remove material ao longo de um trecho reto: "carimba" o disco da ferramenta em
+    /// Remove material ao longo de um trecho reto: "carimba" o perfil da ferramenta em
     /// pontos espaçados de meia célula, interpolando Z (cobre rampas e mergulhos).
     /// </summary>
     private bool CutAlong(Point3 a, Point3 b)
@@ -226,7 +237,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
         for (int k = 0; k <= count; k++)
         {
             Point3 p = Point3.Lerp(a, b, (double)k / count);
-            removed |= _map.CutDisc(p.X, p.Y, _toolRadius, p.Z);
+            removed |= _map.CutProfile(p.X, p.Y, _profile, p.Z);
         }
 
         return removed;

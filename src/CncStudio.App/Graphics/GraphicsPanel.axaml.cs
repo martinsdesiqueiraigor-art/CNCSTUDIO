@@ -106,6 +106,12 @@ public partial class GraphicsPanel : UserControl
     /// <summary>Diâmetro de cada ferramenta (T → mm).</summary>
     public Func<int, double> DiameterOf { get; set; } = _ => 10;
 
+    /// <summary>
+    /// Perfil de corte de cada ferramenta na fresa (topo reto, esférica, toroidal, broca).
+    /// Null = topo reto com <see cref="DiameterOf"/>.
+    /// </summary>
+    public Func<int, ToolProfile>? ProfileOf { get; set; }
+
     /// <summary>Bruto informado (null = automático). Vale na próxima trajetória carregada.</summary>
     public Stock? Stock { get; set; }
 
@@ -186,11 +192,12 @@ public partial class GraphicsPanel : UserControl
         else
         {
             _turning = null;
-            double largest = _path.Tools.Count == 0 ? diameterOf(0) : _path.Tools.Max(diameterOf);
+            Func<int, ToolProfile> profileOf = ProfileOf ?? (tool => ToolProfile.Flat(diameterOf(tool)));
+            double largest = _path.Tools.Count == 0 ? profileOf(0).Diameter : _path.Tools.Max(tool => profileOf(tool).Diameter);
             _map = Stock is { Machine: MachineKind.Mill } block
                 ? HeightMap.CreateForStock(block)
                 : HeightMap.CreateForToolPath(_path, largest);
-            _simulation = new MaterialSimulator(_map, _path.Moves, diameterOf);
+            _simulation = new MaterialSimulator(_map, _path.Moves, profileOf);
             _stockBounds = Bounds3.Empty
                 .Include(new Point3(_map.OriginX, _map.OriginY, _map.BottomZ))
                 .Include(new Point3(_map.OriginX + _map.Width, _map.OriginY + _map.Height, _map.TopZ));

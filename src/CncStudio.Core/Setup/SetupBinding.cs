@@ -106,6 +106,22 @@ public static class SetupBinding
     public static Stock SuggestStock(MachineKind machine, string programText, Bounds3 cutting) =>
         FromProgramComments(programText, machine, cutting) ?? FitToPath(machine, cutting);
 
+    /// <summary>Perfil de corte da ferramenta do setup, para a remoção de material.</summary>
+    public static ToolProfile ToProfile(this SetupTool tool) => tool.Kind switch
+    {
+        ToolKind.BallEndMill => new ToolProfile(ToolTipShape.Ball, tool.Radius),
+        ToolKind.BullNoseEndMill => new ToolProfile(ToolTipShape.BullNose, tool.Radius, tool.CornerRadius),
+        ToolKind.Drill => new ToolProfile(ToolTipShape.Cone, tool.Radius, TipAngle: tool.TipAngle),
+        _ => new ToolProfile(ToolTipShape.Flat, tool.Radius),
+    };
+
+    /// <summary>
+    /// Perfil da ferramenta T: o do setup, se ela estiver cadastrada nele; senão, topo reto com o
+    /// diâmetro de <paramref name="fallbackDiameter"/> (tabela ou padrão da máquina).
+    /// </summary>
+    public static ToolProfile ProfileOf(MachiningSetup? setup, int tool, double fallbackDiameter) =>
+        setup?.ToolOf(tool) is { } t && t.Validate() is null ? t.ToProfile() : ToolProfile.Flat(fallbackDiameter);
+
     /// <summary>
     /// Configuração do executor com as ferramentas do setup. Precedência do diâmetro (para G41/G42 e
     /// simulação): setup → tabela já presente em <paramref name="settings"/> → comentário da troca
