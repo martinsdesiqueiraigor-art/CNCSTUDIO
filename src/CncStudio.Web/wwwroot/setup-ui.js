@@ -4,7 +4,17 @@ export function openSetup(json) {
   return new Promise(resolve => {
     let data;
     try { data = JSON.parse(json); } catch { resolve(null); return; }
-    const stock = data.Stock, origin = data.G54;
+    // Formato 2 do setup: o bruto vem sempre preenchido (sugestão quando não informado).
+    // Prisma: (X, Y) é o canto; redondo e tubo: (X, Y) é o centro; Z é o fundo.
+    const stock = data.Stock;
+    if (!stock) { resolve(null); return; }
+    const round0 = Number(stock.Kind) !== 0;
+    // Posição do conjunto no programa: centro do bruto em XY e topo em Z
+    const origin = {
+      X: round0 ? +stock.X : +stock.X + (+stock.Width) / 2,
+      Y: round0 ? +stock.Y : +stock.Y + (+stock.Depth) / 2,
+      Z: +stock.Z + (+stock.Height)
+    };
     const old = data.Fixtures?.[0];
     const fixture = old ? {...old} : {Kind:0,Name:'',X:0,Y:0,Z:-30,Width:150,Depth:110,Height:30,JawOpening:60,JawThickness:12,Rotation:0};
     const root = document.createElement('div');
@@ -36,9 +46,9 @@ export function openSetup(json) {
     let fixKind=old ? Number(old.Kind)+1 : 0;
     select(fixtureBox,'Dispositivo',['Sem fixação','Morsa','Grampo','Placa de três castanhas'],fixKind,v=>{fixKind=v});
     const fixFields=document.createElement('div');fixFields.style.cssText='display:flex;flex-direction:column;gap:8px';fixtureBox.append(fixFields);
-    const originBox=section('03 · Referência G54');
-    const info=document.createElement('p');info.textContent='O bruto e a fixação compartilham o mesmo centro XY. Os valores abaixo posicionam o conjunto no programa CNC.';info.style.cssText='color:#9baab9;font-size:12px;margin:0';originBox.append(info);
-    for(const k of ['X','Y','Z'])field(originBox,'G54 '+k+' (mm)',origin,k);
+    const originBox=section('03 · Posição no programa');
+    const info=document.createElement('p');info.textContent='Coordenadas do programa (zero de peça = 0). O bruto e a fixação compartilham o mesmo centro XY.';info.style.cssText='color:#9baab9;font-size:12px;margin:0';originBox.append(info);
+    field(originBox,'Centro do bruto X (mm)',origin,'X');field(originBox,'Centro do bruto Y (mm)',origin,'Y');field(originBox,'Topo do bruto Z (mm)',origin,'Z');
     const toolBox=section('04 · Ferramenta');
     const toolEditor = mountToolEditor(toolBox, data);
     fixtureBox.after(dimensionCard);
@@ -132,7 +142,7 @@ export function openSetup(json) {
       if(kind===0){const x=cx-sx/2,y=topY-sy*.2;parts+=rect(x,y,sx,Math.max(6,sy*.4),'#27776e','#78d4c7');parts+=rect(x,y+Math.max(6,sy*.4),sx,Math.max(6,sh*scale*.35),'#17525a','#78d4c7');}
       else {const r=sx/2,ry=r*.48;parts+=ell(cx,topY+Math.max(8,sh*scale*.35),r,ry,'#17525a','#78d4c7');parts+=rect(cx-r,topY,r*2,Math.max(8,sh*scale*.35),'#216a68','#78d4c7');parts+=ell(cx,topY,r,ry,'#2b8278','#78d4c7');if(kind===2){const inner=Math.min(.95,Math.max(0,(+stock.InnerDiameter||0)/sw));parts+=ell(cx,topY,r*inner,ry*inner,'#121d29','#78d4c7');}}
       if(fix===3){const r=fx/2;const contact=(kind===0?Math.max(sw,sy):sx)/2;const jawWidth=Math.max(4,Math.min(24,(+fixture.JawThickness||10)*scale));const jawRadius=Math.max(0,Math.min(Math.max(0,r-jawWidth/2),Math.max(contact+jawWidth/2,(+fixture.JawOpening||0)*scale/2)));for(let i=0;i<3;i++){const a=(i*120+(+fixture.Rotation||0))*Math.PI/180;const x=cx+Math.cos(a)*jawRadius,y=base-12+Math.sin(a)*jawRadius*.48;const jawHeight=Math.max(9,Math.min(18,sh*scale*.3));parts+=rect(x-jawWidth/2,y-jawHeight/2,jawWidth,jawHeight,'#a4b2bd','#d4dce3');parts+='<path d="M'+(x-jawWidth/2)+' '+(y-jawHeight/2+3)+'h'+jawWidth+'" stroke="#e6edf3" stroke-width="1"/>';}}
-      parts+='<path d="M22 195h35m-35 0v-31" stroke="#58a6ff" stroke-width="2"/><text x="62" y="200" fill="#58a6ff" font-size="11">X</text><text x="14" y="158" fill="#58a6ff" font-size="11">Y</text><text x="12" y="17" fill="#c9d1d9" font-size="12">G54 · montagem ilustrativa</text>';
+      parts+='<path d="M22 195h35m-35 0v-31" stroke="#58a6ff" stroke-width="2"/><text x="62" y="200" fill="#58a6ff" font-size="11">X</text><text x="14" y="158" fill="#58a6ff" font-size="11">Y</text><text x="12" y="17" fill="#c9d1d9" font-size="12">Montagem ilustrativa</text>';
       svg.innerHTML=parts;
       const stockText=kind===0?fmt(stock.Width)+' × '+fmt(stock.Depth)+' × '+fmt(stock.Height):'Ø'+fmt(stock.Diameter)+(kind===2?' / Ø'+fmt(stock.InnerDiameter):'')+' × '+fmt(stock.Height);
       drawDimensions();
@@ -147,11 +157,10 @@ export function openSetup(json) {
       if(fixKind!==0&&!positive(fixture.Width,fixture.Height,fixture.JawThickness,...(fixKind===3?[]:[fixture.Depth]),...(fixKind===2?[]:[fixture.JawOpening]))){error.textContent='Confira as dimensões da fixação.';return;}
       const toolError = toolEditor.validate(); if(toolError){error.textContent=toolError;return;}
       stock.Kind=stockKind;
-      // O modelo exige estes campos mesmo no bruto redondo.
-      if(stockKind!==0){stock.Width=stock.Diameter;stock.Depth=stock.Diameter;}
-      // Alinha bruto e fixação em XY, mantendo a origem G54 do programa.
-      stock.X=origin.X-(stockKind===0?stock.Width:stock.Diameter)/2;
-      stock.Y=origin.Y-(stockKind===0?stock.Depth:stock.Diameter)/2;
+      if(![origin.X,origin.Y,origin.Z].every(Number.isFinite)){error.textContent='Confira a posição do bruto.';return;}
+      // Alinha bruto e fixação em XY pelo centro informado; o topo do bruto fica em Z informado.
+      stock.X=stockKind===0?origin.X-stock.Width/2:origin.X;
+      stock.Y=stockKind===0?origin.Y-stock.Depth/2:origin.Y;
       stock.Z=origin.Z-stock.Height;
       if(fixKind!==0){fixture.Kind=fixKind-1;fixture.Depth=fixKind===3?fixture.Width:fixture.Depth;fixture.X=origin.X-fixture.Width/2;fixture.Y=origin.Y-fixture.Depth/2;fixture.Z=stock.Z-fixture.Height;data.Fixtures=[fixture];}else data.Fixtures=[];
       toolEditor.save();

@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Rendering;
+using CncStudio.Core.Setup;
 using CncStudio.Core.Trajectory;
 
 namespace CncStudio.Web;
@@ -440,12 +441,17 @@ public sealed class BackplotView : Control
         // Bases das fixações atrás do bruto; os mordentes são desenhados depois dele.
         foreach (var fixture in setup.Fixtures)
             DrawFixture(context, fixture, stock, FixtureColor(fixture), px, drawBase: true);
-        if (stock.Kind == SetupStockKind.Prism)
+        if (stock is null)
+        {
+            // Bruto não informado no setup: o backplot mostra só a trajetória e as bases
+        }
+        else if (stock.Kind == SetupStockKind.Prism)
             DrawBox(context, stock.X, stock.Y, stock.Z, stock.Width, stock.Depth, stock.Height,
                 Color.Parse("#58A6FF"), px);
         else
         {
-            double cx = stock.X + stock.Diameter / 2, cy = stock.Y + stock.Diameter / 2;
+            // Bruto redondo e tubo: (X, Y) é o centro
+            double cx = stock.X, cy = stock.Y;
             var blue = Color.Parse("#58A6FF");
             DrawSolidCylinder(context, cx, cy, stock.Z, stock.Diameter / 2,
                 stock.Height, blue, px,
@@ -467,13 +473,9 @@ public sealed class BackplotView : Control
                     ProjectPoint(new Point3(x, y, stock.Z + stock.Height)));
             }
         }
-        foreach (var fixture in setup.Fixtures)
-            DrawFixture(context, fixture, stock, FixtureColor(fixture), px, drawBase: false);
-        var origin = setup.G54;
-        var o = ProjectPoint(new Point3(origin.X, origin.Y, origin.Z));
-        var pen = new Pen(new SolidColorBrush(Color.Parse("#3DDC6A")), 1.6 * px);
-        context.DrawLine(pen, new Point(o.X - 7 * px, o.Y), new Point(o.X + 7 * px, o.Y));
-        context.DrawLine(pen, new Point(o.X, o.Y - 7 * px), new Point(o.X, o.Y + 7 * px));
+        if (stock is not null)
+            foreach (var fixture in setup.Fixtures)
+                DrawFixture(context, fixture, stock, FixtureColor(fixture), px, drawBase: false);
     }
 
     private static Color FixtureColor(SetupFixture fixture) => fixture.Kind switch
@@ -483,7 +485,7 @@ public sealed class BackplotView : Control
         _ => Color.Parse("#526779")
     };
 
-    private void DrawFixture(DrawingContext context, SetupFixture f, SetupStock stock, Color color, double px, bool drawBase)
+    private void DrawFixture(DrawingContext context, SetupFixture f, SetupStock? stock, Color color, double px, bool drawBase)
     {
         if (f.Kind == SetupFixtureKind.ThreeJawChuck)
         {
@@ -495,6 +497,7 @@ public sealed class BackplotView : Control
                 DrawRing(context, cx, cy, f.Z + f.Height, radius, color, px);
                 return;
             }
+            if (stock is null) return;
             for (int j = 0; j < 3; j++)
             {
                 double angle = (j * 120 + f.Rotation) * Math.PI / 180;
@@ -705,7 +708,7 @@ public sealed class BackplotView : Control
         {
             int moveIndex = Math.Clamp(executed - 1, 0, path.Moves.Count - 1);
             int toolNumber = path.Moves[moveIndex].Tool;
-            var geometry = setup.Tools.FirstOrDefault(t => t.Number == toolNumber);
+            var geometry = setup.ToolOf(toolNumber);
             if (geometry is not null)
             {
                 // Representação esquemática: ponta no percurso, corpo alinhado ao eixo Z.
@@ -733,11 +736,11 @@ public sealed class BackplotView : Control
                 context.DrawEllipse(null, holderPen, cuttingTop, Math.Max(radius, holderRadius * 0.65), Math.Max(2, holderRadius * 0.24));
                 context.DrawEllipse(null, holderPen, shoulder, holderRadius, Math.Max(2, holderRadius * 0.35));
                 context.DrawEllipse(null, holderPen, holderTop, holderRadius, Math.Max(2, holderRadius * 0.35));
-                if (geometry.Kind == "Broca")
+                if (geometry.Kind == ToolKind.Drill)
                     context.DrawLine(cutPen, tip + new Vector(-radius, -radius), tip);
-                else if (geometry.Kind == "Macho")
+                else if (geometry.Kind == ToolKind.Tap)
                     context.DrawLine(cutPen, tip + new Vector(-radius, -5), tip + new Vector(radius, 5));
-                else if (geometry.Kind == "Fresa esferica")
+                else if (geometry.Kind == ToolKind.BallEndMill)
                     context.DrawEllipse(null, cutPen, tip, radius, radius);
                 return;
             }
