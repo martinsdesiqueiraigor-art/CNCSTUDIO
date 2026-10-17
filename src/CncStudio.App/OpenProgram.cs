@@ -1,6 +1,6 @@
 using AvaloniaEdit.Document;
 using CncStudio.Core.Dialects;
-using CncStudio.Core.Simulation;
+using CncStudio.Core.Setup;
 
 namespace CncStudio.App;
 
@@ -24,14 +24,14 @@ internal sealed class OpenProgram
 
     public Dialect Dialect { get; set; }
 
-    /// <summary>Bruto informado (null = automático).</summary>
-    public Stock? Stock { get; set; }
+    /// <summary>Setup do programa: bruto informado (null = comentário ou automático), fixações e ferramentas.</summary>
+    public MachiningSetup Setup { get; set; } = MachiningSetup.CreateDefault("");
 
     /// <summary>Posição do cursor quando a aba saiu de foco.</summary>
     public int CaretOffset { get; set; }
 
-    /// <summary>Chave do bruto guardado: o caminho do arquivo (ou o nome, se não salvo).</summary>
-    public string StockKey => FilePath ?? DisplayName;
+    /// <summary>Chave do setup guardado: o caminho do arquivo (ou o nome, se não salvo).</summary>
+    public string SetupKey => FilePath ?? DisplayName;
 
     /// <summary>Aba vazia e intocada, ou exemplo sem alterações: pode ser substituída ao abrir outro arquivo.</summary>
     public bool IsDisposable => !IsDirty && (IsSample || (FilePath is null && Text.TextLength == 0));

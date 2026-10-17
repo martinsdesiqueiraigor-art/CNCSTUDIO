@@ -1,3 +1,5 @@
+using CncStudio.Core.Execution;
+using CncStudio.Core.Geometry;
 using CncStudio.Core.Setup;
 
 namespace CncStudio.Web;
@@ -53,13 +55,17 @@ public partial class MainView
         }
     }
 
-    /// <summary>Bruto proposto quando o setup ainda não tem um (o usuário confere antes de salvar).</summary>
-    private static SetupStock SuggestedSetupStock() => new()
+    /// <summary>
+    /// Bruto proposto quando o setup ainda não tem um (o usuário confere antes de salvar):
+    /// do comentário (BRUTO ...), se houver; senão, o que envolve a trajetória.
+    /// </summary>
+    private SetupStock SuggestedSetupStock()
     {
-        Kind = SetupStockKind.Prism, X = -50, Y = -40, Z = -20, Width = 100, Depth = 80, Height = 20,
-    };
-
-    private void OnMachiningSetupChanged()
-    {
+        MachineKind machine = _analysis?.ToolPath.Machine ?? MachineKind.Mill;
+        Bounds3 cutting = _analysis?.ToolPath.CuttingBounds ?? Bounds3.Empty;
+        return SetupBinding.FromStock(SetupBinding.SuggestStock(machine, Editor.Text, cutting));
     }
+
+    /// <summary>Ferramentas e bruto mudaram: refaz a trajetória (compensação G41/G42) mantendo a vista.</summary>
+    private void OnMachiningSetupChanged() => Analyze(keepView: true);
 }

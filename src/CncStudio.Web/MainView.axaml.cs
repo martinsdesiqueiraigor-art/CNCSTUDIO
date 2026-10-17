@@ -14,6 +14,7 @@ using CncStudio.Core.Parsing;
 using CncStudio.Core.Statistics;
 using CncStudio.Core.Trajectory;
 using CncStudio.Core.Reports;
+using CncStudio.Core.Setup;
 
 namespace CncStudio.Web;
 
@@ -380,8 +381,15 @@ public partial class MainView : UserControl
 
     private void MarkSaved(string path)
     {
+        string oldKey = SetupKey;
         _libraryPath = path;
         _fileName = path.Contains('/') ? path[(path.LastIndexOf('/') + 1)..] : path;
+        if (SetupKey != oldKey && Stored(oldKey) is { Length: > 0 })
+        {
+            // "Salvar como": o setup acompanha o programa no endereço novo
+            _machiningSetup.ProjectKey = _libraryPath ?? _fileName;
+            Store(SetupKey, SetupJson.Serialize(_machiningSetup));
+        }
         _dirty = false;
         UpdateTitle();
         ScheduleSave();
@@ -400,7 +408,7 @@ public partial class MainView : UserControl
         }
     }
 
-    /// <summary>Dados da folha de setup do programa aberto (bruto lido do comentário "BRUTO ...").</summary>
+    /// <summary>Dados da folha de setup do programa aberto (bruto: setup → comentário "BRUTO ..." → não informado).</summary>
     private SetupSheet? BuildSetupSheet()
     {
         if (_analysis is not { } analysis)
@@ -410,16 +418,10 @@ public partial class MainView : UserControl
 
         string text = Editor.Text;
         SetupSheet sheet = SetupSheetBuilder.Build(text, analysis, _fileName, _libraryPath, _ => null);
-        if (sheet.Stock is null)
+        EffectiveStockResult stock = SetupBinding.EffectiveStock(_machiningSetup, sheet.Machine, text, sheet.CuttingBounds);
+        if (stock.Stock is { } effective && (stock.Source == StockSource.Setup || sheet.Stock is null))
         {
-            foreach (string comment in sheet.HeaderComments)
-            {
-                if (CncStudio.Core.Simulation.Stock.FromComment(comment, sheet.Machine, sheet.CuttingBounds) is { } stock)
-                {
-                    sheet = sheet with { Stock = stock.Describe(BrazilianCulture.Instance) };
-                    break;
-                }
-            }
+            sheet = sheet with { Stock = effective.Describe(BrazilianCulture.Instance) };
         }
 
         return sheet;
@@ -1056,7 +1058,7 @@ public partial class MainView : UserControl
 
         try
         {
-            _analysis = ProgramAnalyzer.Analyze(Editor.Text, dialect, MachineSettings.Default);
+            _analysis = ProgramAnalyzer.Analyze(Editor.Text, dialect, _machiningSetup.ApplyTo(MachineSettings.Default));
         }
         catch (Exception ex)
         {

@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
+using CncStudio.Core.Setup;
 using CncStudio.Core.Simulation;
 
 namespace CncStudio.App.Dialogs;
@@ -59,18 +60,7 @@ public partial class StockDialog : Window
     /// <summary>Sugestão inicial: do cabeçalho, se houver; senão, a trajetória.</summary>
     private Stock Suggested() => FromProgramComments() ?? FitToPath();
 
-    private Stock? FromProgramComments()
-    {
-        foreach (string line in _programText.Split('\n'))
-        {
-            if (Stock.FromComment(line, _machine, _cutting) is { } stock)
-            {
-                return stock;
-            }
-        }
-
-        return null;
-    }
+    private Stock? FromProgramComments() => SetupBinding.FromProgramComments(_programText, _machine, _cutting);
 
     private void ReadFromComment()
     {
@@ -88,14 +78,7 @@ public partial class StockDialog : Window
         }
     }
 
-    private Stock FitToPath()
-    {
-        Bounds3 b = _cutting.IsEmpty ? Bounds3.Empty.Include(Point3.Origin) : _cutting;
-        const double margin = 2;
-        return _machine == MachineKind.Lathe
-            ? Stock.Bar(Math.Round((Math.Abs(b.Max.X) + margin) * 2, 1), Math.Round(Math.Max(1, b.Max.Z - b.Min.Z + margin), 1), Math.Max(0, b.Max.Z))
-            : Stock.Block(b.Min.X - margin, b.Max.X + margin, b.Min.Y - margin, b.Max.Y + margin, Math.Min(b.Min.Z, 0) - margin, 0);
-    }
+    private Stock FitToPath() => SetupBinding.FitToPath(_machine, _cutting);
 
     private void Fill(Stock stock)
     {
