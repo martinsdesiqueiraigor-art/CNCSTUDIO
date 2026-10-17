@@ -52,66 +52,143 @@ public sealed partial class MachineExecutor
 
     // ───────────────────────── Execução ─────────────────────────
 
-    private void Run(ParseResult parse)
+    /// <summary>Prepara a execução: programa principal carregado e primeiro bloco pronto.</summary>
+    private void Begin(ParseResult parse)
     {
         _main = LoadedProgram.Build("principal", parse.Blocks, _dialect, isExternal: false, Report);
         int end = _main.RegionEnd(0);
         _frames.Add(new Frame { Program = _main, Pc = 0, Start = 0, End = end, RegionStart = 0, RegionEnd = end });
+        SettleFrames();
+    }
 
+    /// <summary>True enquanto ainda há bloco a executar (sem fim de programa nem interrupção).</summary>
+    private bool HasNextBlock => _frames.Count > 0 && !_ended && !_stopped;
+
+    // Interrompido pelo limite de blocos ou de movimentos (provável laço infinito)
+    private bool _stopped;
+
+    /// <summary>
+    /// Fecha os níveis que já terminaram (fim de subprograma sem M99, repetições L/P), para o
+    /// nível de cima sempre apontar para o próximo bloco a executar.
+    /// </summary>
+    private void SettleFrames()
+    {
         while (_frames.Count > 0 && !_ended)
         {
             Frame frame = _frames[^1];
-
-            if (frame.Pc >= frame.End || frame.Pc < frame.Start)
+            if (frame.Pc < frame.End && frame.Pc >= frame.Start)
             {
-                FinishFrame(frame);
-                continue;
+                return;
             }
 
-            if (++_executedBlocks > _settings.MaxExecutedBlocks || _moves.Count > _settings.MaxMoves)
-            {
-                int line = frame.CallerLine > 0 ? frame.CallerLine : frame.Program.Blocks[frame.Pc].LineNumber;
-                Error(line, 0, 0, string.Create(CultureInfo.InvariantCulture,
-                    $"Execução interrompida depois de {_executedBlocks - 1:N0} blocos: provável laço infinito (última linha executada: {line})."));
-                break;
-            }
+            FinishFrame(frame);
+        }
+    }
 
-            int currentIndex = frame.Pc;
-            Step(frame);
-
-            if (_ended)
-            {
-                if (frame.Program == _main && _frames.Count == 1)
-                {
-                    _mainEndIndex = currentIndex;
-                }
-
-                break;
-            }
-
-            if (_return is { } returnRequest)
-            {
-                ReturnFromFrame(frame, returnRequest);
-                continue;
-            }
-
-            frame.Pc = _jump ?? currentIndex + 1;
-
-            // Salto para fora de um trecho repetido: encerra o trecho e continua no destino
-            if (frame.IsSection && _jump is { } target && (target < frame.Start || target >= frame.End))
-            {
-                _frames.RemoveAt(_frames.Count - 1);
-                _frames[^1].Pc = target;
-            }
-
-            if (_call is { } call)
-            {
-                PushCall(frame, call);
-            }
+    /// <summary>
+    /// Executa um bloco do programa (seguindo saltos, chamadas e retornos) e deixa o próximo
+    /// pronto. Retorna false quando não havia bloco a executar.
+    /// </summary>
+    private bool StepOnce()
+    {
+        SettleFrames();
+        if (!HasNextBlock)
+        {
+            return false;
         }
 
-        WarnUnreachableCode();
+        Frame frame = _frames[^1];
+        if (++_executedBlocks > _settings.MaxExecutedBlocks || _moves.Count > _settings.MaxMoves)
+        {
+            int line = frame.CallerLine > 0 ? frame.CallerLine : frame.Program.Blocks[frame.Pc].LineNumber;
+            Error(line, 0, 0, string.Create(CultureInfo.InvariantCulture,
+                $"Execução interrompida depois de {_executedBlocks - 1:N0} blocos: provável laço infinito (última linha executada: {line})."));
+            _stopped = true;
+            return false;
+        }
+
+        int currentIndex = frame.Pc;
+        NcBlock executing = frame.Program.Blocks[currentIndex];
+        _lastExecuted = new BlockPosition(
+            frame.CallerLine > 0 ? frame.CallerLine : executing.LineNumber,
+            frame.Program.Name, executing.LineNumber, frame.Program.IsExternal, _frames.Count - 1);
+        Step(frame);
+
+        if (_ended)
+        {
+            if (frame.Program == _main && _frames.Count == 1)
+            {
+                _mainEndIndex = currentIndex;
+            }
+
+            return true;
+        }
+
+        if (_return is { } returnRequest)
+        {
+            ReturnFromFrame(frame, returnRequest);
+            SettleFrames();
+            return true;
+        }
+
+        frame.Pc = _jump ?? currentIndex + 1;
+
+        // Salto para fora de um trecho repetido: encerra o trecho e continua no destino
+        if (frame.IsSection && _jump is { } target && (target < frame.Start || target >= frame.End))
+        {
+            _frames.RemoveAt(_frames.Count - 1);
+            _frames[^1].Pc = target;
+        }
+
+        if (_call is { } call)
+        {
+            PushCall(frame, call);
+        }
+
+        SettleFrames();
+        return true;
     }
+
+    /// <summary>Onde está um bloco: linha mostrada (no arquivo aberto), programa, linha nele e nível de chamada.</summary>
+    internal readonly record struct BlockPosition(int Line, string Program, int ProgramLine, bool IsExternal, int Depth);
+
+    private BlockPosition _lastExecuted;
+
+    /// <summary>Último bloco executado.</summary>
+    internal BlockPosition LastExecuted => _lastExecuted;
+
+    /// <summary>Próximo bloco a executar (null quando acabou).</summary>
+    internal BlockPosition? NextBlock
+    {
+        get
+        {
+            if (!HasNextBlock)
+            {
+                return null;
+            }
+
+            Frame frame = _frames[^1];
+            NcBlock block = frame.Program.Blocks[frame.Pc];
+            return new BlockPosition(frame.CallerLine > 0 ? frame.CallerLine : block.LineNumber,
+                frame.Program.Name, block.LineNumber, frame.Program.IsExternal, _frames.Count - 1);
+        }
+    }
+
+    /// <summary>Pilha de chamadas, do programa principal (primeiro) ao nível atual (último).</summary>
+    internal IReadOnlyList<CallFrame> CallStack()
+    {
+        var stack = new List<CallFrame>(_frames.Count);
+        foreach (Frame frame in _frames)
+        {
+            int next = frame.Pc >= frame.Start && frame.Pc < frame.End ? frame.Program.Blocks[frame.Pc].LineNumber : 0;
+            stack.Add(new CallFrame(frame.Program.Name, next, frame.CallerLine, frame.RepeatsLeft, frame.IsSection, frame.Program.IsExternal));
+        }
+
+        return stack;
+    }
+
+    /// <summary>Avisos que dependem da execução inteira (código que nunca roda).</summary>
+    private void FinishRun() => WarnUnreachableCode();
 
     /// <summary>Executa um bloco: fluxo e variáveis primeiro, depois a parte de máquina.</summary>
     private void Step(Frame frame)
