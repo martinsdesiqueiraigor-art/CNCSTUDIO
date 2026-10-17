@@ -125,11 +125,14 @@ public sealed class SetupStock
     public double InnerDiameter { get; set; } = 40;
     public string Material { get; set; } = "Aço";
 
+    [JsonIgnore]
     public double Top => Z + Height;
 
+    [JsonIgnore]
     public bool IsRound => Kind is SetupStockKind.Round or SetupStockKind.Tube;
 
     /// <summary>Retângulo ocupado no plano XY (menor X, menor Y, maior X, maior Y).</summary>
+    [JsonIgnore]
     public (double MinX, double MinY, double MaxX, double MaxY) Footprint => IsRound
         ? (X - Diameter / 2, Y - Diameter / 2, X + Diameter / 2, Y + Diameter / 2)
         : (X, Y, X + Width, Y + Depth);
@@ -269,6 +272,7 @@ public sealed class SetupTool
     public double HolderDiameter { get; set; } = 35;
     public double HolderLength { get; set; } = 45;
 
+    [JsonIgnore]
     public double Radius => Diameter / 2;
 
     public string? Validate()

@@ -43,6 +43,16 @@ public class SetupModelTests
         Assert.Contains("\"SchemaVersion\":2", json);
     }
 
+    [Theory]
+    [InlineData("Top")]
+    [InlineData("IsRound")]
+    [InlineData("Footprint")]
+    [InlineData("Radius")]
+    public void PropriedadesCalculadasNaoVaoParaOJson(string nome)
+    {
+        Assert.DoesNotContain("\"" + nome + "\"", SetupJson.Serialize(Sample()));
+    }
+
     [Fact]
     public void BrutoNaoInformadoFicaNulo()
     {
