@@ -166,6 +166,7 @@
             <ToggleButton x:Name="TopViewButton" Classes="view" Content="Topo" ToolTip.Tip="Vista de cima (XY)" />
             <ToggleButton x:Name="FrontViewButton" Classes="view" Content="Frente" ToolTip.Tip="Vista de frente (XZ)" />
           </StackPanel>
+          <Button x:Name="SetupButton" DockPanel.Dock="Right" Classes="view" Content="Setup" Margin="0,0,4,0" ToolTip.Tip="Configurar bruto, G54 e fixacao" />
           <Button x:Name="FitButton" DockPanel.Dock="Right" Classes="view" Content="Ajustar" ToolTip.Tip="Mostrar a peça inteira (ou duplo toque no gráfico)" />
           <Button x:Name="DisplayButton" DockPanel.Dock="Right" Classes="view" Content="Exibir" Margin="0,0,4,0"
                   ToolTip.Tip="Mostrar ou ocultar rápidos, percurso à frente e ferramenta" />

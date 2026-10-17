@@ -121,6 +121,7 @@ public partial class MainView : UserControl
         IsoViewButton.Click += (_, _) => SetMillView(MillView.Iso);
         TopViewButton.Click += (_, _) => SetMillView(MillView.Top);
         FrontViewButton.Click += (_, _) => SetMillView(MillView.Front);
+        SetupButton.Click += async (_, _) => await EditMachiningSetupAsync();
 
         OpenButton.Click += async (_, _) => await OpenFromDeviceAsync();
         // Campo de arquivo nativo por cima do botão "Abrir" (o toque cai direto nele)
@@ -1024,6 +1025,7 @@ public partial class MainView : UserControl
         _loading = true;
         _fileName = fileName;
         _libraryPath = libraryPath;
+        LoadMachiningSetup();
         _dirty = false;
         UpdateTitle();
         DialectCombo.SelectedIndex = DialectDetector.FromFileName(fileName) == Dialect.Siemens ? 1 : 0;

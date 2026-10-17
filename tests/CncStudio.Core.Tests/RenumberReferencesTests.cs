@@ -19,7 +19,8 @@ public class RenumberReferencesTests
     public void Renumerar_AtualizaPeQDoG71EdoG70()
     {
         string result = NcTextTools.RenumberBlocks(Lathe, Dialect.Fanuc, new RenumberOptions(10, 10));
-        string[] lines = result.Split('\n');
+        // A rotina preserva CRLF ou LF; a asserção compara o conteúdo dos blocos.
+        string[] lines = result.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
 
         Assert.Equal("N20 G71 P30 Q50 U0.4 W0.1 F0.25", lines[1]);
         Assert.Equal("N30 G00 X24.", lines[2]);
