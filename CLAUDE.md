@@ -6,7 +6,7 @@ Lido no início de cada sessão. Curto de propósito: detalhe vai em `docs/`, n�
 - Editor e simulador CNC (Fanuc e Siemens, fresa e torno), estilo CIMCO Edit. Nome interno: `CncStudio`.
 - Dono: Igor Martins (vende como MEI). Respostas **em português, curtas** (ele lê no celular).
 - Plataforma **Casillas CNC**: Code (este repositório), CAM, Macro (geradores de programa com prévia 3D), Academy, Biblioteca CNC e Ferramentas (a calculadora Casillas). Referência: MacroMill CNC.
-- Plano mestre, auditoria e missões ficam no Projeto "CNC Studio" do claude.ai.
+- Plano mestre, regras da plataforma (`claude/regras-plataforma.md`) e modelo de handoff (`claude/modelo-handoff.md`) ficam no Projeto "Casillas CNC — Plataforma" do claude.ai.
 - Ordem das fases: Fundação ✅ → Simulação ✅ (ajustes pendentes) → Macro e geradores → Academy piloto → CAM 2,5D → Avançado.
 
 ## Código
@@ -46,4 +46,5 @@ Desktop sem placa de vídeo (testes): `CASILLAS_SOFTWARE_GL=1 xvfb-run ...`.
 5. Ao terminar: atualizar `docs/ESTADO.md` (3–6 linhas) e relatar em ≤ 10 linhas, com uma caixa de perguntas se houver decisão.
 
 ## Delegação (GPT, DeepSeek)
-Ver `AGENTS.md` e `docs/tarefas/`. Agentes externos trabalham em ramo próprio `ext-<agente>-<tarefa>` e entregam por PR; o Claude revisa e roda os testes antes do merge.
+Ver `AGENTS.md` e `docs/tarefas/`. Agentes externos trabalham em ramo próprio `ext-<agente>-<tarefa>` e entregam por PR; o Claude revisa e roda os testes antes do merge. Tarefas com ID por produto (`CODE-<nº>`, `MACRO-`, `ACAD-`…). Ao fechar, a resposta segue a seção **Volta** de `docs/tarefas/MODELO.md`.
+- Conteúdo técnico (exemplos, glossário, Academy) entra como `rascunho`; só o Igor marca `revisado`.
