@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using Avalonia.Threading;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Scene;
@@ -43,6 +44,15 @@ public partial class MainView
     private void Wire3D()
     {
         View3DButton.Click += async (_, _) => await Toggle3DAsync(View3DButton.IsChecked == true);
+        GraphHost.SizeChanged += (_, _) => ApplyPlotsLayout();
+        Backplot.SizeChanged += (_, _) =>
+        {
+            if (_refit2D)
+            {
+                _refit2D = false;
+                Backplot.Fit();
+            }
+        };
     }
 
     private async Task Toggle3DAsync(bool on)
@@ -79,8 +89,7 @@ public partial class MainView
 
         _view3D = on;
         View3DButton.IsChecked = on;
-        Scene3DSlot.IsVisible = on;
-        Backplot.IsVisible = !on;
+        ApplyPlotsLayout();
         UpdateTimeChip();
         IsoViewButton.Content = on ? "Iso" : "2,5D";
         UpdateViewButtons();
@@ -94,7 +103,89 @@ public partial class MainView
         else
         {
             _frame3D?.Stop();
+            RapidsButton.IsVisible = false;
+            SpeedText.IsVisible = true;
         }
+    }
+
+    /// <summary>Área do gráfico com espaço para 2D e 3D lado a lado (PC).</summary>
+    private const double SideBySideWidth = 620;
+
+    private string _plotsColumns = "*,0,0";
+    private bool _refit2D;
+
+    /// <summary>
+    /// PC: 2D e 3D lado a lado, com divisor ajustável. Celular (ou área estreita): só um, alternando
+    /// pelo botão 3D.
+    /// </summary>
+    private void ApplyPlotsLayout()
+    {
+        bool side = _view3D && GraphHost.Bounds.Width >= SideBySideWidth;
+        string columns = !_view3D ? "*,0,0" : side ? "*,6,*" : "0,0,*";
+        if (columns != _plotsColumns)
+        {
+            // Só ao mudar de modo (assim o divisor arrastado pela pessoa fica onde ela deixou)
+            _plotsColumns = columns;
+            PlotsGrid.ColumnDefinitions = new ColumnDefinitions(columns);
+            // O 2D vai mudar de largura: enquadra de novo quando o novo tamanho chegar
+            _refit2D = true;
+        }
+
+        Backplot.IsVisible = !_view3D || side;
+        PlotsSplitter.IsVisible = side;
+        Scene3DSlot.IsVisible = _view3D;
+        UpdateTimeChip();
+    }
+
+    /// <summary>Lista dos G00 que encostaram no material (botão vermelho na barra da simulação).</summary>
+    private void UpdateRapidsButton()
+    {
+        IReadOnlyList<int> hits = _view3D && _material is not null ? _material.Simulation.RapidCollisions : [];
+        RapidsButton.IsVisible = hits.Count > 0;
+        // Celular estreito: o texto da velocidade cede lugar ao botão (o − e o + continuam)
+        SpeedText.IsVisible = hits.Count == 0 || GraphHost.Bounds.Width >= 470;
+        if (hits.Count == 0 || _analysis is not { } analysis)
+        {
+            return;
+        }
+
+        RapidsButton.Content = $"⚠ {hits.Count}";
+        var list = new StackPanel { Spacing = 2, Margin = new Avalonia.Thickness(4) };
+        list.Children.Add(new TextBlock { Text = "G00 que encostaram no material", FontWeight = Avalonia.Media.FontWeight.SemiBold, Margin = new Avalonia.Thickness(4, 2, 4, 6) });
+        foreach (int move in hits.Take(30))
+        {
+            int line = analysis.ToolPath.Moves[move].LineNumber;
+            string code = line >= 1 && line <= Editor.Document.LineCount
+                ? Editor.Document.GetText(Editor.Document.GetLineByNumber(line)).Trim()
+                : "";
+            var item = new Button
+            {
+                Content = $"Linha {line}: {(code.Length > 40 ? code[..40] + "…" : code)}",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                MinHeight = 36,
+            };
+            item.Click += (_, _) =>
+            {
+                RapidsButton.Flyout?.Hide();
+                GoToRapid(move, line);
+            };
+            list.Children.Add(item);
+        }
+
+        RapidsButton.Flyout = new Flyout { Content = new ScrollViewer { Content = list, MaxHeight = 360 } };
+    }
+
+    /// <summary>Leva o editor à linha do G00 e a simulação ao passo em que ele acontece.</summary>
+    private void GoToRapid(int move, int line)
+    {
+        StopSimulation();
+        int step = Array.FindIndex(_stepEnds, end => end > move);
+        if (step >= 0)
+        {
+            SetStep(step + 1);
+        }
+
+        GoToLine(line);
     }
 
     /// <summary>Torno no 2D: só o plano ZX. No 3D, fresa e torno usam as câmeras prontas.</summary>
@@ -118,6 +209,8 @@ public partial class MainView
         _scene = null;
         _collisionsShown = 0;
         _collisionsReported = 0;
+        RapidsButton.IsVisible = false;
+        SpeedText.IsVisible = true;
         if (_analysis is not { } analysis || analysis.ToolPath.Moves.Count == 0)
         {
             _scene3DView.SetScene(null);
@@ -171,6 +264,7 @@ public partial class MainView
                 _collisionsShown = sim.RapidCollisions.Count;
                 _scene.SetRapidCollisions(sim.RapidCollisions);
                 _scene3DView.SyncLines();
+                UpdateRapidsButton();
             }
 
             ShowSimPosition();
@@ -212,7 +306,8 @@ public partial class MainView
 
     private void Fit3DOr2D()
     {
-        if (!SetSceneView(_sceneView))
+        SetSceneView(_sceneView);
+        if (Backplot.IsVisible)
         {
             Backplot.Fit();
         }

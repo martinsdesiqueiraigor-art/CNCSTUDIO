@@ -158,10 +158,15 @@
       </Border>
       <GridSplitter x:Name="Splitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SubtleBorder}" />
       <Grid x:Name="GraphHost" Grid.Column="2" RowDefinitions="*,Auto">
-        <web:BackplotView x:Name="Backplot" Grid.Row="0" />
+        <!-- 2D (backplot) e 3D: no PC lado a lado com divisor; no celular um de cada vez -->
+        <Grid x:Name="PlotsGrid" Grid.Row="0" ColumnDefinitions="*,0,0">
+          <web:BackplotView x:Name="Backplot" Grid.Column="0" />
+          <GridSplitter x:Name="PlotsSplitter" Grid.Column="1" ResizeDirection="Columns" IsVisible="False"
+                        Background="{DynamicResource SubtleBorder}" Margin="0,44,0,58" />
         <!-- Vista 3D (criada na primeira vez que é aberta). É um elemento do navegador: nada do app
              fica por cima dela, então ela deixa livres as faixas dos botões (em cima) e das informações (embaixo) -->
-        <Panel x:Name="Scene3DSlot" Grid.Row="0" Margin="0,44,0,58" IsVisible="False" />
+        <Panel x:Name="Scene3DSlot" Grid.Column="2" Margin="0,44,0,58" IsVisible="False" />
+        </Grid>
 
         <!-- Por cima do gráfico (fixos, não acompanham zoom nem arrasto): vista e "Ajustar" no topo -->
         <DockPanel x:Name="GraphHeader" Grid.Row="0" Margin="8,6" LastChildFill="False" VerticalAlignment="Top">
@@ -207,6 +212,9 @@
         <!-- Simulação: uma faixa baixa com os controles -->
         <Border Grid.Row="1" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,0,0">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="6,7" Spacing="4">
+            <!-- Rápidos (G00) que encostaram no material: tocar leva à linha e ao passo -->
+            <Button x:Name="RapidsButton" Classes="sim problems" IsVisible="False" Margin="0,0,6,0" FontSize="13"
+                    ToolTip.Tip="G00 que encostaram no material: escolha para ir à linha" />
             <Button x:Name="SimStartButton" Classes="sim" ToolTip.Tip="Voltar ao início">
               <PathIcon Data="M0,0 H2.5 V12 H0 Z M12,0 L3.5,6 L12,12 Z" />
             </Button>

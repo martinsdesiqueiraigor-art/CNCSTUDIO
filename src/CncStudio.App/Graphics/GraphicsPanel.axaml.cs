@@ -51,14 +51,17 @@ public partial class GraphicsPanel : UserControl
     {
         InitializeComponent();
 
-        Orbit3DView.IsCheckedChanged += (_, _) => OnViewChecked(Orbit3DView, GraphicsViewKind.Orbit3D);
         IsoView.IsCheckedChanged += (_, _) => OnViewChecked(IsoView, GraphicsViewKind.Iso);
         Gl.Failed += (_, message) => OnGlFailed(message);
         TopView.IsCheckedChanged += (_, _) => OnViewChecked(TopView, GraphicsViewKind.Top);
         FrontView.IsCheckedChanged += (_, _) => OnViewChecked(FrontView, GraphicsViewKind.Front);
         SideView.IsCheckedChanged += (_, _) => OnViewChecked(SideView, GraphicsViewKind.Side);
         Lathe3DView.IsCheckedChanged += (_, _) => OnViewChecked(Lathe3DView, GraphicsViewKind.Lathe3D);
-        LatheGpuView.IsCheckedChanged += (_, _) => OnViewChecked(LatheGpuView, GraphicsViewKind.Orbit3D);
+        Show3DCheck.IsCheckedChanged += (_, _) =>
+        {
+            ShowGl(Show3DCheck.IsChecked == true && !_glFailed);
+            Enqueue(null);
+        };
         LatheZXView.IsCheckedChanged += (_, _) => OnViewChecked(LatheZXView, GraphicsViewKind.LatheZX);
 
         SolidCheck.IsCheckedChanged += (_, _) => { View.ShowSolid = Gl.ShowSolid = SolidCheck.IsChecked == true; Enqueue(null); };
@@ -137,13 +140,10 @@ public partial class GraphicsPanel : UserControl
 
     public void FitToContent()
     {
-        if (ViewKind == GraphicsViewKind.Orbit3D)
+        View.FitToContent();
+        if (_show3D)
         {
             Gl.Fit(SceneView.Isometric);
-        }
-        else
-        {
-            View.FitToContent();
         }
     }
 
@@ -168,10 +168,11 @@ public partial class GraphicsPanel : UserControl
         YBox.IsVisible = !lathe;
         if (machineChanged || ViewKind.IsLathe() != lathe)
         {
-            GraphicsViewKind mill = _glFailed ? GraphicsViewKind.Iso : GraphicsViewKind.Orbit3D;
-            (lathe ? (_glFailed ? Lathe3DView : LatheGpuView) : _glFailed ? IsoView : Orbit3DView).IsChecked = true;
-            View.View = lathe ? (_glFailed ? GraphicsViewKind.Lathe3D : GraphicsViewKind.Orbit3D) : mill;
-            ShowGl(View.View == GraphicsViewKind.Orbit3D);
+            // Com o 3D ao lado, o desenho da esquerda é o 2D (topo na fresa, plano ZX no torno)
+            bool with3D = Show3DCheck.IsChecked == true && !_glFailed;
+            (lathe ? (with3D ? LatheZXView : Lathe3DView) : with3D ? TopView : IsoView).IsChecked = true;
+            View.View = lathe ? (with3D ? GraphicsViewKind.LatheZX : GraphicsViewKind.Lathe3D) : with3D ? GraphicsViewKind.Top : GraphicsViewKind.Iso;
+            ShowGl(with3D);
         }
 
         _updatingSlider = true;
@@ -224,6 +225,7 @@ public partial class GraphicsPanel : UserControl
 
         _generation++;
         _glFitted = false;
+        _rapidsShown = -1;
         _imageKey = null;
         _cachedImage = null;
     }
@@ -236,7 +238,6 @@ public partial class GraphicsPanel : UserControl
         }
 
         View.View = kind;
-        ShowGl(kind == GraphicsViewKind.Orbit3D);
         _fitOnNextFrame = true;
         Enqueue(null);
     }
@@ -365,7 +366,7 @@ public partial class GraphicsPanel : UserControl
         bool section = SectionCheck.IsChecked == true;
         HeightMap? map = _map;
         TurningStock? turning = _turning;
-        SimulationScene? scene = view == GraphicsViewKind.Orbit3D ? _scene : null;
+        SimulationScene? scene = _show3D ? _scene : null;
         Bounds3 stockBounds = _stockBounds;
         Interlocked.Increment(ref _pendingWork);
 
@@ -400,11 +401,18 @@ public partial class GraphicsPanel : UserControl
     private bool _glFailed;
     private bool _glFitted;
 
+    private bool _show3D;
+
     private void ShowGl(bool on)
     {
+        if (on != _show3D)
+        {
+            _show3D = on;
+            ViewsGrid.ColumnDefinitions = new ColumnDefinitions(on ? "*,6,*" : "*,0,0");
+        }
+
         Gl.IsVisible = on;
-        View.IsVisible = !on;
-        MeasureToggle.IsEnabled = !on;
+        ViewsSplitter.IsVisible = on;
         if (on && !Gl.GlReady)
         {
             // O Avalonia não avisa quando não há OpenGL (computador sem placa de vídeo): se o 3D não
@@ -419,16 +427,47 @@ public partial class GraphicsPanel : UserControl
         }
     }
 
+    private int _rapidsShown = -1;
+
+    /// <summary>Botão com a lista dos G00 que encostaram no material (só muda quando a lista muda).</summary>
+    private void UpdateRapidsButton(GraphicsFrame frame)
+    {
+        if (frame.CollisionMoves.Length == _rapidsShown || _path is not { } path)
+        {
+            return;
+        }
+
+        _rapidsShown = frame.CollisionMoves.Length;
+        RapidsButton.IsVisible = _rapidsShown > 0;
+        if (_rapidsShown == 0)
+        {
+            return;
+        }
+
+        RapidsButton.Content = $"⚠ {_rapidsShown} G00 no material";
+        var menu = new MenuFlyout();
+        foreach (int move in frame.CollisionMoves.Take(40))
+        {
+            int line = path.Moves[move].LineNumber;
+            var item = new MenuItem { Header = $"Linha {line} (movimento {move + 1})" };
+            item.Click += (_, _) =>
+            {
+                Pause();
+                LineRequested?.Invoke(this, line);
+                GoToMove(move + 1); // fim do G00: a ferramenta já dentro do material
+            };
+            menu.Items.Add(item);
+        }
+
+        RapidsButton.Flyout = menu;
+    }
+
     // Sem OpenGL: volta ao desenho por CPU
     private void OnGlFailed(string message)
     {
         _glFailed = true;
-        Orbit3DView.IsVisible = false;
-        LatheGpuView.IsVisible = false;
-        if (ViewKind == GraphicsViewKind.Orbit3D)
-        {
-            (IsLatheProgram ? Lathe3DView : IsoView).IsChecked = true;
-        }
+        Show3DCheck.IsVisible = false;
+        ShowGl(false);
 
         StatusText.Text = "3D pela placa de vídeo indisponível (" + message + "): usando o desenho por CPU.";
     }
@@ -497,6 +536,7 @@ public partial class GraphicsPanel : UserControl
             Message = path.MessageAt(simulation.CurrentMoveIndex),
             CollisionLines = collisions.Select(i => path.Moves[i].LineNumber).Distinct().Take(6).ToArray(),
             CollisionCount = collisions.Count,
+            CollisionMoves = [.. collisions],
         };
     }
 
@@ -532,6 +572,7 @@ public partial class GraphicsPanel : UserControl
 
         View.SetProgress(atEnd ? null : frame.MoveIndex, pass);
         UpdateCoordinates(frame);
+        UpdateRapidsButton(frame);
 
         if (_deferredTarget is { } target)
         {

@@ -34,20 +34,18 @@
     <!-- Vistas e opções de exibição -->
     <WrapPanel DockPanel.Dock="Top" Margin="0,4">
       <StackPanel x:Name="MillViews" Orientation="Horizontal" Spacing="2">
-        <RadioButton x:Name="Orbit3DView" GroupName="View" Content="3D" IsChecked="True"
-                     ToolTip.Tip="3D pela placa de vídeo: arraste para girar, botão direito desloca, roda aproxima" />
-        <RadioButton x:Name="IsoView" GroupName="View" Content="Isométrica" />
+        <RadioButton x:Name="IsoView" GroupName="View" Content="Isométrica" IsChecked="True" />
         <RadioButton x:Name="TopView" GroupName="View" Content="Topo" />
         <RadioButton x:Name="FrontView" GroupName="View" Content="Frente" />
         <RadioButton x:Name="SideView" GroupName="View" Content="Lado" />
       </StackPanel>
       <StackPanel x:Name="LatheViews" Orientation="Horizontal" Spacing="2" IsVisible="False">
-        <RadioButton x:Name="LatheGpuView" GroupName="View" Content="3D"
-                     ToolTip.Tip="Torno 3D pela placa de vídeo: arraste para girar" />
         <RadioButton x:Name="Lathe3DView" GroupName="View" Content="Torno 3D" />
         <RadioButton x:Name="LatheZXView" GroupName="View" Content="Torno ZX" />
       </StackPanel>
       <Border Width="1" Background="#3A3F47" Margin="8,2" />
+      <CheckBox x:Name="Show3DCheck" Content="3D" IsChecked="True" Margin="0,0,6,0"
+                ToolTip.Tip="3D pela placa de vídeo ao lado do desenho: arraste para girar, botão direito desloca, roda aproxima" />
       <CheckBox x:Name="SolidCheck" Content="Sólido" IsChecked="True" Margin="0,0,6,0" />
       <CheckBox x:Name="PathCheck" Content="Trajetória" IsChecked="True" Margin="0,0,6,0" />
       <CheckBox x:Name="ToolCheck" Content="Ferramenta" IsChecked="True" Margin="0,0,6,0" />
@@ -114,13 +112,20 @@
             </WrapPanel>
           </StackPanel>
         </Grid>
-        <TextBlock x:Name="StatusText" FontSize="12" Foreground="#C8CDD3" TextTrimming="CharacterEllipsis" />
+        <DockPanel>
+          <!-- G00 que encostaram no material: escolher leva à linha e à posição na simulação -->
+          <Button x:Name="RapidsButton" DockPanel.Dock="Left" IsVisible="False" Margin="0,0,8,0" Padding="8,2" FontSize="12"
+                  Foreground="#FF7B72" BorderBrush="#F85149" BorderThickness="1" />
+          <TextBlock x:Name="StatusText" FontSize="12" Foreground="#C8CDD3" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+        </DockPanel>
       </StackPanel>
     </Border>
 
-    <Panel>
-      <g:GraphicsView x:Name="View" />
-      <g:GlSceneView x:Name="Gl" IsVisible="False" />
-    </Panel>
+    <!-- 2D (vistas fixas e torno ZX) e 3D pela placa de vídeo lado a lado, com divisor ajustável -->
+    <Grid x:Name="ViewsGrid" ColumnDefinitions="*,0,0">
+      <g:GraphicsView x:Name="View" Grid.Column="0" />
+      <GridSplitter x:Name="ViewsSplitter" Grid.Column="1" ResizeDirection="Columns" Background="#3A3F47" IsVisible="False" />
+      <g:GlSceneView x:Name="Gl" Grid.Column="2" IsVisible="False" />
+    </Grid>
   </DockPanel>
 </UserControl>

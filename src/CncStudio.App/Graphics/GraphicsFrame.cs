@@ -38,6 +38,9 @@ public sealed record GraphicsFrame
     public int[] CollisionLines { get; init; } = [];
     public int CollisionCount { get; init; }
 
+    /// <summary>Índices dos movimentos G00 que removeram material (todos, em ordem).</summary>
+    public int[] CollisionMoves { get; init; } = [];
+
     /// <summary>Vista 3D pela placa de vídeo: foto da cena (null nas outras vistas).</summary>
     public CncStudio.Core.Scene.SceneSnapshot? Scene { get; init; }
 }
