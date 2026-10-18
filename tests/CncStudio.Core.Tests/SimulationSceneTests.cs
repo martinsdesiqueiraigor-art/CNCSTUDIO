@@ -87,7 +87,82 @@ public class SimulationSceneTests
         SolidMesh all = new HeightMapMesh(map).Merged();
         ConferirMalha(all);
         ConferirSentido(all);
-        Assert.Equal(VolumeDoMapa(map), all.EnclosedVolume(), 2);
+        // O contorno liso troca os degraus por curvas: o volume muda pouco (cantos redondos), não 1%
+        Assert.InRange(all.EnclosedVolume() / VolumeDoMapa(map), 0.99, 1.01);
+    }
+
+    // Vértices das paredes (normal horizontal): os que ficam no contorno dos furos e degraus
+    private static List<(double X, double Y, double Z)> VerticesDeParede(SolidMesh mesh)
+    {
+        var list = new List<(double, double, double)>();
+        ReadOnlySpan<float> p = mesh.Positions, n = mesh.Normals;
+        for (int v = 0; v < mesh.VertexCount; v++)
+        {
+            if (Math.Abs(n[v * 3 + 2]) < 0.01)
+            {
+                list.Add((p[v * 3], p[v * 3 + 1], p[v * 3 + 2]));
+            }
+        }
+
+        return list;
+    }
+
+    [Fact]
+    public void FuroRedondoSaiRedondoEParedeRetaFicaReta()
+    {
+        // Furo de raio 12 mm numa grade de 1 mm: antes, degraus de até ~0,7 mm; agora, o contorno acompanha o círculo
+        HeightMap hole = Mapa();
+        hole.CutDisc(60, 35, 12, -8, tool: 1);
+        List<(double X, double Y, double Z)> wall = VerticesDeParede(new HeightMapMesh(hole).Merged())
+            .Where(v => Math.Abs(v.X - 60) < 20 && Math.Abs(v.Y - 35) < 20).ToList();
+        Assert.True(wall.Count > 60);
+        double[] error = wall.Select(v => Math.Abs(Math.Sqrt((v.X - 60) * (v.X - 60) + (v.Y - 35) * (v.Y - 35)) - 12)).ToArray();
+        Assert.True(error.Max() < 0.5, $"desvio máximo do círculo: {error.Max():F3} mm");
+        Assert.True(error.Average() < 0.2, $"desvio médio do círculo: {error.Average():F3} mm");
+
+        // Parede reta (borda de um corte enorme): fica no meio das duas células, sem serrilhado
+        HeightMap straight = Mapa();
+        straight.CutDisc(5060, 35, 5000, -8, tool: 1);
+        // (fora as laterais externas do bloco, que também têm normal horizontal)
+        List<(double X, double Y, double Z)> line = VerticesDeParede(new HeightMapMesh(straight).Merged())
+            .Where(v => v.X > 0.01 && v.X < 119.99 && v.Y > 0.01 && v.Y < 69.99).ToList();
+        Assert.True(line.Count > 100);
+        Assert.All(line, v => Assert.InRange(v.X, 59.95, 60.05));
+    }
+
+    [Fact]
+    public void ContornoLisoMarcaArestasEPartesPlanasNaoTemAresta()
+    {
+        HeightMap map = Mapa();
+        Assert.Equal(0, new HeightMapMesh(map).Tile(5).Edges.Length);
+        SolidMesh intact = HeightMapMesh.BuildTile(map, ScenePalette.Realistic, 1, 1);
+        Assert.Equal(0, intact.Edges.Length);
+
+        map.CutDisc(45, 40, 6, -5, tool: 1);
+        SolidMesh cut = HeightMapMesh.BuildTile(map, ScenePalette.Realistic, 1, 1);
+        Assert.True(cut.Edges.Length > 0);
+        Assert.Equal(0, cut.Edges.Length % 6);
+        // O alto da parede está no topo do bruto (Z0) e o pé no fundo do furo (Z-5)
+        float[] e = cut.Edges.ToArray();
+        Assert.Contains(Enumerable.Range(0, e.Length / 6), k => e[k * 6 + 2] == 0f);
+        Assert.Contains(Enumerable.Range(0, e.Length / 6), k => e[k * 6 + 2] == -5f);
+    }
+
+    [Fact]
+    public void CorteNoMeioDeUmBlocoNaoRefazOsVizinhos()
+    {
+        HeightMap map = Mapa();
+        var mesh = new HeightMapMesh(map);
+        mesh.Update();
+
+        map.CutDisc(45, 10, 2, -3, tool: 1);          // longe das bordas do bloco (colunas 32–63)
+        Assert.Equal([1], mesh.Update());
+
+        map.CutDisc(33, 10, 2, -3, tool: 1);          // a 1 célula da borda: o bloco da esquerda enxerga
+        IReadOnlyList<int> changed = mesh.Update();
+        Assert.Contains(0, changed);
+        Assert.Contains(1, changed);
+        Assert.Equal(2, changed.Count);
     }
 
     [Fact]

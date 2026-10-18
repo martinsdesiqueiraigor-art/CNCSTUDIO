@@ -12,6 +12,7 @@ public sealed class HeightMap
     private readonly float[] _heights;
     private readonly ushort[] _cutBy;
     private readonly int[] _tileVersion;
+    private readonly int[] _haloVersion;
 
     /// <summary>
     /// Lado (em células) dos blocos usados para saber o que mudou: quem desenha guarda a versão de
@@ -48,6 +49,7 @@ public sealed class HeightMap
         TileColumns = (columns + TileSize - 1) / TileSize;
         TileRows = (rows + TileSize - 1) / TileSize;
         _tileVersion = new int[TileColumns * TileRows];
+        _haloVersion = new int[TileColumns * TileRows];
         Reset();
     }
 
@@ -85,9 +87,44 @@ public sealed class HeightMap
     /// <summary>Valor de <see cref="Version"/> na última mudança do bloco (tileColumn, tileRow).</summary>
     public int TileVersion(int tileColumn, int tileRow) => _tileVersion[tileRow * TileColumns + tileColumn];
 
-    // Marca o bloco da célula como alterado na versão que está para ser publicada
-    private void Touch(int column, int row) =>
-        _tileVersion[row / TileSize * TileColumns + column / TileSize] = Version + 1;
+    /// <summary>
+    /// Quantas células da borda de um bloco influenciam a malha do bloco vizinho (o contorno liso do
+    /// material olha até 3 células além da própria borda).
+    /// </summary>
+    public const int HaloCells = 3;
+
+    /// <summary>
+    /// Valor de <see cref="Version"/> na última mudança, feita num bloco vizinho, em células que a malha
+    /// deste bloco enxerga (as de uma faixa de <see cref="HaloCells"/> na borda do vizinho).
+    /// </summary>
+    public int HaloVersion(int tileColumn, int tileRow) => _haloVersion[tileRow * TileColumns + tileColumn];
+
+    // Marca o bloco da célula como alterado na versão que está para ser publicada; se a célula está
+    // perto da borda do bloco, marca também os vizinhos que enxergam essa borda
+    private void Touch(int column, int row)
+    {
+        int tc = column / TileSize, tr = row / TileSize;
+        _tileVersion[tr * TileColumns + tc] = Version + 1;
+        int lc = column - tc * TileSize, lr = row - tr * TileSize;
+        if (lc >= HaloCells && lc < TileSize - HaloCells && lr >= HaloCells && lr < TileSize - HaloCells)
+        {
+            return;
+        }
+
+        int dcMin = lc < HaloCells ? -1 : 0, dcMax = lc >= TileSize - HaloCells ? 1 : 0;
+        int drMin = lr < HaloCells ? -1 : 0, drMax = lr >= TileSize - HaloCells ? 1 : 0;
+        for (int dr = drMin; dr <= drMax; dr++)
+        {
+            for (int dc = dcMin; dc <= dcMax; dc++)
+            {
+                int nc = tc + dc, nr = tr + dr;
+                if ((dc != 0 || dr != 0) && nc >= 0 && nr >= 0 && nc < TileColumns && nr < TileRows)
+                {
+                    _haloVersion[nr * TileColumns + nc] = Version + 1;
+                }
+            }
+        }
+    }
 
     public double CellCenterX(int column) => OriginX + (column + 0.5) * CellSize;
     public double CellCenterY(int row) => OriginY + (row + 0.5) * CellSize;
@@ -112,6 +149,7 @@ public sealed class HeightMap
         Array.Clear(_cutBy);
         Version++;
         Array.Fill(_tileVersion, Version);
+        Array.Fill(_haloVersion, Version);
     }
 
     /// <summary>

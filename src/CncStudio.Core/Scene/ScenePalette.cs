@@ -77,8 +77,8 @@ public sealed class ScenePalette
     /// <summary>Cor da cobertura da fresa e da broca (tipo TiN, dourado).</summary>
     public uint Coating { get; private init; }
 
-    /// <summary>Cor das arestas marcadas por cima das superfícies (traço fino escuro).</summary>
-    public uint Edge { get; private init; } = 0x2B323A;
+    /// <summary>Cor das arestas marcadas por cima das superfícies (traço fino, cinza escuro: sobre a peça clara dá contraste sem pesar).</summary>
+    public uint Edge { get; private init; } = 0x59626C;
 
     public uint FeedPath { get; private init; } = 0x58A6FF;
     public uint RapidPath { get; private init; } = 0xE3B341;

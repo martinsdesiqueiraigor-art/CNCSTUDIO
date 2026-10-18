@@ -28,6 +28,9 @@ internal static partial class Scene3DInterop
         [JSMarshalAs<JSType.MemoryView>] Span<byte> colors,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> indices);
 
+    [JSImport("setEdges", Module)]
+    public static partial void SetEdges(JSObject host, string id, [JSMarshalAs<JSType.MemoryView>] Span<byte> positions, int color);
+
     [JSImport("placeMesh", Module)]
     public static partial void PlaceMesh(JSObject host, string id, double x, double y, double z, bool visible);
 
@@ -203,6 +206,7 @@ internal sealed class Scene3DView : NativeControlHost
                     MemoryMarshal.AsBytes(mesh.Normals).ToArray(),
                     MemoryMarshal.AsBytes(mesh.Colors).ToArray(),
                     MemoryMarshal.AsBytes(mesh.Indices).ToArray());
+                Scene3DInterop.SetEdges(host, o.Id, MemoryMarshal.AsBytes(mesh.Edges).ToArray(), (int)scene.Palette.Edge);
                 _sent[o.Id] = (o.Version, o);
                 _placed.Remove(o.Id);
             }

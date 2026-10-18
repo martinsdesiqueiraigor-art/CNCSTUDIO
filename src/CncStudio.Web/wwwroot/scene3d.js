@@ -195,18 +195,35 @@ export function setMesh(host, id, role, positions, normals, colors, indices) {
   if (entry) {
     entry.mesh.geometry.dispose();
     entry.mesh.geometry = geometry;
-    if (entry.edges) { entry.edges.geometry.dispose(); entry.edges.geometry = new THREE.EdgesGeometry(geometry, 35); }
   } else {
     const mesh = new THREE.Mesh(geometry, materialFor(role));
     v.scene.add(mesh);
     entry = { mesh, role, edges: null };
-    // Contornos discretos nas peças paradas e na ferramenta (no material seriam linhas demais)
-    if (role !== 'Material') {
-      entry.edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 35),
-        new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 }));
-      mesh.add(entry.edges);
-    }
     v.objects.set(id, entry);
+  }
+  requestRender(v);
+}
+
+/** Arestas marcadas da malha "id" (o Core calcula: alto e pé das paredes do corte, quinas vivas das peças). */
+export function setEdges(host, id, positions, color) {
+  const v = viewOf(host);
+  const entry = v?.objects.get(id);
+  if (!entry) return;
+  const array = toF32(positions);
+  if (array.length === 0) {
+    if (entry.edges) { entry.edges.geometry.dispose(); entry.edges.material.dispose(); entry.mesh.remove(entry.edges); entry.edges = null; }
+    requestRender(v);
+    return;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(array, 3));
+  if (entry.edges) {
+    entry.edges.geometry.dispose();
+    entry.edges.geometry = geometry;
+  } else {
+    // Traço fino e discreto por cima da superfície (a malha recua um pouco por polygonOffset)
+    entry.edges = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 }));
+    entry.mesh.add(entry.edges);
   }
   requestRender(v);
 }
@@ -229,6 +246,7 @@ export function removeMesh(host, id) {
   entry.mesh.geometry.dispose();
   entry.mesh.material.dispose();
   entry.edges?.geometry.dispose();
+  entry.edges?.material.dispose();
   v.objects.delete(id);
   requestRender(v);
 }
