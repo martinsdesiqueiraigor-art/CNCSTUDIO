@@ -22,8 +22,10 @@ public sealed record SceneCamera(Point3 Target, double Distance, double Azimuth,
     public const double MaxElevation = 89.9;
 
     /// <summary>Ângulos (azimute, elevação) de cada vista pronta.</summary>
-    public static (double Azimuth, double Elevation) AnglesOf(SceneView view) => view switch
+    /// <param name="lathe">Torno (eixo da peça deitado em X): a isométrica olha mais de frente, para o perfil.</param>
+    public static (double Azimuth, double Elevation) AnglesOf(SceneView view, bool lathe = false) => view switch
     {
+        SceneView.Isometric when lathe => (20, 25),
         SceneView.Top => (0, MaxElevation),
         SceneView.Front => (0, 0),
         SceneView.Side => (90, 0),
@@ -31,9 +33,9 @@ public sealed record SceneCamera(Point3 Target, double Distance, double Azimuth,
     };
 
     /// <summary>Câmera que enquadra a caixa inteira ("ajustar"), na vista dada.</summary>
-    public static SceneCamera Fit(Bounds3 box, SceneView view, double aspect, double fieldOfView = 35)
+    public static SceneCamera Fit(Bounds3 box, SceneView view, double aspect, double fieldOfView = 35, bool lathe = false)
     {
-        (double azimuth, double elevation) = AnglesOf(view);
+        (double azimuth, double elevation) = AnglesOf(view, lathe);
         return Fit(box, azimuth, elevation, aspect, fieldOfView);
     }
 

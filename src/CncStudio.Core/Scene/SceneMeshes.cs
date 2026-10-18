@@ -17,13 +17,49 @@ public static class SceneMeshes
 
     // ── Torno ──
 
+    /// <summary>
+    /// Do sistema do torno (X = raio, Z = eixo da peça) para a cena (Z para cima): o eixo da peça fica
+    /// deitado em X (para a direita, como no painel do CNC) e o raio X do torno aponta para cima.
+    /// É uma rotação (mantém o sentido das faces).
+    /// </summary>
+    public static Point3 LatheToWorld(Point3 p) => new(p.Z, -p.Y, p.X);
+
+    /// <summary>
+    /// Placa de 3 castanhas segurando a barra pela ponta de menor Z (coordenadas da cena). Usa o
+    /// diâmetro e a altura da placa do setup, se houver; senão, medidas proporcionais à barra.
+    /// </summary>
+    public static (SolidMesh Body, SolidMesh Jaws) LatheChuck(TurningStock stock, SetupFixture? chuck, ScenePalette palette)
+    {
+        double r = stock.Radius;
+        double bodyRadius = chuck is { Kind: SetupFixtureKind.ThreeJawChuck } c1 ? Math.Max(c1.Width / 2, r * 1.3) : Math.Max(r * 1.8, r + 20);
+        double bodyLength = chuck is { Kind: SetupFixtureKind.ThreeJawChuck } c2 ? c2.Height : Math.Max(20, bodyRadius * 0.45);
+        double jawThickness = chuck?.JawThickness ?? Math.Max(10, r * 0.4);
+        double grip = Math.Clamp(stock.MaxZ - stock.MinZ, 1, 1e9) * 0.18;
+        grip = Math.Clamp(grip, 5, 25);
+        double z0 = stock.MinZ;
+
+        var body = SolidMesh.Create(RevolutionSegments * 4);
+        Revolve(body, [(0, z0 - bodyLength), (bodyRadius, z0 - bodyLength), (bodyRadius, z0), (0, z0)], 0, 0, palette.Fixture);
+
+        var jaws = SolidMesh.Create(18);
+        double jawLength = Math.Max(jawThickness * 1.6, (bodyRadius - r) * 0.6);
+        for (int j = 0; j < 3; j++)
+        {
+            double angle = (90 + j * 120) * Math.PI / 180; // uma castanha em cima
+            Box(jaws, new Point3(r, -jawThickness / 2, z0), new Point3(jawLength, jawThickness, grip), palette.FixtureJaw, angle, 0, 0);
+        }
+
+        return (body.Transformed(LatheToWorld), jaws.Transformed(LatheToWorld));
+    }
+
     /// <summary>Peça do torno (revolução em volta de Z), com o quarto de +X/+Y removido se "quarterSection".</summary>
     public static SolidMesh Turning(TurningStock stock, bool quarterSection, ScenePalette palette)
     {
         var mesh = SolidMesh.Create(stock.Slices * 4);
         uint machined = palette.Machined(0.35, 0);
+        // Peça em coordenadas da cena (eixo deitado, raio para cima)
         LatheSolidRenderer.EmitQuads(stock, quarterSection, (a, b, c, d, n, surface) =>
-            mesh.AddQuad(a, b, c, d, n, surface switch
+            mesh.AddQuad(LatheToWorld(a), LatheToWorld(b), LatheToWorld(c), LatheToWorld(d), LatheToWorld(n), surface switch
             {
                 LatheSurface.Stock => palette.Stock,
                 LatheSurface.Section => palette.Section,
@@ -95,7 +131,8 @@ public static class SceneMeshes
 
     /// <summary>
     /// Inserto rômbico de 80° (12,7 mm) com a ponta na origem, no plano XZ do torno (X = raio,
-    /// Z = eixo), corpo para +X e +Z, e a haste do suporte saindo em +X.
+    /// Z = eixo), corpo para +X e +Z, e a haste do suporte saindo em +X. Devolvido já em
+    /// coordenadas da cena (<see cref="LatheToWorld"/>).
     /// </summary>
     public static (SolidMesh Insert, SolidMesh Holder) LatheTool(ScenePalette palette)
     {
@@ -113,7 +150,7 @@ public static class SceneMeshes
         double centerX = c.X / 2, centerZ = c.Z / 2;
         var holder = SolidMesh.Create(8);
         Box(holder, new Point3(centerX, -thickness / 2 - 10, centerZ - 10), new Point3(70, 10, 20), palette.Holder);
-        return (insert, holder);
+        return (insert.Transformed(LatheToWorld), holder.Transformed(LatheToWorld));
     }
 
     // ── Fixações ──

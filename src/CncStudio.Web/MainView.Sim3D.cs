@@ -23,6 +23,18 @@ public partial class MainView
     private bool _loading3D;
     private bool _technical;
     private bool _showTool3D = true;
+    private bool _quarterSection = true;
+
+    /// <summary>Torno: peça com 1/4 removido (mostra o perfil e o furo por dentro).</summary>
+    private void SetQuarterSection(bool on)
+    {
+        _quarterSection = on;
+        if (_scene is not null)
+        {
+            _scene.QuarterSection = on;
+            _scene3DView?.Sync();
+        }
+    }
     private SceneView _sceneView = SceneView.Isometric;
 
     /// <summary>Linha de ajuda sobre o limite da simulação (sem prometer colisão garantida).</summary>
@@ -71,6 +83,7 @@ public partial class MainView
         Backplot.IsVisible = !on;
         UpdateTimeChip();
         IsoViewButton.Content = on ? "Iso" : "2,5D";
+        UpdateViewButtons();
         Store("cc.view3d", on ? "1" : "0");
         if (on)
         {
@@ -82,6 +95,14 @@ public partial class MainView
         {
             _frame3D?.Stop();
         }
+    }
+
+    /// <summary>Torno no 2D: só o plano ZX. No 3D, fresa e torno usam as câmeras prontas.</summary>
+    private void UpdateViewButtons()
+    {
+        bool lathe = _analysis?.ToolPath.Machine == MachineKind.Lathe;
+        LatheLabel.IsVisible = lathe && !_view3D;
+        MillViews.IsVisible = !lathe || _view3D;
     }
 
     /// <summary>Recria a simulação 3D para o programa analisado (programa, setup ou tela mudaram).</summary>
@@ -97,7 +118,7 @@ public partial class MainView
         _scene = null;
         _collisionsShown = 0;
         _collisionsReported = 0;
-        if (_analysis is not { } analysis || analysis.ToolPath.Machine != MachineKind.Mill || analysis.ToolPath.Moves.Count == 0)
+        if (_analysis is not { } analysis || analysis.ToolPath.Moves.Count == 0)
         {
             _scene3DView.SetScene(null);
             return;
@@ -105,8 +126,11 @@ public partial class MainView
 
         int cells = SimulationFactory.CellsFor(GraphHost.Bounds.Width, GraphHost.Bounds.Height);
         _material = SimulationFactory.Create(analysis, _machiningSetup, Editor.Text, cells);
-        _scene = SimulationScene.ForMill(_material.Map!, analysis.ToolPath, _material.Profiles, _machiningSetup,
-            _technical ? ScenePalette.Technical : ScenePalette.Realistic);
+        ScenePalette palette = _technical ? ScenePalette.Technical : ScenePalette.Realistic;
+        _scene = _material.Bar is { } bar
+            ? SimulationScene.ForLathe(bar, analysis.ToolPath, _machiningSetup, palette)
+            : SimulationScene.ForMill(_material.Map!, analysis.ToolPath, _material.Profiles, _machiningSetup, palette);
+        _scene.QuarterSection = _quarterSection;
         ApplyToolVisibility();
         _driver = new SimulationDriver(_material.Simulation) { Target = TargetMoves() };
         _scene3DView.SetScene(_scene);

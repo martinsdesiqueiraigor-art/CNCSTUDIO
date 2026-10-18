@@ -42,6 +42,8 @@
         <RadioButton x:Name="SideView" GroupName="View" Content="Lado" />
       </StackPanel>
       <StackPanel x:Name="LatheViews" Orientation="Horizontal" Spacing="2" IsVisible="False">
+        <RadioButton x:Name="LatheGpuView" GroupName="View" Content="3D"
+                     ToolTip.Tip="Torno 3D pela placa de vídeo: arraste para girar" />
         <RadioButton x:Name="Lathe3DView" GroupName="View" Content="Torno 3D" />
         <RadioButton x:Name="LatheZXView" GroupName="View" Content="Torno ZX" />
       </StackPanel>

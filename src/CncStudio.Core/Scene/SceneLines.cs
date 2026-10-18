@@ -44,6 +44,20 @@ public sealed class SceneLines
         _moves.Add(move);
     }
 
+    /// <summary>As mesmas linhas com cada ponto passado por "map" (ex.: torno para a cena).</summary>
+    public SceneLines Mapped(Func<Point3, Point3> map)
+    {
+        var copy = new SceneLines(Role);
+        for (int i = 0; i < _moves.Count; i++)
+        {
+            int k = i * 6;
+            copy.Add(map(new Point3(_positions[k], _positions[k + 1], _positions[k + 2])),
+                map(new Point3(_positions[k + 3], _positions[k + 4], _positions[k + 5])), _moves[i]);
+        }
+
+        return copy;
+    }
+
     /// <summary>
     /// Trajetória separada por papel: avanço, rápido e rápido que encostou no material
     /// ("rapidCollisions", na ordem da simulação). Arcos viram segmentos com a tolerância dada.

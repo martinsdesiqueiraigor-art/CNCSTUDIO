@@ -114,6 +114,39 @@ public sealed class SolidMesh
         IndexCount += indices;
     }
 
+    /// <summary>
+    /// Cópia com todos os vértices passados por uma rotação (ou rotação + translação) "map";
+    /// as normais passam pela parte de rotação (map(n) − map(0)).
+    /// </summary>
+    internal SolidMesh Transformed(Func<Point3, Point3> map)
+    {
+        var copy = new SolidMesh(Math.Max(16, VertexCount / 4));
+        while (VertexCount * 3 > copy._positions.Length || IndexCount > copy._indices.Length)
+        {
+            copy.Grow();
+        }
+
+        Point3 origin = map(Point3.Origin);
+        for (int v = 0; v < VertexCount; v++)
+        {
+            int k = v * 3;
+            Point3 p = map(new Point3(_positions[k], _positions[k + 1], _positions[k + 2]));
+            Point3 n = map(new Point3(_normals[k], _normals[k + 1], _normals[k + 2])) - origin;
+            copy._positions[k] = (float)p.X;
+            copy._positions[k + 1] = (float)p.Y;
+            copy._positions[k + 2] = (float)p.Z;
+            copy._normals[k] = (float)n.X;
+            copy._normals[k + 1] = (float)n.Y;
+            copy._normals[k + 2] = (float)n.Z;
+        }
+
+        Colors.CopyTo(copy._colors);
+        Indices.CopyTo(copy._indices);
+        copy.VertexCount = VertexCount;
+        copy.IndexCount = IndexCount;
+        return copy;
+    }
+
     /// <summary>Menor caixa que contém todos os vértices.</summary>
     public Bounds3 Bounds
     {

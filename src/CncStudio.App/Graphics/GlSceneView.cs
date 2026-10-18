@@ -61,7 +61,7 @@ public sealed class GlSceneView : OpenGlControlBase
     public event EventHandler<string>? Failed;
 
     /// <summary>True depois que o OpenGL iniciou (sem placa de vídeo ele nunca inicia).</summary>
-    public bool Initialized => _ready;
+    public bool GlReady => _ready;
 
     /// <summary>Texto da placa de vídeo, depois de iniciar.</summary>
     public string Renderer { get; private set; } = "";
@@ -82,7 +82,7 @@ public sealed class GlSceneView : OpenGlControlBase
         }
 
         double aspect = Bounds.Height > 1 ? Bounds.Width / Bounds.Height : 1;
-        Camera = SceneCamera.Fit(_snapshot.Bounds, view, aspect, Camera.FieldOfView);
+        Camera = SceneCamera.Fit(_snapshot.Bounds, view, aspect, Camera.FieldOfView, _snapshot.IsLathe);
         RequestNextFrameRendering();
     }
 

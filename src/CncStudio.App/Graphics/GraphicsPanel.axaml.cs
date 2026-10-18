@@ -58,6 +58,7 @@ public partial class GraphicsPanel : UserControl
         FrontView.IsCheckedChanged += (_, _) => OnViewChecked(FrontView, GraphicsViewKind.Front);
         SideView.IsCheckedChanged += (_, _) => OnViewChecked(SideView, GraphicsViewKind.Side);
         Lathe3DView.IsCheckedChanged += (_, _) => OnViewChecked(Lathe3DView, GraphicsViewKind.Lathe3D);
+        LatheGpuView.IsCheckedChanged += (_, _) => OnViewChecked(LatheGpuView, GraphicsViewKind.Orbit3D);
         LatheZXView.IsCheckedChanged += (_, _) => OnViewChecked(LatheZXView, GraphicsViewKind.LatheZX);
 
         SolidCheck.IsCheckedChanged += (_, _) => { View.ShowSolid = Gl.ShowSolid = SolidCheck.IsChecked == true; Enqueue(null); };
@@ -168,8 +169,8 @@ public partial class GraphicsPanel : UserControl
         if (machineChanged || ViewKind.IsLathe() != lathe)
         {
             GraphicsViewKind mill = _glFailed ? GraphicsViewKind.Iso : GraphicsViewKind.Orbit3D;
-            (lathe ? Lathe3DView : _glFailed ? IsoView : Orbit3DView).IsChecked = true;
-            View.View = lathe ? GraphicsViewKind.Lathe3D : mill;
+            (lathe ? (_glFailed ? Lathe3DView : LatheGpuView) : _glFailed ? IsoView : Orbit3DView).IsChecked = true;
+            View.View = lathe ? (_glFailed ? GraphicsViewKind.Lathe3D : GraphicsViewKind.Orbit3D) : mill;
             ShowGl(View.View == GraphicsViewKind.Orbit3D);
         }
 
@@ -202,9 +203,10 @@ public partial class GraphicsPanel : UserControl
         if (IsLatheProgram)
         {
             _map = null;
-            _scene = null;
             _turning = SimulationFactory.LatheStock(Stock, _path);
             _simulation = new TurningSimulator(_turning, _path.Moves, diameterOf);
+            _scene = SimulationScene.ForLathe(_turning, _path, Setup);
+            _sceneCollisions = 0;
             _stockBounds = Bounds3.Empty.Include(new Point3(0, 0, _turning.MinZ)).Include(new Point3(_turning.Radius, 0, _turning.MaxZ));
         }
         else
@@ -375,7 +377,7 @@ public partial class GraphicsPanel : UserControl
                 GraphicsFrame frame = Capture(simulation, path, view, generation, solid, section, map, turning, stockBounds);
                 if (scene is not null)
                 {
-                    frame = frame with { Scene = SceneOf(scene, simulation) };
+                    frame = frame with { Scene = SceneOf(scene, simulation, section) };
                 }
 
                 Dispatcher.UIThread.Post(() => ShowFrame(frame));
@@ -403,13 +405,13 @@ public partial class GraphicsPanel : UserControl
         Gl.IsVisible = on;
         View.IsVisible = !on;
         MeasureToggle.IsEnabled = !on;
-        if (on && !Gl.Initialized)
+        if (on && !Gl.GlReady)
         {
             // O Avalonia não avisa quando não há OpenGL (computador sem placa de vídeo): se o 3D não
             // iniciar em alguns segundos, volta ao desenho por CPU
             DispatcherTimer.RunOnce(() =>
             {
-                if (Gl.IsVisible && !Gl.Initialized && !_glFailed)
+                if (Gl.IsVisible && !Gl.GlReady && !_glFailed)
                 {
                     OnGlFailed("não iniciou");
                 }
@@ -422,17 +424,19 @@ public partial class GraphicsPanel : UserControl
     {
         _glFailed = true;
         Orbit3DView.IsVisible = false;
+        LatheGpuView.IsVisible = false;
         if (ViewKind == GraphicsViewKind.Orbit3D)
         {
-            IsoView.IsChecked = true;
+            (IsLatheProgram ? Lathe3DView : IsoView).IsChecked = true;
         }
 
         StatusText.Text = "3D pela placa de vídeo indisponível (" + message + "): usando o desenho por CPU.";
     }
 
     /// <summary>Atualiza a cena 3D com a simulação (na fila de segundo plano, dona da cena) e tira a foto.</summary>
-    private SceneSnapshot SceneOf(SimulationScene scene, IMaterialSimulation simulation)
+    private SceneSnapshot SceneOf(SimulationScene scene, IMaterialSimulation simulation, bool section)
     {
+        scene.QuarterSection = section;
         scene.Refresh();
         scene.SetTool(simulation.CurrentTool, simulation.ToolPosition);
         if (simulation.RapidCollisions.Count != _sceneCollisions)

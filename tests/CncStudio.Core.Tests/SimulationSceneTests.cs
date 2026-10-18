@@ -435,4 +435,73 @@ public class SimulationSceneTests
         Assert.Equal(scene.Objects.Count, photo.Objects.Count);
         Assert.All(photo.Objects, o => Assert.Same(scene.Objects.Single(x => x.Id == o.Id).Mesh, o.Mesh));
     }
+
+    // ── Torno 3D (S4) ──
+
+    private static double VolumeDoTorno(TurningStock stock, double fraction)
+    {
+        static double Area(double r) => 30 * r * r * Math.Sin(2 * Math.PI / 60);
+        double sum = 0;
+        for (int i = 0; i < stock.Slices; i++)
+        {
+            float outer = stock.Outer[i], inner = stock.Inner[i];
+            if (outer > inner)
+            {
+                sum += (Area(outer) - Area(inner)) * stock.SliceLength;
+            }
+        }
+
+        return sum * fraction;
+    }
+
+    [Fact]
+    public void TornoPerfilDeRevolucaoIgualAoDaSimulacaoComEDemCorte()
+    {
+        string text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "samples", "torno", "EXEMPLO_TORNO.nc"));
+        ToolPath path = MachineExecutor.Execute(GCodeParser.Parse(text, Dialect.Fanuc));
+        TurningStock stock = TurningStock.CreateForToolPath(path);
+        var sim = new TurningSimulator(stock, path.Moves, _ => 10);
+        SimulationScene scene = SimulationScene.ForLathe(stock, path);
+        sim.RunToEnd();
+        scene.Refresh();
+
+        SolidMesh part = scene.Objects.Single(o => o.Id == "material/0").Mesh;
+        ConferirSentido(part);
+        Assert.Equal(VolumeDoTorno(stock, 0.75), part.EnclosedVolume(), 0);   // 1/4 removido
+
+        scene.QuarterSection = false;
+        part = scene.Objects.Single(o => o.Id == "material/0").Mesh;
+        Assert.Equal(VolumeDoTorno(stock, 1), part.EnclosedVolume(), 0);
+
+        // Eixo da peça deitado em X da cena, raio para cima (Z)
+        Bounds3 b = part.Bounds;
+        Assert.Equal(stock.MinZ, b.Min.X, 3);
+        Assert.Equal(stock.MaxZ, b.Max.X, 3);
+        Assert.Equal(stock.Radius, b.Max.Z, 3);
+    }
+
+    [Fact]
+    public void TornoComPlacaInsertoNaPontaELinhasNoPlanoDaPeca()
+    {
+        var stock = new TurningStock(-60, 0, 20);
+        ToolPath path = MachineExecutor.Execute(GCodeParser.Parse("G18 G00 X50 Z5\nG01 X38 Z-20 F0.2\nM30", Dialect.Fanuc),
+            new MachineSettings { Machine = MachineKind.Lathe });
+        SimulationScene scene = SimulationScene.ForLathe(stock, path);
+
+        SolidMesh jaws = scene.Objects.Single(o => o.Role == SceneRole.FixtureJaw).Mesh;
+        Assert.Equal(3 * 12, jaws.TriangleCount);
+        Assert.True(jaws.Bounds.Max.X <= stock.MinZ + 25 + 1e-6);        // prendem a ponta de menor Z
+        SolidMesh body = scene.Objects.Single(o => o.Role == SceneRole.Fixture).Mesh;
+        Assert.True(body.Bounds.Max.X <= stock.MinZ + 1e-6);            // corpo da placa atrás da barra
+
+        // Ponta do inserto em (raio 19, Z −20) do torno → (−20, 0, 19) na cena
+        scene.SetTool(1, new Point3(19, 0, -20));
+        SceneObject insert = scene.Objects.Single(o => o.Id == "ferramenta/corte");
+        Assert.Equal(new Point3(-20, 0, 19), insert.Offset);
+
+        // A trajetória também vai para o plano da peça na cena
+        SceneLines feed = scene.Lines.Single(l => l.Role == SceneRole.FeedPath);
+        Assert.Equal(5, feed.PositionArray[0], 4);      // Z5 → X da cena
+        Assert.Equal(25, feed.PositionArray[2], 4);     // X50 (diâmetro) → raio 25 para cima
+    }
 }

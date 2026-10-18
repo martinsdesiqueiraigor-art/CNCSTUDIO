@@ -868,6 +868,7 @@ public partial class MainView : UserControl
             SetTool3D(v);
         }));
         panel.Children.Add(Option("Modo técnico no 3D (corte na cor de cada ferramenta)", Stored("cc.technical") == "1", SetTechnical3D));
+        panel.Children.Add(Option("Torno 3D: corte de 1/4 (ver o perfil por dentro)", true, SetQuarterSection));
         panel.Children.Add(Option("Modo claro (oficina com muita luz)", Stored("cc.theme") == "light", v =>
         {
             ApplyTheme(v);
@@ -1106,14 +1107,7 @@ public partial class MainView : UserControl
         _problemIndex = -1;
         UpdateProblemsButton();
         bool lathe = _analysis.ToolPath.Machine == MachineKind.Lathe;
-        LatheLabel.IsVisible = lathe;
-        MillViews.IsVisible = !lathe;
-        View3DButton.IsVisible = !lathe; // torno 3D: próxima etapa
-        if (lathe && _view3D)
-        {
-            _ = Toggle3DAsync(false);
-        }
-
+        UpdateViewButtons();
         Rebuild3D();
         Editor.TextArea.TextView.Redraw();
         UpdateTimeChip();

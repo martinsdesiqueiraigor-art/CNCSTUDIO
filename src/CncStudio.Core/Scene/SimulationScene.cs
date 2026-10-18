@@ -13,7 +13,11 @@ public sealed record SceneObjectState(string Id, SceneRole Role, SolidMesh Mesh,
 public sealed record SceneLinesState(SceneRole Role, float[] Positions, uint Color);
 
 /// <summary>Foto da cena para desenhar em outra thread.</summary>
-public sealed record SceneSnapshot(IReadOnlyList<SceneObjectState> Objects, IReadOnlyList<SceneLinesState> Lines, Bounds3 Bounds, ScenePalette Palette);
+public sealed record SceneSnapshot(IReadOnlyList<SceneObjectState> Objects, IReadOnlyList<SceneLinesState> Lines, Bounds3 Bounds, ScenePalette Palette)
+{
+    /// <summary>Cena do torno (muda o ângulo da vista isométrica).</summary>
+    public bool IsLathe { get; init; }
+}
 
 /// <summary>Uma malha da cena com o papel dela e um deslocamento (a ferramenta anda; o resto fica parado).</summary>
 public sealed class SceneObject
@@ -69,6 +73,7 @@ public sealed class SimulationScene
     private bool _quarterSection = true;
     private int _turningVersion = -1;
     private int _tool = -1;
+    private Point3 _tip;
 
     private SimulationScene(ToolPath path, Func<int, ToolProfile> profileOf, MachiningSetup? setup, ScenePalette palette,
         HeightMapMesh? mill, TurningStock? turning)
@@ -94,7 +99,10 @@ public sealed class SimulationScene
         return new SimulationScene(path, profileOf, setup, palette, new HeightMapMesh(map, palette), null);
     }
 
-    /// <summary>Cena do torno: peça de revolução (com corte de 1/4 opcional) e o inserto.</summary>
+    /// <summary>
+    /// Cena do torno: peça de revolução (com corte de 1/4 opcional), placa com castanhas e o inserto,
+    /// com o eixo da peça deitado em X da cena (ver <see cref="SceneMeshes.LatheToWorld"/>).
+    /// </summary>
     public static SimulationScene ForLathe(TurningStock stock, ToolPath path, MachiningSetup? setup = null, ScenePalette? palette = null)
     {
         return new SimulationScene(path, _ => ToolProfile.Flat(1), setup, palette ?? ScenePalette.Realistic, null, stock);
@@ -137,7 +145,7 @@ public sealed class SimulationScene
             Refresh();
             if (tool >= 0)
             {
-                SetTool(tool, _cutter.Offset);
+                SetTool(tool, _tip);
             }
         }
     }
@@ -177,7 +185,7 @@ public sealed class SimulationScene
     }
 
     /// <summary>Enquadra a cena inteira na vista dada.</summary>
-    public void Fit(SceneView view, double aspect) => Camera = SceneCamera.Fit(Bounds, view, aspect, Camera.FieldOfView);
+    public void Fit(SceneView view, double aspect) => Camera = SceneCamera.Fit(Bounds, view, aspect, Camera.FieldOfView, IsLathe);
 
     /// <summary>
     /// Atualiza o material depois de a simulação avançar e devolve os objetos cuja malha mudou
@@ -227,8 +235,10 @@ public sealed class SimulationScene
             _holder.Replace(meshes.Holder);
         }
 
-        _cutter.Offset = tip;
-        _holder.Offset = tip;
+        _tip = tip;
+        Point3 world = _turning is not null ? SceneMeshes.LatheToWorld(tip with { Y = 0 }) : tip;
+        _cutter.Offset = world;
+        _holder.Offset = world;
     }
 
     /// <summary>
@@ -239,12 +249,24 @@ public sealed class SimulationScene
         [.. _objects.Select(o => new SceneObjectState(o.Id, o.Role, o.Mesh, o.Version, o.Offset, o.Visible))],
         [.. _lines.Select(l => new SceneLinesState(l.Role, l.PositionArray, _palette.Of(l.Role)))],
         Bounds,
-        _palette);
+        _palette)
+    {
+        IsLathe = IsLathe,
+    };
 
     /// <summary>Refaz as linhas da trajetória com os G00 que encostaram no material destacados.</summary>
     public void SetRapidCollisions(IReadOnlyCollection<int> rapidMoves)
     {
         (SceneLines feed, SceneLines rapid, SceneLines hit) = SceneLines.FromToolPath(_path, rapidMoves);
+        if (_turning is not null)
+        {
+            // Torno: X do programa é o raio no plano da peça (Y = 0), girado para a cena
+            Point3 Map(Point3 p) => SceneMeshes.LatheToWorld(p with { Y = 0 });
+            feed = feed.Mapped(Map);
+            rapid = rapid.Mapped(Map);
+            hit = hit.Mapped(Map);
+        }
+
         _lines.Clear();
         _lines.Add(feed);
         _lines.Add(rapid);
@@ -269,7 +291,15 @@ public sealed class SimulationScene
             _objects.Add(new SceneObject("material/0", SceneRole.Material, SolidMesh.Create(1)));
         }
 
-        if (_setup is not null)
+        if (_turning is not null)
+        {
+            // Torno: placa de 3 castanhas na ponta da barra (a do setup, se houver)
+            SetupFixture? chuck = _setup?.Fixtures.FirstOrDefault(f => f.Kind == SetupFixtureKind.ThreeJawChuck);
+            (SolidMesh body, SolidMesh jaws) = SceneMeshes.LatheChuck(_turning, chuck, _palette);
+            _objects.Add(new SceneObject("fixacao/placa/base", SceneRole.Fixture, body));
+            _objects.Add(new SceneObject("fixacao/placa/castanhas", SceneRole.FixtureJaw, jaws));
+        }
+        else if (_setup is not null)
         {
             for (int i = 0; i < _setup.Fixtures.Count; i++)
             {
