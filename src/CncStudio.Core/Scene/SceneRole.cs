@@ -29,4 +29,7 @@ public enum SceneRole
 
     /// <summary>G00 que encostou no material: destacado em vermelho.</summary>
     RapidInMaterial,
+
+    /// <summary>Só o movimento que está sendo executado agora (a trajetória inteira fica escondida por padrão).</summary>
+    CurrentPath,
 }

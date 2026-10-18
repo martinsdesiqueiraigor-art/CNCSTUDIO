@@ -349,6 +349,45 @@ public class SimulationSceneTests
     }
 
     [Fact]
+    public void SoOTrechoAtualApareceSemATrajetoriaInteira()
+    {
+        ToolPath path = Trajetoria();
+        var map = new HeightMap(-10, -10, 200, 60, 1, 0, -10);
+        SimulationScene scene = SimulationScene.ForMill(map, path, _ => ToolProfile.Flat(8));
+        Assert.DoesNotContain(scene.Lines, l => l.Role == SceneRole.CurrentPath);   // nada até a simulação começar
+
+        int feedMove = path.Moves.ToList().FindIndex(m => !m.IsRapid);
+        Assert.True(scene.SetCurrentMove(feedMove));
+        SceneLines current = scene.Lines.Single(l => l.Role == SceneRole.CurrentPath);
+        Assert.True(current.SegmentCount >= 1);
+        Assert.All(current.MoveOfSegment, i => Assert.Equal(feedMove, i));
+        Assert.False(scene.SetCurrentMove(feedMove));                                // mesmo trecho: nada a reenviar
+
+        // O trecho é só o movimento atual, bem menor que a trajetória inteira
+        SceneLines feed = scene.Lines.Single(l => l.Role == SceneRole.FeedPath);
+        Assert.True(current.SegmentCount < feed.SegmentCount + 1);
+        Assert.Equal(ScenePalette.Realistic.CurrentPath, scene.Snapshot().Lines.Single(l => l.Role == SceneRole.CurrentPath).Color);
+
+        // Recalcular os rápidos no material não perde o trecho atual
+        scene.SetRapidCollisions([]);
+        Assert.Contains(scene.Lines, l => l.Role == SceneRole.CurrentPath);
+
+        // -1 apaga
+        Assert.True(scene.SetCurrentMove(-1));
+        Assert.Equal(0, scene.Lines.Single(l => l.Role == SceneRole.CurrentPath).SegmentCount);
+    }
+
+    [Fact]
+    public void MaterialFoscoUniformeComPoucaDiferencaDeProfundidade()
+    {
+        ScenePalette p = ScenePalette.Realistic;
+        static double Luma(uint c) => 0.299 * ((c >> 16) & 0xFF) + 0.587 * ((c >> 8) & 0xFF) + 0.114 * (c & 0xFF);
+        double spread = Luma(p.Machined(0, 0)) - Luma(p.Machined(1, 0));
+        Assert.InRange(spread, 0, 40);                                  // degradê suave, não chapado nem contrastado
+        Assert.InRange(Math.Abs(Luma(p.Stock) - Luma(p.Machined(0, 0))), 0, 25);   // bruto e corte da mesma família
+    }
+
+    [Fact]
     public void CenaDaFresaAtualizaSoOQueMudouEPosicionaAFerramenta()
     {
         ToolPath path = Trajetoria();

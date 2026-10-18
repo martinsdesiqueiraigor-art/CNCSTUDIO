@@ -26,17 +26,22 @@ public sealed class ScenePalette
         ColorByTool = byTool;
     }
 
-    /// <summary>Metal cinza sombreado (padrão).</summary>
+    /// <summary>
+    /// Material fosco e uniforme (padrão): o bruto e o corte quase da mesma cor, com só uma
+    /// diferença suave de profundidade; quem destaca as formas é a luz e as arestas.
+    /// </summary>
     public static ScenePalette Realistic { get; } = new(byTool: false)
     {
-        Stock = 0x9EA5AD,
-        MachinedShallow = 0xD5DADF,
-        MachinedDeep = 0xAEB6BF,
+        Stock = 0xB9BEC4,
+        MachinedShallow = 0xCDD1D5,
+        MachinedDeep = 0xAEB4BA,
         Section = 0xE0C9A6,
         Fixture = 0x5E6B78,
         FixtureJaw = 0x7C8996,
         Tool = 0xC9D3DC,
         Holder = 0x4A5561,
+        Nut = 0x8A949E,
+        Coating = 0xD2A93A,
     };
 
     /// <summary>Modo técnico: bruto bege e corte na cor da ferramenta (mais escuro quanto mais fundo).</summary>
@@ -50,6 +55,8 @@ public sealed class ScenePalette
         FixtureJaw = 0x8798A6,
         Tool = 0xC7E8FF,
         Holder = 0x526879,
+        Nut = 0x7F95A6,
+        Coating = 0xD2A93A,
     };
 
     /// <summary>True no modo técnico.</summary>
@@ -63,9 +70,22 @@ public sealed class ScenePalette
     public uint FixtureJaw { get; private init; }
     public uint Tool { get; private init; }
     public uint Holder { get; private init; }
+
+    /// <summary>Porca da pinça (ER) do porta-ferramenta.</summary>
+    public uint Nut { get; private init; }
+
+    /// <summary>Cor da cobertura da fresa e da broca (tipo TiN, dourado).</summary>
+    public uint Coating { get; private init; }
+
+    /// <summary>Cor das arestas marcadas por cima das superfícies (traço fino escuro).</summary>
+    public uint Edge { get; private init; } = 0x2B323A;
+
     public uint FeedPath { get; private init; } = 0x58A6FF;
     public uint RapidPath { get; private init; } = 0xE3B341;
     public uint RapidInMaterial { get; private init; } = 0xF85149;
+
+    /// <summary>Movimento em execução (traço curto sobre a peça).</summary>
+    public uint CurrentPath { get; private init; } = 0x00A878;
 
     /// <summary>Cor fixa de cada papel (o material usinado usa <see cref="Machined"/>).</summary>
     public uint Of(SceneRole role) => role switch
@@ -78,6 +98,7 @@ public sealed class ScenePalette
         SceneRole.Holder => Holder,
         SceneRole.FeedPath => FeedPath,
         SceneRole.RapidPath => RapidPath,
+        SceneRole.CurrentPath => CurrentPath,
         _ => RapidInMaterial,
     };
 

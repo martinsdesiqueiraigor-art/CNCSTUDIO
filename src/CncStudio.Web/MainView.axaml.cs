@@ -861,6 +861,8 @@ public partial class MainView : UserControl
             Backplot.ShowRapids = v;
             SetRapids3D(v);
         }));
+        panel.Children.Add(Option("3D: trajetória completa (padrão: só o trecho atual)", false, SetPath3D));
+        panel.Children.Add(Option("3D: fundo claro", Stored("cc.bg3d") == "1", SetLightBackground3D));
         panel.Children.Add(Option("Percurso à frente (na simulação)", true, v => Backplot.ShowAhead = v));
         panel.Children.Add(Option("Ferramenta", true, v =>
         {

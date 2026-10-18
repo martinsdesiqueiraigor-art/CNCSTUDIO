@@ -47,7 +47,8 @@ public sealed class GlSceneView : OpenGlControlBase
 
     public bool LightTheme { get; set; }
 
-    public bool ShowPath { get; set; } = true;
+    /// <summary>Trajetória inteira por cima da peça (padrão desligado: só o trecho atual aparece).</summary>
+    public bool ShowPath { get; set; }
 
     public bool ShowRapids { get; set; } = true;
 
@@ -208,7 +209,7 @@ public sealed class GlSceneView : OpenGlControlBase
             gl.UniformMatrix4fv(_uLineMvp, 1, false, m);
         }
 
-        foreach (SceneLinesState lines in snapshot.Lines.OrderBy(l => l.Role == SceneRole.RapidInMaterial))
+        foreach (SceneLinesState lines in snapshot.Lines.OrderBy(l => l.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath))
         {
             bool visible = lines.Role switch
             {
@@ -222,7 +223,7 @@ public sealed class GlSceneView : OpenGlControlBase
             }
 
             GpuLines gpu = UploadLines(gl, lines);
-            bool onTop = lines.Role == SceneRole.RapidInMaterial;
+            bool onTop = lines.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath;
             if (onTop)
             {
                 gl.Disable(DepthTest);

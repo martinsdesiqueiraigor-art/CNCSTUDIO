@@ -66,7 +66,10 @@ public partial class GraphicsPanel : UserControl
         LatheZXView.IsCheckedChanged += (_, _) => OnViewChecked(LatheZXView, GraphicsViewKind.LatheZX);
 
         SolidCheck.IsCheckedChanged += (_, _) => { View.ShowSolid = Gl.ShowSolid = SolidCheck.IsChecked == true; Enqueue(null); };
-        PathCheck.IsCheckedChanged += (_, _) => { View.ShowPath = Gl.ShowPath = PathCheck.IsChecked == true; View.Redraw(); Gl.RequestNextFrameRendering(); };
+        PathCheck.IsCheckedChanged += (_, _) => { View.ShowPath = PathCheck.IsChecked == true; View.Redraw(); };
+        // 3D: padrão limpo, só o trecho atual; a trajetória inteira e o fundo claro são opções
+        Path3DCheck.IsCheckedChanged += (_, _) => { Gl.ShowPath = Path3DCheck.IsChecked == true; Gl.RequestNextFrameRendering(); };
+        LightBgCheck.IsCheckedChanged += (_, _) => ApplyGlBackground();
         ToolCheck.IsCheckedChanged += (_, _) => { View.ShowTool = Gl.ShowTool = ToolCheck.IsChecked == true; View.Redraw(); Gl.RequestNextFrameRendering(); };
         SectionCheck.IsCheckedChanged += (_, _) => Enqueue(null);
         FitButton.Click += (_, _) => FitToContent();
@@ -405,15 +408,24 @@ public partial class GraphicsPanel : UserControl
 
     private bool _show3D;
 
+    private bool _appLight;
+
     /// <summary>Tema claro: fundo claro também no 3D.</summary>
     public bool LightTheme
     {
-        get => Gl.LightTheme;
+        get => _appLight;
         set
         {
-            Gl.LightTheme = value;
-            Gl.RequestNextFrameRendering();
+            _appLight = value;
+            ApplyGlBackground();
         }
+    }
+
+    // Fundo do 3D: claro no tema claro do app ou quando a opção "Fundo claro" está marcada
+    private void ApplyGlBackground()
+    {
+        Gl.LightTheme = _appLight || LightBgCheck.IsChecked == true;
+        Gl.RequestNextFrameRendering();
     }
 
     private void ShowGl(bool on)
@@ -492,6 +504,7 @@ public partial class GraphicsPanel : UserControl
         scene.Palette = palette;
         scene.Refresh();
         scene.SetTool(simulation.CurrentTool, simulation.ToolPosition);
+        scene.SetCurrentMove(simulation.CurrentMoveIndex);
         if (simulation.RapidCollisions.Count != _sceneCollisions)
         {
             _sceneCollisions = simulation.RapidCollisions.Count;
