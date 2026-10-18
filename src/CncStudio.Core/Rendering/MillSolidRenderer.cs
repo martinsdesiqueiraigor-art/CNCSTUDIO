@@ -38,7 +38,14 @@ public static class MillSolidRenderer
     }
 
     /// <summary>Desenha o sólido no rasterizador (separado para os testes).</summary>
-    internal static void Draw(HeightMap map, Raster3D raster)
+    internal static void Draw(HeightMap map, Raster3D raster) => EmitQuads(map, raster.Quad);
+
+    /// <summary>
+    /// Superfície do sólido como quadriláteros (a, b, c, d em ordem, normal, cor RGB): topos
+    /// agrupados por trechos de mesma altura, paredes entre células e laterais do bloco.
+    /// A mesma geometria serve ao rasterizador por CPU e às malhas para GPU (<see cref="SolidMesh"/>).
+    /// </summary>
+    public static void EmitQuads(HeightMap map, Action<Point3, Point3, Point3, Point3, Point3, uint> quad)
     {
         int columns = map.Columns, rows = map.Rows;
         double c = map.CellSize;
@@ -63,7 +70,7 @@ public static class MillSolidRenderer
 
                 float z = h[row * columns + start];
                 double x0 = ox + start * c, x1 = ox + column * c;
-                raster.Quad(new Point3(x0, y0, z), new Point3(x1, y0, z), new Point3(x1, y1, z), new Point3(x0, y1, z), up, ColorAt(z));
+                quad(new Point3(x0, y0, z), new Point3(x1, y0, z), new Point3(x1, y1, z), new Point3(x0, y1, z), up, ColorAt(z));
                 start = column;
             }
         }
@@ -84,7 +91,7 @@ public static class MillSolidRenderer
                     {
                         float low = Math.Min(a, b), high = Math.Max(a, b);
                         var normal = new Point3(a > b ? 1 : -1, 0, 0);
-                        raster.Quad(new Point3(x1, y0, low), new Point3(x1, y1, low), new Point3(x1, y1, high), new Point3(x1, y0, high),
+                        quad(new Point3(x1, y0, low), new Point3(x1, y1, low), new Point3(x1, y1, high), new Point3(x1, y0, high),
                             normal, Machined(top, bottom, low));
                     }
                 }
@@ -97,7 +104,7 @@ public static class MillSolidRenderer
                         double x0 = ox + column * c;
                         float low = Math.Min(a, b), high = Math.Max(a, b);
                         var normal = new Point3(0, a > b ? 1 : -1, 0);
-                        raster.Quad(new Point3(x0, y1, low), new Point3(x1, y1, low), new Point3(x1, y1, high), new Point3(x0, y1, high),
+                        quad(new Point3(x0, y1, low), new Point3(x1, y1, low), new Point3(x1, y1, high), new Point3(x0, y1, high),
                             normal, Machined(top, bottom, low));
                     }
                 }
@@ -110,9 +117,9 @@ public static class MillSolidRenderer
         {
             double x0 = ox + column * c, x1 = x0 + c;
             float front = h[column], back = h[(rows - 1) * columns + column];
-            raster.Quad(new Point3(x0, oy, bottom), new Point3(x1, oy, bottom), new Point3(x1, oy, front), new Point3(x0, oy, front),
+            quad(new Point3(x0, oy, bottom), new Point3(x1, oy, bottom), new Point3(x1, oy, front), new Point3(x0, oy, front),
                 new Point3(0, -1, 0), StockColor);
-            raster.Quad(new Point3(x0, yMax, bottom), new Point3(x1, yMax, bottom), new Point3(x1, yMax, back), new Point3(x0, yMax, back),
+            quad(new Point3(x0, yMax, bottom), new Point3(x1, yMax, bottom), new Point3(x1, yMax, back), new Point3(x0, yMax, back),
                 new Point3(0, 1, 0), StockColor);
         }
 
@@ -120,9 +127,9 @@ public static class MillSolidRenderer
         {
             double y0 = oy + row * c, y1 = y0 + c;
             float left = h[row * columns], right = h[row * columns + columns - 1];
-            raster.Quad(new Point3(ox, y0, bottom), new Point3(ox, y1, bottom), new Point3(ox, y1, left), new Point3(ox, y0, left),
+            quad(new Point3(ox, y0, bottom), new Point3(ox, y1, bottom), new Point3(ox, y1, left), new Point3(ox, y0, left),
                 new Point3(-1, 0, 0), StockColor);
-            raster.Quad(new Point3(xMax, y0, bottom), new Point3(xMax, y1, bottom), new Point3(xMax, y1, right), new Point3(xMax, y0, right),
+            quad(new Point3(xMax, y0, bottom), new Point3(xMax, y1, bottom), new Point3(xMax, y1, right), new Point3(xMax, y0, right),
                 new Point3(1, 0, 0), StockColor);
         }
     }
