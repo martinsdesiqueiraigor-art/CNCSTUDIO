@@ -407,4 +407,32 @@ public class SimulationSceneTests
         Assert.Single(scene.Refresh());
         Assert.True(part.Mesh.EnclosedVolume() < quarter / 0.75);
     }
+
+    [Fact]
+    public void FotoDaCenaLevaOsRapidosNoMaterialEmVermelho()
+    {
+        // G00 descendo dentro do bruto (topo em Z0): colisão
+        ToolPath path = MachineExecutor.Execute(GCodeParser.Parse("""
+            T1 M6
+            G00 X10 Y10 Z5
+            G00 Z-3
+            G01 X30 F100
+            M30
+            """, Dialect.Fanuc));
+        var map = new HeightMap(0, 0, 50, 30, 1, 0, -10);
+        var sim = new MaterialSimulator(map, path.Moves, _ => ToolProfile.Flat(6));
+        SimulationScene scene = SimulationScene.ForMill(map, path, _ => ToolProfile.Flat(6));
+        sim.RunToEnd();
+        scene.Refresh();
+        scene.SetRapidCollisions(sim.RapidCollisions);
+        Assert.NotEmpty(sim.RapidCollisions);
+
+        SceneSnapshot photo = scene.Snapshot();
+        SceneLinesState hit = photo.Lines.Single(l => l.Role == SceneRole.RapidInMaterial);
+        Assert.Equal(ScenePalette.Realistic.RapidInMaterial, hit.Color);
+        Assert.Equal(6, hit.Positions.Length);                 // um segmento: Z5 → Z-3
+        Assert.Equal(-3, hit.Positions[5], 4);
+        Assert.Equal(scene.Objects.Count, photo.Objects.Count);
+        Assert.All(photo.Objects, o => Assert.Same(scene.Objects.Single(x => x.Id == o.Id).Mesh, o.Mesh));
+    }
 }
