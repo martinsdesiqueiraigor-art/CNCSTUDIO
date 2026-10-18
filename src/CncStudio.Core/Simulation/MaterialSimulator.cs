@@ -51,6 +51,52 @@ public sealed class MaterialSimulator : IMaterialSimulation
         Reset();
     }
 
+    // Pontos de retorno: o material no início de alguns movimentos, para voltar sem recomeçar do bruto inteiro
+    private sealed record Checkpoint(HeightMap.Snapshot Material, double Travelled, int[] RapidCollisions, Point3 ToolPosition);
+
+    private const int MaxCheckpoints = 16;
+    private readonly SortedList<int, Checkpoint> _checkpoints = [];
+
+    /// <summary>De quantos em quantos movimentos se guarda um ponto de retorno (no máximo 16 por simulação).</summary>
+    private int CheckpointStride => Math.Max(1, (_moves.Count + MaxCheckpoints - 1) / MaxCheckpoints);
+
+    private void TakeCheckpoint()
+    {
+        if (_moveIndex > 0 && _moveIndex % CheckpointStride == 0 && !_checkpoints.ContainsKey(_moveIndex))
+        {
+            _checkpoints[_moveIndex] = new Checkpoint(_map.TakeSnapshot(), Travelled, [.. _rapidCollisions], ToolPosition);
+        }
+    }
+
+    /// <summary>Volta ao início do movimento (ou antes) mais próximo: do último ponto de retorno, ou do bruto inteiro.</summary>
+    private void RewindFor(int moveIndex)
+    {
+        Checkpoint? best = null;
+        int bestIndex = 0;
+        foreach ((int index, Checkpoint checkpoint) in _checkpoints)
+        {
+            if (index <= moveIndex)
+            {
+                best = checkpoint;
+                bestIndex = index;
+            }
+        }
+
+        if (best is null)
+        {
+            Reset();
+            return;
+        }
+
+        _map.Restore(best.Material);
+        _moveIndex = bestIndex;
+        Travelled = best.Travelled;
+        _rapidCollisions.Clear();
+        _rapidCollisions.AddRange(best.RapidCollisions);
+        ToolPosition = best.ToolPosition;
+        LoadCurrentMove();
+    }
+
     /// <summary>Diâmetro da ferramenta do movimento atual.</summary>
     public double CurrentToolDiameter => _toolRadius * 2;
 
@@ -115,7 +161,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
         bool midMove = _pieceIndex > 0 || _distanceInPiece > 0;
         if (moveIndex < _moveIndex || (moveIndex == _moveIndex && midMove))
         {
-            Reset();
+            RewindFor(moveIndex);
         }
 
         while (_moveIndex < moveIndex)
@@ -162,7 +208,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
         moveIndex = Math.Clamp(moveIndex, 0, _moves.Count);
         if (moveIndex < _moveIndex || (moveIndex == _moveIndex && (_pieceIndex > 0 || _distanceInPiece > 0)))
         {
-            Reset();
+            RewindFor(moveIndex);
         }
 
         while (_moveIndex < moveIndex && maxDistance > 0)
@@ -216,6 +262,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
             {
                 _moveIndex++;
                 LoadCurrentMove();
+                TakeCheckpoint();
             }
         }
 

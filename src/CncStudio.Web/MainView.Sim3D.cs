@@ -81,7 +81,13 @@ public partial class MainView
                 _loading3D = false;
             }
 
-            _scene3DView = new Scene3DView { LightTheme = Stored("cc.theme") == "light", ShowRapids = _showRapids3D };
+            _scene3DView = new Scene3DView
+            {
+                LightTheme = Stored("cc.theme") == "light",
+                LightBackground = Stored("cc.bg3d") == "1",
+                ShowRapids = _showRapids3D,
+                ShowPath = _showPath3D,
+            };
             Scene3DSlot.Children.Add(_scene3DView);
             _frame3D = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             _frame3D.Tick += (_, _) => Frame3D();
@@ -259,6 +265,12 @@ public partial class MainView
             IMaterialSimulation sim = _material.Simulation;
             _scene.Refresh();
             _scene.SetTool(sim.CurrentTool, sim.ToolPosition);
+            bool currentChanged = _scene.SetCurrentMove(sim.CurrentMoveIndex);
+            if (currentChanged)
+            {
+                _scene3DView.SyncLines();
+            }
+
             if (sim.RapidCollisions.Count != _collisionsShown)
             {
                 _collisionsShown = sim.RapidCollisions.Count;
@@ -314,6 +326,25 @@ public partial class MainView
     }
 
     private bool _showRapids3D = true;
+    private bool _showPath3D;   // padrão: só o trecho atual; a trajetória inteira é opcional
+
+    private void SetPath3D(bool show)
+    {
+        _showPath3D = show;
+        if (_scene3DView is not null)
+        {
+            _scene3DView.ShowPath = show;
+        }
+    }
+
+    private void SetLightBackground3D(bool light)
+    {
+        Store("cc.bg3d", light ? "1" : "0");
+        if (_scene3DView is not null)
+        {
+            _scene3DView.LightBackground = light;
+        }
+    }
 
     private void SetRapids3D(bool show)
     {

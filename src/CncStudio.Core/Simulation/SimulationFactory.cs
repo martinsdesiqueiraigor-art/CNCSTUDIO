@@ -40,6 +40,17 @@ public static class SimulationFactory
         return HeightMap.CreateForToolPath(path, largest, maxCellsPerSide: maxCellsPerSide);
     }
 
+    /// <summary>Bruto redondo ou tubo na fresa: só o círculo (menos o furo do tubo) tem material.</summary>
+    public static void ApplyRoundShape(HeightMap map, SetupStock stock)
+    {
+        double outer = stock.Diameter / 2, inner = stock.Kind == SetupStockKind.Tube ? stock.InnerDiameter / 2 : 0;
+        map.SetMaterialShape((x, y) =>
+        {
+            double d = Math.Sqrt((x - stock.X) * (x - stock.X) + (y - stock.Y) * (y - stock.Y));
+            return d <= outer && d >= inner;
+        });
+    }
+
     /// <summary>Barra do torno: a do bruto dado ou uma automática pela trajetória.</summary>
     public static TurningStock LatheStock(Stock? stock, ToolPath path) =>
         stock is { Machine: MachineKind.Lathe } bar ? TurningStock.CreateForStock(bar) : TurningStock.CreateForToolPath(path);
@@ -60,6 +71,12 @@ public static class SimulationFactory
 
         Func<int, ToolProfile> profiles = MillProfiles(setup, analysis.ToolDiameterOf);
         HeightMap map = MillStock(stock, path, profiles, maxCellsPerSide);
+        if (setup?.Stock is { IsRound: true } round && stock is not null && round.ToStock(MachineKind.Mill) is not null
+            && SetupBinding.EffectiveStock(setup, path.Machine, programText, path.CuttingBounds).Source == StockSource.Setup)
+        {
+            ApplyRoundShape(map, round);
+        }
+
         return new MaterialSimulationParts(new MaterialSimulator(map, path.Moves, profiles), map, null, stock) { Profiles = profiles };
     }
 }

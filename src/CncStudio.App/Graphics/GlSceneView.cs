@@ -23,6 +23,7 @@ public sealed class GlSceneView : OpenGlControlBase
     private sealed class GpuMesh
     {
         public int Vao, Positions, Normals, Colors, Indices, IndexCount, Version;
+        public int EdgeVao, EdgeBuffer, EdgeCount;
         public object? Source;
     }
 
@@ -37,7 +38,7 @@ public sealed class GlSceneView : OpenGlControlBase
     private SceneSnapshot? _snapshot;
     private int _meshProgram, _lineProgram;
     private int _uMvp, _uModel, _uEyeX, _uEyeY, _uEyeZ;
-    private int _uLineMvp, _uLineR, _uLineG, _uLineB, _uLineLift;
+    private int _uLineMvp, _uLineR, _uLineG, _uLineB, _uLineLift, _uLineOffX, _uLineOffY, _uLineOffZ;
     private bool _ready;
     private Point? _drag;
     private bool _panning;
@@ -47,7 +48,8 @@ public sealed class GlSceneView : OpenGlControlBase
 
     public bool LightTheme { get; set; }
 
-    public bool ShowPath { get; set; } = true;
+    /// <summary>Trajetória inteira por cima da peça (padrão desligado: só o trecho atual aparece).</summary>
+    public bool ShowPath { get; set; }
 
     public bool ShowRapids { get; set; } = true;
 
@@ -105,6 +107,9 @@ public sealed class GlSceneView : OpenGlControlBase
             _uLineG = gl.GetUniformLocationString(_lineProgram, "uG");
             _uLineB = gl.GetUniformLocationString(_lineProgram, "uB");
             _uLineLift = gl.GetUniformLocationString(_lineProgram, "uLift");
+            _uLineOffX = gl.GetUniformLocationString(_lineProgram, "uOffX");
+            _uLineOffY = gl.GetUniformLocationString(_lineProgram, "uOffY");
+            _uLineOffZ = gl.GetUniformLocationString(_lineProgram, "uOffZ");
             Renderer = $"{GlVersion.Type} {GlVersion.Major}.{GlVersion.Minor} · {gl.Renderer}";
             _ready = true;
         }
@@ -201,14 +206,39 @@ public sealed class GlSceneView : OpenGlControlBase
             gl.DrawElements(Triangles, gpu.IndexCount, UnsignedInt, IntPtr.Zero);
         }
 
-        // Trajetória; o rápido que encostou no material vai por último, por cima de tudo
+        // Arestas marcadas: traço fino nas quinas (paredes e fundos dos cortes, fixações, ferramenta)
         gl.UseProgram(_lineProgram);
         fixed (float* m = mvp)
         {
             gl.UniformMatrix4fv(_uLineMvp, 1, false, m);
         }
 
-        foreach (SceneLinesState lines in snapshot.Lines.OrderBy(l => l.Role == SceneRole.RapidInMaterial))
+        uint edge = snapshot.Palette.Edge;
+        gl.Uniform1f(_uLineR, ((edge >> 16) & 0xFF) / 255f);
+        gl.Uniform1f(_uLineG, ((edge >> 8) & 0xFF) / 255f);
+        gl.Uniform1f(_uLineB, (edge & 0xFF) / 255f);
+        gl.Uniform1f(_uLineLift, 0.0004f);
+        foreach (SceneObjectState o in snapshot.Objects)
+        {
+            bool hidden = (o.Role == SceneRole.Material && !ShowSolid) || (o.Role is SceneRole.Tool or SceneRole.Holder && !ShowTool);
+            if (!o.Visible || hidden || !_meshes.TryGetValue(o.Id, out GpuMesh? gpu) || gpu.EdgeCount == 0)
+            {
+                continue;
+            }
+
+            gl.Uniform1f(_uLineOffX, (float)o.Offset.X);
+            gl.Uniform1f(_uLineOffY, (float)o.Offset.Y);
+            gl.Uniform1f(_uLineOffZ, (float)o.Offset.Z);
+            gl.BindVertexArray(gpu.EdgeVao);
+            gl.DrawArrays(Lines, 0, gpu.EdgeCount);
+        }
+
+        gl.Uniform1f(_uLineOffX, 0);
+        gl.Uniform1f(_uLineOffY, 0);
+        gl.Uniform1f(_uLineOffZ, 0);
+
+        // Trajetória; o rápido que encostou no material vai por último, por cima de tudo
+        foreach (SceneLinesState lines in snapshot.Lines.OrderBy(l => l.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath))
         {
             bool visible = lines.Role switch
             {
@@ -222,7 +252,7 @@ public sealed class GlSceneView : OpenGlControlBase
             }
 
             GpuLines gpu = UploadLines(gl, lines);
-            bool onTop = lines.Role == SceneRole.RapidInMaterial;
+            bool onTop = lines.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath;
             if (onTop)
             {
                 gl.Disable(DepthTest);
@@ -264,6 +294,8 @@ public sealed class GlSceneView : OpenGlControlBase
                     Normals = gl.GenBuffer(),
                     Colors = gl.GenBuffer(),
                     Indices = gl.GenBuffer(),
+                    EdgeVao = gl.GenVertexArray(),
+                    EdgeBuffer = gl.GenBuffer(),
                 };
                 _meshes[o.Id] = gpu;
             }
@@ -278,6 +310,10 @@ public sealed class GlSceneView : OpenGlControlBase
                 gl.BufferData(ElementArrayBuffer, (IntPtr)(o.Mesh.IndexCount * 4), (IntPtr)p, StaticDraw);
             }
 
+            ReadOnlySpan<float> edges = o.Mesh.Edges;
+            gl.BindVertexArray(gpu.EdgeVao);
+            Upload(gl, gpu.EdgeBuffer, 0, edges);
+            gpu.EdgeCount = edges.Length / 3;
             gpu.IndexCount = o.Mesh.IndexCount;
             gpu.Version = o.Version;
             gpu.Source = o.Mesh;
@@ -328,6 +364,8 @@ public sealed class GlSceneView : OpenGlControlBase
         gl.DeleteBuffer(m.Colors);
         gl.DeleteBuffer(m.Indices);
         gl.DeleteVertexArray(m.Vao);
+        gl.DeleteBuffer(m.EdgeBuffer);
+        gl.DeleteVertexArray(m.EdgeVao);
     }
 
     private static int Link(GlInterface gl, string header, string vertex, string fragment)
@@ -380,7 +418,7 @@ public sealed class GlSceneView : OpenGlControlBase
             vec3 key = normalize(toEye * 0.6 + vec3(0.0, 0.0, 1.0));
             float hemi = 0.5 + 0.5 * n.z;
             float diffuse = max(dot(n, key), 0.0);
-            float spec = pow(max(dot(n, normalize(key + toEye)), 0.0), 40.0) * 0.18;
+            float spec = pow(max(dot(n, normalize(key + toEye)), 0.0), 40.0) * 0.07;
             vec3 color = vColor * (0.30 + 0.25 * hemi + 0.55 * diffuse) + vec3(spec);
             fragColor = vec4(min(color, vec3(1.0)), 1.0);
         }
@@ -390,8 +428,11 @@ public sealed class GlSceneView : OpenGlControlBase
         layout(location = 0) in vec3 aPos;
         uniform mat4 uMvp;
         uniform float uLift;
+        uniform float uOffX;
+        uniform float uOffY;
+        uniform float uOffZ;
         void main() {
-            gl_Position = uMvp * vec4(aPos, 1.0);
+            gl_Position = uMvp * vec4(aPos + vec3(uOffX, uOffY, uOffZ), 1.0);
             gl_Position.z -= uLift * gl_Position.w; // um pouco à frente da superfície (não some no corte)
         }
         """;

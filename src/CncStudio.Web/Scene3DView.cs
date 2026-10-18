@@ -28,6 +28,9 @@ internal static partial class Scene3DInterop
         [JSMarshalAs<JSType.MemoryView>] Span<byte> colors,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> indices);
 
+    [JSImport("setEdges", Module)]
+    public static partial void SetEdges(JSObject host, string id, [JSMarshalAs<JSType.MemoryView>] Span<byte> positions, int color);
+
     [JSImport("placeMesh", Module)]
     public static partial void PlaceMesh(JSObject host, string id, double x, double y, double z, bool visible);
 
@@ -65,9 +68,11 @@ internal sealed class Scene3DView : NativeControlHost
     private SimulationScene? _scene;
     private readonly Dictionary<string, (int Version, SceneObject Object)> _sent = [];
     private readonly Dictionary<string, (Point3 Offset, bool Visible)> _placed = [];
+    private readonly Dictionary<SceneRole, (float[] Positions, bool Visible)> _sentLines = [];
     private bool _light;
+    private bool _lightBackground;
     private bool _showRapids = true;
-    private bool _showPath = true;
+    private bool _showPath;   // a trajetória inteira fica escondida por padrão: só o trecho atual aparece
     private bool _fitPending = true;
 
     /// <summary>True depois que o div do three.js foi criado (o motor já foi carregado).</summary>
@@ -76,9 +81,10 @@ internal sealed class Scene3DView : NativeControlHost
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
         _host = Scene3DInterop.Create();
-        Scene3DInterop.SetTheme(_host, _light);
+        Scene3DInterop.SetTheme(_host, _light || _lightBackground);
         _sent.Clear();
         _placed.Clear();
+        _sentLines.Clear();
         Sync();
         return new JSObjectControlHandle(_host);
     }
@@ -93,6 +99,7 @@ internal sealed class Scene3DView : NativeControlHost
         _host = null;
         _sent.Clear();
         _placed.Clear();
+        _sentLines.Clear();
         base.DestroyNativeControlCore(control);
     }
 
@@ -109,6 +116,7 @@ internal sealed class Scene3DView : NativeControlHost
 
         _sent.Clear();
         _placed.Clear();
+        _sentLines.Clear();
         _scene = scene;
         _fitPending = true;
         Sync();
@@ -121,10 +129,26 @@ internal sealed class Scene3DView : NativeControlHost
         set
         {
             _light = value;
-            if (_host is { } host)
-            {
-                Scene3DInterop.SetTheme(host, value);
-            }
+            ApplyBackground();
+        }
+    }
+
+    /// <summary>Fundo claro só no 3D (opção do menu), independente do tema do app.</summary>
+    public bool LightBackground
+    {
+        get => _lightBackground;
+        set
+        {
+            _lightBackground = value;
+            ApplyBackground();
+        }
+    }
+
+    private void ApplyBackground()
+    {
+        if (_host is { } host)
+        {
+            Scene3DInterop.SetTheme(host, _light || _lightBackground);
         }
     }
 
@@ -182,6 +206,7 @@ internal sealed class Scene3DView : NativeControlHost
                     MemoryMarshal.AsBytes(mesh.Normals).ToArray(),
                     MemoryMarshal.AsBytes(mesh.Colors).ToArray(),
                     MemoryMarshal.AsBytes(mesh.Indices).ToArray());
+                Scene3DInterop.SetEdges(host, o.Id, MemoryMarshal.AsBytes(mesh.Edges).ToArray(), (int)scene.Palette.Edge);
                 _sent[o.Id] = (o.Version, o);
                 _placed.Remove(o.Id);
             }
@@ -201,7 +226,10 @@ internal sealed class Scene3DView : NativeControlHost
         }
     }
 
-    /// <summary>Reenvia as linhas da trajetória (mudam quando aparece um rápido no material).</summary>
+    /// <summary>
+    /// Reenvia as linhas da trajetória (mudam quando aparece um rápido no material e a cada novo
+    /// trecho em execução). Só vai ao navegador o que mudou desde o último envio.
+    /// </summary>
     public void SyncLines()
     {
         if (_host is not { } host || _scene is not { } scene)
@@ -216,10 +244,16 @@ internal sealed class Scene3DView : NativeControlHost
             {
                 SceneRole.FeedPath => _showPath,
                 SceneRole.RapidPath => _showPath && _showRapids,
-                _ => true, // rápido no material: sempre à vista
+                _ => true, // rápido no material e trecho atual: sempre à vista
             };
+            if (_sentLines.TryGetValue(lines.Role, out var sent) && ReferenceEquals(sent.Positions, positions) && sent.Visible == visible)
+            {
+                continue;
+            }
+
+            _sentLines[lines.Role] = (positions, visible);
             Scene3DInterop.SetLines(host, lines.Role.ToString(), MemoryMarshal.AsBytes(positions.AsSpan()).ToArray(),
-                (int)scene.Palette.Of(lines.Role), visible, lines.Role == SceneRole.RapidInMaterial);
+                (int)scene.Palette.Of(lines.Role), visible, lines.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath);
         }
     }
 

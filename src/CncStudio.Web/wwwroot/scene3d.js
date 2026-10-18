@@ -23,8 +23,8 @@ export function create() {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(BACKGROUND.dark);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x3a4250, 0.9));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.25);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7482, 1.05));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.95);
   scene.add(sun);
   scene.add(sun.target);
 
@@ -167,13 +167,15 @@ function clampDistance(d) { return Math.max(0.01, Math.min(1e7, d)); }
 const toF32 = v => { const b = v.slice(); return new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4); };
 const toU32 = v => { const b = v.slice(); return new Uint32Array(b.buffer, b.byteOffset, b.byteLength / 4); };
 
-// Material por papel: metal no material e na ferramenta; fosco nas fixações
+// Material por papel: peça (material) fosca e uniforme, ferramenta com um pouco de brilho metálico,
+// fixações foscas. O aspecto limpo vem da luz suave e das arestas marcadas, não do brilho.
 function materialFor(role) {
-  const metal = role === 'Material' || role === 'Tool';
+  const matte = role === 'Material' || role === 'Section';
+  const tool = role === 'Tool';
   return new THREE.MeshStandardMaterial({
     vertexColors: true,
-    metalness: metal ? 0.35 : 0.1,
-    roughness: metal ? 0.42 : 0.7,
+    metalness: matte ? 0.0 : tool ? 0.45 : 0.1,
+    roughness: matte ? 0.88 : tool ? 0.38 : 0.7,
     polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
   });
 }
@@ -193,18 +195,35 @@ export function setMesh(host, id, role, positions, normals, colors, indices) {
   if (entry) {
     entry.mesh.geometry.dispose();
     entry.mesh.geometry = geometry;
-    if (entry.edges) { entry.edges.geometry.dispose(); entry.edges.geometry = new THREE.EdgesGeometry(geometry, 35); }
   } else {
     const mesh = new THREE.Mesh(geometry, materialFor(role));
     v.scene.add(mesh);
     entry = { mesh, role, edges: null };
-    // Contornos discretos nas peças paradas e na ferramenta (no material seriam linhas demais)
-    if (role !== 'Material') {
-      entry.edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 35),
-        new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 }));
-      mesh.add(entry.edges);
-    }
     v.objects.set(id, entry);
+  }
+  requestRender(v);
+}
+
+/** Arestas marcadas da malha "id" (o Core calcula: alto e pé das paredes do corte, quinas vivas das peças). */
+export function setEdges(host, id, positions, color) {
+  const v = viewOf(host);
+  const entry = v?.objects.get(id);
+  if (!entry) return;
+  const array = toF32(positions);
+  if (array.length === 0) {
+    if (entry.edges) { entry.edges.geometry.dispose(); entry.edges.material.dispose(); entry.mesh.remove(entry.edges); entry.edges = null; }
+    requestRender(v);
+    return;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(array, 3));
+  if (entry.edges) {
+    entry.edges.geometry.dispose();
+    entry.edges.geometry = geometry;
+  } else {
+    // Traço fino e discreto por cima da superfície (a malha recua um pouco por polygonOffset)
+    entry.edges = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 }));
+    entry.mesh.add(entry.edges);
   }
   requestRender(v);
 }
@@ -227,6 +246,7 @@ export function removeMesh(host, id) {
   entry.mesh.geometry.dispose();
   entry.mesh.material.dispose();
   entry.edges?.geometry.dispose();
+  entry.edges?.material.dispose();
   v.objects.delete(id);
   requestRender(v);
 }

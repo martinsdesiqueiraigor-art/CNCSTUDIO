@@ -211,6 +211,42 @@ public class SimulationTests
     }
 
     [Fact]
+    public void VoltarUsaPontosDeRetornoEDaOMesmoMaterialQueRecomecar()
+    {
+        // 60 movimentos: mais que os 16 pontos de retorno, então há mais de um movimento entre eles
+        var lines = new List<string> { "G00 X10 Y10 Z5", "G01 Z-2 F100" };
+        for (int k = 0; k < 29; k++)
+        {
+            lines.Add(k % 2 == 0 ? $"X{20 + k * 2} Y{20 + k}" : $"Y{15 + k}");
+            lines.Add(k % 7 == 6 ? "G00 Z5" : $"G01 Z{-2 - (k % 3)}");
+            if (k % 7 == 6)
+            {
+                lines.Add("G01 Z-3");
+            }
+        }
+
+        ToolPath path = BuildFanuc([.. lines]);
+        Assert.True(path.Moves.Count > 40, $"só {path.Moves.Count} movimentos");
+
+        var fast = new MaterialSimulator(CreateMap(), path.Moves, 6);
+        fast.RunToMove(path.Moves.Count);
+        foreach (int target in new[] { 37, 36, 20, 21, 5, 0, 30, 12, path.Moves.Count - 1 })
+        {
+            fast.RunToMove(path.Moves.Count);   // anda tudo e guarda os pontos de retorno
+            fast.RunToMove(target);
+
+            var fresh = new MaterialSimulator(CreateMap(), path.Moves, 6);
+            fresh.RunToMove(target);
+
+            Assert.Equal(target, fast.CurrentMoveIndex);
+            Assert.Equal(fresh.ToolPosition, fast.ToolPosition);
+            Assert.True(fresh.Map.Heights.SequenceEqual(fast.Map.Heights), $"material diferente ao voltar para {target}");
+            Assert.Equal(fresh.Travelled, fast.Travelled, 6);
+            Assert.True(fresh.RapidCollisions.SequenceEqual(fast.RapidCollisions));
+        }
+    }
+
+    [Fact]
     public void RunToMoveLimitaAoIntervaloEContaADistancia()
     {
         ToolPath path = BuildFanuc("G00 X10 Y10", "G01 X40 F100");

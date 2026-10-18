@@ -12,6 +12,7 @@ public sealed class HeightMap
     private readonly float[] _heights;
     private readonly ushort[] _cutBy;
     private readonly int[] _tileVersion;
+    private readonly int[] _haloVersion;
 
     /// <summary>
     /// Lado (em células) dos blocos usados para saber o que mudou: quem desenha guarda a versão de
@@ -48,6 +49,7 @@ public sealed class HeightMap
         TileColumns = (columns + TileSize - 1) / TileSize;
         TileRows = (rows + TileSize - 1) / TileSize;
         _tileVersion = new int[TileColumns * TileRows];
+        _haloVersion = new int[TileColumns * TileRows];
         Reset();
     }
 
@@ -85,9 +87,44 @@ public sealed class HeightMap
     /// <summary>Valor de <see cref="Version"/> na última mudança do bloco (tileColumn, tileRow).</summary>
     public int TileVersion(int tileColumn, int tileRow) => _tileVersion[tileRow * TileColumns + tileColumn];
 
-    // Marca o bloco da célula como alterado na versão que está para ser publicada
-    private void Touch(int column, int row) =>
-        _tileVersion[row / TileSize * TileColumns + column / TileSize] = Version + 1;
+    /// <summary>
+    /// Quantas células da borda de um bloco influenciam a malha do bloco vizinho (o contorno liso do
+    /// material olha até 3 células além da própria borda).
+    /// </summary>
+    public const int HaloCells = 3;
+
+    /// <summary>
+    /// Valor de <see cref="Version"/> na última mudança, feita num bloco vizinho, em células que a malha
+    /// deste bloco enxerga (as de uma faixa de <see cref="HaloCells"/> na borda do vizinho).
+    /// </summary>
+    public int HaloVersion(int tileColumn, int tileRow) => _haloVersion[tileRow * TileColumns + tileColumn];
+
+    // Marca o bloco da célula como alterado na versão que está para ser publicada; se a célula está
+    // perto da borda do bloco, marca também os vizinhos que enxergam essa borda
+    private void Touch(int column, int row)
+    {
+        int tc = column / TileSize, tr = row / TileSize;
+        _tileVersion[tr * TileColumns + tc] = Version + 1;
+        int lc = column - tc * TileSize, lr = row - tr * TileSize;
+        if (lc >= HaloCells && lc < TileSize - HaloCells && lr >= HaloCells && lr < TileSize - HaloCells)
+        {
+            return;
+        }
+
+        int dcMin = lc < HaloCells ? -1 : 0, dcMax = lc >= TileSize - HaloCells ? 1 : 0;
+        int drMin = lr < HaloCells ? -1 : 0, drMax = lr >= TileSize - HaloCells ? 1 : 0;
+        for (int dr = drMin; dr <= drMax; dr++)
+        {
+            for (int dc = dcMin; dc <= dcMax; dc++)
+            {
+                int nc = tc + dc, nr = tr + dr;
+                if ((dc != 0 || dr != 0) && nc >= 0 && nr >= 0 && nc < TileColumns && nr < TileRows)
+                {
+                    _haloVersion[nr * TileColumns + nc] = Version + 1;
+                }
+            }
+        }
+    }
 
     public double CellCenterX(int column) => OriginX + (column + 0.5) * CellSize;
     public double CellCenterY(int row) => OriginY + (row + 0.5) * CellSize;
@@ -105,13 +142,88 @@ public sealed class HeightMap
         return _heights[row * Columns + column];
     }
 
+    private bool[]? _empty;
+
+    /// <summary>Cópia do estado do material (alturas e quem cortou), para voltar a ele depois sem refazer o corte.</summary>
+    public sealed class Snapshot
+    {
+        internal Snapshot(float[] heights, ushort[] cutBy)
+        {
+            Heights = heights;
+            CutBy = cutBy;
+        }
+
+        internal float[] Heights { get; }
+
+        internal ushort[] CutBy { get; }
+    }
+
+    public Snapshot TakeSnapshot() => new((float[])_heights.Clone(), (ushort[])_cutBy.Clone());
+
+    /// <summary>Volta ao estado guardado (a malha 3D refaz todos os blocos).</summary>
+    public void Restore(Snapshot snapshot)
+    {
+        if (snapshot.Heights.Length != _heights.Length)
+        {
+            throw new ArgumentException("O estado guardado é de outra grade.", nameof(snapshot));
+        }
+
+        Array.Copy(snapshot.Heights, _heights, _heights.Length);
+        Array.Copy(snapshot.CutBy, _cutBy, _cutBy.Length);
+        Version++;
+        Array.Fill(_tileVersion, Version);
+        Array.Fill(_haloVersion, Version);
+    }
+
+    /// <summary>True se o bruto tem células sem material (bruto redondo ou tubo), que valem o fundo.</summary>
+    public bool HasEmptyCells => _empty is not null;
+
+    /// <summary>True se a célula está fora do formato do bruto (sem material desde o início).</summary>
+    public bool IsEmptyCell(int column, int row) => _empty is { } e && e[row * Columns + column];
+
+    /// <summary>
+    /// Define o formato do bruto dentro da grade: as células cujo centro não tem material
+    /// (fora do círculo, dentro do furo do tubo) ficam no fundo, como se não existissem.
+    /// </summary>
+    public void SetMaterialShape(Func<double, double, bool> hasMaterial)
+    {
+        var empty = new bool[Columns * Rows];
+        bool any = false;
+        for (int row = 0; row < Rows; row++)
+        {
+            for (int column = 0; column < Columns; column++)
+            {
+                if (!hasMaterial(OriginX + (column + 0.5) * CellSize, OriginY + (row + 0.5) * CellSize))
+                {
+                    empty[row * Columns + column] = true;
+                    any = true;
+                }
+            }
+        }
+
+        _empty = any ? empty : null;
+        Reset();
+    }
+
     /// <summary>Volta todo o material para o topo do bruto.</summary>
     public void Reset()
     {
         Array.Fill(_heights, (float)TopZ);
+        if (_empty is { } empty)
+        {
+            for (int k = 0; k < empty.Length; k++)
+            {
+                if (empty[k])
+                {
+                    _heights[k] = (float)BottomZ;
+                }
+            }
+        }
+
         Array.Clear(_cutBy);
         Version++;
         Array.Fill(_tileVersion, Version);
+        Array.Fill(_haloVersion, Version);
     }
 
     /// <summary>

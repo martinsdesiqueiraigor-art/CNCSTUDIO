@@ -46,6 +46,16 @@ public sealed class TurningStock
 
     public double SliceCenter(int slice) => MinZ + (slice + 0.5) * SliceLength;
 
+    /// <summary>Cópia do perfil atual, para voltar a ele sem refazer o corte.</summary>
+    public (float[] Outer, float[] Inner) TakeSnapshot() => ((float[])_outer.Clone(), (float[])_inner.Clone());
+
+    public void Restore((float[] Outer, float[] Inner) snapshot)
+    {
+        Array.Copy(snapshot.Outer, _outer, _outer.Length);
+        Array.Copy(snapshot.Inner, _inner, _inner.Length);
+        Version++;
+    }
+
     public void Reset()
     {
         Array.Fill(_outer, _initialOuter);

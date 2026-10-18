@@ -13,6 +13,8 @@ public sealed class SolidMesh
     private float[] _normals;
     private float[] _colors;
     private int[] _indices;
+    private List<float>? _explicitEdges;
+    private float[]? _featureEdges;
 
     /// <summary>Malha vazia para ser preenchida pelos construtores do Core.</summary>
     internal static SolidMesh Create(int quadCapacity = 16) => new(quadCapacity);
@@ -88,6 +90,99 @@ public sealed class SolidMesh
         IndexCount += 6;
     }
 
+    /// <summary>
+    /// Polígono convexo "points" (em ordem) como um leque de triângulos, todos com a mesma normal. A ordem
+    /// dos vértices é acertada pela normal informada, como em <see cref="AddQuad"/>.
+    /// </summary>
+    internal void AddPolygon(ReadOnlySpan<Point3> points, Point3 normal, uint rgb)
+    {
+        int n = points.Length;
+        if (n < 3)
+        {
+            return;
+        }
+
+        EnsureCapacity(n, (n - 2) * 3);
+        bool reverse = false;
+        for (int k = 1; k + 1 < n; k++)
+        {
+            Point3 g = ViewCamera.Cross(points[k] - points[0], points[k + 1] - points[0]);
+            double len = Math.Abs(g.X) + Math.Abs(g.Y) + Math.Abs(g.Z);
+            if (len > 1e-12)
+            {
+                reverse = ViewCamera.Dot(g, normal) < 0;
+                break;
+            }
+        }
+
+        Point3 nn = ViewCamera.Normalize(normal);
+        float r = ((rgb >> 16) & 0xFF) / 255f, g2 = ((rgb >> 8) & 0xFF) / 255f, bl = (rgb & 0xFF) / 255f;
+        int v = VertexCount;
+        for (int k = 0; k < n; k++)
+        {
+            Put(v + k, points[reverse ? n - 1 - k : k], nn, r, g2, bl);
+        }
+
+        int i = IndexCount;
+        for (int k = 1; k + 1 < n; k++)
+        {
+            _indices[i++] = v;
+            _indices[i++] = v + k;
+            _indices[i++] = v + k + 1;
+        }
+
+        VertexCount += n;
+        IndexCount += (n - 2) * 3;
+    }
+
+    /// <summary>
+    /// Parede vertical entre dois pontos do plano XY, de zLow a zHigh. "normal" (para fora) decide o
+    /// lado das faces; "shadeA" e "shadeB" são as normais de luz em cada ponta (parede curva sem facetas).
+    /// </summary>
+    internal void AddWall(double ax, double ay, double bx, double by, double zLow, double zHigh, Point3 normal, Point3 shadeA, Point3 shadeB, uint rgb)
+    {
+        Point3 a0 = new(ax, ay, zLow), b0 = new(bx, by, zLow), b1 = new(bx, by, zHigh), a1 = new(ax, ay, zHigh);
+        Point3 geometric = ViewCamera.Cross(b1 - a0, a1 - b0);
+        Point3 na = ViewCamera.Normalize(shadeA), nb = ViewCamera.Normalize(shadeB);
+        if (ViewCamera.Dot(na, normal) <= 0)
+        {
+            na = ViewCamera.Normalize(normal);
+        }
+
+        if (ViewCamera.Dot(nb, normal) <= 0)
+        {
+            nb = ViewCamera.Normalize(normal);
+        }
+
+        EnsureCapacity(4, 6);
+        float r = ((rgb >> 16) & 0xFF) / 255f, g = ((rgb >> 8) & 0xFF) / 255f, bl = (rgb & 0xFF) / 255f;
+        int v = VertexCount;
+        if (ViewCamera.Dot(geometric, normal) >= 0)
+        {
+            Put(v, a0, na, r, g, bl);
+            Put(v + 1, b0, nb, r, g, bl);
+            Put(v + 2, b1, nb, r, g, bl);
+            Put(v + 3, a1, na, r, g, bl);
+        }
+        else
+        {
+            Put(v, a0, na, r, g, bl);
+            Put(v + 1, a1, na, r, g, bl);
+            Put(v + 2, b1, nb, r, g, bl);
+            Put(v + 3, b0, nb, r, g, bl);
+        }
+
+        int i = IndexCount;
+        _indices[i] = v;
+        _indices[i + 1] = v + 1;
+        _indices[i + 2] = v + 2;
+        _indices[i + 3] = v;
+        _indices[i + 4] = v + 2;
+        _indices[i + 5] = v + 3;
+        VertexCount += 4;
+        IndexCount += 6;
+    }
+
     /// <summary>Acrescenta os triângulos de outra malha (deslocados por "offset").</summary>
     internal void Append(SolidMesh other, Point3 offset = default)
     {
@@ -151,6 +246,112 @@ public sealed class SolidMesh
         return copy;
     }
 
+    /// <summary>
+    /// Segmentos das arestas que a tela marca por cima da malha (6 floats por segmento). Quem monta a
+    /// malha pode informar as arestas com <see cref="AddEdge"/> (o material da fresa faz isso); sem isso,
+    /// saem as arestas vivas, onde as faces vizinhas formam um ângulo grande.
+    /// </summary>
+    public ReadOnlySpan<float> Edges => _explicitEdges is { } e ? System.Runtime.InteropServices.CollectionsMarshal.AsSpan(e) : FeatureEdges(30);
+
+    /// <summary>Quem informa as arestas à mão (mesmo que nenhuma) chama isto: desliga o cálculo automático de <see cref="Edges"/>.</summary>
+    internal void UseExplicitEdges() => _explicitEdges ??= [];
+
+    /// <summary>Acrescenta uma aresta a marcar (desliga o cálculo automático de <see cref="Edges"/>).</summary>
+    internal void AddEdge(double ax, double ay, double az, double bx, double by, double bz)
+    {
+        _explicitEdges ??= [];
+        _explicitEdges.Add((float)ax);
+        _explicitEdges.Add((float)ay);
+        _explicitEdges.Add((float)az);
+        _explicitEdges.Add((float)bx);
+        _explicitEdges.Add((float)by);
+        _explicitEdges.Add((float)bz);
+    }
+
+    /// <summary>
+    /// Arestas vivas: lados de triângulo com um só triângulo (borda aberta) ou entre faces cuja normal
+    /// difere mais que "minAngleDegrees". Arestas de facetas de uma superfície curva ficam de fora.
+    /// </summary>
+    public float[] FeatureEdges(double minAngleDegrees)
+    {
+        if (_featureEdges is { } cached)
+        {
+            return cached;
+        }
+
+        double cosLimit = Math.Cos(minAngleDegrees * Math.PI / 180);
+        float[] p = _positions;
+        int[] idx = _indices;
+        int indexCount = IndexCount;
+        var open = new Dictionary<(long, long, long, long, long, long), (int A, int B, double Nx, double Ny, double Nz)>();
+        var edges = new List<float>();
+
+        static long Q(float v) => (long)Math.Round(v * 200.0);
+
+        void Visit(int a, int b, double nx, double ny, double nz)
+        {
+            int ka = a * 3, kb = b * 3;
+            var pa = (Q(p[ka]), Q(p[ka + 1]), Q(p[ka + 2]));
+            var pb = (Q(p[kb]), Q(p[kb + 1]), Q(p[kb + 2]));
+            // Chave sem direção: o mesmo lado visto de dois triângulos vizinhos
+            var key = pa.Item1 < pb.Item1 || (pa.Item1 == pb.Item1 && (pa.Item2 < pb.Item2 || (pa.Item2 == pb.Item2 && pa.Item3 <= pb.Item3)))
+                ? (pa.Item1, pa.Item2, pa.Item3, pb.Item1, pb.Item2, pb.Item3)
+                : (pb.Item1, pb.Item2, pb.Item3, pa.Item1, pa.Item2, pa.Item3);
+            if (open.Remove(key, out var other))
+            {
+                if (other.Nx * nx + other.Ny * ny + other.Nz * nz < cosLimit)
+                {
+                    Emit(a, b);
+                }
+            }
+            else
+            {
+                open[key] = (a, b, nx, ny, nz);
+            }
+        }
+
+        void Emit(int a, int b)
+        {
+            int ka = a * 3, kb = b * 3;
+            edges.Add(p[ka]);
+            edges.Add(p[ka + 1]);
+            edges.Add(p[ka + 2]);
+            edges.Add(p[kb]);
+            edges.Add(p[kb + 1]);
+            edges.Add(p[kb + 2]);
+        }
+
+        for (int i = 0; i + 2 < indexCount; i += 3)
+        {
+            int a = idx[i], b = idx[i + 1], c = idx[i + 2];
+            int ka = a * 3, kb = b * 3, kc = c * 3;
+            double ux = p[kb] - p[ka], uy = p[kb + 1] - p[ka + 1], uz = p[kb + 2] - p[ka + 2];
+            double vx = p[kc] - p[ka], vy = p[kc + 1] - p[ka + 1], vz = p[kc + 2] - p[ka + 2];
+            double gx = uy * vz - uz * vy, gy = uz * vx - ux * vz, gz = ux * vy - uy * vx;
+            double len = Math.Sqrt(gx * gx + gy * gy + gz * gz);
+            if (len < 1e-9)
+            {
+                continue;   // triângulo sem área (canto repetido no eixo de revolução)
+            }
+
+            gx /= len;
+            gy /= len;
+            gz /= len;
+            Visit(a, b, gx, gy, gz);
+            Visit(b, c, gx, gy, gz);
+            Visit(c, a, gx, gy, gz);
+        }
+
+        // Lados que ficaram sem par: borda aberta da malha
+        foreach ((int a, int b, _, _, _) in open.Values)
+        {
+            Emit(a, b);
+        }
+
+        _featureEdges = [.. edges];
+        return _featureEdges;
+    }
+
     /// <summary>Menor caixa que contém todos os vértices.</summary>
     public Bounds3 Bounds
     {
@@ -202,14 +403,14 @@ public sealed class SolidMesh
         _colors[k + 2] = b;
     }
 
-    private void EnsureRoom()
-    {
-        if ((VertexCount + 4) * 3 <= _positions.Length)
-        {
-            return;
-        }
+    private void EnsureRoom() => EnsureCapacity(4, 6);
 
-        Grow();
+    private void EnsureCapacity(int vertices, int indices)
+    {
+        while ((VertexCount + vertices) * 3 > _positions.Length || IndexCount + indices > _indices.Length)
+        {
+            Grow();
+        }
     }
 
     private void Grow()

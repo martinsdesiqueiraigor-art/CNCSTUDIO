@@ -3,8 +3,9 @@
 Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqui.
 
 - **Ramo ativo:** `fase-1-simulacao` (Fase 1 concluída, Parada C). Merge no `main` aguarda o dono.
-- **T01 (12 peças-exemplo, GPT):** revisada e corrigida pelo Claude no ramo `ext-gpt-t01-pecas` (PR #1); aguarda o dono.
-- **Próximo:** ajustes do 3D pedidos pelo dono após o teste no PC e no celular (lista a receber).
+- **Feito (ajustes do 3D):** A) fundo e material foscos, só o trecho atual da trajetória; B) contorno liso (furos redondos, paredes retas) com arestas marcadas; C) porta-ferramenta BT40, porca ER, cobertura na fresa/broca, morsa, placa e grampo detalhados pelas medidas do setup.
+- **Próximo:** conferir o 3D no PC e no celular; metal refletivo (etapa D) foi descartado pelo dono.
 - **Prévia:** `https://fase-1-simulacao.casillas-code.pages.dev` (workflow `previa.yml`) e o .exe em Actions → Artifacts.
-- **Testes:** 426 passando.
-- **Pendências conhecidas:** voltar passo no celular refaz a simulação do bruto; bruto redondo na fresa vira bloco; desktop 3D só testado com OpenGL por software.
+- **Testes:** 429 passando.
+- **Pendências resolvidas:** voltar passo agora usa até 16 pontos de retorno (fresa e torno) em vez de recomeçar do bruto; bruto redondo e tubo na fresa têm o formato real (círculo e furo).
+- **Pendência que resta:** desktop 3D só testado com OpenGL por software (precisa de teste numa placa de vídeo real).

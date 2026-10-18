@@ -87,7 +87,82 @@ public class SimulationSceneTests
         SolidMesh all = new HeightMapMesh(map).Merged();
         ConferirMalha(all);
         ConferirSentido(all);
-        Assert.Equal(VolumeDoMapa(map), all.EnclosedVolume(), 2);
+        // O contorno liso troca os degraus por curvas: o volume muda pouco (cantos redondos), não 1%
+        Assert.InRange(all.EnclosedVolume() / VolumeDoMapa(map), 0.99, 1.01);
+    }
+
+    // Vértices das paredes (normal horizontal): os que ficam no contorno dos furos e degraus
+    private static List<(double X, double Y, double Z)> VerticesDeParede(SolidMesh mesh)
+    {
+        var list = new List<(double, double, double)>();
+        ReadOnlySpan<float> p = mesh.Positions, n = mesh.Normals;
+        for (int v = 0; v < mesh.VertexCount; v++)
+        {
+            if (Math.Abs(n[v * 3 + 2]) < 0.01)
+            {
+                list.Add((p[v * 3], p[v * 3 + 1], p[v * 3 + 2]));
+            }
+        }
+
+        return list;
+    }
+
+    [Fact]
+    public void FuroRedondoSaiRedondoEParedeRetaFicaReta()
+    {
+        // Furo de raio 12 mm numa grade de 1 mm: antes, degraus de até ~0,7 mm; agora, o contorno acompanha o círculo
+        HeightMap hole = Mapa();
+        hole.CutDisc(60, 35, 12, -8, tool: 1);
+        List<(double X, double Y, double Z)> wall = VerticesDeParede(new HeightMapMesh(hole).Merged())
+            .Where(v => Math.Abs(v.X - 60) < 20 && Math.Abs(v.Y - 35) < 20).ToList();
+        Assert.True(wall.Count > 60);
+        double[] error = wall.Select(v => Math.Abs(Math.Sqrt((v.X - 60) * (v.X - 60) + (v.Y - 35) * (v.Y - 35)) - 12)).ToArray();
+        Assert.True(error.Max() < 0.5, $"desvio máximo do círculo: {error.Max():F3} mm");
+        Assert.True(error.Average() < 0.2, $"desvio médio do círculo: {error.Average():F3} mm");
+
+        // Parede reta (borda de um corte enorme): fica no meio das duas células, sem serrilhado
+        HeightMap straight = Mapa();
+        straight.CutDisc(5060, 35, 5000, -8, tool: 1);
+        // (fora as laterais externas do bloco, que também têm normal horizontal)
+        List<(double X, double Y, double Z)> line = VerticesDeParede(new HeightMapMesh(straight).Merged())
+            .Where(v => v.X > 0.01 && v.X < 119.99 && v.Y > 0.01 && v.Y < 69.99).ToList();
+        Assert.True(line.Count > 100);
+        Assert.All(line, v => Assert.InRange(v.X, 59.95, 60.05));
+    }
+
+    [Fact]
+    public void ContornoLisoMarcaArestasEPartesPlanasNaoTemAresta()
+    {
+        HeightMap map = Mapa();
+        Assert.Equal(0, new HeightMapMesh(map).Tile(5).Edges.Length);
+        SolidMesh intact = HeightMapMesh.BuildTile(map, ScenePalette.Realistic, 1, 1);
+        Assert.Equal(0, intact.Edges.Length);
+
+        map.CutDisc(45, 40, 6, -5, tool: 1);
+        SolidMesh cut = HeightMapMesh.BuildTile(map, ScenePalette.Realistic, 1, 1);
+        Assert.True(cut.Edges.Length > 0);
+        Assert.Equal(0, cut.Edges.Length % 6);
+        // O alto da parede está no topo do bruto (Z0) e o pé no fundo do furo (Z-5)
+        float[] e = cut.Edges.ToArray();
+        Assert.Contains(Enumerable.Range(0, e.Length / 6), k => e[k * 6 + 2] == 0f);
+        Assert.Contains(Enumerable.Range(0, e.Length / 6), k => e[k * 6 + 2] == -5f);
+    }
+
+    [Fact]
+    public void CorteNoMeioDeUmBlocoNaoRefazOsVizinhos()
+    {
+        HeightMap map = Mapa();
+        var mesh = new HeightMapMesh(map);
+        mesh.Update();
+
+        map.CutDisc(45, 10, 2, -3, tool: 1);          // longe das bordas do bloco (colunas 32–63)
+        Assert.Equal([1], mesh.Update());
+
+        map.CutDisc(33, 10, 2, -3, tool: 1);          // a 1 célula da borda: o bloco da esquerda enxerga
+        IReadOnlyList<int> changed = mesh.Update();
+        Assert.Contains(0, changed);
+        Assert.Contains(1, changed);
+        Assert.Equal(2, changed.Count);
     }
 
     [Fact]
@@ -213,17 +288,62 @@ public class SimulationSceneTests
             Assert.True(m.EnclosedVolume() > 0);
         }
 
+        // A parte cortante tem 30 mm; segue a haste de aço até entrar na porca
+        double shank = SceneMeshes.ToolShankLength(profile.Diameter);
+        double nutFace = 30 + shank;
         Bounds3 b = cutter.Bounds;
-        Assert.Equal(0, b.Min.Z, 6);
-        Assert.Equal(30, b.Max.Z, 6);
+        Assert.Equal(0, b.Min.Z, 4);
+        Assert.Equal(nutFace + SceneMeshes.ToolEmbed, b.Max.Z, 4);
         Assert.Equal(5, b.Max.X, 3);
-        Assert.Equal(70, holder.Bounds.Max.Z, 6);
+
+        // Porta-ferramenta BT40: porca na face (z = parte cortante + haste), flange, cone 7:24 e puxador
+        Bounds3 hb = holder.Bounds;
+        Assert.Equal(nutFace, hb.Min.Z, 4);
+        Assert.Equal(nutFace + 40 + SceneMeshes.BtFlangeThickness + SceneMeshes.BtTaperLength + SceneMeshes.BtStudLength, hb.Max.Z, 4);
+        Assert.Equal(SceneMeshes.BtFlangeRadius, hb.Max.X, 3);   // o flange é a parte mais larga (porca de 32 mm)
+        Assert.True(TemCor(holder, ScenePalette.Realistic.Nut));
+        Assert.True(TemCor(holder, ScenePalette.Realistic.Holder));
 
         // Fresa de topo: volume do prisma de 48 lados
         if (shape == ToolTipShape.Flat)
         {
-            Assert.Equal(Poligono(5) * 30, cutter.EnclosedVolume(), 3);
+            Assert.Equal(Poligono(5) * (nutFace + SceneMeshes.ToolEmbed), cutter.EnclosedVolume(), 3);
         }
+    }
+
+    [Fact]
+    public void FresaEBrocaDoSetupTemCoberturaEMachoEAcoNao()
+    {
+        ScenePalette p = ScenePalette.Realistic;
+        var profile = new ToolProfile(ToolTipShape.Flat, 4);
+        foreach (ToolKind kind in new[] { ToolKind.FlatEndMill, ToolKind.BallEndMill, ToolKind.BullNoseEndMill, ToolKind.Drill })
+        {
+            (SolidMesh coated, _) = SceneMeshes.MillTool(profile, new SetupTool { Kind = kind, Diameter = 8, CuttingLength = 20 }, p);
+            Assert.True(TemCor(coated, p.Coating), $"{kind}: sem cobertura");
+            Assert.True(TemCor(coated, p.Tool), $"{kind}: sem haste de aço");   // a haste fica sem cobertura
+        }
+
+        foreach (ToolKind kind in new[] { ToolKind.Tap, ToolKind.FaceMill })
+        {
+            (SolidMesh steel, _) = SceneMeshes.MillTool(profile, new SetupTool { Kind = kind, Diameter = 8, CuttingLength = 20 }, p);
+            Assert.False(TemCor(steel, p.Coating), $"{kind}: não deveria ter cobertura");
+        }
+
+        // Sem ferramenta cadastrada no setup não se supõe cobertura
+        (SolidMesh unknown, _) = SceneMeshes.MillTool(profile, null, p);
+        Assert.False(TemCor(unknown, p.Coating));
+    }
+
+    [Fact]
+    public void PortaFerramentaGrandeAlargaOFlangeESegueOSetup()
+    {
+        var profile = new ToolProfile(ToolTipShape.Flat, 10);
+        var wide = new SetupTool { Diameter = 20, CuttingLength = 40, HolderDiameter = 100, HolderLength = 60 };
+        (_, SolidMesh holder) = SceneMeshes.MillTool(profile, wide, ScenePalette.Realistic);
+        ConferirMalha(holder);
+        ConferirSentido(holder);
+        Assert.Equal(50 * 1.15, holder.Bounds.Max.X, 3);    // porca de 100 mm: o flange cresce junto
+        Assert.True(holder.EnclosedVolume() > 0);
     }
 
     [Fact]
@@ -237,19 +357,93 @@ public class SimulationSceneTests
         Assert.Equal(0, b.Min.X, 6);
         Assert.Equal(0, b.Min.Z, 6);
         Assert.True(insert.EnclosedVolume() > 0);
+        Assert.True(TemCor(insert, ScenePalette.Realistic.Coating));   // quebra-cavaco na cor da cobertura
+        Assert.True(TemCor(insert, ScenePalette.Realistic.Tool));
     }
 
     // ── Fixações ──
 
+    private static int CoresDistintas(SolidMesh mesh)
+    {
+        var set = new HashSet<(float, float, float)>();
+        ReadOnlySpan<float> c = mesh.Colors;
+        for (int i = 0; i < c.Length; i += 3)
+        {
+            set.Add((c[i], c[i + 1], c[i + 2]));
+        }
+
+        return set.Count;
+    }
+
     [Fact]
-    public void MorsaComBaseEDoisMordentes()
+    public void BrutoRedondoNaFresaTemSoOCirculoEOTuboTemFuro()
+    {
+        // Mapa de 100 × 100 células de 1 mm; bruto redondo Ø80 no centro (50, 50)
+        var map = new HeightMap(0, 0, 100, 100, 1, 0, -20);
+        SimulationFactory.ApplyRoundShape(map, new SetupStock { Kind = SetupStockKind.Round, X = 50, Y = 50, Diameter = 80, Height = 20, Z = -20 });
+        Assert.True(map.HasEmptyCells);
+        Assert.Equal(-20, map[2, 2]);          // canto: fora do círculo
+        Assert.Equal(0, map[50, 50]);          // centro: material
+
+        SolidMesh all = new HeightMapMesh(map).Merged();
+        ConferirMalha(all);
+        ConferirSentido(all);
+        double volume = all.EnclosedVolume();
+        Assert.True(volume > 0);
+
+        // Reset mantém o formato; o corte não cria material fora dele
+        map.CutDisc(50, 50, 10, -5);
+        map.Reset();
+        Assert.Equal(-20, map[2, 2]);
+        Assert.Equal(0, map[50, 50]);
+
+        // Tubo: o furo central também fica sem material
+        SimulationFactory.ApplyRoundShape(map, new SetupStock { Kind = SetupStockKind.Tube, X = 50, Y = 50, Diameter = 80, InnerDiameter = 30, Height = 20, Z = -20 });
+        Assert.Equal(-20, map[50, 50]);
+        Assert.Equal(0, map[50, 20]);
+    }
+
+    [Fact]
+    public void MorsaComChapaCorpoParafusosEMordentesComPlaca()
     {
         var vise = new SetupFixture { Kind = SetupFixtureKind.Vise, X = -10, Y = -20, Z = -50, Width = 150, Depth = 110, Height = 30, JawOpening = 60, JawThickness = 12 };
         (SolidMesh body, SolidMesh jaws) = SceneMeshes.Fixture(vise, null, ScenePalette.Realistic);
+        ConferirMalha(body);
         ConferirSentido(body);
         ConferirSentido(jaws);
-        Assert.Equal(150 * 110 * 30, body.EnclosedVolume(), 3);
-        Assert.Equal(2 * 150 * 12 * 12, jaws.EnclosedVolume(), 3);
+
+        // Tudo dentro da pegada do setup: a chapa ocupa X −10…140 e Y −20…90, do fundo (−50) até o topo (−20)
+        Bounds3 b = body.Bounds;
+        Assert.Equal(-10, b.Min.X, 3);
+        Assert.Equal(140, b.Max.X, 3);
+        Assert.Equal(-20, b.Min.Y, 3);
+        Assert.Equal(90, b.Max.Y, 3);
+        Assert.Equal(-50, b.Min.Z, 3);
+        Assert.Equal(-20, b.Max.Z, 3);
+        Bounds3 j = jaws.Bounds;
+        Assert.InRange(j.Min.X, -10, 140);
+        Assert.InRange(j.Max.X, -10, 140);
+        Assert.InRange(j.Min.Y, -20, 90);
+        Assert.InRange(j.Max.Y, -20, 90);
+        Assert.Equal(-20 + 12, j.Max.Z, 3);                  // mordentes saem da altura do topo do corpo
+
+        // Corpo escalonado (chapa + bloco mais curto + parafusos): menos que o bloco cheio, mais que a metade
+        double full = 150 * 110 * 30;
+        Assert.InRange(body.EnclosedVolume() / full, 0.75, 0.99);
+        Assert.True(CoresDistintas(body) >= 2);              // chapa mais escura e parafusos
+        Assert.True(CoresDistintas(jaws) >= 2);              // mordente e placa de contato
+    }
+
+    [Fact]
+    public void GrampoTemPrisioneiroArruelaEPorca()
+    {
+        var clamp = new SetupFixture { Kind = SetupFixtureKind.Clamp, X = 0, Y = 0, Z = -40, Width = 100, Depth = 80, Height = 20, JawThickness = 10 };
+        (SolidMesh body, SolidMesh top) = SceneMeshes.Fixture(clamp, null, ScenePalette.Realistic);
+        ConferirSentido(body);
+        ConferirSentido(top);
+        Assert.Equal(100 * 80 * 20, body.EnclosedVolume(), 3);
+        Assert.True(top.Bounds.Max.Z > -40 + 20 + 10 + 8);   // o prisioneiro passa da tira
+        Assert.True(TemCor(top, ScenePalette.Realistic.Nut));
     }
 
     [Fact]
@@ -258,13 +452,37 @@ public class SimulationSceneTests
         var chuck = new SetupFixture { Kind = SetupFixtureKind.ThreeJawChuck, Width = 160, Depth = 160, Height = 40, Z = -60, JawOpening = 50, JawThickness = 15 };
         var stock = new SetupStock { Kind = SetupStockKind.Round, Diameter = 50, Z = -20, Height = 40 };
         (SolidMesh body, SolidMesh jaws) = SceneMeshes.Fixture(chuck, stock, ScenePalette.Realistic);
+        ConferirMalha(body);
         ConferirSentido(body);
         ConferirSentido(jaws);
         Assert.Equal(3 * 2 * 12, jaws.TriangleCount);     // 3 castanhas × 2 caixas × 12 triângulos
-        Assert.Equal(Poligono(80) * 40, body.EnclosedVolume(), 1);
+        Assert.True(CoresDistintas(jaws) >= 2);           // base e ressalto de contato
 
-        (_, SolidMesh none) = SceneMeshes.Fixture(chuck, null, ScenePalette.Realistic);
+        // Corpo com chapa traseira menor, chanfro e rebaixo na face: menos que o cilindro cheio
+        double cylinder = Poligono(80) * 40;
+        Assert.InRange(body.EnclosedVolume() / cylinder, 0.80, 0.99);
+        Assert.True(CoresDistintas(body) >= 3);           // chapa, corpo, face e furos da chave
+
+        (SolidMesh bare, SolidMesh none) = SceneMeshes.Fixture(chuck, null, ScenePalette.Realistic);
         Assert.Equal(0, none.TriangleCount);
+        Assert.True(bare.TriangleCount > 0);
+    }
+
+    [Fact]
+    public void PlacaDoTornoTemRebaixoChanfroEFurosDaChave()
+    {
+        var stock = new TurningStock(-60, 0, 20);
+        (SolidMesh body, SolidMesh jaws) = SceneMeshes.LatheChuck(stock, null, ScenePalette.Realistic);
+        ConferirMalha(body);
+        ConferirSentido(body);
+        ConferirSentido(jaws);
+        Assert.True(body.EnclosedVolume() > 0);
+        Assert.Equal(3 * 2 * 12, jaws.TriangleCount);
+        Assert.True(CoresDistintas(body) >= 3);
+        Assert.True(CoresDistintas(jaws) >= 2);
+        // A placa fica atrás da peça (a face encosta no menor Z da barra, que no mundo é o X da cena)
+        Assert.Equal(-60, body.Bounds.Max.X, 3);
+        Assert.True(body.Bounds.Min.X < -60 - 15);
     }
 
     // ── Câmera ──
@@ -349,6 +567,45 @@ public class SimulationSceneTests
     }
 
     [Fact]
+    public void SoOTrechoAtualApareceSemATrajetoriaInteira()
+    {
+        ToolPath path = Trajetoria();
+        var map = new HeightMap(-10, -10, 200, 60, 1, 0, -10);
+        SimulationScene scene = SimulationScene.ForMill(map, path, _ => ToolProfile.Flat(8));
+        Assert.DoesNotContain(scene.Lines, l => l.Role == SceneRole.CurrentPath);   // nada até a simulação começar
+
+        int feedMove = path.Moves.ToList().FindIndex(m => !m.IsRapid);
+        Assert.True(scene.SetCurrentMove(feedMove));
+        SceneLines current = scene.Lines.Single(l => l.Role == SceneRole.CurrentPath);
+        Assert.True(current.SegmentCount >= 1);
+        Assert.All(current.MoveOfSegment, i => Assert.Equal(feedMove, i));
+        Assert.False(scene.SetCurrentMove(feedMove));                                // mesmo trecho: nada a reenviar
+
+        // O trecho é só o movimento atual, bem menor que a trajetória inteira
+        SceneLines feed = scene.Lines.Single(l => l.Role == SceneRole.FeedPath);
+        Assert.True(current.SegmentCount < feed.SegmentCount + 1);
+        Assert.Equal(ScenePalette.Realistic.CurrentPath, scene.Snapshot().Lines.Single(l => l.Role == SceneRole.CurrentPath).Color);
+
+        // Recalcular os rápidos no material não perde o trecho atual
+        scene.SetRapidCollisions([]);
+        Assert.Contains(scene.Lines, l => l.Role == SceneRole.CurrentPath);
+
+        // -1 apaga
+        Assert.True(scene.SetCurrentMove(-1));
+        Assert.Equal(0, scene.Lines.Single(l => l.Role == SceneRole.CurrentPath).SegmentCount);
+    }
+
+    [Fact]
+    public void MaterialFoscoUniformeComPoucaDiferencaDeProfundidade()
+    {
+        ScenePalette p = ScenePalette.Realistic;
+        static double Luma(uint c) => 0.299 * ((c >> 16) & 0xFF) + 0.587 * ((c >> 8) & 0xFF) + 0.114 * (c & 0xFF);
+        double spread = Luma(p.Machined(0, 0)) - Luma(p.Machined(1, 0));
+        Assert.InRange(spread, 0, 40);                                  // degradê suave, não chapado nem contrastado
+        Assert.InRange(Math.Abs(Luma(p.Stock) - Luma(p.Machined(0, 0))), 0, 25);   // bruto e corte da mesma família
+    }
+
+    [Fact]
     public void CenaDaFresaAtualizaSoOQueMudouEPosicionaAFerramenta()
     {
         ToolPath path = Trajetoria();
@@ -374,7 +631,7 @@ public class SimulationSceneTests
         scene.SetTool(1, new Point3(40, 0, -2));
         SceneObject cutter = scene.Objects.Single(o => o.Id == "ferramenta/corte");
         Assert.Equal(new Point3(40, 0, -2), cutter.Offset);
-        Assert.Equal(20, cutter.Mesh.Bounds.Max.Z, 6);
+        Assert.Equal(20 + SceneMeshes.ToolShankLength(8) + SceneMeshes.ToolEmbed, cutter.Mesh.Bounds.Max.Z, 4);
         int version = cutter.Version;
         scene.SetTool(1, new Point3(41, 0, -2));
         Assert.Equal(version, cutter.Version);                 // mesma ferramenta: só move
@@ -489,7 +746,7 @@ public class SimulationSceneTests
         SimulationScene scene = SimulationScene.ForLathe(stock, path);
 
         SolidMesh jaws = scene.Objects.Single(o => o.Role == SceneRole.FixtureJaw).Mesh;
-        Assert.Equal(3 * 12, jaws.TriangleCount);
+        Assert.Equal(3 * 2 * 12, jaws.TriangleCount);
         Assert.True(jaws.Bounds.Max.X <= stock.MinZ + 25 + 1e-6);        // prendem a ponta de menor Z
         SolidMesh body = scene.Objects.Single(o => o.Role == SceneRole.Fixture).Mesh;
         Assert.True(body.Bounds.Max.X <= stock.MinZ + 1e-6);            // corpo da placa atrás da barra

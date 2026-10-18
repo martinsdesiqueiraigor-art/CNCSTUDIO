@@ -28,6 +28,50 @@ public sealed class TurningSimulator : IMaterialSimulation
         Reset();
     }
 
+    // Pontos de retorno (ver MaterialSimulator): o perfil no início de alguns movimentos
+    private sealed record Checkpoint((float[] Outer, float[] Inner) Profile, double Travelled, int[] RapidCollisions, Point3 ToolPosition);
+
+    private const int MaxCheckpoints = 16;
+    private readonly SortedList<int, Checkpoint> _checkpoints = [];
+
+    private int CheckpointStride => Math.Max(1, (_moves.Count + MaxCheckpoints - 1) / MaxCheckpoints);
+
+    private void TakeCheckpoint()
+    {
+        if (_moveIndex > 0 && _moveIndex % CheckpointStride == 0 && !_checkpoints.ContainsKey(_moveIndex))
+        {
+            _checkpoints[_moveIndex] = new Checkpoint(_stock.TakeSnapshot(), Travelled, [.. _rapidCollisions], ToolPosition);
+        }
+    }
+
+    private void RewindFor(int moveIndex)
+    {
+        Checkpoint? best = null;
+        int bestIndex = 0;
+        foreach ((int index, Checkpoint checkpoint) in _checkpoints)
+        {
+            if (index <= moveIndex)
+            {
+                best = checkpoint;
+                bestIndex = index;
+            }
+        }
+
+        if (best is null)
+        {
+            Reset();
+            return;
+        }
+
+        _stock.Restore(best.Profile);
+        _moveIndex = bestIndex;
+        Travelled = best.Travelled;
+        _rapidCollisions.Clear();
+        _rapidCollisions.AddRange(best.RapidCollisions);
+        ToolPosition = best.ToolPosition;
+        Load();
+    }
+
     public TurningStock Stock => _stock;
     public int CurrentMoveIndex => _moveIndex;
     public bool IsFinished => _moveIndex >= _moves.Count;
@@ -77,7 +121,7 @@ public sealed class TurningSimulator : IMaterialSimulation
         moveIndex = Math.Clamp(moveIndex, 0, _moves.Count);
         if (moveIndex < _moveIndex || (moveIndex == _moveIndex && (_pieceIndex > 0 || _distanceInPiece > 0)))
         {
-            Reset();
+            RewindFor(moveIndex);
         }
 
         while (_moveIndex < moveIndex)
@@ -92,7 +136,7 @@ public sealed class TurningSimulator : IMaterialSimulation
         moveIndex = Math.Clamp(moveIndex, 0, _moves.Count);
         if (moveIndex < _moveIndex || (moveIndex == _moveIndex && (_pieceIndex > 0 || _distanceInPiece > 0)))
         {
-            Reset();
+            RewindFor(moveIndex);
         }
 
         while (_moveIndex < moveIndex && maxDistance > 0)
@@ -138,6 +182,7 @@ public sealed class TurningSimulator : IMaterialSimulation
             {
                 _moveIndex++;
                 Load();
+                TakeCheckpoint();
             }
         }
 

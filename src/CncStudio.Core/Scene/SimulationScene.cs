@@ -74,6 +74,8 @@ public sealed class SimulationScene
     private int _turningVersion = -1;
     private int _tool = -1;
     private Point3 _tip;
+    private int _currentMove = -1;
+    private SceneLines? _current;
 
     private SimulationScene(ToolPath path, Func<int, ToolProfile> profileOf, MachiningSetup? setup, ScenePalette palette,
         HeightMapMesh? mill, TurningStock? turning)
@@ -271,6 +273,56 @@ public sealed class SimulationScene
         _lines.Add(feed);
         _lines.Add(rapid);
         _lines.Add(hit);
+        if (_current is not null)
+        {
+            _lines.Add(_current);
+        }
+    }
+
+    /// <summary>
+    /// Destaca só o movimento que está sendo executado (índice em <c>ToolPath.Moves</c>; -1 apaga).
+    /// A trajetória inteira fica escondida por padrão e esse trecho dá a pista de onde a ferramenta vai.
+    /// Devolve true se o trecho mudou (as telas reenviam só nesse caso).
+    /// </summary>
+    public bool SetCurrentMove(int move)
+    {
+        if (move == _currentMove)
+        {
+            return false;
+        }
+
+        _currentMove = move;
+        var line = new SceneLines(SceneRole.CurrentPath);
+        if (move >= 0 && move < _path.Moves.Count)
+        {
+            Move m = _path.Moves[move];
+            var points = new List<Point3> { m.Start };
+            m.AppendPolyline(points, 0.01);
+            for (int k = 0; k + 1 < points.Count; k++)
+            {
+                Point3 a = points[k], b = points[k + 1];
+                if (_turning is not null)
+                {
+                    a = SceneMeshes.LatheToWorld(a with { Y = 0 });
+                    b = SceneMeshes.LatheToWorld(b with { Y = 0 });
+                }
+
+                line.Add(a, b, move);
+            }
+        }
+
+        int at = _lines.FindIndex(l => l.Role == SceneRole.CurrentPath);
+        if (at >= 0)
+        {
+            _lines[at] = line;
+        }
+        else
+        {
+            _lines.Add(line);
+        }
+
+        _current = line;
+        return true;
     }
 
     // Material (vazio até o Refresh), fixações e ferramenta
