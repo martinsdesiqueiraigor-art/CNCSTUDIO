@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
+using Avalonia.Rendering;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Scene;
 
@@ -13,7 +14,7 @@ namespace CncStudio.App.Graphics;
 /// que mudaram. Giro com o botão esquerdo, deslocamento com o direito ou o do meio, roda aproxima.
 /// Se o OpenGL não abrir, avisa por <see cref="Failed"/> e a tela volta ao desenho por CPU.
 /// </summary>
-public sealed class GlSceneView : OpenGlControlBase
+public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
 {
     // Constantes do OpenGL usadas aqui
     private const int ArrayBuffer = 0x8892, ElementArrayBuffer = 0x8893, StaticDraw = 0x88E4, Float = 0x1406;
@@ -446,6 +447,13 @@ public sealed class GlSceneView : OpenGlControlBase
         """;
 
     // ── Mouse ──
+
+    /// <summary>
+    /// A imagem vem toda da placa de vídeo e o Avalonia só entrega o mouse a quem desenha algo
+    /// próprio: sem isto, clique, arraste e roda passam direto pelo 3D numa placa de vídeo real.
+    /// </summary>
+    public bool HitTest(Point point) => IsVisible && new Rect(Bounds.Size).Contains(point);
+
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
