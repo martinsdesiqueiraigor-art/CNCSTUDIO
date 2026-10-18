@@ -38,4 +38,15 @@ public class ToolCommentDiameterTests
 
         Assert.Contains(analysis.ToolPath.Moves, m => Math.Abs(m.End.X + 2) < 1e-6 && m.End.Y > 30);
     }
+
+    [Fact]
+    public void TornoFanucLeODiametroDaBrocaPeloNumeroDaFerramenta()
+    {
+        // T0202 é a ferramenta 2 (corretor 02): o diâmetro do comentário tem de chegar na ferramenta 2
+        const string program = "G21 G18 G40 G99\nT0101 (DESBASTE EXTERNO R0.8)\nG00 X52. Z2.\nT0202 (BROCA D16)\nG97 S800 M03\nG00 X0. Z3.\nG01 Z-20. F0.1\nG00 Z100.";
+        ProgramAnalysis analysis = ProgramAnalyzer.Analyze(program, Dialect.Fanuc, MachineSettings.Default);
+
+        Assert.Equal(MachineKind.Lathe, analysis.ToolPath.Machine);
+        Assert.Equal(16, analysis.ToolDiameterOf(2));
+    }
 }
