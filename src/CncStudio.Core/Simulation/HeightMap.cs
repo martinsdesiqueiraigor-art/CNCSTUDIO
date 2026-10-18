@@ -10,6 +10,14 @@ namespace CncStudio.Core.Simulation;
 public sealed class HeightMap
 {
     private readonly float[] _heights;
+    private readonly ushort[] _cutBy;
+    private readonly int[] _tileVersion;
+
+    /// <summary>
+    /// Lado (em células) dos blocos usados para saber o que mudou: quem desenha guarda a versão de
+    /// cada bloco e refaz só os blocos alterados (ver <see cref="TileVersion"/>).
+    /// </summary>
+    public const int TileSize = 32;
 
     /// <param name="originX">X do canto inferior esquerdo da grade (mm).</param>
     /// <param name="originY">Y do canto inferior esquerdo da grade (mm).</param>
@@ -36,6 +44,10 @@ public sealed class HeightMap
         TopZ = topZ;
         BottomZ = bottomZ;
         _heights = new float[columns * rows];
+        _cutBy = new ushort[columns * rows];
+        TileColumns = (columns + TileSize - 1) / TileSize;
+        TileRows = (rows + TileSize - 1) / TileSize;
+        _tileVersion = new int[TileColumns * TileRows];
         Reset();
     }
 
@@ -61,6 +73,22 @@ public sealed class HeightMap
 
     public float this[int column, int row] => _heights[row * Columns + column];
 
+    /// <summary>Número T da última ferramenta que rebaixou a célula (0 = intocada ou sem número).</summary>
+    public int CutBy(int column, int row) => _cutBy[row * Columns + column];
+
+    /// <summary>Blocos de <see cref="TileSize"/> × <see cref="TileSize"/> células em X.</summary>
+    public int TileColumns { get; }
+
+    /// <summary>Blocos em Y.</summary>
+    public int TileRows { get; }
+
+    /// <summary>Valor de <see cref="Version"/> na última mudança do bloco (tileColumn, tileRow).</summary>
+    public int TileVersion(int tileColumn, int tileRow) => _tileVersion[tileRow * TileColumns + tileColumn];
+
+    // Marca o bloco da célula como alterado na versão que está para ser publicada
+    private void Touch(int column, int row) =>
+        _tileVersion[row / TileSize * TileColumns + column / TileSize] = Version + 1;
+
     public double CellCenterX(int column) => OriginX + (column + 0.5) * CellSize;
     public double CellCenterY(int row) => OriginY + (row + 0.5) * CellSize;
 
@@ -81,7 +109,9 @@ public sealed class HeightMap
     public void Reset()
     {
         Array.Fill(_heights, (float)TopZ);
+        Array.Clear(_cutBy);
         Version++;
+        Array.Fill(_tileVersion, Version);
     }
 
     /// <summary>
@@ -89,7 +119,8 @@ public sealed class HeightMap
     /// dentro do círculo (x, y, radius) é rebaixada até z (se estiver acima).
     /// Retorna true se removeu algum material.
     /// </summary>
-    public bool CutDisc(double x, double y, double radius, double z)
+    /// <param name="tool">Número T de quem corta (para colorir o corte por ferramenta).</param>
+    public bool CutDisc(double x, double y, double radius, double z, int tool = 0)
     {
         if (z >= TopZ)
         {
@@ -124,6 +155,8 @@ public sealed class HeightMap
                 if (_heights[index] > cutZ)
                 {
                     _heights[index] = cutZ;
+                    _cutBy[index] = (ushort)Math.Clamp(tool, 0, ushort.MaxValue);
+                    Touch(column, row);
                     changed = true;
                 }
             }
@@ -142,11 +175,11 @@ public sealed class HeightMap
     /// uma distância d do eixo é rebaixada até z + altura do perfil em d (se estiver acima).
     /// Topo reto usa <see cref="CutDisc"/> (mesmo resultado, mais rápido).
     /// </summary>
-    public bool CutProfile(double x, double y, ToolProfile profile, double z)
+    public bool CutProfile(double x, double y, ToolProfile profile, double z, int tool = 0)
     {
         if (profile.IsFlat)
         {
-            return CutDisc(x, y, profile.Radius, z);
+            return CutDisc(x, y, profile.Radius, z, tool);
         }
 
         if (z >= TopZ)
@@ -188,6 +221,8 @@ public sealed class HeightMap
                 if (_heights[index] > cutZ)
                 {
                     _heights[index] = cutZ;
+                    _cutBy[index] = (ushort)Math.Clamp(tool, 0, ushort.MaxValue);
+                    Touch(column, row);
                     changed = true;
                 }
             }

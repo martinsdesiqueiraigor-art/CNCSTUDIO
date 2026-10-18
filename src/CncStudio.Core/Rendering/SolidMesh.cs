@@ -14,6 +14,9 @@ public sealed class SolidMesh
     private float[] _colors;
     private int[] _indices;
 
+    /// <summary>Malha vazia para ser preenchida pelos construtores do Core.</summary>
+    internal static SolidMesh Create(int quadCapacity = 16) => new(quadCapacity);
+
     private SolidMesh(int quadCapacity)
     {
         quadCapacity = Math.Max(16, quadCapacity);
@@ -47,9 +50,20 @@ public sealed class SolidMesh
         return mesh;
     }
 
-    /// <summary>Acrescenta o quadrilátero a, b, c, d (em ordem) como dois triângulos.</summary>
+    /// <summary>
+    /// Acrescenta o quadrilátero a, b, c, d (em ordem) como dois triângulos. A ordem dos vértices é
+    /// acertada pela normal informada: vistos de fora, os triângulos ficam no sentido anti-horário
+    /// (o padrão das placas de vídeo para descartar o lado de trás).
+    /// </summary>
     internal void AddQuad(Point3 a, Point3 b, Point3 c, Point3 d, Point3 normal, uint rgb)
     {
+        // Normal geométrica pelas diagonais (funciona também com um canto repetido, no eixo de revolução)
+        Point3 geometric = ViewCamera.Cross(c - a, d - b);
+        if (ViewCamera.Dot(geometric, normal) < 0)
+        {
+            (b, d) = (d, b);
+        }
+
         EnsureRoom();
         Point3 n = ViewCamera.Normalize(normal);
         float r = ((rgb >> 16) & 0xFF) / 255f, g = ((rgb >> 8) & 0xFF) / 255f, bl = (rgb & 0xFF) / 255f;
@@ -68,6 +82,73 @@ public sealed class SolidMesh
         _indices[i + 5] = v + 3;
         VertexCount += 4;
         IndexCount += 6;
+    }
+
+    /// <summary>Acrescenta os triângulos de outra malha (deslocados por "offset").</summary>
+    internal void Append(SolidMesh other, Point3 offset = default)
+    {
+        int vertices = other.VertexCount, indices = other.IndexCount;
+        while ((VertexCount + vertices) * 3 > _positions.Length || IndexCount + indices > _indices.Length)
+        {
+            Grow();
+        }
+
+        ReadOnlySpan<float> p = other.Positions;
+        for (int i = 0; i < p.Length; i += 3)
+        {
+            int k = VertexCount * 3 + i;
+            _positions[k] = (float)(p[i] + offset.X);
+            _positions[k + 1] = (float)(p[i + 1] + offset.Y);
+            _positions[k + 2] = (float)(p[i + 2] + offset.Z);
+        }
+
+        other.Normals.CopyTo(_normals.AsSpan(VertexCount * 3));
+        other.Colors.CopyTo(_colors.AsSpan(VertexCount * 3));
+        ReadOnlySpan<int> idx = other.Indices;
+        for (int i = 0; i < idx.Length; i++)
+        {
+            _indices[IndexCount + i] = idx[i] + VertexCount;
+        }
+
+        VertexCount += vertices;
+        IndexCount += indices;
+    }
+
+    /// <summary>Menor caixa que contém todos os vértices.</summary>
+    public Bounds3 Bounds
+    {
+        get
+        {
+            Bounds3 box = Bounds3.Empty;
+            ReadOnlySpan<float> p = Positions;
+            for (int i = 0; i < p.Length; i += 3)
+            {
+                box = box.Include(new Point3(p[i], p[i + 1], p[i + 2]));
+            }
+
+            return box;
+        }
+    }
+
+    /// <summary>
+    /// Volume fechado pela malha (teorema da divergência). Só faz sentido para malha fechada com os
+    /// triângulos virados para fora; os testes usam isso para conferir as duas coisas.
+    /// </summary>
+    public double EnclosedVolume()
+    {
+        ReadOnlySpan<float> p = Positions;
+        ReadOnlySpan<int> idx = Indices;
+        double sum = 0;
+        for (int i = 0; i < idx.Length; i += 3)
+        {
+            int a = idx[i] * 3, b = idx[i + 1] * 3, c = idx[i + 2] * 3;
+            double ax = p[a], ay = p[a + 1], az = p[a + 2];
+            double bx = p[b], by = p[b + 1], bz = p[b + 2];
+            double cx = p[c], cy = p[c + 1], cz = p[c + 2];
+            sum += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx);
+        }
+
+        return sum / 6;
     }
 
     private void Put(int vertex, Point3 p, Point3 n, float r, float g, float b)
@@ -91,6 +172,11 @@ public sealed class SolidMesh
             return;
         }
 
+        Grow();
+    }
+
+    private void Grow()
+    {
         int quads = _positions.Length / 12 * 2;
         Array.Resize(ref _positions, quads * 12);
         Array.Resize(ref _normals, quads * 12);

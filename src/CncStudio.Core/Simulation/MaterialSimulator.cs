@@ -20,6 +20,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
     private ToolProfile _profile = ToolProfile.Flat(10);
     private readonly double _arcTolerance;
     private double _toolRadius;
+    private int _tool;
 
     // Pontos do movimento atual (começando no ponto inicial) e posição dentro deles
     private readonly List<Point3> _polyline = [];
@@ -217,6 +218,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
         Move move = _moves[_moveIndex];
         _profile = _profileOf(move.Tool) ?? ToolProfile.Flat(10);
         _toolRadius = _profile.Radius;
+        _tool = move.Tool;
         _polyline.Add(move.Start);
         move.AppendPolyline(_polyline, _arcTolerance);
     }
@@ -237,7 +239,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
         for (int k = 0; k <= count; k++)
         {
             Point3 p = Point3.Lerp(a, b, (double)k / count);
-            removed |= _map.CutProfile(p.X, p.Y, _profile, p.Z);
+            removed |= _map.CutProfile(p.X, p.Y, _profile, p.Z, _tool);
         }
 
         return removed;
