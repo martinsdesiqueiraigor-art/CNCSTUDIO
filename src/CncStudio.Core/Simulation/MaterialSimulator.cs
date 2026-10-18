@@ -156,6 +156,23 @@ public sealed class MaterialSimulator : IMaterialSimulation
     /// <summary>Muda a cada remoção de material.</summary>
     public int Version => _map.Version;
 
+    /// <inheritdoc cref="IMaterialSimulation.AdvanceToward"/>
+    public bool AdvanceToward(int moveIndex, double maxDistance)
+    {
+        moveIndex = Math.Clamp(moveIndex, 0, _moves.Count);
+        if (moveIndex < _moveIndex || (moveIndex == _moveIndex && (_pieceIndex > 0 || _distanceInPiece > 0)))
+        {
+            Reset();
+        }
+
+        while (_moveIndex < moveIndex && maxDistance > 0)
+        {
+            maxDistance -= AdvanceWithinPiece(maxDistance);
+        }
+
+        return _moveIndex >= moveIndex;
+    }
+
     /// <summary>Executa a trajetória inteira de uma vez.</summary>
     public void RunToEnd()
     {
@@ -175,13 +192,14 @@ public sealed class MaterialSimulator : IMaterialSimulation
         Point3 b = _polyline[_pieceIndex + 1];
         double length = a.DistanceTo(b);
         double step = Math.Min(maxDistance, length - _distanceInPiece);
+        double from = _distanceInPiece;
 
         _distanceInPiece += step;
         Travelled += step;
         bool pieceDone = _distanceInPiece >= length - 1e-9;
         Point3 to = pieceDone ? b : Point3.Lerp(a, b, _distanceInPiece / length);
 
-        bool removed = CutAlong(ToolPosition, to);
+        bool removed = CutPiece(a, b, length, from, pieceDone ? length : _distanceInPiece);
         ToolPosition = to;
 
         // G00 que remove material = colisão (o bruto informado torna isso confiável)
@@ -224,24 +242,43 @@ public sealed class MaterialSimulator : IMaterialSimulation
     }
 
     /// <summary>
-    /// Remove material ao longo de um trecho reto: "carimba" o perfil da ferramenta em
-    /// pontos espaçados de meia célula, interpolando Z (cobre rampas e mergulhos).
+    /// Remove material ao longo do trecho reto a→b: "carimba" o perfil da ferramenta em pontos
+    /// fixos do trecho, espaçados de no máximo meia célula (interpolando Z, cobre rampas e
+    /// mergulhos). Só os pontos entre as distâncias "from" e "to" (desde a), para que andar o
+    /// trecho de uma vez ou em fatias dê exatamente o mesmo material (a web simula em fatias).
     /// </summary>
-    private bool CutAlong(Point3 a, Point3 b)
+    private bool CutPiece(Point3 a, Point3 b, double length, double from, double to)
     {
-        bool removed = false;
         double dx = b.X - a.X;
         double dy = b.Y - a.Y;
         double lengthXY = Math.Sqrt(dx * dx + dy * dy);
-        double spacing = _map.CellSize * 0.5;
-        int count = Math.Max(1, (int)Math.Ceiling(lengthXY / spacing));
+        int count = Math.Max(1, (int)Math.Ceiling(lengthXY / (_map.CellSize * 0.5)));
+        (int first, int last) = StampRange(count, length, from, to);
 
-        for (int k = 0; k <= count; k++)
+        bool removed = false;
+        for (int k = first; k <= last; k++)
         {
             Point3 p = Point3.Lerp(a, b, (double)k / count);
             removed |= _map.CutProfile(p.X, p.Y, _profile, p.Z, _tool);
         }
 
         return removed;
+    }
+
+    /// <summary>
+    /// Pontos k (de 0 a count) de um trecho de comprimento "length" que caem entre as distâncias
+    /// "from" e "to". Trecho de comprimento zero: todos.
+    /// </summary>
+    internal static (int First, int Last) StampRange(int count, double length, double from, double to)
+    {
+        if (length <= 1e-12)
+        {
+            return (0, count);
+        }
+
+        const double tolerance = 1e-9;
+        int first = Math.Max(0, (int)Math.Ceiling(from / length * count - tolerance));
+        int last = Math.Min(count, (int)Math.Floor(to / length * count + tolerance));
+        return (first, last);
     }
 }

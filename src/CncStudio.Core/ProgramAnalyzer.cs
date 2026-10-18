@@ -22,6 +22,16 @@ public sealed record ProgramAnalysis(
     TimeSpan Elapsed,
     ProgramStatistics Statistics)
 {
+    /// <summary>Diâmetro usado quando nada informa o da ferramenta (nem setup, nem tabela, nem comentário).</summary>
+    public const double DefaultToolDiameter = 10;
+
+    /// <summary>
+    /// Diâmetro efetivo de cada ferramenta (T → mm), com a mesma regra da compensação G41/G42:
+    /// setup → tabela → comentário da troca ("FRESA D10") → padrão da máquina → 10 mm.
+    /// A simulação usa este valor para as ferramentas que não estão no setup.
+    /// </summary>
+    public Func<int, double> ToolDiameterOf { get; init; } = _ => DefaultToolDiameter;
+
     public int ErrorCount => Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error);
     public int WarningCount => Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Warning);
 }
@@ -67,6 +77,11 @@ public static class ProgramAnalyzer
 
         ProgramStatistics statistics = ProgramStatistics.Compute(toolPath, settings.RapidRate > 0 ? settings.RapidRate : MachineSettings.Default.RapidRate);
 
-        return new ProgramAnalysis(dialect, toolPath, diagnostics, parse.Blocks.Count, stopwatch.Elapsed, statistics);
+        Func<int, double>? diameterOf = settings.ToolDiameterOf;
+        double fallback = settings.FallbackToolDiameter > 0 ? settings.FallbackToolDiameter : ProgramAnalysis.DefaultToolDiameter;
+        return new ProgramAnalysis(dialect, toolPath, diagnostics, parse.Blocks.Count, stopwatch.Elapsed, statistics)
+        {
+            ToolDiameterOf = tool => diameterOf?.Invoke(tool) is > 0 and var d ? d : fallback,
+        };
     }
 }

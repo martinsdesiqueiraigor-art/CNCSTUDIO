@@ -123,11 +123,12 @@ public partial class MainWindow : Window
         SetFontSize(_settings.EditorFontSize);
 
         // Configuração da máquina (ferramentas, zeros de peça)
-        Graphics.DiameterOf = tool => _settings.DiameterOf(tool);
-        // Perfil de corte: o do setup do programa ativo; senão, topo reto com o diâmetro da tabela
-        Graphics.ProfileOf = tool => SetupBinding.ProfileOf(_active.Setup, tool, _settings.DiameterOf(tool));
+        // Diâmetro efetivo com a mesma regra da compensação (setup → tabela → comentário "FRESA D10" → padrão)
+        Graphics.DiameterOf = EffectiveDiameter;
+        // Perfil de corte: o do setup do programa ativo; senão, topo reto com o diâmetro efetivo
+        Graphics.ProfileOf = tool => SimulationFactory.MillProfiles(_active.Setup, EffectiveDiameter)(tool);
         Graphics.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
-        Statistics.DiameterOf = tool => _settings.DiameterOf(tool);
+        Statistics.DiameterOf = EffectiveDiameter;
         Statistics.LineRequested += (_, line) => GoToLine(line);
         MachineSettingsButton.Click += async (_, _) => await OpenMachineSettingsAsync();
         Closing += OnWindowClosing;
@@ -168,6 +169,8 @@ public partial class MainWindow : Window
 
     /// <summary>Resultado da última análise concluída (null antes da primeira).</summary>
     public ProgramAnalysis? CurrentAnalysis { get; private set; }
+
+    private double EffectiveDiameter(int tool) => CurrentAnalysis?.ToolDiameterOf(tool) ?? _settings.DiameterOf(tool);
 
     private Dialect CurrentDialect => DialectCombo.SelectedIndex == 1 ? Dialect.Siemens : Dialect.Fanuc;
 

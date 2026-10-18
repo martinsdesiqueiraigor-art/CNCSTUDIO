@@ -49,4 +49,11 @@ public interface IMaterialSimulation
     void RunToMove(int moveIndex);
 
     void RunToEnd();
+
+    /// <summary>
+    /// Anda no máximo "maxDistance" mm em direção ao início do movimento "moveIndex" (recomeça do
+    /// bruto se precisar voltar). Serve para simular em fatias sem travar a tela.
+    /// Retorna true quando chegou.
+    /// </summary>
+    bool AdvanceToward(int moveIndex, double maxDistance);
 }

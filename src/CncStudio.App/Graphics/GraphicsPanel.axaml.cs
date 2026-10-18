@@ -183,9 +183,7 @@ public partial class GraphicsPanel : UserControl
         if (IsLatheProgram)
         {
             _map = null;
-            _turning = Stock is { Machine: MachineKind.Lathe } bar
-                ? TurningStock.CreateForStock(bar)
-                : TurningStock.CreateForToolPath(_path);
+            _turning = SimulationFactory.LatheStock(Stock, _path);
             _simulation = new TurningSimulator(_turning, _path.Moves, diameterOf);
             _stockBounds = Bounds3.Empty.Include(new Point3(0, 0, _turning.MinZ)).Include(new Point3(_turning.Radius, 0, _turning.MaxZ));
         }
@@ -193,10 +191,7 @@ public partial class GraphicsPanel : UserControl
         {
             _turning = null;
             Func<int, ToolProfile> profileOf = ProfileOf ?? (tool => ToolProfile.Flat(diameterOf(tool)));
-            double largest = _path.Tools.Count == 0 ? profileOf(0).Diameter : _path.Tools.Max(tool => profileOf(tool).Diameter);
-            _map = Stock is { Machine: MachineKind.Mill } block
-                ? HeightMap.CreateForStock(block)
-                : HeightMap.CreateForToolPath(_path, largest);
+            _map = SimulationFactory.MillStock(Stock, _path, profileOf, SimulationFactory.DesktopCells);
             _simulation = new MaterialSimulator(_map, _path.Moves, profileOf);
             _stockBounds = Bounds3.Empty
                 .Include(new Point3(_map.OriginX, _map.OriginY, _map.BottomZ))
