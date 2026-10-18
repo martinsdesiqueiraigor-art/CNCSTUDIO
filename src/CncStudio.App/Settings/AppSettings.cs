@@ -1,6 +1,8 @@
 using System.Text.Json;
 using CncStudio.Core.Execution;
+using System.Text.Json.Serialization;
 using CncStudio.Core.Geometry;
+using CncStudio.Core.Setup;
 using CncStudio.Core.Simulation;
 
 namespace CncStudio.App.Settings;
@@ -13,7 +15,10 @@ public sealed class ToolEntry
     public string Description { get; set; } = "";
 }
 
-/// <summary>Bruto informado para um programa (guardado pelo caminho do arquivo).</summary>
+/// <summary>
+/// Bruto informado para um programa, no formato antigo (antes do setup). Só é lido para migrar:
+/// ao carregar, cada um vira o bruto do setup do programa.
+/// </summary>
 public sealed class StockEntry
 {
     public string Key { get; set; } = "";
@@ -24,6 +29,13 @@ public sealed class StockEntry
     public double MaxY { get; set; }
     public double MinZ { get; set; }
     public double MaxZ { get; set; }
+}
+
+/// <summary>Setup de um programa (guardado pelo caminho do arquivo), no JSON do modelo do Core.</summary>
+public sealed class SetupEntry
+{
+    public string Key { get; set; } = "";
+    public string Json { get; set; } = "";
 }
 
 /// <summary>Um zero de peça (G54–G59).</summary>
@@ -62,40 +74,59 @@ public sealed class AppSettings
     /// <summary>Arquivos abertos recentemente (o mais recente primeiro).</summary>
     public List<string> RecentFiles { get; set; } = [];
 
-    /// <summary>Brutos informados, por programa (os mais recentes no fim).</summary>
-    public List<StockEntry> Stocks { get; set; } = [];
+    /// <summary>Formato antigo dos brutos por programa: lido só para migrar (nunca mais gravado).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<StockEntry>? Stocks { get; set; }
 
-    /// <summary>Bruto informado para o programa (null = automático, pela trajetória).</summary>
-    public Stock? StockFor(string key)
+    /// <summary>Setups por programa (os mais recentes no fim). Fonte única do bruto de cada programa.</summary>
+    public List<SetupEntry> Setups { get; set; } = [];
+
+    /// <summary>Setup do programa (o padrão, sem bruto informado, se não houver um salvo).</summary>
+    public MachiningSetup SetupFor(string key)
     {
-        StockEntry? e = Stocks.LastOrDefault(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));
-        if (e is null)
-        {
-            return null;
-        }
-
-        var stock = new Stock(e.Machine == "Lathe" ? MachineKind.Lathe : MachineKind.Mill, e.MinX, e.MaxX, e.MinY, e.MaxY, e.MinZ, e.MaxZ);
-        return stock.IsValid ? stock : null;
+        SetupEntry? e = Setups.LastOrDefault(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));
+        return SetupJson.LoadOrDefault(e?.Json, key).Setup;
     }
 
-    /// <summary>Guarda (ou apaga, com null) o bruto do programa. Mantém os 100 mais recentes.</summary>
-    public void SetStock(string key, Stock? stock)
+    /// <summary>Guarda o setup do programa (um setup vazio apaga o registro). Mantém os 100 mais recentes.</summary>
+    public void SetSetup(string key, MachiningSetup setup)
     {
-        Stocks.RemoveAll(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));
-        if (stock is not null)
+        Setups.RemoveAll(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));
+        bool empty = setup.Stock is null && setup.Fixtures.Count == 0 && setup.Tools.Count == 0;
+        if (!empty)
         {
-            Stocks.Add(new StockEntry
-            {
-                Key = key,
-                Machine = stock.Machine == MachineKind.Lathe ? "Lathe" : "Mill",
-                MinX = stock.MinX, MaxX = stock.MaxX, MinY = stock.MinY, MaxY = stock.MaxY, MinZ = stock.MinZ, MaxZ = stock.MaxZ,
-            });
+            setup.ProjectKey = key;
+            Setups.Add(new SetupEntry { Key = key, Json = SetupJson.Serialize(setup) });
         }
 
-        if (Stocks.Count > 100)
+        if (Setups.Count > 100)
         {
-            Stocks.RemoveRange(0, Stocks.Count - 100);
+            Setups.RemoveRange(0, Setups.Count - 100);
         }
+    }
+
+    /// <summary>Converte os brutos do formato antigo em setups (só os que ainda não têm setup).</summary>
+    private void MigrateLegacyStocks()
+    {
+        if (Stocks is not { Count: > 0 } legacy)
+        {
+            Stocks = null;
+            return;
+        }
+
+        foreach (StockEntry e in legacy)
+        {
+            var stock = new Stock(e.Machine == "Lathe" ? MachineKind.Lathe : MachineKind.Mill, e.MinX, e.MaxX, e.MinY, e.MaxY, e.MinZ, e.MaxZ);
+            bool hasSetup = Setups.Exists(s => string.Equals(s.Key, e.Key, StringComparison.OrdinalIgnoreCase));
+            if (stock.IsValid && !hasSetup)
+            {
+                var setup = MachiningSetup.CreateDefault(e.Key);
+                setup.Stock = SetupBinding.FromStock(stock);
+                SetSetup(e.Key, setup);
+            }
+        }
+
+        Stocks = null;
     }
 
     /// <summary>Mostrar a explicação do código ao parar o mouse no editor.</summary>
@@ -212,7 +243,9 @@ public sealed class AppSettings
     private void Normalize()
     {
         Tools ??= [];
-        Stocks ??= [];
+        Setups ??= [];
+        Setups.RemoveAll(s => s is null);
+        MigrateLegacyStocks();
         RecentFiles ??= [];
         Theme = Theme == "Light" ? "Light" : "Dark";
         WorkOffsets ??= [];

@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Rendering;
+using CncStudio.Core.Setup;
 using CncStudio.Core.Trajectory;
 
 namespace CncStudio.Web;
@@ -74,6 +75,13 @@ public sealed class BackplotView : Control
     }
 
     private ToolPath? _path;
+    private MachiningSetup? _machiningSetup;
+
+    public void SetMachiningSetup(MachiningSetup? setup)
+    {
+        _machiningSetup = setup;
+        InvalidateVisual();
+    }
     private bool _lathe;
     private MillView _millView = MillView.Iso;
     private double _arcTolerance = 0.01;
@@ -385,6 +393,7 @@ public sealed class BackplotView : Control
         double px = 1 / _scale;
         using (context.PushTransform(matrix))
         {
+            DrawMachiningSetup(context, px);
             if (_visibleMoves is not { } visible)
             {
                 DrawSet(context, _full, _palette.Bright, px);
@@ -425,6 +434,249 @@ public sealed class BackplotView : Control
         }
     }
 
+    private void DrawMachiningSetup(DrawingContext context, double px)
+    {
+        if (_machiningSetup is not { } setup || _lathe) return;
+        var stock = setup.Stock;
+        // Bases das fixações atrás do bruto; os mordentes são desenhados depois dele.
+        foreach (var fixture in setup.Fixtures)
+            DrawFixture(context, fixture, stock, FixtureColor(fixture), px, drawBase: true);
+        if (stock is null)
+        {
+            // Bruto não informado no setup: o backplot mostra só a trajetória e as bases
+        }
+        else if (stock.Kind == SetupStockKind.Prism)
+            DrawBox(context, stock.X, stock.Y, stock.Z, stock.Width, stock.Depth, stock.Height,
+                Color.Parse("#58A6FF"), px);
+        else
+        {
+            // Bruto redondo e tubo: (X, Y) é o centro
+            double cx = stock.X, cy = stock.Y;
+            var blue = Color.Parse("#58A6FF");
+            DrawSolidCylinder(context, cx, cy, stock.Z, stock.Diameter / 2,
+                stock.Height, blue, px,
+                stock.Kind == SetupStockKind.Tube ? stock.InnerDiameter / 2 : 0);
+            DrawRing(context, cx, cy, stock.Z, stock.Diameter / 2, EdgeColor(blue), px);
+            DrawRing(context, cx, cy, stock.Z + stock.Height, stock.Diameter / 2, EdgeColor(blue), px);
+            if (stock.Kind == SetupStockKind.Tube)
+            {
+                DrawRing(context, cx, cy, stock.Z, stock.InnerDiameter / 2, blue, px);
+                DrawRing(context, cx, cy, stock.Z + stock.Height, stock.InnerDiameter / 2, blue, px);
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                double a = i * Math.PI / 2;
+                double x = cx + stock.Diameter / 2 * Math.Cos(a);
+                double y = cy + stock.Diameter / 2 * Math.Sin(a);
+                context.DrawLine(new Pen(new SolidColorBrush(blue), 1.1 * px),
+                    ProjectPoint(new Point3(x, y, stock.Z)),
+                    ProjectPoint(new Point3(x, y, stock.Z + stock.Height)));
+            }
+        }
+        if (stock is not null)
+            foreach (var fixture in setup.Fixtures)
+                DrawFixture(context, fixture, stock, FixtureColor(fixture), px, drawBase: false);
+    }
+
+    private static Color FixtureColor(SetupFixture fixture) => fixture.Kind switch
+    {
+        SetupFixtureKind.Vise => Color.Parse("#647789"),
+        SetupFixtureKind.Clamp => Color.Parse("#8495A3"),
+        _ => Color.Parse("#526779")
+    };
+
+    private void DrawFixture(DrawingContext context, SetupFixture f, SetupStock? stock, Color color, double px, bool drawBase)
+    {
+        if (f.Kind == SetupFixtureKind.ThreeJawChuck)
+        {
+            double radius = f.Width / 2;
+            double cx = f.X + radius, cy = f.Y + f.Depth / 2;
+            if (drawBase)
+            {
+                DrawSolidCylinder(context, cx, cy, f.Z, radius, f.Height, color, px);
+                DrawRing(context, cx, cy, f.Z + f.Height, radius, color, px);
+                return;
+            }
+            if (stock is null) return;
+            for (int j = 0; j < 3; j++)
+            {
+                double angle = (j * 120 + f.Rotation) * Math.PI / 180;
+                double stockRadius = stock.Kind == SetupStockKind.Prism
+                    ? Math.Max(stock.Width, stock.Depth) / 2 : stock.Diameter / 2;
+                double jawLength = Math.Max(f.JawThickness * 1.65, radius * 0.24);
+                double jawWidth = Math.Max(f.JawThickness * 0.55, radius * 0.085);
+                // Limita a posição ao raio útil da placa, mesmo quando a abertura cadastrada é maior.
+                double r = Math.Clamp(Math.Max(stockRadius + jawLength * 0.30, f.JawOpening / 2),
+                    0, Math.Max(0, radius - jawLength / 2));
+                double x = cx + Math.Cos(angle) * r, y = cy + Math.Sin(angle) * r;
+                // Castanha radial: o eixo longo aponta para o centro da placa.
+                // Castanha em dois níveis: base radial e ressalto de contato.
+                // Ambos giram em torno do mesmo centro; geometria apenas ilustrativa.
+                double jawHeight = Math.Min(f.JawThickness, stock.Height);
+                DrawBox(context, x - jawLength / 2, y - jawWidth / 2,
+                    stock.Z, jawLength, jawWidth, jawHeight * 0.55,
+                    color, px, angle, x, y);
+                DrawBox(context, x - jawLength * 0.42, y - jawWidth * 0.40,
+                    stock.Z + jawHeight * 0.55, jawLength * 0.55, jawWidth * 0.80,
+                    jawHeight * 0.45, Color.Parse("#8798A6"), px, angle, x, y);
+            }
+            return;
+        }
+        if (drawBase)
+        {
+            DrawBox(context, f.X, f.Y, f.Z, f.Width, f.Depth, f.Height, color, px);
+            return;
+        }
+        if (f.Kind == SetupFixtureKind.Vise)
+        {
+            double jaw = Math.Min(f.JawThickness, f.Depth / 4);
+            double opening = Math.Min(f.JawOpening, f.Depth - 2 * jaw);
+            double margin = Math.Max(0, (f.Depth - opening - 2 * jaw) / 2);
+            DrawBox(context, f.X, f.Y + margin, f.Z + f.Height,
+                f.Width, jaw, jaw, color, px);
+            DrawBox(context, f.X, f.Y + margin + jaw + opening, f.Z + f.Height,
+                f.Width, jaw, jaw, color, px);
+        }
+        else
+        {
+            DrawBox(context, f.X + f.Width * 0.2, f.Y + f.Depth * 0.2,
+                f.Z + f.Height, f.Width * 0.6, f.Depth * 0.6,
+                f.JawThickness, color, px);
+        }
+    }
+
+    private void DrawSolidFace(DrawingContext context, Point[] points, Color color, double opacity, double px)
+    {
+        var geometry = new StreamGeometry();
+        using (var g = geometry.Open())
+        {
+            g.BeginFigure(points[0], true);
+            for (int i = 1; i < points.Length; i++) g.LineTo(points[i]);
+            g.EndFigure(true);
+        }
+        context.DrawGeometry(new SolidColorBrush(color, Math.Min(1, opacity + 0.12)),
+            null, geometry);
+    }
+
+    private void DrawSolidCylinder(DrawingContext context, double cx, double cy,
+        double z, double radius, double height, Color color, double px, double innerRadius = 0)
+    {
+        const int segments = 48;
+        for (int i = 0; i < segments; i++)
+        {
+            double a = i * 2 * Math.PI / segments, b = (i + 1) * 2 * Math.PI / segments;
+            Point bottomA = ProjectPoint(new Point3(cx + radius * Math.Cos(a), cy + radius * Math.Sin(a), z));
+            Point bottomB = ProjectPoint(new Point3(cx + radius * Math.Cos(b), cy + radius * Math.Sin(b), z));
+            Point topB = ProjectPoint(new Point3(cx + radius * Math.Cos(b), cy + radius * Math.Sin(b), z + height));
+            Point topA = ProjectPoint(new Point3(cx + radius * Math.Cos(a), cy + radius * Math.Sin(a), z + height));
+            // Sem emendas verticais visíveis: as facetas vizinhas do cilindro não têm contorno.
+            DrawSolidFace(context, new[] { bottomA, bottomB, topB, topA }, color, 0.78, px);
+        }
+        // Silhuetas das arestas: sem desenhar as emendas de cada faceta.
+        DrawRing(context, cx, cy, z, radius, EdgeColor(color), px);
+        DrawRing(context, cx, cy, z + height, radius, EdgeColor(color), px);
+        if (innerRadius > 0)
+            DrawRing(context, cx, cy, z + height, innerRadius, EdgeColor(color), px);
+        if (innerRadius <= 0)
+        {
+            var top = new Point[segments];
+            for (int i = 0; i < segments; i++)
+            {
+                double a = i * 2 * Math.PI / segments;
+                top[i] = ProjectPoint(new Point3(cx + radius * Math.Cos(a), cy + radius * Math.Sin(a), z + height));
+            }
+            DrawSolidFace(context, top, color, 1.0, px);
+        }
+        else
+        {
+            for (int i = 0; i < segments; i++)
+            {
+                double a = i * 2 * Math.PI / segments, b = (i + 1) * 2 * Math.PI / segments;
+                DrawSolidFace(context, new[] {
+                    ProjectPoint(new Point3(cx + radius * Math.Cos(a), cy + radius * Math.Sin(a), z + height)),
+                    ProjectPoint(new Point3(cx + radius * Math.Cos(b), cy + radius * Math.Sin(b), z + height)),
+                    ProjectPoint(new Point3(cx + innerRadius * Math.Cos(b), cy + innerRadius * Math.Sin(b), z + height)),
+                    ProjectPoint(new Point3(cx + innerRadius * Math.Cos(a), cy + innerRadius * Math.Sin(a), z + height))
+                }, color, 0.85, px);
+            }
+        }
+        // Contornos finais por cima das faces: legíveis nas vistas 2,5D, topo e frente.
+        var edge = EdgeColor(color);
+        DrawRing(context, cx, cy, z + height, radius, edge, px);
+        if (innerRadius > 0)
+            DrawRing(context, cx, cy, z + height, innerRadius, edge, px);
+        if (_millView != MillView.Top)
+        {
+            var pen = new Pen(new SolidColorBrush(edge, 0.98), 1.25 * px);
+            // Apenas geratrizes externas; evita o efeito de grade das facetas.
+            foreach (double angle in new[] { 0.0, Math.PI })
+            {
+                var x = cx + radius * Math.Cos(angle);
+                var y = cy + radius * Math.Sin(angle);
+                context.DrawLine(pen, ProjectPoint(new Point3(x, y, z)),
+                    ProjectPoint(new Point3(x, y, z + height)));
+            }
+        }
+    }
+
+    // Contornos claros e de alto contraste continuam legíveis em telas pequenas.
+    private static Color EdgeColor(Color fill) => Color.FromRgb(
+        (byte)Math.Min(255, 130 + fill.R * 0.25),
+        (byte)Math.Min(255, 148 + fill.G * 0.24),
+        (byte)Math.Min(255, 164 + fill.B * 0.20));
+
+    private void DrawRing(DrawingContext context, double cx, double cy, double z,
+        double radius, Color color, double px)
+    {
+        // Silhueta em duas passadas: separação escura e borda clara, visível no celular.
+        var shadow = new Pen(new SolidColorBrush(Color.Parse("#142534")), 2.0 * px);
+        var pen = new Pen(new SolidColorBrush(color), 1.25 * px);
+        Point? previous = null;
+        for (int i = 0; i <= 48; i++)
+        {
+            double a = i * Math.PI / 24;
+            var current = ProjectPoint(new Point3(cx + radius * Math.Cos(a),
+                cy + radius * Math.Sin(a), z));
+            if (previous is { } point)
+            {
+                context.DrawLine(shadow, point, current);
+                context.DrawLine(pen, point, current);
+            }
+            previous = current;
+        }
+    }
+
+    private void DrawBox(DrawingContext context, double x, double y, double z,
+        double width, double depth, double height, Color color, double px,
+        double rotation = 0, double centreX = 0, double centreY = 0)
+    {
+        var points = new Point[8];
+        double c = Math.Cos(rotation), s = Math.Sin(rotation);
+        for (int i = 0; i < 8; i++)
+        {
+            double wx = x + ((i & 1) != 0 ? width : 0);
+            double wy = y + ((i & 2) != 0 ? depth : 0);
+            double rx = centreX + (wx - centreX) * c - (wy - centreY) * s;
+            double ry = centreY + (wx - centreX) * s + (wy - centreY) * c;
+            points[i] = ProjectPoint(new Point3(rx, ry, z + ((i & 4) != 0 ? height : 0)));
+        }
+        var shadow = new Pen(new SolidColorBrush(Color.Parse("#142534")), 2.0 * px);
+        var pen = new Pen(new SolidColorBrush(EdgeColor(color)), 1.25 * px);
+        DrawSolidFace(context, new[] { points[0], points[1], points[3], points[2] }, color, 0.38, px);
+        DrawSolidFace(context, new[] { points[0], points[1], points[5], points[4] }, color, 0.54, px);
+        DrawSolidFace(context, new[] { points[1], points[3], points[7], points[5] }, color, 0.62, px);
+        DrawSolidFace(context, new[] { points[2], points[3], points[7], points[6] }, color, 0.46, px);
+        DrawSolidFace(context, new[] { points[0], points[2], points[6], points[4] }, color, 0.50, px);
+        DrawSolidFace(context, new[] { points[4], points[5], points[7], points[6] }, color, 0.83, px);
+        foreach (var (a, b) in new (int, int)[] {
+            (0,1),(0,2),(1,3),(2,3),(4,5),(4,6),(5,7),(6,7),
+            (0,4),(1,5),(2,6),(3,7) })
+        {
+            context.DrawLine(shadow, points[a], points[b]);
+            context.DrawLine(pen, points[a], points[b]);
+        }
+    }
+
     private void DrawSet(DrawingContext context, StreamGeometry?[] set, IBrush[] brushes, double px)
     {
         if (_showRapids && set[0] is { } rapid)
@@ -452,7 +704,47 @@ public sealed class BackplotView : Control
         Point world = executed <= 0 ? _polys[0][0] : _polys[Math.Min(executed, _polys.Length) - 1][^1];
         Point tip = ToScreen(world.X, world.Y);
 
-        // A ferramenta é só um ponto na posição programada (com contorno escuro para aparecer sobre as linhas)
+        if (!_lathe && _machiningSetup is { } setup && _path is { } path && path.Moves.Count > 0)
+        {
+            int moveIndex = Math.Clamp(executed - 1, 0, path.Moves.Count - 1);
+            int toolNumber = path.Moves[moveIndex].Tool;
+            var geometry = setup.ToolOf(toolNumber);
+            if (geometry is not null)
+            {
+                // Representação esquemática: ponta no percurso, corpo alinhado ao eixo Z.
+                // Sem remoção de material nem verificação de colisão.
+                var pos = executed <= 0 ? path.Moves[0].Start : path.Moves[moveIndex].End;
+                Point3 upper = new(pos.X, pos.Y, pos.Z + geometry.CuttingLength);
+                // O comprimento exibido acompanha o cadastro do Setup (sem truncamento arbitrario).
+                double displayHolderLength = geometry.HolderLength;
+                Point3 holderEnd = new(pos.X, pos.Y, upper.Z + displayHolderLength);
+                Point cuttingTop = ToScreen(Project(upper).U, Project(upper).V);
+                Point holderTop = ToScreen(Project(holderEnd).U, Project(holderEnd).V);
+                double radius = Math.Clamp(geometry.Diameter * _scale * 0.5, 3, 35);
+                double holderRadius = Math.Clamp(geometry.HolderDiameter * _scale * 0.5, radius + 2, 50);
+                var cutPen = new Pen(new SolidColorBrush(Color.Parse("#C7E8FF")), 1.4);
+                var holderPen = new Pen(new SolidColorBrush(Color.Parse("#9BAFBD")), 1.4);
+                context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#58A6FF")), Math.Max(3, radius * 1.65)), tip, cuttingTop);
+                // Corpo principal e transição curta na ponta: silhueta do conjunto sem alterar a trajetória.
+                Point shoulder = new(cuttingTop.X + (holderTop.X - cuttingTop.X) * 0.18,
+                    cuttingTop.Y + (holderTop.Y - cuttingTop.Y) * 0.18);
+                context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#526879")), Math.Max(5, holderRadius * 1.65)), shoulder, holderTop);
+                context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#526879")), Math.Max(4, (radius + holderRadius) * 0.82)), cuttingTop, shoulder);
+                context.DrawLine(cutPen, tip, cuttingTop);
+                context.DrawLine(holderPen, cuttingTop, holderTop);
+                context.DrawEllipse(null, cutPen, tip, radius, Math.Max(2, radius * 0.35));
+                context.DrawEllipse(null, holderPen, cuttingTop, Math.Max(radius, holderRadius * 0.65), Math.Max(2, holderRadius * 0.24));
+                context.DrawEllipse(null, holderPen, shoulder, holderRadius, Math.Max(2, holderRadius * 0.35));
+                context.DrawEllipse(null, holderPen, holderTop, holderRadius, Math.Max(2, holderRadius * 0.35));
+                if (geometry.Kind == ToolKind.Drill)
+                    context.DrawLine(cutPen, tip + new Vector(-radius, -radius), tip);
+                else if (geometry.Kind == ToolKind.Tap)
+                    context.DrawLine(cutPen, tip + new Vector(-radius, -5), tip + new Vector(radius, 5));
+                else if (geometry.Kind == ToolKind.BallEndMill)
+                    context.DrawEllipse(null, cutPen, tip, radius, radius);
+                return;
+            }
+        }
         context.DrawEllipse(_palette.ToolBrush, new Pen(_palette.BackgroundBrush, 2), tip, 5, 5);
     }
 

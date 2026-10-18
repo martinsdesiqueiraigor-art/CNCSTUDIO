@@ -418,3 +418,5 @@ export function confirmBox(message, okText, danger) {
         ok.addEventListener('click', () => close(true));
     });
 }
+
+export function editMachiningSetup(json) { return import('./setup-ui.js').then(m => m.openSetup(json)); }

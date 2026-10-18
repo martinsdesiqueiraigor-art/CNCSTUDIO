@@ -101,6 +101,11 @@ public static class HeightMapRasterizer
             for (int row = rowStart; row <= rowEnd; row++)
             {
                 int column = row + d;
+                if (map.IsEmptyCell(column, row))
+                {
+                    continue;   // fora do bruto redondo (ou no furo do tubo)
+                }
+
                 float h = map[column, row];
 
                 double x = map.CellCenterX(column);

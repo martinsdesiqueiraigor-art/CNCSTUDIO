@@ -30,6 +30,18 @@ public sealed class ViewCamera
     /// <summary>Direção (unitária) do "para cima" na tela, em coordenadas do mundo.</summary>
     public Point3 Up { get; }
 
+    /// <summary>
+    /// Câmera em órbita (fresa, Z para cima): azimute em graus a partir de −Y (frente) girando para +X,
+    /// elevação em graus acima do plano XY (90 = de cima).
+    /// </summary>
+    public static ViewCamera Orbit(double azimuthDegrees, double elevationDegrees)
+    {
+        double az = azimuthDegrees * Math.PI / 180;
+        double el = Math.Clamp(elevationDegrees, -89.5, 89.5) * Math.PI / 180;
+        var toViewer = new Point3(Math.Sin(az) * Math.Cos(el), -Math.Cos(az) * Math.Cos(el), Math.Sin(el));
+        return new ViewCamera("Órbita", toViewer, new Point3(0, 0, 1));
+    }
+
     // ── Vistas da fresa ──
 
     /// <summary>De cima: X para a direita, Y para cima.</summary>

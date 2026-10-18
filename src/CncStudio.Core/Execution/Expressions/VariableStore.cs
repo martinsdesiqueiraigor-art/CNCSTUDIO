@@ -23,6 +23,27 @@ public sealed class VariableStore : IVariableScope
     /// <summary>Leitura de variáveis de sistema (posição atual etc.). Null = não suportada.</summary>
     public Func<string, double?>? SystemVariables { get; set; }
 
+    /// <summary>
+    /// Chamado a cada atribuição que muda o valor (nome, valor antigo, valor novo). Usado pela
+    /// execução passo a passo para mostrar as variáveis alteradas; null = sem custo extra.
+    /// </summary>
+    internal Action<string, double?, double?>? Changed { get; set; }
+
+    /// <summary>
+    /// Fotografia das variáveis visíveis agora: as globais (#100–#999, R, DEF) e as locais
+    /// (#1–#33) do nível de chamada atual. Variáveis de sistema ficam de fora.
+    /// </summary>
+    public IReadOnlyDictionary<string, double?> Snapshot()
+    {
+        var result = new Dictionary<string, double?>(_globals, StringComparer.Ordinal);
+        foreach ((int number, double? value) in _locals.Peek())
+        {
+            result["#" + number.ToString(CultureInfo.InvariantCulture)] = value;
+        }
+
+        return result;
+    }
+
     /// <summary>Nível de chamada de macro (0 = programa principal).</summary>
     public int Depth => _locals.Count - 1;
 
@@ -54,6 +75,23 @@ public sealed class VariableStore : IVariableScope
     }
 
     public void Set(string name, double? value)
+    {
+        if (Changed is { } notify)
+        {
+            double? old = Get(name);
+            SetValue(name, value);
+            if (old != value)
+            {
+                notify(name, old, value);
+            }
+
+            return;
+        }
+
+        SetValue(name, value);
+    }
+
+    private void SetValue(string name, double? value)
     {
         if (TryFanucNumber(name, out int number))
         {

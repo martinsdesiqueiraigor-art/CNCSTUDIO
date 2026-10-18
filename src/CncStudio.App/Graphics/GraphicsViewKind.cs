@@ -7,6 +7,9 @@ namespace CncStudio.App.Graphics;
 /// <summary>Vistas da área gráfica (fixas, sem girar com o mouse).</summary>
 public enum GraphicsViewKind
 {
+    /// <summary>Fresa: 3D livre pela placa de vídeo (gira com o mouse).</summary>
+    Orbit3D,
+
     Iso,
     Top,
     Front,
@@ -26,7 +29,7 @@ public static class GraphicsViews
     /// <summary>Câmera 3D da vista (null no plano ZX do torno, que é 2D).</summary>
     public static ViewCamera? Camera(this GraphicsViewKind kind) => kind switch
     {
-        GraphicsViewKind.Iso => ViewCamera.Iso,
+        GraphicsViewKind.Iso or GraphicsViewKind.Orbit3D => ViewCamera.Iso,
         GraphicsViewKind.Top => ViewCamera.Top,
         GraphicsViewKind.Front => ViewCamera.Front,
         GraphicsViewKind.Side => ViewCamera.Side,
@@ -89,6 +92,7 @@ public static class GraphicsViews
 
     public static string Caption(this GraphicsViewKind kind) => kind switch
     {
+        GraphicsViewKind.Orbit3D => "3D",
         GraphicsViewKind.Iso => "Isométrica",
         GraphicsViewKind.Top => "Topo (XY)",
         GraphicsViewKind.Front => "Frente (XZ)",

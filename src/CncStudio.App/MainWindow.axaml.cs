@@ -15,6 +15,7 @@ using CncStudio.Core.Editing;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Parsing;
 using CncStudio.Core.Reports;
+using CncStudio.Core.Setup;
 using CncStudio.Core.Simulation;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Statistics;
@@ -122,9 +123,12 @@ public partial class MainWindow : Window
         SetFontSize(_settings.EditorFontSize);
 
         // Configuração da máquina (ferramentas, zeros de peça)
-        Graphics.DiameterOf = tool => _settings.DiameterOf(tool);
+        // Diâmetro efetivo com a mesma regra da compensação (setup → tabela → comentário "FRESA D10" → padrão)
+        Graphics.DiameterOf = EffectiveDiameter;
+        // Perfil de corte: o do setup do programa ativo; senão, topo reto com o diâmetro efetivo
+        Graphics.ProfileOf = tool => SimulationFactory.MillProfiles(_active.Setup, EffectiveDiameter)(tool);
         Graphics.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
-        Statistics.DiameterOf = tool => _settings.DiameterOf(tool);
+        Statistics.DiameterOf = EffectiveDiameter;
         Statistics.LineRequested += (_, line) => GoToLine(line);
         MachineSettingsButton.Click += async (_, _) => await OpenMachineSettingsAsync();
         Closing += OnWindowClosing;
@@ -165,6 +169,8 @@ public partial class MainWindow : Window
 
     /// <summary>Resultado da última análise concluída (null antes da primeira).</summary>
     public ProgramAnalysis? CurrentAnalysis { get; private set; }
+
+    private double EffectiveDiameter(int tool) => CurrentAnalysis?.ToolDiameterOf(tool) ?? _settings.DiameterOf(tool);
 
     private Dialect CurrentDialect => DialectCombo.SelectedIndex == 1 ? Dialect.Siemens : Dialect.Fanuc;
 
@@ -239,10 +245,7 @@ public partial class MainWindow : Window
             _active.IsSample = false;
             AddRecent(path);
             RebuildTabs();
-            if (_active.Stock is not null)
-            {
-                _settings.SetStock(StockKey, _active.Stock); // "salvar como": o bruto acompanha o arquivo novo
-            }
+            _settings.SetSetup(SetupKey, _active.Setup); // "salvar como": o setup acompanha o arquivo novo
 
             FileStatus.Text = path;
             UpdateTitle();
@@ -286,7 +289,7 @@ public partial class MainWindow : Window
             IsSample = isSample,
             Dialect = DialectDetector.FromFileName(displayName),
         };
-        document.Stock = _settings.StockFor(document.StockKey);
+        document.Setup = _settings.SetupFor(document.SetupKey);
 
         int index = _documents.IndexOf(_active);
         if (index >= 0 && _active.IsDisposable)
@@ -500,6 +503,7 @@ public partial class MainWindow : Window
         }
 
         _colorizer.LightTheme = light;
+        Graphics.LightTheme = light;
         Editor.TextArea.TextView.Redraw();
         ThemeButton.Content = light ? "☾" : "☀";
         ToolTip.SetTip(ThemeButton, light ? "Mudar para o tema escuro" : "Mudar para o tema claro");
@@ -623,7 +627,7 @@ public partial class MainWindow : Window
         string? folder = _active.FilePath is not null
             ? Path.GetDirectoryName(_active.FilePath)
             : Path.Combine(AppContext.BaseDirectory, "samples", "macros");
-        MachineSettings machine = _settings.ToMachineSettings(folder);
+        MachineSettings machine = _active.Setup.ApplyTo(_settings.ToMachineSettings(folder));
         AnalysisStatus.Text = "Analisando…";
 
         try
@@ -661,6 +665,7 @@ public partial class MainWindow : Window
     {
         _figures = figures;
         Graphics.Stock = EffectiveStock(analysis);
+        Graphics.Setup = _active.Setup;
 
         // Troca de fresa para torno (ou o contrário): reenquadra (a área gráfica escolhe a vista)
         bool lathe = analysis.ToolPath.Machine == MachineKind.Lathe;
@@ -783,7 +788,7 @@ public partial class MainWindow : Window
         Dialect dialect = CurrentDialect;
         string? filePath = _active.FilePath;
         string fileName = filePath is null ? "sem título" : Path.GetFileName(filePath);
-        MachineSettings machine = _settings.ToMachineSettings(filePath is null ? null : Path.GetDirectoryName(filePath));
+        MachineSettings machine = _active.Setup.ApplyTo(_settings.ToMachineSettings(filePath is null ? null : Path.GetDirectoryName(filePath)));
         var tools = _settings.Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.Last());
         string? stock = CurrentStockDescription;
         AnalysisStatus.Text = "Gerando a folha de setup…";
@@ -822,21 +827,24 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Descrição do bruto para a folha de setup (null = não informado).</summary>
-    private string? CurrentStockDescription => CurrentAnalysis is { } analysis ? EffectiveStock(analysis)?.Describe() : _active.Stock?.Describe();
+    private string? CurrentStockDescription => CurrentAnalysis is { } analysis ? EffectiveStock(analysis)?.Describe() : null;
 
     // ───────────────────────── Bruto ─────────────────────────
 
-    private string StockKey => _active.StockKey;
+    private string SetupKey => _active.SetupKey;
 
-    /// <summary>O bruto só vale se for do mesmo tipo de máquina da análise (bloco × barra).</summary>
+    /// <summary>
+    /// Bruto que vale para a análise, pela regra única do Core: setup → comentário (BRUTO ...) → automático.
+    /// O bruto do setup só vale se servir para o tipo de máquina da análise (bloco × barra).
+    /// </summary>
     private Stock? EffectiveStock(ProgramAnalysis analysis) =>
-        _active.Stock is { } stock && stock.Machine == analysis.ToolPath.Machine ? stock : null;
+        SetupBinding.EffectiveStock(_active.Setup, analysis.ToolPath.Machine, _active.Text.Text, analysis.ToolPath.CuttingBounds).Stock;
 
     private async Task OpenStockDialogAsync()
     {
         MachineKind machine = CurrentAnalysis?.ToolPath.Machine ?? MachineKind.Mill;
         Bounds3 cutting = CurrentAnalysis?.ToolPath.CuttingBounds ?? Bounds3.Empty;
-        Stock? current = _active.Stock?.Machine == machine ? _active.Stock : null;
+        Stock? current = _active.Setup.Stock?.ToStock(machine);
 
         var dialog = new StockDialog(current, machine, cutting, Editor.Text);
         StockChoice? choice = await dialog.ShowDialog<StockChoice?>(this);
@@ -845,8 +853,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        _active.Stock = choice.Stock;
-        _settings.SetStock(StockKey, _active.Stock);
+        // O diálogo só edita bloco (fresa) e barra (torno): o resto do setup é preservado
+        MachiningSetup setup = _active.Setup.Clone();
+        setup.Stock = choice.Stock is { } stock
+            ? SetupBinding.FromStock(stock, setup.Stock?.Material ?? "Aço")
+            : null;
+        _active.Setup = setup;
+        _settings.SetSetup(SetupKey, setup);
         _settings.Save();
         StartAnalysis(); // redesenha backplot e refaz a simulação com o bruto novo
     }

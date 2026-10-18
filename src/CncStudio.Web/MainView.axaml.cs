@@ -14,6 +14,8 @@ using CncStudio.Core.Parsing;
 using CncStudio.Core.Statistics;
 using CncStudio.Core.Trajectory;
 using CncStudio.Core.Reports;
+using CncStudio.Core.Setup;
+using CncStudio.Core.Scene;
 
 namespace CncStudio.Web;
 
@@ -121,6 +123,7 @@ public partial class MainView : UserControl
         IsoViewButton.Click += (_, _) => SetMillView(MillView.Iso);
         TopViewButton.Click += (_, _) => SetMillView(MillView.Top);
         FrontViewButton.Click += (_, _) => SetMillView(MillView.Front);
+        SetupButton.Click += async (_, _) => await EditMachiningSetupAsync();
 
         OpenButton.Click += async (_, _) => await OpenFromDeviceAsync();
         // Campo de arquivo nativo por cima do botão "Abrir" (o toque cai direto nele)
@@ -212,7 +215,8 @@ public partial class MainView : UserControl
         {
             // navegador sem suporte: salva só pelo temporizador
         }
-        FitButton.Click += (_, _) => Backplot.Fit();
+        FitButton.Click += (_, _) => Fit3DOr2D();
+        Wire3D();
         DialectCombo.SelectionChanged += (_, _) =>
         {
             if (!_loading)
@@ -255,6 +259,13 @@ public partial class MainView : UserControl
         if (!RestoreState())
         {
             LoadExample(FirstExample);
+        }
+
+        // 3D: volta como estava (só carrega o motor 3D se a pessoa deixou aberto)
+        _technical = Stored("cc.technical") == "1";
+        if (Stored("cc.view3d") == "1")
+        {
+            Dispatcher.UIThread.Post(async () => await Toggle3DAsync(true), DispatcherPriority.Background);
         }
 
         // Conta: confere a situação ao abrir (e pede para entrar se não houver conta)
@@ -379,8 +390,15 @@ public partial class MainView : UserControl
 
     private void MarkSaved(string path)
     {
+        string oldKey = SetupKey;
         _libraryPath = path;
         _fileName = path.Contains('/') ? path[(path.LastIndexOf('/') + 1)..] : path;
+        if (SetupKey != oldKey && Stored(oldKey) is { Length: > 0 })
+        {
+            // "Salvar como": o setup acompanha o programa no endereço novo
+            _machiningSetup.ProjectKey = _libraryPath ?? _fileName;
+            Store(SetupKey, SetupJson.Serialize(_machiningSetup));
+        }
         _dirty = false;
         UpdateTitle();
         ScheduleSave();
@@ -392,14 +410,15 @@ public partial class MainView : UserControl
     private void UpdateTimeChip()
     {
         bool has = _analysis is { } a && a.ToolPath.Moves.Count > 0;
-        TimeChip.IsVisible = has && GraphInfo.IsVisible;
+        // No 3D o chip ficaria embaixo da vista 3D (elemento do navegador, sempre por cima)
+        TimeChip.IsVisible = has && GraphInfo.IsVisible && !_view3D;
         if (has)
         {
             TimeChip.Content = "Ciclo " + DurationFormat.Format(_analysis!.Statistics.TotalTime) + "  ›";
         }
     }
 
-    /// <summary>Dados da folha de setup do programa aberto (bruto lido do comentário "BRUTO ...").</summary>
+    /// <summary>Dados da folha de setup do programa aberto (bruto: setup → comentário "BRUTO ..." → não informado).</summary>
     private SetupSheet? BuildSetupSheet()
     {
         if (_analysis is not { } analysis)
@@ -409,16 +428,10 @@ public partial class MainView : UserControl
 
         string text = Editor.Text;
         SetupSheet sheet = SetupSheetBuilder.Build(text, analysis, _fileName, _libraryPath, _ => null);
-        if (sheet.Stock is null)
+        EffectiveStockResult stock = SetupBinding.EffectiveStock(_machiningSetup, sheet.Machine, text, sheet.CuttingBounds);
+        if (stock.Stock is { } effective && (stock.Source == StockSource.Setup || sheet.Stock is null))
         {
-            foreach (string comment in sheet.HeaderComments)
-            {
-                if (CncStudio.Core.Simulation.Stock.FromComment(comment, sheet.Machine, sheet.CuttingBounds) is { } stock)
-                {
-                    sheet = sheet with { Stock = stock.Describe(BrazilianCulture.Instance) };
-                    break;
-                }
-            }
+            sheet = sheet with { Stock = effective.Describe(BrazilianCulture.Instance) };
         }
 
         return sheet;
@@ -702,6 +715,10 @@ public partial class MainView : UserControl
 
         _colorizer.LightTheme = light;
         Backplot.LightTheme = light;
+        if (_scene3DView is not null)
+        {
+            _scene3DView.LightTheme = light;
+        }
         Editor.TextArea.TextView.Redraw();
     }
     private readonly DispatcherTimer _saveTimer;
@@ -839,9 +856,21 @@ public partial class MainView : UserControl
         }
 
         var panel = new StackPanel { Spacing = 2, Margin = new Thickness(4) };
-        panel.Children.Add(Option("Rápidos (G00)", true, v => Backplot.ShowRapids = v));
+        panel.Children.Add(Option("Rápidos (G00)", true, v =>
+        {
+            Backplot.ShowRapids = v;
+            SetRapids3D(v);
+        }));
+        panel.Children.Add(Option("3D: trajetória completa (padrão: só o trecho atual)", false, SetPath3D));
+        panel.Children.Add(Option("3D: fundo claro", Stored("cc.bg3d") == "1", SetLightBackground3D));
         panel.Children.Add(Option("Percurso à frente (na simulação)", true, v => Backplot.ShowAhead = v));
-        panel.Children.Add(Option("Ferramenta", true, v => Backplot.ShowTool = v));
+        panel.Children.Add(Option("Ferramenta", true, v =>
+        {
+            Backplot.ShowTool = v;
+            SetTool3D(v);
+        }));
+        panel.Children.Add(Option("Modo técnico no 3D (corte na cor de cada ferramenta)", Stored("cc.technical") == "1", SetTechnical3D));
+        panel.Children.Add(Option("Torno 3D: corte de 1/4 (ver o perfil por dentro)", true, SetQuarterSection));
         panel.Children.Add(Option("Modo claro (oficina com muita luz)", Stored("cc.theme") == "light", v =>
         {
             ApplyTheme(v);
@@ -1024,6 +1053,7 @@ public partial class MainView : UserControl
         _loading = true;
         _fileName = fileName;
         _libraryPath = libraryPath;
+        LoadMachiningSetup();
         _dirty = false;
         UpdateTitle();
         DialectCombo.SelectedIndex = DialectDetector.FromFileName(fileName) == Dialect.Siemens ? 1 : 0;
@@ -1054,7 +1084,7 @@ public partial class MainView : UserControl
 
         try
         {
-            _analysis = ProgramAnalyzer.Analyze(Editor.Text, dialect, MachineSettings.Default);
+            _analysis = ProgramAnalyzer.Analyze(Editor.Text, dialect, _machiningSetup.ApplyTo(MachineSettings.Default));
         }
         catch (Exception ex)
         {
@@ -1065,6 +1095,7 @@ public partial class MainView : UserControl
             UpdateProblemsButton();
             _stepEnds = [];
             _step = 0;
+            Rebuild3D();
             return;
         }
 
@@ -1078,8 +1109,8 @@ public partial class MainView : UserControl
         _problemIndex = -1;
         UpdateProblemsButton();
         bool lathe = _analysis.ToolPath.Machine == MachineKind.Lathe;
-        LatheLabel.IsVisible = lathe;
-        MillViews.IsVisible = !lathe;
+        UpdateViewButtons();
+        Rebuild3D();
         Editor.TextArea.TextView.Redraw();
         UpdateTimeChip();
         if (StatsHost.IsVisible)
@@ -1211,6 +1242,7 @@ public partial class MainView : UserControl
     private void SetStep(int step)
     {
         _step = Math.Clamp(step, 0, _stepEnds.Length);
+        OnStepChanged3D();
         if (_step >= _stepEnds.Length)
         {
             Backplot.VisibleMoves = null;
@@ -1302,6 +1334,7 @@ public partial class MainView : UserControl
                 : _step > 0 && _stepPassCount[_step - 1] > 1
                     ? $"Passo {_step} de {_stepEnds.Length} · ciclo: passe {_stepPass[_step - 1]}/{_stepPassCount[_step - 1]}"
                     : $"Passo {_step} de {_stepEnds.Length}";
+        SimPositionText.Text += Progress3D();
     }
 
     private void TogglePlay()
@@ -1354,6 +1387,7 @@ public partial class MainView : UserControl
         TopViewButton.IsChecked = view == MillView.Top;
         FrontViewButton.IsChecked = view == MillView.Front;
         Backplot.MillView = view;
+        SetSceneView(view switch { MillView.Top => SceneView.Top, MillView.Front => SceneView.Front, _ => SceneView.Isometric });
     }
 
     // ───────────────────────── Layout PC / celular ─────────────────────────
@@ -1369,6 +1403,7 @@ public partial class MainView : UserControl
         }
 
         _narrow = narrow;
+        GraphHeader.Classes.Set("tight", narrow);
         PageSwitch.IsVisible = narrow && _compact != true;
         HeaderPages.IsVisible = narrow && _compact == true;
         ApplyHeaderLayout();

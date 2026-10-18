@@ -10,6 +10,10 @@ internal static partial class WebInterop
     /// <summary>Carrega o web.js (caminho relativo à pasta do dotnet.js).</summary>
     public static Task LoadAsync() => JSHost.ImportAsync(Module, "../web.js");
 
+    [JSImport("editMachiningSetup", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> EditMachiningSetupAsync([JSMarshalAs<JSType.String>] string json);
+
     [JSImport("isTouch", Module)]
     [return: JSMarshalAs<JSType.Boolean>]
     public static partial bool IsTouch();

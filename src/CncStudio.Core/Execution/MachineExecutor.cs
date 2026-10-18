@@ -78,17 +78,52 @@ public sealed partial class MachineExecutor
     /// <summary>Posição atual em coordenadas do programa (sem zero de peça/TRANS).</summary>
     private Point3 ProgramPosition => _position - Offset;
 
-    /// <summary>Executa o programa e devolve a trajetória (com os diagnósticos de execução).</summary>
-    public static ToolPath Execute(ParseResult parse, MachineSettings? settings = null)
+    /// <summary>
+    /// Executa o programa e devolve a trajetória (com os diagnósticos de execução).
+    /// Usa a mesma execução bloco a bloco de <see cref="ExecutionSession"/>, até o fim.
+    /// </summary>
+    public static ToolPath Execute(ParseResult parse, MachineSettings? settings = null) =>
+        ExecutionSession.Start(parse, settings, trackVariables: false).Finish();
+
+    /// <summary>Executor pronto para rodar bloco a bloco (primeiro bloco preparado).</summary>
+    internal static MachineExecutor Start(ParseResult parse, MachineSettings? settings)
     {
         settings ??= MachineSettings.Default;
         MachineKind machine = settings.Machine ?? MachineDetector.Detect(parse);
         var executor = new MachineExecutor(parse.Dialect, settings, machine);
-        executor.Run(parse);
-        executor.PostProcess();
-        executor._moves.TrimExcess();
-        return new ToolPath(executor._moves, executor._diagnostics, executor._messages, executor._dwells, machine);
+        executor.Begin(parse);
+        return executor;
     }
+
+    internal MachineKind Machine => _machine;
+
+    /// <summary>Executa um bloco. False quando não havia mais bloco a executar.</summary>
+    internal bool StepBlock() => StepOnce();
+
+    internal bool HasNext => HasNextBlock;
+
+    /// <summary>Roda o que falta e monta a trajetória final (cantos e compensação aplicados).</summary>
+    internal ToolPath Complete()
+    {
+        while (StepOnce())
+        {
+        }
+
+        FinishRun();
+        PostProcess();
+        _moves.TrimExcess();
+        return new ToolPath(_moves, _diagnostics, _messages, _dwells, _machine);
+    }
+
+    internal Expressions.VariableStore Variables => _variables;
+
+    /// <summary>Movimentos gerados até agora, antes do arremate de cantos e da compensação.</summary>
+    internal int RawMoveCount => _moves.Count;
+
+    internal IReadOnlyList<ParseDiagnostic> DiagnosticsSoFar => _diagnostics;
+
+    /// <summary>Posição da ferramenta em coordenadas do programa.</summary>
+    internal Point3 CurrentProgramPosition => ProgramPosition;
 
     // ───────────────────────── Bloco ─────────────────────────
 

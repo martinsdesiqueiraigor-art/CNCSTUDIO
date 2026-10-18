@@ -28,6 +28,50 @@ public sealed class TurningSimulator : IMaterialSimulation
         Reset();
     }
 
+    // Pontos de retorno (ver MaterialSimulator): o perfil no início de alguns movimentos
+    private sealed record Checkpoint((float[] Outer, float[] Inner) Profile, double Travelled, int[] RapidCollisions, Point3 ToolPosition);
+
+    private const int MaxCheckpoints = 16;
+    private readonly SortedList<int, Checkpoint> _checkpoints = [];
+
+    private int CheckpointStride => Math.Max(1, (_moves.Count + MaxCheckpoints - 1) / MaxCheckpoints);
+
+    private void TakeCheckpoint()
+    {
+        if (_moveIndex > 0 && _moveIndex % CheckpointStride == 0 && !_checkpoints.ContainsKey(_moveIndex))
+        {
+            _checkpoints[_moveIndex] = new Checkpoint(_stock.TakeSnapshot(), Travelled, [.. _rapidCollisions], ToolPosition);
+        }
+    }
+
+    private void RewindFor(int moveIndex)
+    {
+        Checkpoint? best = null;
+        int bestIndex = 0;
+        foreach ((int index, Checkpoint checkpoint) in _checkpoints)
+        {
+            if (index <= moveIndex)
+            {
+                best = checkpoint;
+                bestIndex = index;
+            }
+        }
+
+        if (best is null)
+        {
+            Reset();
+            return;
+        }
+
+        _stock.Restore(best.Profile);
+        _moveIndex = bestIndex;
+        Travelled = best.Travelled;
+        _rapidCollisions.Clear();
+        _rapidCollisions.AddRange(best.RapidCollisions);
+        ToolPosition = best.ToolPosition;
+        Load();
+    }
+
     public TurningStock Stock => _stock;
     public int CurrentMoveIndex => _moveIndex;
     public bool IsFinished => _moveIndex >= _moves.Count;
@@ -77,13 +121,30 @@ public sealed class TurningSimulator : IMaterialSimulation
         moveIndex = Math.Clamp(moveIndex, 0, _moves.Count);
         if (moveIndex < _moveIndex || (moveIndex == _moveIndex && (_pieceIndex > 0 || _distanceInPiece > 0)))
         {
-            Reset();
+            RewindFor(moveIndex);
         }
 
         while (_moveIndex < moveIndex)
         {
             Step(double.PositiveInfinity);
         }
+    }
+
+    /// <inheritdoc cref="IMaterialSimulation.AdvanceToward"/>
+    public bool AdvanceToward(int moveIndex, double maxDistance)
+    {
+        moveIndex = Math.Clamp(moveIndex, 0, _moves.Count);
+        if (moveIndex < _moveIndex || (moveIndex == _moveIndex && (_pieceIndex > 0 || _distanceInPiece > 0)))
+        {
+            RewindFor(moveIndex);
+        }
+
+        while (_moveIndex < moveIndex && maxDistance > 0)
+        {
+            maxDistance -= Step(maxDistance);
+        }
+
+        return _moveIndex >= moveIndex;
     }
 
     public void RunToEnd()
@@ -100,12 +161,13 @@ public sealed class TurningSimulator : IMaterialSimulation
         Point3 b = _polyline[_pieceIndex + 1];
         double length = a.DistanceTo(b);
         double step = Math.Min(maxDistance, length - _distanceInPiece);
+        double from = _distanceInPiece;
         _distanceInPiece += step;
         Travelled += step;
         bool done = _distanceInPiece >= length - 1e-9;
         Point3 to = done ? b : Point3.Lerp(a, b, _distanceInPiece / length);
 
-        bool removed = CutAlong(ToolPosition, to);
+        bool removed = CutPiece(a, b, length, from, done ? length : _distanceInPiece);
         ToolPosition = to;
         if (removed && _moveIndex > 0 && _moves[_moveIndex].IsRapid && (_rapidCollisions.Count == 0 || _rapidCollisions[^1] != _moveIndex))
         {
@@ -120,6 +182,7 @@ public sealed class TurningSimulator : IMaterialSimulation
             {
                 _moveIndex++;
                 Load();
+                TakeCheckpoint();
             }
         }
 
@@ -141,15 +204,19 @@ public sealed class TurningSimulator : IMaterialSimulation
         move.AppendPolyline(_polyline, Math.Max(0.002, _stock.SliceLength * 0.25));
     }
 
-    /// <summary>Corta em pontos espaçados de meia fatia ao longo do trecho (em Z e em X).</summary>
-    private bool CutAlong(Point3 a, Point3 b)
+    /// <summary>
+    /// Corta em pontos fixos do trecho a→b, espaçados de meia fatia (em Z e em X), só os que caem
+    /// entre as distâncias "from" e "to": em fatias ou de uma vez, o resultado é o mesmo.
+    /// </summary>
+    private bool CutPiece(Point3 a, Point3 b, double length, double from, double to)
     {
         double spacing = _stock.SliceLength * 0.5;
         double span = Math.Max(Math.Abs(b.Z - a.Z), Math.Abs(b.X - a.X));
         int count = Math.Max(1, (int)Math.Ceiling(span / spacing));
         double drillRadius = Math.Max(0.5, _diameterOf(_moves[_moveIndex].Tool) / 2);
+        (int first, int last) = MaterialSimulator.StampRange(count, length, from, to);
         bool removed = false;
-        for (int k = 0; k <= count; k++)
+        for (int k = first; k <= last; k++)
         {
             Point3 p = Point3.Lerp(a, b, (double)k / count);
             removed |= _stock.Cut(p.Z, p.X, NoseRadius, drillRadius);

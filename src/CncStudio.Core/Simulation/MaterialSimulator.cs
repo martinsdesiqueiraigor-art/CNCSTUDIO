@@ -4,8 +4,8 @@ using CncStudio.Core.Trajectory;
 namespace CncStudio.Core.Simulation;
 
 /// <summary>
-/// Percorre a trajetória removendo material do <see cref="HeightMap"/> com uma
-/// fresa de topo reto. Permite avançar por distância (animação suave) ou por linha (passo a passo).
+/// Percorre a trajetória removendo material do <see cref="HeightMap"/> com o perfil de cada
+/// ferramenta (topo reto, esférica, toroidal ou broca; ver <see cref="ToolProfile"/>). Permite avançar por distância (animação suave) ou por linha (passo a passo).
 ///
 /// Arcos são convertidos em pontos só quando o movimento começa a ser executado,
 /// com tolerância proporcional à célula da grade (não adianta ser mais fino que isso).
@@ -16,9 +16,11 @@ public sealed class MaterialSimulator : IMaterialSimulation
 {
     private readonly HeightMap _map;
     private readonly IReadOnlyList<Move> _moves;
-    private readonly Func<int, double> _diameterOf;
+    private readonly Func<int, ToolProfile> _profileOf;
+    private ToolProfile _profile = ToolProfile.Flat(10);
     private readonly double _arcTolerance;
     private double _toolRadius;
+    private int _tool;
 
     // Pontos do movimento atual (começando no ponto inicial) e posição dentro deles
     private readonly List<Point3> _polyline = [];
@@ -33,18 +35,73 @@ public sealed class MaterialSimulator : IMaterialSimulation
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(toolDiameter, 0);
     }
 
-    /// <summary>Simulação com diâmetro por ferramenta (número T → diâmetro em mm).</summary>
+    /// <summary>Simulação com diâmetro por ferramenta (número T → diâmetro em mm), todas de topo reto.</summary>
     public MaterialSimulator(HeightMap map, IReadOnlyList<Move> moves, Func<int, double> diameterOfTool)
+        : this(map, moves, tool => ToolProfile.Flat(diameterOfTool(tool)))
+    {
+    }
+
+    /// <summary>Simulação com o perfil de cada ferramenta (número T → perfil).</summary>
+    public MaterialSimulator(HeightMap map, IReadOnlyList<Move> moves, Func<int, ToolProfile> profileOfTool)
     {
         _map = map;
         _moves = moves;
-        _diameterOf = diameterOfTool;
+        _profileOf = profileOfTool;
         _arcTolerance = Math.Max(0.001, map.CellSize * 0.25);
         Reset();
     }
 
+    // Pontos de retorno: o material no início de alguns movimentos, para voltar sem recomeçar do bruto inteiro
+    private sealed record Checkpoint(HeightMap.Snapshot Material, double Travelled, int[] RapidCollisions, Point3 ToolPosition);
+
+    private const int MaxCheckpoints = 16;
+    private readonly SortedList<int, Checkpoint> _checkpoints = [];
+
+    /// <summary>De quantos em quantos movimentos se guarda um ponto de retorno (no máximo 16 por simulação).</summary>
+    private int CheckpointStride => Math.Max(1, (_moves.Count + MaxCheckpoints - 1) / MaxCheckpoints);
+
+    private void TakeCheckpoint()
+    {
+        if (_moveIndex > 0 && _moveIndex % CheckpointStride == 0 && !_checkpoints.ContainsKey(_moveIndex))
+        {
+            _checkpoints[_moveIndex] = new Checkpoint(_map.TakeSnapshot(), Travelled, [.. _rapidCollisions], ToolPosition);
+        }
+    }
+
+    /// <summary>Volta ao início do movimento (ou antes) mais próximo: do último ponto de retorno, ou do bruto inteiro.</summary>
+    private void RewindFor(int moveIndex)
+    {
+        Checkpoint? best = null;
+        int bestIndex = 0;
+        foreach ((int index, Checkpoint checkpoint) in _checkpoints)
+        {
+            if (index <= moveIndex)
+            {
+                best = checkpoint;
+                bestIndex = index;
+            }
+        }
+
+        if (best is null)
+        {
+            Reset();
+            return;
+        }
+
+        _map.Restore(best.Material);
+        _moveIndex = bestIndex;
+        Travelled = best.Travelled;
+        _rapidCollisions.Clear();
+        _rapidCollisions.AddRange(best.RapidCollisions);
+        ToolPosition = best.ToolPosition;
+        LoadCurrentMove();
+    }
+
     /// <summary>Diâmetro da ferramenta do movimento atual.</summary>
     public double CurrentToolDiameter => _toolRadius * 2;
+
+    /// <summary>Perfil da ferramenta do movimento atual.</summary>
+    public ToolProfile CurrentToolProfile => _profile;
 
     /// <summary>Número da ferramenta do movimento atual (0 = não definida).</summary>
     public int CurrentTool => _moves.Count == 0 ? 0 : _moves[Math.Min(_moveIndex, _moves.Count - 1)].Tool;
@@ -104,7 +161,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
         bool midMove = _pieceIndex > 0 || _distanceInPiece > 0;
         if (moveIndex < _moveIndex || (moveIndex == _moveIndex && midMove))
         {
-            Reset();
+            RewindFor(moveIndex);
         }
 
         while (_moveIndex < moveIndex)
@@ -145,6 +202,23 @@ public sealed class MaterialSimulator : IMaterialSimulation
     /// <summary>Muda a cada remoção de material.</summary>
     public int Version => _map.Version;
 
+    /// <inheritdoc cref="IMaterialSimulation.AdvanceToward"/>
+    public bool AdvanceToward(int moveIndex, double maxDistance)
+    {
+        moveIndex = Math.Clamp(moveIndex, 0, _moves.Count);
+        if (moveIndex < _moveIndex || (moveIndex == _moveIndex && (_pieceIndex > 0 || _distanceInPiece > 0)))
+        {
+            RewindFor(moveIndex);
+        }
+
+        while (_moveIndex < moveIndex && maxDistance > 0)
+        {
+            maxDistance -= AdvanceWithinPiece(maxDistance);
+        }
+
+        return _moveIndex >= moveIndex;
+    }
+
     /// <summary>Executa a trajetória inteira de uma vez.</summary>
     public void RunToEnd()
     {
@@ -164,13 +238,14 @@ public sealed class MaterialSimulator : IMaterialSimulation
         Point3 b = _polyline[_pieceIndex + 1];
         double length = a.DistanceTo(b);
         double step = Math.Min(maxDistance, length - _distanceInPiece);
+        double from = _distanceInPiece;
 
         _distanceInPiece += step;
         Travelled += step;
         bool pieceDone = _distanceInPiece >= length - 1e-9;
         Point3 to = pieceDone ? b : Point3.Lerp(a, b, _distanceInPiece / length);
 
-        bool removed = CutAlong(ToolPosition, to);
+        bool removed = CutPiece(a, b, length, from, pieceDone ? length : _distanceInPiece);
         ToolPosition = to;
 
         // G00 que remove material = colisão (o bruto informado torna isso confiável)
@@ -187,6 +262,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
             {
                 _moveIndex++;
                 LoadCurrentMove();
+                TakeCheckpoint();
             }
         }
 
@@ -205,30 +281,51 @@ public sealed class MaterialSimulator : IMaterialSimulation
         }
 
         Move move = _moves[_moveIndex];
-        _toolRadius = Math.Max(0.01, _diameterOf(move.Tool)) / 2;
+        _profile = _profileOf(move.Tool) ?? ToolProfile.Flat(10);
+        _toolRadius = _profile.Radius;
+        _tool = move.Tool;
         _polyline.Add(move.Start);
         move.AppendPolyline(_polyline, _arcTolerance);
     }
 
     /// <summary>
-    /// Remove material ao longo de um trecho reto: "carimba" o disco da ferramenta em
-    /// pontos espaçados de meia célula, interpolando Z (cobre rampas e mergulhos).
+    /// Remove material ao longo do trecho reto a→b: "carimba" o perfil da ferramenta em pontos
+    /// fixos do trecho, espaçados de no máximo meia célula (interpolando Z, cobre rampas e
+    /// mergulhos). Só os pontos entre as distâncias "from" e "to" (desde a), para que andar o
+    /// trecho de uma vez ou em fatias dê exatamente o mesmo material (a web simula em fatias).
     /// </summary>
-    private bool CutAlong(Point3 a, Point3 b)
+    private bool CutPiece(Point3 a, Point3 b, double length, double from, double to)
     {
-        bool removed = false;
         double dx = b.X - a.X;
         double dy = b.Y - a.Y;
         double lengthXY = Math.Sqrt(dx * dx + dy * dy);
-        double spacing = _map.CellSize * 0.5;
-        int count = Math.Max(1, (int)Math.Ceiling(lengthXY / spacing));
+        int count = Math.Max(1, (int)Math.Ceiling(lengthXY / (_map.CellSize * 0.5)));
+        (int first, int last) = StampRange(count, length, from, to);
 
-        for (int k = 0; k <= count; k++)
+        bool removed = false;
+        for (int k = first; k <= last; k++)
         {
             Point3 p = Point3.Lerp(a, b, (double)k / count);
-            removed |= _map.CutDisc(p.X, p.Y, _toolRadius, p.Z);
+            removed |= _map.CutProfile(p.X, p.Y, _profile, p.Z, _tool);
         }
 
         return removed;
+    }
+
+    /// <summary>
+    /// Pontos k (de 0 a count) de um trecho de comprimento "length" que caem entre as distâncias
+    /// "from" e "to". Trecho de comprimento zero: todos.
+    /// </summary>
+    internal static (int First, int Last) StampRange(int count, double length, double from, double to)
+    {
+        if (length <= 1e-12)
+        {
+            return (0, count);
+        }
+
+        const double tolerance = 1e-9;
+        int first = Math.Max(0, (int)Math.Ceiling(from / length * count - tolerance));
+        int last = Math.Min(count, (int)Math.Floor(to / length * count + tolerance));
+        return (first, last);
     }
 }

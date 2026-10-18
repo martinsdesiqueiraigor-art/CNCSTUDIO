@@ -44,8 +44,17 @@
         <RadioButton x:Name="LatheZXView" GroupName="View" Content="Torno ZX" />
       </StackPanel>
       <Border Width="1" Background="#3A3F47" Margin="8,2" />
+      <CheckBox x:Name="Show3DCheck" Content="3D" IsChecked="True" Margin="0,0,6,0"
+                ToolTip.Tip="3D pela placa de vídeo ao lado do desenho: arraste para girar, botão direito desloca, roda aproxima" />
+      <CheckBox x:Name="TechnicalCheck" Content="Técnico" Margin="0,0,6,0"
+                ToolTip.Tip="Modo técnico no 3D: corte pintado com a cor de cada ferramenta" />
       <CheckBox x:Name="SolidCheck" Content="Sólido" IsChecked="True" Margin="0,0,6,0" />
-      <CheckBox x:Name="PathCheck" Content="Trajetória" IsChecked="True" Margin="0,0,6,0" />
+      <CheckBox x:Name="PathCheck" Content="Trajetória" IsChecked="True" Margin="0,0,6,0"
+                ToolTip.Tip="Trajetória no desenho 2D" />
+      <CheckBox x:Name="Path3DCheck" Content="Trajetória 3D" Margin="0,0,6,0"
+                ToolTip.Tip="3D: mostra a trajetória inteira por cima da peça (padrão: só o trecho em execução)" />
+      <CheckBox x:Name="LightBgCheck" Content="Fundo claro" Margin="0,0,6,0"
+                ToolTip.Tip="3D: fundo claro, como nos programas de CAM" />
       <CheckBox x:Name="ToolCheck" Content="Ferramenta" IsChecked="True" Margin="0,0,6,0" />
       <CheckBox x:Name="SectionCheck" Content="Meia seção" IsChecked="True" IsVisible="False" Margin="0,0,6,0" />
       <Border Width="1" Background="#3A3F47" Margin="8,2" />
@@ -110,10 +119,20 @@
             </WrapPanel>
           </StackPanel>
         </Grid>
-        <TextBlock x:Name="StatusText" FontSize="12" Foreground="#C8CDD3" TextTrimming="CharacterEllipsis" />
+        <DockPanel>
+          <!-- G00 que encostaram no material: escolher leva à linha e à posição na simulação -->
+          <Button x:Name="RapidsButton" DockPanel.Dock="Left" IsVisible="False" Margin="0,0,8,0" Padding="8,2" FontSize="12"
+                  Foreground="#FF7B72" BorderBrush="#F85149" BorderThickness="1" />
+          <TextBlock x:Name="StatusText" FontSize="12" Foreground="#C8CDD3" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+        </DockPanel>
       </StackPanel>
     </Border>
 
-    <g:GraphicsView x:Name="View" />
+    <!-- 2D (vistas fixas e torno ZX) e 3D pela placa de vídeo lado a lado, com divisor ajustável -->
+    <Grid x:Name="ViewsGrid" ColumnDefinitions="*,0,0">
+      <g:GraphicsView x:Name="View" Grid.Column="0" />
+      <GridSplitter x:Name="ViewsSplitter" Grid.Column="1" ResizeDirection="Columns" Background="#3A3F47" IsVisible="False" />
+      <g:GlSceneView x:Name="Gl" Grid.Column="2" IsVisible="False" />
+    </Grid>
   </DockPanel>
 </UserControl>

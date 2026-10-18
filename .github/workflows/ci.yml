@@ -13,9 +13,9 @@ jobs:
     permissions:
       contents: write   # para publicar as fotos da interface no ramo ci-screenshots
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           global-json-file: global.json
 
@@ -33,7 +33,7 @@ jobs:
         continue-on-error: true
 
       - name: Anexar fotos da interface
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: screenshots
           path: screenshots
@@ -61,7 +61,7 @@ jobs:
           -o publish/CncStudio-win-x64
 
       - name: Anexar executável ao resultado do CI
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: CasillasCode-win-x64
           path: publish/CncStudio-win-x64
@@ -72,9 +72,9 @@ jobs:
     needs: build
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: CasillasCode-win-x64
           path: publish/CncStudio-win-x64
@@ -90,7 +90,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Anexar instalador ao resultado do CI
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: CasillasCode-Setup
           path: installer-output/*.exe
@@ -106,9 +106,9 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           global-json-file: global.json
 
@@ -129,7 +129,7 @@ jobs:
           du -sh publish/web/wwwroot publish/web/wwwroot/_framework
 
       - name: Anexar versão web
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: CasillasCode-web
           path: publish/web/wwwroot
@@ -154,13 +154,13 @@ jobs:
           du -sh site
 
       - name: Publicar no Cloudflare Pages (app instalável)
-        if: github.event_name != 'pull_request' && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
           npx --yes wrangler@3 pages project create casillas-code --production-branch main || true
           npx --yes wrangler@3 pages deploy site --project-name casillas-code --branch main --commit-dirty=true
 
       - name: Publicar o painel de ativação (endereço separado, sem link no app)
-        if: github.event_name != 'pull_request' && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
           npx --yes wrangler@3 pages project create casillas-code-painel --production-branch main || true
           npx --yes wrangler@3 pages deploy admin --project-name casillas-code-painel --branch main --commit-dirty=true

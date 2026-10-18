@@ -79,6 +79,10 @@
       <Setter Property="MinHeight" Value="32" />
       <Setter Property="Padding" Value="11,3" />
     </Style>
+    <!-- Celular: botões do gráfico mais justos para caber o 3D na mesma linha -->
+    <Style Selector="DockPanel.tight :is(Button).view">
+      <Setter Property="Padding" Value="7,3" />
+    </Style>
     <Style Selector="Button.view">
       <Setter Property="Background" Value="{DynamicResource HudBackground}" />
       <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorder}" />
@@ -154,18 +158,29 @@
       </Border>
       <GridSplitter x:Name="Splitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SubtleBorder}" />
       <Grid x:Name="GraphHost" Grid.Column="2" RowDefinitions="*,Auto">
-        <web:BackplotView x:Name="Backplot" Grid.Row="0" />
+        <!-- 2D (backplot) e 3D: no PC lado a lado com divisor; no celular um de cada vez -->
+        <Grid x:Name="PlotsGrid" Grid.Row="0" ColumnDefinitions="*,0,0">
+          <web:BackplotView x:Name="Backplot" Grid.Column="0" />
+          <GridSplitter x:Name="PlotsSplitter" Grid.Column="1" ResizeDirection="Columns" IsVisible="False"
+                        Background="{DynamicResource SubtleBorder}" Margin="0,44,0,58" />
+        <!-- Vista 3D (criada na primeira vez que é aberta). É um elemento do navegador: nada do app
+             fica por cima dela, então ela deixa livres as faixas dos botões (em cima) e das informações (embaixo) -->
+        <Panel x:Name="Scene3DSlot" Grid.Column="2" Margin="0,44,0,58" IsVisible="False" />
+        </Grid>
 
         <!-- Por cima do gráfico (fixos, não acompanham zoom nem arrasto): vista e "Ajustar" no topo -->
         <DockPanel x:Name="GraphHeader" Grid.Row="0" Margin="8,6" LastChildFill="False" VerticalAlignment="Top">
           <Border x:Name="LatheLabel" DockPanel.Dock="Left" Classes="hud" VerticalAlignment="Center">
             <TextBlock Text="Torno · plano ZX" FontSize="12" Opacity="0.85" />
           </Border>
+          <ToggleButton x:Name="View3DButton" DockPanel.Dock="Left" Classes="view" Content="3D" Margin="0,0,4,0"
+                        ToolTip.Tip="Simulação 3D com remoção de material (peça e ferramenta)" />
           <StackPanel x:Name="MillViews" DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4">
             <ToggleButton x:Name="IsoViewButton" Classes="view" Content="2,5D" IsChecked="True" ToolTip.Tip="Isométrica: mostra as profundidades" />
             <ToggleButton x:Name="TopViewButton" Classes="view" Content="Topo" ToolTip.Tip="Vista de cima (XY)" />
             <ToggleButton x:Name="FrontViewButton" Classes="view" Content="Frente" ToolTip.Tip="Vista de frente (XZ)" />
           </StackPanel>
+          <Button x:Name="SetupButton" DockPanel.Dock="Right" Classes="view" Content="Setup" Margin="0,0,4,0" ToolTip.Tip="Configurar bruto, G54 e fixacao" />
           <Button x:Name="FitButton" DockPanel.Dock="Right" Classes="view" Content="Ajustar" ToolTip.Tip="Mostrar a peça inteira (ou duplo toque no gráfico)" />
           <Button x:Name="DisplayButton" DockPanel.Dock="Right" Classes="view" Content="Exibir" Margin="0,0,4,0"
                   ToolTip.Tip="Mostrar ou ocultar rápidos, percurso à frente e ferramenta" />
@@ -197,6 +212,9 @@
         <!-- Simulação: uma faixa baixa com os controles -->
         <Border Grid.Row="1" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,0,0">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="6,7" Spacing="4">
+            <!-- Rápidos (G00) que encostaram no material: tocar leva à linha e ao passo -->
+            <Button x:Name="RapidsButton" Classes="sim problems" IsVisible="False" Margin="0,0,6,0" FontSize="13"
+                    ToolTip.Tip="G00 que encostaram no material: escolha para ir à linha" />
             <Button x:Name="SimStartButton" Classes="sim" ToolTip.Tip="Voltar ao início">
               <PathIcon Data="M0,0 H2.5 V12 H0 Z M12,0 L3.5,6 L12,12 Z" />
             </Button>
