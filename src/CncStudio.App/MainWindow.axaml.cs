@@ -664,6 +664,7 @@ public partial class MainWindow : Window
     {
         _figures = figures;
         Graphics.Stock = EffectiveStock(analysis);
+        Graphics.Setup = _active.Setup;
 
         // Troca de fresa para torno (ou o contrário): reenquadra (a área gráfica escolhe a vista)
         bool lathe = analysis.ToolPath.Machine == MachineKind.Lathe;

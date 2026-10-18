@@ -37,4 +37,7 @@ public sealed record GraphicsFrame
     public string? Message { get; init; }
     public int[] CollisionLines { get; init; } = [];
     public int CollisionCount { get; init; }
+
+    /// <summary>Vista 3D pela placa de vídeo: foto da cena (null nas outras vistas).</summary>
+    public CncStudio.Core.Scene.SceneSnapshot? Scene { get; init; }
 }

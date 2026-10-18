@@ -7,6 +7,8 @@ using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Rendering;
 using CncStudio.Core.Simulation;
+using CncStudio.Core.Setup;
+using CncStudio.Core.Scene;
 using CncStudio.Core.Trajectory;
 
 namespace CncStudio.App.Graphics;
@@ -49,18 +51,20 @@ public partial class GraphicsPanel : UserControl
     {
         InitializeComponent();
 
+        Orbit3DView.IsCheckedChanged += (_, _) => OnViewChecked(Orbit3DView, GraphicsViewKind.Orbit3D);
         IsoView.IsCheckedChanged += (_, _) => OnViewChecked(IsoView, GraphicsViewKind.Iso);
+        Gl.Failed += (_, message) => OnGlFailed(message);
         TopView.IsCheckedChanged += (_, _) => OnViewChecked(TopView, GraphicsViewKind.Top);
         FrontView.IsCheckedChanged += (_, _) => OnViewChecked(FrontView, GraphicsViewKind.Front);
         SideView.IsCheckedChanged += (_, _) => OnViewChecked(SideView, GraphicsViewKind.Side);
         Lathe3DView.IsCheckedChanged += (_, _) => OnViewChecked(Lathe3DView, GraphicsViewKind.Lathe3D);
         LatheZXView.IsCheckedChanged += (_, _) => OnViewChecked(LatheZXView, GraphicsViewKind.LatheZX);
 
-        SolidCheck.IsCheckedChanged += (_, _) => { View.ShowSolid = SolidCheck.IsChecked == true; Enqueue(null); };
-        PathCheck.IsCheckedChanged += (_, _) => { View.ShowPath = PathCheck.IsChecked == true; View.Redraw(); };
-        ToolCheck.IsCheckedChanged += (_, _) => { View.ShowTool = ToolCheck.IsChecked == true; View.Redraw(); };
+        SolidCheck.IsCheckedChanged += (_, _) => { View.ShowSolid = Gl.ShowSolid = SolidCheck.IsChecked == true; Enqueue(null); };
+        PathCheck.IsCheckedChanged += (_, _) => { View.ShowPath = Gl.ShowPath = PathCheck.IsChecked == true; View.Redraw(); Gl.RequestNextFrameRendering(); };
+        ToolCheck.IsCheckedChanged += (_, _) => { View.ShowTool = Gl.ShowTool = ToolCheck.IsChecked == true; View.Redraw(); Gl.RequestNextFrameRendering(); };
         SectionCheck.IsCheckedChanged += (_, _) => Enqueue(null);
-        FitButton.Click += (_, _) => View.FitToContent();
+        FitButton.Click += (_, _) => FitToContent();
         MeasureToggle.IsCheckedChanged += (_, _) => View.MeasureMode = MeasureToggle.IsChecked == true;
         StockButton.Click += (_, _) => StockSettingsRequested?.Invoke(this, EventArgs.Empty);
         ToolsButton.Click += (_, _) => ToolSettingsRequested?.Invoke(this, EventArgs.Empty);
@@ -130,7 +134,20 @@ public partial class GraphicsPanel : UserControl
 
     public void SetHighlightedLine(int line) => View.SetHighlightedLine(line);
 
-    public void FitToContent() => View.FitToContent();
+    public void FitToContent()
+    {
+        if (ViewKind == GraphicsViewKind.Orbit3D)
+        {
+            Gl.Fit(SceneView.Isometric);
+        }
+        else
+        {
+            View.FitToContent();
+        }
+    }
+
+    /// <summary>Setup do programa (fixações e ferramentas desenhadas no 3D). Vale na próxima trajetória.</summary>
+    public MachiningSetup? Setup { get; set; }
 
     /// <summary>Nova trajetória: recria o bruto e mostra a peça pronta (o ⏮ volta ao bruto).</summary>
     public void SetToolPath(ToolPath path, IReadOnlyList<PathPolyline> figures, bool fit)
@@ -150,8 +167,10 @@ public partial class GraphicsPanel : UserControl
         YBox.IsVisible = !lathe;
         if (machineChanged || ViewKind.IsLathe() != lathe)
         {
-            (lathe ? Lathe3DView : IsoView).IsChecked = true;
-            View.View = lathe ? GraphicsViewKind.Lathe3D : GraphicsViewKind.Iso;
+            GraphicsViewKind mill = _glFailed ? GraphicsViewKind.Iso : GraphicsViewKind.Orbit3D;
+            (lathe ? Lathe3DView : _glFailed ? IsoView : Orbit3DView).IsChecked = true;
+            View.View = lathe ? GraphicsViewKind.Lathe3D : mill;
+            ShowGl(View.View == GraphicsViewKind.Orbit3D);
         }
 
         _updatingSlider = true;
@@ -183,6 +202,7 @@ public partial class GraphicsPanel : UserControl
         if (IsLatheProgram)
         {
             _map = null;
+            _scene = null;
             _turning = SimulationFactory.LatheStock(Stock, _path);
             _simulation = new TurningSimulator(_turning, _path.Moves, diameterOf);
             _stockBounds = Bounds3.Empty.Include(new Point3(0, 0, _turning.MinZ)).Include(new Point3(_turning.Radius, 0, _turning.MaxZ));
@@ -193,12 +213,15 @@ public partial class GraphicsPanel : UserControl
             Func<int, ToolProfile> profileOf = ProfileOf ?? (tool => ToolProfile.Flat(diameterOf(tool)));
             _map = SimulationFactory.MillStock(Stock, _path, profileOf, SimulationFactory.DesktopCells);
             _simulation = new MaterialSimulator(_map, _path.Moves, profileOf);
+            _scene = SimulationScene.ForMill(_map, _path, profileOf, Setup);
+            _sceneCollisions = 0;
             _stockBounds = Bounds3.Empty
                 .Include(new Point3(_map.OriginX, _map.OriginY, _map.BottomZ))
                 .Include(new Point3(_map.OriginX + _map.Width, _map.OriginY + _map.Height, _map.TopZ));
         }
 
         _generation++;
+        _glFitted = false;
         _imageKey = null;
         _cachedImage = null;
     }
@@ -211,6 +234,7 @@ public partial class GraphicsPanel : UserControl
         }
 
         View.View = kind;
+        ShowGl(kind == GraphicsViewKind.Orbit3D);
         _fitOnNextFrame = true;
         Enqueue(null);
     }
@@ -339,6 +363,7 @@ public partial class GraphicsPanel : UserControl
         bool section = SectionCheck.IsChecked == true;
         HeightMap? map = _map;
         TurningStock? turning = _turning;
+        SimulationScene? scene = view == GraphicsViewKind.Orbit3D ? _scene : null;
         Bounds3 stockBounds = _stockBounds;
         Interlocked.Increment(ref _pendingWork);
 
@@ -348,6 +373,11 @@ public partial class GraphicsPanel : UserControl
             {
                 action?.Invoke(simulation);
                 GraphicsFrame frame = Capture(simulation, path, view, generation, solid, section, map, turning, stockBounds);
+                if (scene is not null)
+                {
+                    frame = frame with { Scene = SceneOf(scene, simulation) };
+                }
+
                 Dispatcher.UIThread.Post(() => ShowFrame(frame));
             }
             catch (Exception ex)
@@ -361,6 +391,59 @@ public partial class GraphicsPanel : UserControl
         }, TaskScheduler.Default);
     }
 
+    // ───────────────────────── 3D pela placa de vídeo ─────────────────────────
+
+    private SimulationScene? _scene;
+    private int _sceneCollisions;
+    private bool _glFailed;
+    private bool _glFitted;
+
+    private void ShowGl(bool on)
+    {
+        Gl.IsVisible = on;
+        View.IsVisible = !on;
+        MeasureToggle.IsEnabled = !on;
+        if (on && !Gl.Initialized)
+        {
+            // O Avalonia não avisa quando não há OpenGL (computador sem placa de vídeo): se o 3D não
+            // iniciar em alguns segundos, volta ao desenho por CPU
+            DispatcherTimer.RunOnce(() =>
+            {
+                if (Gl.IsVisible && !Gl.Initialized && !_glFailed)
+                {
+                    OnGlFailed("não iniciou");
+                }
+            }, TimeSpan.FromSeconds(3));
+        }
+    }
+
+    // Sem OpenGL: volta ao desenho por CPU
+    private void OnGlFailed(string message)
+    {
+        _glFailed = true;
+        Orbit3DView.IsVisible = false;
+        if (ViewKind == GraphicsViewKind.Orbit3D)
+        {
+            IsoView.IsChecked = true;
+        }
+
+        StatusText.Text = "3D pela placa de vídeo indisponível (" + message + "): usando o desenho por CPU.";
+    }
+
+    /// <summary>Atualiza a cena 3D com a simulação (na fila de segundo plano, dona da cena) e tira a foto.</summary>
+    private SceneSnapshot SceneOf(SimulationScene scene, IMaterialSimulation simulation)
+    {
+        scene.Refresh();
+        scene.SetTool(simulation.CurrentTool, simulation.ToolPosition);
+        if (simulation.RapidCollisions.Count != _sceneCollisions)
+        {
+            _sceneCollisions = simulation.RapidCollisions.Count;
+            scene.SetRapidCollisions(simulation.RapidCollisions);
+        }
+
+        return scene.Snapshot();
+    }
+
     /// <summary>Monta o quadro (roda na fila de segundo plano). Reaproveita a imagem se nada mudou.</summary>
     private GraphicsFrame Capture(IMaterialSimulation simulation, ToolPath path, GraphicsViewKind view, int generation,
         bool solid, bool section, HeightMap? map, TurningStock? turning, Bounds3 stockBounds)
@@ -368,7 +451,7 @@ public partial class GraphicsPanel : UserControl
         SolidImage? image = null;
         TurningProfile? profile = null;
 
-        if (solid && view.Camera() is { } camera)
+        if (solid && view != GraphicsViewKind.Orbit3D && view.Camera() is { } camera)
         {
             var key = (generation, simulation.Version, view, section);
             if (_imageKey == key && _cachedImage is not null)
@@ -422,6 +505,16 @@ public partial class GraphicsPanel : UserControl
 
         _lastFrame = frame;
         View.ShowFrame(frame, _fitOnNextFrame);
+        if (frame.Scene is { } scene)
+        {
+            Gl.Show(scene);
+            if (_fitOnNextFrame || !_glFitted)
+            {
+                _glFitted = true;
+                Gl.Fit(SceneView.Isometric);
+            }
+        }
+
         _fitOnNextFrame = false;
 
         // Trajetória: executado colorido, o resto apagado (no fim, tudo colorido)

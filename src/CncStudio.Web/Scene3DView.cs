@@ -211,7 +211,7 @@ internal sealed class Scene3DView : NativeControlHost
 
         foreach (SceneLines lines in scene.Lines)
         {
-            float[] positions = [.. lines.Positions];
+            float[] positions = lines.PositionArray;
             bool visible = lines.Role switch
             {
                 SceneRole.FeedPath => _showPath,

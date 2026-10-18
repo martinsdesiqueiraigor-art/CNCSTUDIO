@@ -6,6 +6,15 @@ using CncStudio.Core.Trajectory;
 
 namespace CncStudio.Core.Scene;
 
+/// <summary>Estado de um objeto da cena num instante (ver <see cref="SimulationScene.Snapshot"/>).</summary>
+public sealed record SceneObjectState(string Id, SceneRole Role, SolidMesh Mesh, int Version, Point3 Offset, bool Visible);
+
+/// <summary>Linhas de um papel num instante: pares de pontos (6 floats por segmento) e cor RGB.</summary>
+public sealed record SceneLinesState(SceneRole Role, float[] Positions, uint Color);
+
+/// <summary>Foto da cena para desenhar em outra thread.</summary>
+public sealed record SceneSnapshot(IReadOnlyList<SceneObjectState> Objects, IReadOnlyList<SceneLinesState> Lines, Bounds3 Bounds, ScenePalette Palette);
+
 /// <summary>Uma malha da cena com o papel dela e um deslocamento (a ferramenta anda; o resto fica parado).</summary>
 public sealed class SceneObject
 {
@@ -221,6 +230,16 @@ public sealed class SimulationScene
         _cutter.Offset = tip;
         _holder.Offset = tip;
     }
+
+    /// <summary>
+    /// Cópia do estado atual para outra thread desenhar (o desktop simula em segundo plano).
+    /// As malhas não mudam depois de prontas, então vão por referência.
+    /// </summary>
+    public SceneSnapshot Snapshot() => new(
+        [.. _objects.Select(o => new SceneObjectState(o.Id, o.Role, o.Mesh, o.Version, o.Offset, o.Visible))],
+        [.. _lines.Select(l => new SceneLinesState(l.Role, l.PositionArray, _palette.Of(l.Role)))],
+        Bounds,
+        _palette);
 
     /// <summary>Refaz as linhas da trajetória com os G00 que encostaram no material destacados.</summary>
     public void SetRapidCollisions(IReadOnlyCollection<int> rapidMoves)

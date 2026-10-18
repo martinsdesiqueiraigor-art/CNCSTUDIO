@@ -34,7 +34,9 @@
     <!-- Vistas e opções de exibição -->
     <WrapPanel DockPanel.Dock="Top" Margin="0,4">
       <StackPanel x:Name="MillViews" Orientation="Horizontal" Spacing="2">
-        <RadioButton x:Name="IsoView" GroupName="View" Content="Isométrica" IsChecked="True" />
+        <RadioButton x:Name="Orbit3DView" GroupName="View" Content="3D" IsChecked="True"
+                     ToolTip.Tip="3D pela placa de vídeo: arraste para girar, botão direito desloca, roda aproxima" />
+        <RadioButton x:Name="IsoView" GroupName="View" Content="Isométrica" />
         <RadioButton x:Name="TopView" GroupName="View" Content="Topo" />
         <RadioButton x:Name="FrontView" GroupName="View" Content="Frente" />
         <RadioButton x:Name="SideView" GroupName="View" Content="Lado" />
@@ -114,6 +116,9 @@
       </StackPanel>
     </Border>
 
-    <g:GraphicsView x:Name="View" />
+    <Panel>
+      <g:GraphicsView x:Name="View" />
+      <g:GlSceneView x:Name="Gl" IsVisible="False" />
+    </Panel>
   </DockPanel>
 </UserControl>

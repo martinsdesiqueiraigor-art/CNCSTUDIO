@@ -28,6 +28,11 @@ public sealed class SceneLines
 
     public int SegmentCount => _moves.Count;
 
+    private float[]? _array;
+
+    /// <summary>As posições num vetor (feito uma vez; as linhas não mudam depois de montadas).</summary>
+    public float[] PositionArray => _array ??= [.. _positions];
+
     internal void Add(Point3 a, Point3 b, int move)
     {
         _positions.Add((float)a.X);
