@@ -70,6 +70,12 @@ public static class MillSolidRenderer
 
                 float z = h[row * columns + start];
                 double x0 = ox + start * c, x1 = ox + column * c;
+                if (map.HasEmptyCells && z <= bottom)
+                {
+                    start = column;
+                    continue;   // sem material (fora do bruto redondo ou furo do tubo)
+                }
+
                 quad(new Point3(x0, y0, z), new Point3(x1, y0, z), new Point3(x1, y1, z), new Point3(x0, y1, z), up, ColorAt(z));
                 start = column;
             }

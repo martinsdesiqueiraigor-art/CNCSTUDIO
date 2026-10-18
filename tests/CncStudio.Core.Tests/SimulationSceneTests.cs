@@ -376,6 +376,34 @@ public class SimulationSceneTests
     }
 
     [Fact]
+    public void BrutoRedondoNaFresaTemSoOCirculoEOTuboTemFuro()
+    {
+        // Mapa de 100 × 100 células de 1 mm; bruto redondo Ø80 no centro (50, 50)
+        var map = new HeightMap(0, 0, 100, 100, 1, 0, -20);
+        SimulationFactory.ApplyRoundShape(map, new SetupStock { Kind = SetupStockKind.Round, X = 50, Y = 50, Diameter = 80, Height = 20, Z = -20 });
+        Assert.True(map.HasEmptyCells);
+        Assert.Equal(-20, map[2, 2]);          // canto: fora do círculo
+        Assert.Equal(0, map[50, 50]);          // centro: material
+
+        SolidMesh all = new HeightMapMesh(map).Merged();
+        ConferirMalha(all);
+        ConferirSentido(all);
+        double volume = all.EnclosedVolume();
+        Assert.True(volume > 0);
+
+        // Reset mantém o formato; o corte não cria material fora dele
+        map.CutDisc(50, 50, 10, -5);
+        map.Reset();
+        Assert.Equal(-20, map[2, 2]);
+        Assert.Equal(0, map[50, 50]);
+
+        // Tubo: o furo central também fica sem material
+        SimulationFactory.ApplyRoundShape(map, new SetupStock { Kind = SetupStockKind.Tube, X = 50, Y = 50, Diameter = 80, InnerDiameter = 30, Height = 20, Z = -20 });
+        Assert.Equal(-20, map[50, 50]);
+        Assert.Equal(0, map[50, 20]);
+    }
+
+    [Fact]
     public void MorsaComChapaCorpoParafusosEMordentesComPlaca()
     {
         var vise = new SetupFixture { Kind = SetupFixtureKind.Vise, X = -10, Y = -20, Z = -50, Width = 150, Depth = 110, Height = 30, JawOpening = 60, JawThickness = 12 };

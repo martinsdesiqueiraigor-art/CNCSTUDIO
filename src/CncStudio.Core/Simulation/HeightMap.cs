@@ -142,10 +142,84 @@ public sealed class HeightMap
         return _heights[row * Columns + column];
     }
 
+    private bool[]? _empty;
+
+    /// <summary>Cópia do estado do material (alturas e quem cortou), para voltar a ele depois sem refazer o corte.</summary>
+    public sealed class Snapshot
+    {
+        internal Snapshot(float[] heights, ushort[] cutBy)
+        {
+            Heights = heights;
+            CutBy = cutBy;
+        }
+
+        internal float[] Heights { get; }
+
+        internal ushort[] CutBy { get; }
+    }
+
+    public Snapshot TakeSnapshot() => new((float[])_heights.Clone(), (ushort[])_cutBy.Clone());
+
+    /// <summary>Volta ao estado guardado (a malha 3D refaz todos os blocos).</summary>
+    public void Restore(Snapshot snapshot)
+    {
+        if (snapshot.Heights.Length != _heights.Length)
+        {
+            throw new ArgumentException("O estado guardado é de outra grade.", nameof(snapshot));
+        }
+
+        Array.Copy(snapshot.Heights, _heights, _heights.Length);
+        Array.Copy(snapshot.CutBy, _cutBy, _cutBy.Length);
+        Version++;
+        Array.Fill(_tileVersion, Version);
+        Array.Fill(_haloVersion, Version);
+    }
+
+    /// <summary>True se o bruto tem células sem material (bruto redondo ou tubo), que valem o fundo.</summary>
+    public bool HasEmptyCells => _empty is not null;
+
+    /// <summary>True se a célula está fora do formato do bruto (sem material desde o início).</summary>
+    public bool IsEmptyCell(int column, int row) => _empty is { } e && e[row * Columns + column];
+
+    /// <summary>
+    /// Define o formato do bruto dentro da grade: as células cujo centro não tem material
+    /// (fora do círculo, dentro do furo do tubo) ficam no fundo, como se não existissem.
+    /// </summary>
+    public void SetMaterialShape(Func<double, double, bool> hasMaterial)
+    {
+        var empty = new bool[Columns * Rows];
+        bool any = false;
+        for (int row = 0; row < Rows; row++)
+        {
+            for (int column = 0; column < Columns; column++)
+            {
+                if (!hasMaterial(OriginX + (column + 0.5) * CellSize, OriginY + (row + 0.5) * CellSize))
+                {
+                    empty[row * Columns + column] = true;
+                    any = true;
+                }
+            }
+        }
+
+        _empty = any ? empty : null;
+        Reset();
+    }
+
     /// <summary>Volta todo o material para o topo do bruto.</summary>
     public void Reset()
     {
         Array.Fill(_heights, (float)TopZ);
+        if (_empty is { } empty)
+        {
+            for (int k = 0; k < empty.Length; k++)
+            {
+                if (empty[k])
+                {
+                    _heights[k] = (float)BottomZ;
+                }
+            }
+        }
+
         Array.Clear(_cutBy);
         Version++;
         Array.Fill(_tileVersion, Version);

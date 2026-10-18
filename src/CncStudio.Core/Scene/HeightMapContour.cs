@@ -191,7 +191,13 @@ internal sealed class HeightMapContour
 
         if (max - min <= _flatTolerance)
         {
-            // Plano (a grande maioria): um quadrado só; diferenças de menos de 1% da célula não aparecem
+            // Plano (a grande maioria): um quadrado só; diferenças de menos de 1% da célula não aparecem.
+            // No fundo de um bruto redondo ou tubo não há material: não desenha nada
+            if (_map.HasEmptyCells && max <= _bottom)
+            {
+                return;
+            }
+
             _mesh.AddQuad(new Point3(x0, y0, max), new Point3(x1, y0, max), new Point3(x1, y1, max), new Point3(x0, y1, max),
                 up, ColorOf(max, _ci[maxCorner], _rj[maxCorner]));
             Borders(i, j, max, max, max, max, hasCrossing: false);
@@ -256,6 +262,11 @@ internal sealed class HeightMapContour
             uint color = ColorOf(level, _ci[cell], _rj[cell]);
             if (li == 0)
             {
+                if (_map.HasEmptyCells && level <= _bottom)
+                {
+                    continue;   // fora do bruto redondo (ou no furo do tubo): só as paredes sobem dali
+                }
+
                 _mesh.AddQuad(new Point3(x0, y0, level), new Point3(x1, y0, level), new Point3(x1, y1, level), new Point3(x0, y1, level), up, color);
                 continue;
             }
@@ -271,7 +282,9 @@ internal sealed class HeightMapContour
                 }
             }
 
-            uint wallColor = ColorOf(below, _ci[belowCell], _rj[belowCell]);
+            uint wallColor = _map.HasEmptyCells && below <= _bottom && _map.CutBy(Math.Clamp(_ci[belowCell], 0, _columns - 1), Math.Clamp(_rj[belowCell], 0, _rows - 1)) == 0
+                ? _palette.Stock   // parede lateral do bruto redondo
+                : ColorOf(below, _ci[belowCell], _rj[belowCell]);
             bool saddle = inn[0] == inn[2] && inn[1] == inn[3] && inn[0] != inn[1];
             if (saddle)
             {

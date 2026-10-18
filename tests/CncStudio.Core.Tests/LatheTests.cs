@@ -1,3 +1,4 @@
+using CncStudio.Core.Simulation;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Execution;
@@ -606,5 +607,35 @@ public class LatheTests
         Assert.True(stats.CuttingTime > TimeSpan.Zero);
         Assert.Equal(0, stats.MovesWithoutFeed);
         Assert.Equal([1, 3], stats.Tools.Where(t => t.Tool != 0).Select(t => t.Tool));
+    }
+
+    [Fact]
+    public void VoltarNoTornoUsaPontosDeRetornoEDaOMesmoPerfilQueRecomecar()
+    {
+        var lines = new List<string> { "G00 X60 Z2" };
+        for (int k = 0; k < 20; k++)
+        {
+            lines.Add($"G00 X{55 - k}");
+            lines.Add($"G01 Z{-30 - k} F0.2");
+            lines.Add("G00 X60 Z2");
+        }
+
+        ToolPath path = Fanuc(string.Join('\n', lines));
+        Assert.True(path.Moves.Count > 40);
+
+        var fast = new TurningSimulator(new TurningStock(-60, 0, 30), path.Moves, _ => 10);
+        foreach (int target in new[] { 37, 36, 20, 5, 0, 30, path.Moves.Count - 1 })
+        {
+            fast.RunToMove(path.Moves.Count);
+            fast.RunToMove(target);
+
+            var fresh = new TurningSimulator(new TurningStock(-60, 0, 30), path.Moves, _ => 10);
+            fresh.RunToMove(target);
+
+            Assert.Equal(target, fast.CurrentMoveIndex);
+            Assert.Equal(fresh.ToolPosition, fast.ToolPosition);
+            Assert.True(fresh.Stock.Outer.SequenceEqual(fast.Stock.Outer), $"perfil diferente ao voltar para {target}");
+            Assert.Equal(fresh.Travelled, fast.Travelled, 6);
+        }
     }
 }
