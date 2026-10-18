@@ -16,7 +16,9 @@ public static partial class ToolCommentDiameters
     public static Dictionary<int, double> Read(string text, ParseResult parse, Dialect dialect)
     {
         var diameters = new Dictionary<int, double>();
-        foreach ((int tool, ToolNote note) in SetupSheetBuilder.ReadToolComments(text, parse, dialect, MachineKind.Mill))
+        // No torno Fanuc "T0202" é a ferramenta 2: a máquina decide como o número é lido
+        MachineKind machine = MachineDetector.Detect(parse);
+        foreach ((int tool, ToolNote note) in SetupSheetBuilder.ReadToolComments(text, parse, dialect, machine))
         {
             if ((FromComment(note.Operation ?? "") ?? FromComment(note.Code ?? "")) is { } diameter)
             {
