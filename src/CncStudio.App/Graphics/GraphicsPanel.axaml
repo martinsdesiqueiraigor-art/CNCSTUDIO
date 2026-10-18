@@ -46,6 +46,8 @@
       <Border Width="1" Background="#3A3F47" Margin="8,2" />
       <CheckBox x:Name="Show3DCheck" Content="3D" IsChecked="True" Margin="0,0,6,0"
                 ToolTip.Tip="3D pela placa de vídeo ao lado do desenho: arraste para girar, botão direito desloca, roda aproxima" />
+      <CheckBox x:Name="TechnicalCheck" Content="Técnico" Margin="0,0,6,0"
+                ToolTip.Tip="Modo técnico no 3D: corte pintado com a cor de cada ferramenta" />
       <CheckBox x:Name="SolidCheck" Content="Sólido" IsChecked="True" Margin="0,0,6,0" />
       <CheckBox x:Name="PathCheck" Content="Trajetória" IsChecked="True" Margin="0,0,6,0" />
       <CheckBox x:Name="ToolCheck" Content="Ferramenta" IsChecked="True" Margin="0,0,6,0" />

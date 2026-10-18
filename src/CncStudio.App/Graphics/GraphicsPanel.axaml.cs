@@ -57,6 +57,7 @@ public partial class GraphicsPanel : UserControl
         FrontView.IsCheckedChanged += (_, _) => OnViewChecked(FrontView, GraphicsViewKind.Front);
         SideView.IsCheckedChanged += (_, _) => OnViewChecked(SideView, GraphicsViewKind.Side);
         Lathe3DView.IsCheckedChanged += (_, _) => OnViewChecked(Lathe3DView, GraphicsViewKind.Lathe3D);
+        TechnicalCheck.IsCheckedChanged += (_, _) => Enqueue(null);
         Show3DCheck.IsCheckedChanged += (_, _) =>
         {
             ShowGl(Show3DCheck.IsChecked == true && !_glFailed);
@@ -367,6 +368,7 @@ public partial class GraphicsPanel : UserControl
         HeightMap? map = _map;
         TurningStock? turning = _turning;
         SimulationScene? scene = _show3D ? _scene : null;
+        ScenePalette palette = TechnicalCheck.IsChecked == true ? ScenePalette.Technical : ScenePalette.Realistic;
         Bounds3 stockBounds = _stockBounds;
         Interlocked.Increment(ref _pendingWork);
 
@@ -378,7 +380,7 @@ public partial class GraphicsPanel : UserControl
                 GraphicsFrame frame = Capture(simulation, path, view, generation, solid, section, map, turning, stockBounds);
                 if (scene is not null)
                 {
-                    frame = frame with { Scene = SceneOf(scene, simulation, section) };
+                    frame = frame with { Scene = SceneOf(scene, simulation, section, palette) };
                 }
 
                 Dispatcher.UIThread.Post(() => ShowFrame(frame));
@@ -402,6 +404,17 @@ public partial class GraphicsPanel : UserControl
     private bool _glFitted;
 
     private bool _show3D;
+
+    /// <summary>Tema claro: fundo claro também no 3D.</summary>
+    public bool LightTheme
+    {
+        get => Gl.LightTheme;
+        set
+        {
+            Gl.LightTheme = value;
+            Gl.RequestNextFrameRendering();
+        }
+    }
 
     private void ShowGl(bool on)
     {
@@ -473,9 +486,10 @@ public partial class GraphicsPanel : UserControl
     }
 
     /// <summary>Atualiza a cena 3D com a simulação (na fila de segundo plano, dona da cena) e tira a foto.</summary>
-    private SceneSnapshot SceneOf(SimulationScene scene, IMaterialSimulation simulation, bool section)
+    private SceneSnapshot SceneOf(SimulationScene scene, IMaterialSimulation simulation, bool section, ScenePalette palette)
     {
         scene.QuarterSection = section;
+        scene.Palette = palette;
         scene.Refresh();
         scene.SetTool(simulation.CurrentTool, simulation.ToolPosition);
         if (simulation.RapidCollisions.Count != _sceneCollisions)

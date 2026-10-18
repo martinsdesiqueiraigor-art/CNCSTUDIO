@@ -111,6 +111,37 @@ public sealed class HeightMapMesh
         return mesh;
     }
 
+    /// <summary>
+    /// Normal suavizada de uma parede entre a célula (column, row) e a vizinha em +X (alongX) ou +Y:
+    /// direção oposta ao gradiente da altura nas células em volta. Assim um furo redondo, que na grade
+    /// vira degraus, aparece liso. Se a conta discordar do lado da parede, fica a normal do eixo.
+    /// </summary>
+    private static Point3 WallShade(HeightMap map, int column, int row, bool alongX, Point3 axis)
+    {
+        float H(int c, int r) => map[Math.Clamp(c, 0, map.Columns - 1), Math.Clamp(r, 0, map.Rows - 1)];
+        double across = 0, side = 0;
+        if (alongX)
+        {
+            for (int dr = -1; dr <= 1; dr++)
+            {
+                across += (dr == 0 ? 2 : 1) * (H(column + 1, row + dr) - H(column, row + dr));
+            }
+
+            side = (H(column, row + 1) - H(column, row - 1) + H(column + 1, row + 1) - H(column + 1, row - 1)) / 2;
+            var n = new Point3(-across, -side, 0);
+            return n.X * axis.X > 1e-9 ? n : axis;
+        }
+
+        for (int dc = -1; dc <= 1; dc++)
+        {
+            across += (dc == 0 ? 2 : 1) * (H(column + dc, row + 1) - H(column + dc, row));
+        }
+
+        side = (H(column + 1, row) - H(column - 1, row) + H(column + 1, row + 1) - H(column - 1, row + 1)) / 2;
+        var m = new Point3(-side, -across, 0);
+        return m.Y * axis.Y > 1e-9 ? m : axis;
+    }
+
     /// <summary>Malha de um bloco, do zero (a atualização parcial tem de dar exatamente isto).</summary>
     public static SolidMesh BuildTile(HeightMap map, ScenePalette palette, int tileColumn, int tileRow)
     {
@@ -153,8 +184,9 @@ public sealed class HeightMapMesh
                     {
                         float low = Math.Min(a, b), high = Math.Max(a, b);
                         uint color = a < b ? ColorOf(column, row) : ColorOf(column + 1, row);
+                        var axis = new Point3(a > b ? 1 : -1, 0, 0);
                         mesh.AddQuad(new Point3(x1, y0, low), new Point3(x1, y1, low), new Point3(x1, y1, high), new Point3(x1, y0, high),
-                            new Point3(a > b ? 1 : -1, 0, 0), color);
+                            axis, color, WallShade(map, column, row, alongX: true, axis));
                     }
                 }
 
@@ -166,8 +198,9 @@ public sealed class HeightMapMesh
                     {
                         float low = Math.Min(a, b), high = Math.Max(a, b);
                         uint color = a < b ? ColorOf(column, row) : ColorOf(column, row + 1);
+                        var axis = new Point3(0, a > b ? 1 : -1, 0);
                         mesh.AddQuad(new Point3(x0, y1, low), new Point3(x1, y1, low), new Point3(x1, y1, high), new Point3(x0, y1, high),
-                            new Point3(0, a > b ? 1 : -1, 0), color);
+                            axis, color, WallShade(map, column, row, alongX: false, axis));
                     }
                 }
 

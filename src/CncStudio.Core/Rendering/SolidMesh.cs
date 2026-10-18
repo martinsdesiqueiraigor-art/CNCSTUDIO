@@ -46,7 +46,7 @@ public sealed class SolidMesh
     public static SolidMesh FromHeightMap(HeightMap map)
     {
         var mesh = new SolidMesh(map.Columns * 4 + map.Rows * 4 + map.Rows * 8);
-        MillSolidRenderer.EmitQuads(map, mesh.AddQuad);
+        MillSolidRenderer.EmitQuads(map, (a, b, c, d, n, rgb) => mesh.AddQuad(a, b, c, d, n, rgb));
         return mesh;
     }
 
@@ -55,7 +55,11 @@ public sealed class SolidMesh
     /// acertada pela normal informada: vistos de fora, os triângulos ficam no sentido anti-horário
     /// (o padrão das placas de vídeo para descartar o lado de trás).
     /// </summary>
-    internal void AddQuad(Point3 a, Point3 b, Point3 c, Point3 d, Point3 normal, uint rgb)
+    /// <param name="shade">
+    /// Normal usada só na luz (opcional): paredes da grade em degraus ficam lisas como a peça real.
+    /// A ordem dos vértices continua pela <paramref name="normal"/>.
+    /// </param>
+    internal void AddQuad(Point3 a, Point3 b, Point3 c, Point3 d, Point3 normal, uint rgb, Point3? shade = null)
     {
         // Normal geométrica pelas diagonais (funciona também com um canto repetido, no eixo de revolução)
         Point3 geometric = ViewCamera.Cross(c - a, d - b);
@@ -65,7 +69,7 @@ public sealed class SolidMesh
         }
 
         EnsureRoom();
-        Point3 n = ViewCamera.Normalize(normal);
+        Point3 n = ViewCamera.Normalize(shade ?? normal);
         float r = ((rgb >> 16) & 0xFF) / 255f, g = ((rgb >> 8) & 0xFF) / 255f, bl = (rgb & 0xFF) / 255f;
         int v = VertexCount;
         Put(v, a, n, r, g, bl);

@@ -503,6 +503,7 @@ public partial class MainWindow : Window
         }
 
         _colorizer.LightTheme = light;
+        Graphics.LightTheme = light;
         Editor.TextArea.TextView.Redraw();
         ThemeButton.Content = light ? "☾" : "☀";
         ToolTip.SetTip(ThemeButton, light ? "Mudar para o tema escuro" : "Mudar para o tema claro");
