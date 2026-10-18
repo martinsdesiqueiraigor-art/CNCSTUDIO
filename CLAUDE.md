@@ -5,7 +5,8 @@ Lido no início de cada sessão. Curto de propósito: detalhe vai em `docs/`, n�
 ## Produto
 - Editor e simulador CNC (Fanuc e Siemens, fresa e torno), estilo CIMCO Edit. Nome interno: `CncStudio`.
 - Dono: Igor Martins (vende como MEI). Respostas **em português, curtas** (ele lê no celular).
-- Plataforma Casillas: plano mestre, auditoria e missões ficam no Projeto "CNC Studio" do claude.ai.
+- Plataforma **Casillas CNC**: Code (este repositório), CAM, Macro (geradores de programa com prévia 3D), Academy, Biblioteca CNC e Ferramentas (a calculadora Casillas). Referência: MacroMill CNC.
+- Plano mestre, auditoria e missões ficam no Projeto "CNC Studio" do claude.ai.
 - Ordem das fases: Fundação ✅ → Simulação ✅ (ajustes pendentes) → Macro e geradores → Academy piloto → CAM 2,5D → Avançado.
 
 ## Código
