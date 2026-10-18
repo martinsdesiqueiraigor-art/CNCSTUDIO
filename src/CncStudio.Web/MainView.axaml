@@ -79,6 +79,10 @@
       <Setter Property="MinHeight" Value="32" />
       <Setter Property="Padding" Value="11,3" />
     </Style>
+    <!-- Celular: botões do gráfico mais justos para caber o 3D na mesma linha -->
+    <Style Selector="DockPanel.tight :is(Button).view">
+      <Setter Property="Padding" Value="7,3" />
+    </Style>
     <Style Selector="Button.view">
       <Setter Property="Background" Value="{DynamicResource HudBackground}" />
       <Setter Property="BorderBrush" Value="{DynamicResource SubtleBorder}" />
@@ -155,12 +159,17 @@
       <GridSplitter x:Name="Splitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SubtleBorder}" />
       <Grid x:Name="GraphHost" Grid.Column="2" RowDefinitions="*,Auto">
         <web:BackplotView x:Name="Backplot" Grid.Row="0" />
+        <!-- Vista 3D (criada na primeira vez que é aberta). É um elemento do navegador: nada do app
+             fica por cima dela, então ela deixa livres as faixas dos botões (em cima) e das informações (embaixo) -->
+        <Panel x:Name="Scene3DSlot" Grid.Row="0" Margin="0,44,0,58" IsVisible="False" />
 
         <!-- Por cima do gráfico (fixos, não acompanham zoom nem arrasto): vista e "Ajustar" no topo -->
         <DockPanel x:Name="GraphHeader" Grid.Row="0" Margin="8,6" LastChildFill="False" VerticalAlignment="Top">
           <Border x:Name="LatheLabel" DockPanel.Dock="Left" Classes="hud" VerticalAlignment="Center">
             <TextBlock Text="Torno · plano ZX" FontSize="12" Opacity="0.85" />
           </Border>
+          <ToggleButton x:Name="View3DButton" DockPanel.Dock="Left" Classes="view" Content="3D" Margin="0,0,4,0"
+                        ToolTip.Tip="Simulação 3D com remoção de material (peça e ferramenta)" />
           <StackPanel x:Name="MillViews" DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4">
             <ToggleButton x:Name="IsoViewButton" Classes="view" Content="2,5D" IsChecked="True" ToolTip.Tip="Isométrica: mostra as profundidades" />
             <ToggleButton x:Name="TopViewButton" Classes="view" Content="Topo" ToolTip.Tip="Vista de cima (XY)" />

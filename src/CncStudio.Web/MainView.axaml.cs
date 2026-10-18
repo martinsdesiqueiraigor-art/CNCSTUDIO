@@ -15,6 +15,7 @@ using CncStudio.Core.Statistics;
 using CncStudio.Core.Trajectory;
 using CncStudio.Core.Reports;
 using CncStudio.Core.Setup;
+using CncStudio.Core.Scene;
 
 namespace CncStudio.Web;
 
@@ -214,7 +215,8 @@ public partial class MainView : UserControl
         {
             // navegador sem suporte: salva só pelo temporizador
         }
-        FitButton.Click += (_, _) => Backplot.Fit();
+        FitButton.Click += (_, _) => Fit3DOr2D();
+        Wire3D();
         DialectCombo.SelectionChanged += (_, _) =>
         {
             if (!_loading)
@@ -257,6 +259,13 @@ public partial class MainView : UserControl
         if (!RestoreState())
         {
             LoadExample(FirstExample);
+        }
+
+        // 3D: volta como estava (só carrega o motor 3D se a pessoa deixou aberto)
+        _technical = Stored("cc.technical") == "1";
+        if (Stored("cc.view3d") == "1")
+        {
+            Dispatcher.UIThread.Post(async () => await Toggle3DAsync(true), DispatcherPriority.Background);
         }
 
         // Conta: confere a situação ao abrir (e pede para entrar se não houver conta)
@@ -401,7 +410,8 @@ public partial class MainView : UserControl
     private void UpdateTimeChip()
     {
         bool has = _analysis is { } a && a.ToolPath.Moves.Count > 0;
-        TimeChip.IsVisible = has && GraphInfo.IsVisible;
+        // No 3D o chip ficaria embaixo da vista 3D (elemento do navegador, sempre por cima)
+        TimeChip.IsVisible = has && GraphInfo.IsVisible && !_view3D;
         if (has)
         {
             TimeChip.Content = "Ciclo " + DurationFormat.Format(_analysis!.Statistics.TotalTime) + "  ›";
@@ -705,6 +715,10 @@ public partial class MainView : UserControl
 
         _colorizer.LightTheme = light;
         Backplot.LightTheme = light;
+        if (_scene3DView is not null)
+        {
+            _scene3DView.LightTheme = light;
+        }
         Editor.TextArea.TextView.Redraw();
     }
     private readonly DispatcherTimer _saveTimer;
@@ -842,9 +856,18 @@ public partial class MainView : UserControl
         }
 
         var panel = new StackPanel { Spacing = 2, Margin = new Thickness(4) };
-        panel.Children.Add(Option("Rápidos (G00)", true, v => Backplot.ShowRapids = v));
+        panel.Children.Add(Option("Rápidos (G00)", true, v =>
+        {
+            Backplot.ShowRapids = v;
+            SetRapids3D(v);
+        }));
         panel.Children.Add(Option("Percurso à frente (na simulação)", true, v => Backplot.ShowAhead = v));
-        panel.Children.Add(Option("Ferramenta", true, v => Backplot.ShowTool = v));
+        panel.Children.Add(Option("Ferramenta", true, v =>
+        {
+            Backplot.ShowTool = v;
+            SetTool3D(v);
+        }));
+        panel.Children.Add(Option("Modo técnico no 3D (corte na cor de cada ferramenta)", Stored("cc.technical") == "1", SetTechnical3D));
         panel.Children.Add(Option("Modo claro (oficina com muita luz)", Stored("cc.theme") == "light", v =>
         {
             ApplyTheme(v);
@@ -1069,6 +1092,7 @@ public partial class MainView : UserControl
             UpdateProblemsButton();
             _stepEnds = [];
             _step = 0;
+            Rebuild3D();
             return;
         }
 
@@ -1084,6 +1108,13 @@ public partial class MainView : UserControl
         bool lathe = _analysis.ToolPath.Machine == MachineKind.Lathe;
         LatheLabel.IsVisible = lathe;
         MillViews.IsVisible = !lathe;
+        View3DButton.IsVisible = !lathe; // torno 3D: próxima etapa
+        if (lathe && _view3D)
+        {
+            _ = Toggle3DAsync(false);
+        }
+
+        Rebuild3D();
         Editor.TextArea.TextView.Redraw();
         UpdateTimeChip();
         if (StatsHost.IsVisible)
@@ -1215,6 +1246,7 @@ public partial class MainView : UserControl
     private void SetStep(int step)
     {
         _step = Math.Clamp(step, 0, _stepEnds.Length);
+        OnStepChanged3D();
         if (_step >= _stepEnds.Length)
         {
             Backplot.VisibleMoves = null;
@@ -1306,6 +1338,7 @@ public partial class MainView : UserControl
                 : _step > 0 && _stepPassCount[_step - 1] > 1
                     ? $"Passo {_step} de {_stepEnds.Length} · ciclo: passe {_stepPass[_step - 1]}/{_stepPassCount[_step - 1]}"
                     : $"Passo {_step} de {_stepEnds.Length}";
+        SimPositionText.Text += Progress3D();
     }
 
     private void TogglePlay()
@@ -1358,6 +1391,7 @@ public partial class MainView : UserControl
         TopViewButton.IsChecked = view == MillView.Top;
         FrontViewButton.IsChecked = view == MillView.Front;
         Backplot.MillView = view;
+        SetSceneView(view switch { MillView.Top => SceneView.Top, MillView.Front => SceneView.Front, _ => SceneView.Isometric });
     }
 
     // ───────────────────────── Layout PC / celular ─────────────────────────
@@ -1373,6 +1407,7 @@ public partial class MainView : UserControl
         }
 
         _narrow = narrow;
+        GraphHeader.Classes.Set("tight", narrow);
         PageSwitch.IsVisible = narrow && _compact != true;
         HeaderPages.IsVisible = narrow && _compact == true;
         ApplyHeaderLayout();
