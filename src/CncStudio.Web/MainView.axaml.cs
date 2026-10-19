@@ -943,7 +943,14 @@ public partial class MainView : UserControl
         }));
         panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
         panel.Children.Add(BuildLegend());
-        DisplayButton.Flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
+        // A vista 3D é um elemento do navegador e fica por cima de qualquer menu: enquanto o Ver está
+        // aberto, ela some (e volta ao fechar). Menu com rolagem para caber em tela baixa (celular deitado).
+        var scroll = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        var flyout = new Flyout { Content = scroll, Placement = PlacementMode.BottomEdgeAlignedRight };
+        flyout.Opening += (_, _) => scroll.MaxHeight = Math.Max(180, Bounds.Height - 90);
+        flyout.Opened += (_, _) => Scene3DSlot.IsVisible = false;
+        flyout.Closed += (_, _) => Scene3DSlot.IsVisible = _view3D;
+        DisplayButton.Flyout = flyout;
     }
 
     private async Task OpenFromDeviceAsync()
