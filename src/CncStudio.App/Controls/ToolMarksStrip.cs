@@ -17,10 +17,8 @@ public sealed class ToolMarksStrip : Control
     /// <summary>Folga das pontas: o controle deslizante reserva metade do botão de cada lado.</summary>
     private const double EdgePadding = 10;
 
-    private const double HitRadius = 9;
-
     private IReadOnlyList<ToolChange> _marks = [];
-    private int _moveCount = 1;
+    private Func<ToolChange, double> _positionOf = _ => 0;
     private int _hover = -1;
 
     public ToolMarksStrip()
@@ -32,17 +30,24 @@ public sealed class ToolMarksStrip : Control
     /// <summary>Uma marca foi tocada (o movimento dela está em <see cref="ToolChange.MoveIndex"/>).</summary>
     public event EventHandler<ToolChange>? MarkClicked;
 
-    public void SetMarks(IReadOnlyList<ToolChange> marks, int moveCount)
+    /// <summary>Raio de toque em volta de cada marca (px): maior no celular, onde o dedo é largo.</summary>
+    public double HitRadius { get; set; } = 9;
+
+    /// <summary>
+    /// Define as marcas. "positionOf" diz onde cada uma fica na barra, de 0 (início) a 1 (fim): quem usa
+    /// a barra por movimentos (desktop) ou por passos (web) escolhe a conta.
+    /// </summary>
+    public void SetMarks(IReadOnlyList<ToolChange> marks, Func<ToolChange, double> positionOf)
     {
         _marks = marks;
-        _moveCount = Math.Max(1, moveCount);
+        _positionOf = positionOf;
         _hover = -1;
         ToolTip.SetTip(this, null);
         InvalidateVisual();
     }
 
     private double XOf(ToolChange mark) =>
-        EdgePadding + Math.Max(0, Bounds.Width - 2 * EdgePadding) * Math.Clamp(mark.MoveIndex / (double)_moveCount, 0, 1);
+        EdgePadding + Math.Max(0, Bounds.Width - 2 * EdgePadding) * Math.Clamp(_positionOf(mark), 0, 1);
 
     private int NearestMark(double x)
     {

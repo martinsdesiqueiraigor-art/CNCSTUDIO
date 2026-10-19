@@ -88,6 +88,9 @@ public sealed class GraphicsView : ZoomPanControl
 
     /// <summary>Desenhar os avanços rápidos (G00, tracejados) junto da trajetória.</summary>
     public bool ShowRapids { get; set; } = true;
+
+    /// <summary>Torno 3D por CPU com 1/4 removido: a legenda da vista segue a opção "Meia seção".</summary>
+    public bool HalfSection { get; set; } = true;
     public bool ShowTool { get; set; } = true;
 
     public GraphicsViewKind View
@@ -306,7 +309,7 @@ public sealed class GraphicsView : ZoomPanControl
             DrawMeasure(context);
         }
 
-        DrawLabel(context, $"{_view.Caption()}  ·  roda = zoom  ·  arrastar = mover  ·  duplo clique = ajustar  ·  clique = ir à linha",
+        DrawLabel(context, $"{_view.Caption(HalfSection)}  ·  roda = zoom  ·  arrastar = mover  ·  duplo clique = ajustar  ·  clique = ir à linha",
             new Point(8, Bounds.Height - 20), LabelBrush, 11);
     }
 

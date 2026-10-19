@@ -79,7 +79,12 @@ public partial class GraphicsPanel : UserControl
         Gl.ShowPath = PathCheck.IsChecked == true;
         LightBgCheck.IsCheckedChanged += (_, _) => ApplyGlBackground();
         ToolCheck.IsCheckedChanged += (_, _) => { View.ShowTool = Gl.ShowTool = ToolCheck.IsChecked == true; View.Redraw(); Gl.RequestNextFrameRendering(); };
-        SectionCheck.IsCheckedChanged += (_, _) => Enqueue(null);
+        SectionCheck.IsCheckedChanged += (_, _) =>
+        {
+            View.HalfSection = SectionCheck.IsChecked == true;
+            View.Redraw();
+            Enqueue(null);
+        };
         FitButton.Click += (_, _) => FitToContent();
         MeasureToggle.IsCheckedChanged += (_, _) => View.MeasureMode = MeasureToggle.IsChecked == true;
         StockButton.Click += (_, _) => StockSettingsRequested?.Invoke(this, EventArgs.Empty);
@@ -184,7 +189,8 @@ public partial class GraphicsPanel : UserControl
         SectionCheck.IsVisible = lathe;
         YLabel.IsVisible = !lathe;
         YBox.IsVisible = !lathe;
-        ToolMarks.SetMarks(path.ToolChanges, path.Moves.Count);
+        int moveCount = Math.Max(1, path.Moves.Count);
+        ToolMarks.SetMarks(path.ToolChanges, change => change.MoveIndex / (double)moveCount);
         if (machineChanged)
         {
             ApplyMode();

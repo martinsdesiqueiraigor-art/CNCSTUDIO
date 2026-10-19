@@ -140,6 +140,14 @@ public sealed class BackplotView : Control
         set { _showTool = value; InvalidateVisual(); }
     }
 
+    /// <summary>Desenhar a trajetória (as linhas do percurso). Desligada, ficam só o setup, a ferramenta e o destaque.</summary>
+    public bool ShowPath
+    {
+        get => _showPath;
+        set { _showPath = value; InvalidateVisual(); }
+    }
+
+    private bool _showPath = true;
     private bool _showRapids = true;
     private bool _showAhead = true;
     private bool _showTool = true;
@@ -394,32 +402,35 @@ public sealed class BackplotView : Control
         using (context.PushTransform(matrix))
         {
             DrawMachiningSetup(context, px);
-            if (_visibleMoves is not { } visible)
+            if (_showPath)
             {
-                DrawSet(context, _full, _palette.Bright, px);
-            }
-            else
-            {
-                // Simulação: tudo apagado + o que já foi executado aceso
-                if (_showAhead)
+                if (_visibleMoves is not { } visible)
                 {
-                    DrawSet(context, _full, _palette.Dim, px);
+                    DrawSet(context, _full, _palette.Bright, px);
                 }
-
-                visible = Math.Clamp(visible, 0, _polys.Length);
-                int complete = visible / BlockSize;
-                for (int b = 0; b < complete; b++)
+                else
                 {
-                    while (_blocks.Count <= b)
+                    // Simulação: tudo apagado + o que já foi executado aceso
+                    if (_showAhead)
                     {
-                        int start = _blocks.Count * BlockSize;
-                        _blocks.Add(BuildRange(start, start + BlockSize));
+                        DrawSet(context, _full, _palette.Dim, px);
                     }
 
-                    DrawSet(context, _blocks[b], _palette.Bright, px);
-                }
+                    visible = Math.Clamp(visible, 0, _polys.Length);
+                    int complete = visible / BlockSize;
+                    for (int b = 0; b < complete; b++)
+                    {
+                        while (_blocks.Count <= b)
+                        {
+                            int start = _blocks.Count * BlockSize;
+                            _blocks.Add(BuildRange(start, start + BlockSize));
+                        }
 
-                DrawSet(context, BuildRange(complete * BlockSize, visible), _palette.Bright, px);
+                        DrawSet(context, _blocks[b], _palette.Bright, px);
+                    }
+
+                    DrawSet(context, BuildRange(complete * BlockSize, visible), _palette.Bright, px);
+                }
             }
 
             if (_highlight is { } h)

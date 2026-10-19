@@ -47,8 +47,11 @@ internal static partial class Scene3DInterop
     [JSImport("getCamera", Module)]
     public static partial string GetCamera(JSObject host);
 
-    [JSImport("setTheme", Module)]
-    public static partial void SetTheme(JSObject host, bool light);
+    [JSImport("setBackground", Module)]
+    public static partial void SetBackground(JSObject host, int top, int bottom);
+
+    [JSImport("setMaterialOpacity", Module)]
+    public static partial void SetMaterialOpacity(JSObject host, double opacity);
 
     [JSImport("info", Module)]
     public static partial string Info(JSObject host);
@@ -74,6 +77,7 @@ internal sealed class Scene3DView : NativeControlHost
     private bool _showRapids = true;
     private bool _showPath;   // a trajetória inteira fica escondida por padrão: só o trecho atual aparece
     private bool _fitPending = true;
+    private float _sentOpacity = 1f;
 
     /// <summary>True depois que o div do three.js foi criado (o motor já foi carregado).</summary>
     public bool IsReady => _host is not null;
@@ -81,7 +85,8 @@ internal sealed class Scene3DView : NativeControlHost
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
         _host = Scene3DInterop.Create();
-        Scene3DInterop.SetTheme(_host, _light || _lightBackground);
+        _sentOpacity = 1f;
+        PushBackground(_host);
         _sent.Clear();
         _placed.Clear();
         _sentLines.Clear();
@@ -148,8 +153,15 @@ internal sealed class Scene3DView : NativeControlHost
     {
         if (_host is { } host)
         {
-            Scene3DInterop.SetTheme(host, _light || _lightBackground);
+            PushBackground(host);
         }
+    }
+
+    // Degradê do Core (as mesmas cores do desktop)
+    private void PushBackground(JSObject host)
+    {
+        bool light = _light || _lightBackground;
+        Scene3DInterop.SetBackground(host, (int)SceneBackground.Top(light), (int)SceneBackground.Bottom(light));
     }
 
     public bool ShowRapids
@@ -217,6 +229,14 @@ internal sealed class Scene3DView : NativeControlHost
                 Scene3DInterop.PlaceMesh(host, o.Id, o.Offset.X, o.Offset.Y, o.Offset.Z, visible);
                 _placed[o.Id] = (o.Offset, visible);
             }
+        }
+
+        // Material transparente (opção "Ver"): só vai ao navegador quando muda
+        float opacity = scene.TransparentMaterial ? SimulationScene.TransparentOpacity : 1f;
+        if (opacity != _sentOpacity)
+        {
+            _sentOpacity = opacity;
+            Scene3DInterop.SetMaterialOpacity(host, opacity);
         }
 
         if (_fitPending && Bounds.Width > 1)

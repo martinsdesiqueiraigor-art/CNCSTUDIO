@@ -2,8 +2,21 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ae="using:AvaloniaEdit"
              xmlns:web="using:CncStudio.Web"
+             xmlns:controls="using:CncStudio.App.Controls"
              x:Class="CncStudio.Web.MainView"
              Background="{DynamicResource AppBackground}">
+
+  <UserControl.Resources>
+    <!-- Ícones do cabeçalho e da barra do gráfico (quadro = vista; barra cheia = o lado que se vê) -->
+    <StreamGeometry x:Key="IconOpenFile">F0 M2,5 H9 L11,7 H22 V20 H2 Z M4,9 V18 H20 V9 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconMenu">F1 M3,5 H21 V7 H3 Z M3,11 H21 V13 H3 Z M3,17 H21 V19 H3 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconViewIso">F0 M12,2 L21,7 V17 L12,22 L3,17 V7 Z M12,4.3 L5.3,8 L12,11.7 L18.7,8 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconViewTop">F0 M3,3 H21 V21 H3 Z M5,9 V19 H19 V9 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconViewFront">F0 M3,3 H21 V21 H3 Z M5,5 V15 H19 V5 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconFit">F0 M3,3 H9 V5 H5 V9 H3 Z M15,3 H21 V9 H19 V5 H15 Z M3,15 H5 V19 H9 V21 H3 Z M19,15 H21 V21 H15 V19 H19 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconSetup">F0 M12,2 L21,7 V17 L12,22 L3,17 V7 Z M12,4.3 L5.3,8 L12,11.7 L18.7,8 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconCollapse">F1 M15,5 L8,12 L15,19 Z</StreamGeometry>
+  </UserControl.Resources>
 
   <UserControl.Styles>
     <!-- Todos os botões: cantos arredondados e um leve "afundar e voltar" (efeito mola) ao tocar -->
@@ -40,8 +53,8 @@
       <Setter Property="BorderThickness" Value="0" />
     </Style>
     <Style Selector="Button.sim">
-      <Setter Property="MinWidth" Value="40" />
-      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="MinWidth" Value="44" />
+      <Setter Property="MinHeight" Value="44" />
       <Setter Property="Padding" Value="6,2" />
       <Setter Property="FontSize" Value="18" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -80,8 +93,38 @@
       <Setter Property="Padding" Value="11,3" />
     </Style>
     <!-- Celular: botões do gráfico mais justos para caber o 3D na mesma linha -->
-    <Style Selector="DockPanel.tight :is(Button).view">
+    <Style Selector="Grid.tight :is(Button).view">
       <Setter Property="Padding" Value="7,3" />
+    </Style>
+    <!-- Ícones do gráfico (alvo de toque de 40 px no celular) -->
+    <Style Selector=":is(Button).icon">
+      <Setter Property="MinWidth" Value="40" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector=":is(Button).icon PathIcon">
+      <Setter Property="Width" Value="18" />
+      <Setter Property="Height" Value="18" />
+    </Style>
+    <!-- Seletor 2D | 2D + 3D | 3D -->
+    <Style Selector="ToggleButton.seg">
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="12,4" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="ToggleButton.seg:checked /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrandOrange}" />
+      <Setter Property="TextElement.Foreground" Value="#0D1117" />
+    </Style>
+    <Style Selector="Grid.tight ToggleButton.seg">
+      <Setter Property="Padding" Value="9,4" />
+    </Style>
+    <Style Selector="Grid.tight :is(Button).icon">
+      <Setter Property="MinWidth" Value="36" />
     </Style>
     <Style Selector="Button.view">
       <Setter Property="Background" Value="{DynamicResource HudBackground}" />
@@ -118,8 +161,8 @@
           </StackPanel>
           <Button x:Name="InstallButton" Classes="bar install" Content="Instalar" IsVisible="False"
                   ToolTip.Tip="Instalar o Casillas Code como app neste aparelho" />
-          <Button x:Name="OpenButton" Classes="bar" Content="Abrir" ToolTip.Tip="Abrir um programa do aparelho" />
-          <Button x:Name="ExamplesButton" Classes="bar" Content="Arquivos" ToolTip.Tip="Biblioteca, salvar, compartilhar e exemplos" />
+          <Button x:Name="OpenButton" Classes="bar" MinWidth="44" ToolTip.Tip="Abrir um programa do aparelho" AutomationProperties.Name="Abrir"><PathIcon Data="{StaticResource IconOpenFile}" Width="18" Height="18" /></Button>
+          <Button x:Name="ExamplesButton" Classes="bar" MinWidth="44" ToolTip.Tip="Arquivos: biblioteca, salvar, compartilhar e exemplos" AutomationProperties.Name="Arquivos"><PathIcon Data="{StaticResource IconMenu}" Width="18" Height="18" /></Button>
           <ComboBox x:Name="DialectCombo" MinHeight="36" SelectedIndex="0" ToolTip.Tip="Dialeto do comando">
             <ComboBoxItem Content="Fanuc" />
             <ComboBoxItem Content="Siemens" />
@@ -138,7 +181,10 @@
     <Grid x:Name="Workspace" Grid.Row="2" ColumnDefinitions="*,6,*" Margin="0,6,0,0">
       <Border x:Name="EditorHost" Grid.Column="0" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,1,1">
         <Grid RowDefinitions="Auto,*">
-          <DockPanel Grid.Row="0" Margin="10,4,6,4">
+          <DockPanel x:Name="EditorHeader" Grid.Row="0" Margin="10,4,6,4">
+            <!-- Seta no topo do editor: recolhe o código e deixa o gráfico com a tela toda (só no PC) -->
+            <Button x:Name="CollapseEditorButton" DockPanel.Dock="Left" Classes="icon" Margin="0,0,6,0" Background="Transparent" BorderThickness="0"
+                    ToolTip.Tip="Recolher o editor" AutomationProperties.Name="Recolher o editor"><PathIcon Data="{StaticResource IconCollapse}" /></Button>
             <!-- Celular: edição no editor nativo do aparelho (o teclado virtual funciona direito lá) -->
             <Button x:Name="EditButton" DockPanel.Dock="Right" Classes="bar" Content="Editar" IsVisible="False"
                     ToolTip.Tip="Editar o programa com o teclado do aparelho" />
@@ -157,84 +203,87 @@
         </Grid>
       </Border>
       <GridSplitter x:Name="Splitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SubtleBorder}" />
-      <Grid x:Name="GraphHost" Grid.Column="2" RowDefinitions="*,Auto">
-        <!-- 2D (backplot) e 3D: no PC lado a lado com divisor; no celular um de cada vez -->
-        <Grid x:Name="PlotsGrid" Grid.Row="0" ColumnDefinitions="*,0,0">
-          <web:BackplotView x:Name="Backplot" Grid.Column="0" />
-          <GridSplitter x:Name="PlotsSplitter" Grid.Column="1" ResizeDirection="Columns" IsVisible="False"
-                        Background="{DynamicResource SubtleBorder}" Margin="0,44,0,58" />
-        <!-- Vista 3D (criada na primeira vez que é aberta). É um elemento do navegador: nada do app
-             fica por cima dela, então ela deixa livres as faixas dos botões (em cima) e das informações (embaixo) -->
-        <Panel x:Name="Scene3DSlot" Grid.Column="2" Margin="0,44,0,58" IsVisible="False" />
-        </Grid>
-
-        <!-- Por cima do gráfico (fixos, não acompanham zoom nem arrasto): vista e "Ajustar" no topo -->
-        <DockPanel x:Name="GraphHeader" Grid.Row="0" Margin="8,6" LastChildFill="False" VerticalAlignment="Top">
-          <Border x:Name="LatheLabel" DockPanel.Dock="Left" Classes="hud" VerticalAlignment="Center">
+      <Grid x:Name="GraphHost" Grid.Column="2" RowDefinitions="Auto,*,Auto">
+        <!-- Barra do gráfico numa linha: modo, vistas (ícones), Setup, Ajustar e o menu Ver -->
+        <Grid x:Name="GraphHeader" Grid.Row="0" Margin="6,4" ColumnDefinitions="Auto,Auto,*,Auto">
+          <Border Grid.Column="0" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1" CornerRadius="9" ClipToBounds="True" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal">
+              <ToggleButton x:Name="Mode2DButton" Classes="seg" Content="2D" IsChecked="True" ToolTip.Tip="Só o desenho 2D" />
+              <ToggleButton x:Name="Mode2D3DButton" Classes="seg" Content="2D + 3D" ToolTip.Tip="Desenho 2D ao lado da simulação 3D (no torno, o plano ZX)" />
+              <ToggleButton x:Name="Mode3DButton" Classes="seg" Content="3D" ToolTip.Tip="Simulação 3D com remoção de material (peça e ferramenta)" />
+            </StackPanel>
+          </Border>
+          <StackPanel x:Name="MillViews" Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0" VerticalAlignment="Center">
+            <ToggleButton x:Name="IsoViewButton" Classes="view icon" IsChecked="True" ToolTip.Tip="Isométrica"><PathIcon Data="{StaticResource IconViewIso}" /></ToggleButton>
+            <ToggleButton x:Name="TopViewButton" Classes="view icon" Margin="4,0,0,0" ToolTip.Tip="Vista de cima (XY)"><PathIcon Data="{StaticResource IconViewTop}" /></ToggleButton>
+            <ToggleButton x:Name="FrontViewButton" Classes="view icon" Margin="4,0,0,0" ToolTip.Tip="Vista de frente (XZ)"><PathIcon Data="{StaticResource IconViewFront}" /></ToggleButton>
+          </StackPanel>
+          <Border x:Name="LatheLabel" Grid.Column="2" Classes="hud" Margin="6,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left">
             <TextBlock Text="Torno · plano ZX" FontSize="12" Opacity="0.85" />
           </Border>
-          <ToggleButton x:Name="View3DButton" DockPanel.Dock="Left" Classes="view" Content="3D" Margin="0,0,4,0"
-                        ToolTip.Tip="Simulação 3D com remoção de material (peça e ferramenta)" />
-          <StackPanel x:Name="MillViews" DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4">
-            <ToggleButton x:Name="IsoViewButton" Classes="view" Content="2,5D" IsChecked="True" ToolTip.Tip="Isométrica: mostra as profundidades" />
-            <ToggleButton x:Name="TopViewButton" Classes="view" Content="Topo" ToolTip.Tip="Vista de cima (XY)" />
-            <ToggleButton x:Name="FrontViewButton" Classes="view" Content="Frente" ToolTip.Tip="Vista de frente (XZ)" />
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <Button x:Name="SetupButton" Classes="view icon" ToolTip.Tip="Setup: bruto, G54 e fixação" AutomationProperties.Name="Setup"><PathIcon Data="{StaticResource IconSetup}" /></Button>
+            <Button x:Name="FitButton" Classes="view icon" ToolTip.Tip="Ajustar: mostra a peça inteira (ou duplo toque no gráfico)" AutomationProperties.Name="Ajustar"><PathIcon Data="{StaticResource IconFit}" /></Button>
+            <Button x:Name="DisplayButton" Classes="view" Content="Ver ▾" MinHeight="40" ToolTip.Tip="O que aparece no gráfico" />
           </StackPanel>
-          <Button x:Name="SetupButton" DockPanel.Dock="Right" Classes="view" Content="Setup" Margin="0,0,4,0" ToolTip.Tip="Configurar bruto, G54 e fixacao" />
-          <Button x:Name="FitButton" DockPanel.Dock="Right" Classes="view" Content="Ajustar" ToolTip.Tip="Mostrar a peça inteira (ou duplo toque no gráfico)" />
-          <Button x:Name="DisplayButton" DockPanel.Dock="Right" Classes="view" Content="Exibir" Margin="0,0,4,0"
-                  ToolTip.Tip="Mostrar ou ocultar rápidos, percurso à frente e ferramenta" />
-        </DockPanel>
+        </Grid>
 
-        <!-- ...e as informações no rodapé do gráfico. Toque fora da trajetória esconde/mostra -->
-        <Border x:Name="GraphInfo" Grid.Row="0" Classes="hud" VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
-                Margin="6" IsHitTestVisible="False">
-          <StackPanel Spacing="2">
-            <DockPanel LastChildFill="False">
-              <TextBlock x:Name="SimPositionText" DockPanel.Dock="Left" FontSize="11" Opacity="0.9" Margin="0,0,12,0" />
-              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="- - G00" Foreground="{DynamicResource Motion0}" FontSize="11" />
-                <TextBlock Text="— G01" Foreground="{DynamicResource Motion1}" FontSize="11" />
-                <TextBlock Text="— G02" Foreground="{DynamicResource Motion2}" FontSize="11" />
-                <TextBlock Text="— G03" Foreground="{DynamicResource Motion3}" FontSize="11" />
-              </StackPanel>
-            </DockPanel>
-            <TextBlock x:Name="GraphStatusText" FontSize="11" Opacity="0.9" TextTrimming="CharacterEllipsis" />
-          </StackPanel>
-        </Border>
+        <!-- 2D (backplot) e 3D: no PC lado a lado com divisor; no celular um de cada vez.
+             A vista 3D é um elemento do navegador: nada do app fica por cima dela -->
+        <Grid x:Name="PlotsGrid" Grid.Row="1" ColumnDefinitions="*,0,0">
+          <web:BackplotView x:Name="Backplot" Grid.Column="0" />
+          <GridSplitter x:Name="PlotsSplitter" Grid.Column="1" ResizeDirection="Columns" IsVisible="False"
+                        Background="{DynamicResource SubtleBorder}" />
+          <Panel x:Name="Scene3DSlot" Grid.Column="2" IsVisible="False" />
+        </Grid>
 
-        <!-- Tempo de ciclo: toque abre as estatísticas (fica acima das informações do rodapé do gráfico) -->
-        <Button x:Name="TimeChip" Grid.Row="0" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,10,52"
+        <!-- Tempo de ciclo: toque abre as estatísticas (só no 2D; no 3D ficaria por baixo do navegador) -->
+        <Button x:Name="TimeChip" Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,10,8"
                 Padding="10,3" MinHeight="28" CornerRadius="14" FontSize="12" FontWeight="SemiBold" IsVisible="False"
                 Background="{DynamicResource HudBackground}" BorderBrush="{DynamicResource BrandOrange}" BorderThickness="1"
                 ToolTip.Tip="Tempo de ciclo: toque para ver as estatísticas" />
 
-        <!-- Simulação: uma faixa baixa com os controles -->
-        <Border Grid.Row="1" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,0,0">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="6,7" Spacing="4">
-            <!-- Rápidos (G00) que encostaram no material: tocar leva à linha e ao passo -->
-            <Button x:Name="RapidsButton" Classes="sim problems" IsVisible="False" Margin="0,0,6,0" FontSize="13"
-                    ToolTip.Tip="G00 que encostaram no material: escolha para ir à linha" />
-            <Button x:Name="SimStartButton" Classes="sim" ToolTip.Tip="Voltar ao início">
-              <PathIcon Data="M0,0 H2.5 V12 H0 Z M12,0 L3.5,6 L12,12 Z" />
-            </Button>
-            <Button x:Name="SimBackButton" Classes="sim" ToolTip.Tip="Passo anterior">
-              <PathIcon Data="M0,0 H2.5 V12 H0 Z M11,0 L3.5,6 L11,12 Z" />
-            </Button>
-            <Button x:Name="SimPlayButton" Classes="sim play" ToolTip.Tip="Executar / pausar">
-              <PathIcon x:Name="SimPlayIcon" Data="M0,0 L11,6 L0,12 Z" />
-            </Button>
-            <Button x:Name="SimStepButton" Classes="sim" ToolTip.Tip="Próximo passo">
-              <PathIcon Data="M0,0 L7.5,6 L0,12 Z M8.5,0 H11 V12 H8.5 Z" />
-            </Button>
-            <Button x:Name="SimEndButton" Classes="sim" ToolTip.Tip="Ir ao fim (trajetória completa)">
-              <PathIcon Data="M0,0 L8.5,6 L0,12 Z M9.5,0 H12 V12 H9.5 Z" />
-            </Button>
-            <Button x:Name="SpeedDownButton" Classes="sim speed" Content="−" Margin="6,3,2,3" ToolTip.Tip="Mais devagar" />
-            <Slider x:Name="SpeedSlider" Width="64" Minimum="1" Maximum="50" Value="5" VerticalAlignment="Center" Margin="2,-6,2,-6"
-                    ToolTip.Tip="Velocidade (passos por segundo)" />
-            <Button x:Name="SpeedUpButton" Classes="sim speed" Content="+" ToolTip.Tip="Mais rápido" />
-            <TextBlock x:Name="SpeedText" VerticalAlignment="Center" FontSize="13" Width="36" Margin="4,0,0,0" Text="5/s" />
+        <!-- Faixa de baixo: reprodução, progresso com marcas de troca de ferramenta e velocidade num menu;
+             embaixo, as informações do ponto atual. No celular em pé a barra de progresso sobe para uma linha própria -->
+        <Border Grid.Row="2" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,0,0">
+          <StackPanel Margin="6,4" Spacing="2">
+            <Grid x:Name="SimBar" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+              <StackPanel x:Name="SimButtons" Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="2">
+                <!-- Rápidos (G00) que encostaram no material: tocar leva à linha e ao passo -->
+                <Button x:Name="RapidsButton" Classes="sim problems" IsVisible="False" Margin="0,0,4,0" FontSize="13"
+                        ToolTip.Tip="G00 que encostaram no material: escolha para ir à linha" />
+                <Button x:Name="SimStartButton" Classes="sim" ToolTip.Tip="Voltar ao início">
+                  <PathIcon Data="M0,0 H2.5 V12 H0 Z M12,0 L3.5,6 L12,12 Z" />
+                </Button>
+                <Button x:Name="SimBackButton" Classes="sim" ToolTip.Tip="Passo anterior">
+                  <PathIcon Data="M0,0 H2.5 V12 H0 Z M11,0 L3.5,6 L11,12 Z" />
+                </Button>
+                <Button x:Name="SimPlayButton" Classes="sim play" ToolTip.Tip="Executar / pausar">
+                  <PathIcon x:Name="SimPlayIcon" Data="M0,0 L11,6 L0,12 Z" />
+                </Button>
+                <Button x:Name="SimStepButton" Classes="sim" ToolTip.Tip="Próximo passo">
+                  <PathIcon Data="M0,0 L7.5,6 L0,12 Z M8.5,0 H11 V12 H8.5 Z" />
+                </Button>
+                <Button x:Name="SimEndButton" Classes="sim" ToolTip.Tip="Ir ao fim (trajetória completa)">
+                  <PathIcon Data="M0,0 L8.5,6 L0,12 Z M9.5,0 H12 V12 H9.5 Z" />
+                </Button>
+              </StackPanel>
+
+              <StackPanel x:Name="SimProgress" Grid.Row="0" Grid.Column="1" Margin="8,0" VerticalAlignment="Center" MinWidth="80">
+                <controls:ToolMarksStrip x:Name="ToolMarks" Height="24" HitRadius="18" />
+                <Slider x:Name="SimSlider" Minimum="0" Maximum="1" Margin="0,-6,0,0" ToolTip.Tip="Arraste para qualquer ponto do programa" />
+              </StackPanel>
+
+              <Button x:Name="SpeedButton" Grid.Row="0" Grid.Column="2" Classes="sim" Padding="10,2" FontSize="13" VerticalAlignment="Center"
+                      ToolTip.Tip="Velocidade da execução">
+              </Button>
+            </Grid>
+
+            <!-- Informações (toque fora da trajetória esconde/mostra) -->
+            <StackPanel x:Name="GraphInfo" Spacing="1" IsHitTestVisible="False">
+              <TextBlock x:Name="SimPositionText" FontSize="11" Opacity="0.95" TextWrapping="Wrap" />
+              <TextBlock x:Name="GraphStatusText" FontSize="11" Opacity="0.8" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
           </StackPanel>
         </Border>
       </Grid>
