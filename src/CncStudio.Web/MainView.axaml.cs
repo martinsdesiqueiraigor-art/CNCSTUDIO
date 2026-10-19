@@ -1403,6 +1403,16 @@ public partial class MainView : UserControl
         SetStatus($"{kind} {_problemIndex + 1}/{ordered.Count} · linha {d.LineNumber}: {d.Message}");
     }
 
+    // O navegador roda em modo invariante (sem "pt-BR"): vírgula decimal pela cultura invariante copiada
+    private static readonly System.Globalization.CultureInfo PtCulture = MakePtCulture();
+
+    private static System.Globalization.CultureInfo MakePtCulture()
+    {
+        var culture = (System.Globalization.CultureInfo)System.Globalization.CultureInfo.InvariantCulture.Clone();
+        culture.NumberFormat.NumberDecimalSeparator = ",";
+        return culture;
+    }
+
     private double[] _cumLength = [0];
 
     private void SyncSlider()
@@ -1426,7 +1436,7 @@ public partial class MainView : UserControl
             return;
         }
 
-        var culture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+        var culture = PtCulture;
         var moves = analysis.ToolPath.Moves;
         bool complete = _step >= _stepEnds.Length;
         int visible = complete ? moves.Count : _step == 0 ? 0 : _stepEnds[_step - 1];
