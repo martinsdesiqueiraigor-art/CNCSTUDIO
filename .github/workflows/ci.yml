@@ -101,6 +101,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # para publicar a versão web no ramo ci-web
+    env:
+      # Publicação no Cloudflare Pages (só acontece quando os dois segredos existem no repositório)
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -143,38 +147,20 @@ jobs:
           git commit -q -m "Versão web (${{ github.sha }})"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-web
 
-  # Publicação oficial: só da main e só depois que o dono aprova no ambiente "producao"
-  # (Settings → Environments → producao → Required reviewers). Sem aprovação, nada vai ao ar.
-  publicar:
-    needs: web
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    environment: producao
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: CasillasCode-web
-          path: wwwroot
-
       - name: Preparar site (sem as cópias pré-comprimidas; o Cloudflare comprime sozinho)
         run: |
           mkdir -p site
-          rsync -a --exclude '*.br' --exclude '*.gz' --exclude '.git' --exclude '.nojekyll' wwwroot/ site/
+          rsync -a --exclude '*.br' --exclude '*.gz' --exclude '.git' --exclude '.nojekyll' publish/web/wwwroot/ site/
           du -sh site
 
       - name: Publicar no Cloudflare Pages (app instalável)
-        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
           npx --yes wrangler@3 pages project create casillas-code --production-branch main || true
           npx --yes wrangler@3 pages deploy site --project-name casillas-code --branch main --commit-dirty=true
 
       - name: Publicar o painel de ativação (endereço separado, sem link no app)
-        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
         run: |
           npx --yes wrangler@3 pages project create casillas-code-painel --production-branch main || true
           npx --yes wrangler@3 pages deploy admin --project-name casillas-code-painel --branch main --commit-dirty=true
