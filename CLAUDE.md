@@ -6,7 +6,7 @@ Lido no início de cada sessão. Curto de propósito: detalhe vai em `docs/`, n�
 - Editor e simulador CNC (Fanuc e Siemens, fresa e torno), estilo CIMCO Edit. Nome interno: `CncStudio`.
 - Dono: Igor Martins (vende como MEI). Respostas **em português, curtas** (ele lê no celular).
 - Plataforma **Casillas CNC**: Code (este repositório), CAM, Macro (geradores de programa com prévia 3D), Academy, Biblioteca CNC e Ferramentas (a calculadora Casillas). Referência: MacroMill CNC.
-- Plano mestre, regras da plataforma (`claude/regras-plataforma.md`) e modelo de handoff (`claude/modelo-handoff.md`) ficam no Projeto "Casillas CNC — Plataforma" do claude.ai.
+- Plano mestre, missões, regras e modelo de handoff ficam no repositório **privado** `martinsdesiqueiraigor-art/casillas-plataforma` (cópias no Projeto "Casillas CNC — Plataforma" do claude.ai). Preços e estratégia nunca neste repositório (é público). No fim de cada tarefa, atualizar `missoes.md` de lá e o Painel Casillas CNC.
 - Ordem das fases: Fundação ✅ → Simulação ✅ (ajustes pendentes) → Macro e geradores → Academy piloto → CAM 2,5D → Avançado.
 
 ## Código

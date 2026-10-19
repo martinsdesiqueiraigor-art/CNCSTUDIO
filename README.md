@@ -2,16 +2,26 @@
 
 # Casillas Code
 
-Editor e simulador de programas CNC (FANUC e Siemens), leve e rápido, no estilo do CIMCO Edit.
-Faz parte do ecossistema **Casillas** (produto complementar ao Casillas, a calculadora técnica de usinagem).
+Editor e simulador de programas CNC (FANUC e Siemens, fresa e torno), com simulação 3D na web, no celular e no PC.
+Faz parte da plataforma **Casillas CNC** (Code, Macro, Academy, Biblioteca CNC, Ferramentas e CAM).
 O nome interno do código continua `CncStudio` (pastas, namespaces e solução).
 
-> **Status:** Etapa 2 — produto final (C# / .NET 10 + Avalonia + AvaloniaEdit).
-> Fases 1 (comandos de fresa), 1B (interpretador de macros), 2 (estatísticas), 3 (torno) 4 (backplot passe a passe), 5 (interface da simulação), 6 (editor e funções NC), 6B (bruto, comparação, folha de setup) e 7 (polimento) concluídas. Plano completo em [docs/PLANO-ETAPA2.md](docs/PLANO-ETAPA2.md). Próxima etapa (produto comercial e versão web): [docs/PLANO-ETAPA3.md](docs/PLANO-ETAPA3.md).
+> **Status (18/10/2026):** Fase 1 (simulação 3D) na `main` e publicada. Próxima tarefa: interface enxuta (`docs/tarefas/CODE-06-interface-enxuta.md`).
+> Onde paramos: [docs/ESTADO.md](docs/ESTADO.md). Guia para agentes: [CLAUDE.md](CLAUDE.md) e [AGENTS.md](AGENTS.md).
+> Plano e missões da plataforma ficam no repositório privado `casillas-plataforma`. Planos antigos: [docs/historico/](docs/historico/).
 
-## Testar sem instalar nada (executável pronto)
+## Testar uma versão em andamento (prévia)
 
-A cada commit, o GitHub Actions compila, roda os testes e gera o executável para Windows:
+Cada ramo de trabalho (`fase-*`, `ajuste-*`, `dev`, `ext-*`) gera sozinho, a cada envio:
+
+- **Web:** `https://<ramo>.casillas-code.pages.dev` (não é a versão oficial);
+- **Windows:** em **Actions → Prévia → execução do ramo → Artifacts**, o arquivo `CasillasCode-teste-<ramo>`.
+
+A versão oficial (web, painel de ativação e instalador) só é publicada pelo que entra na `main`.
+
+## Versão oficial para Windows
+
+A cada commit na `main`, o GitHub Actions compila, roda os testes e gera o executável para Windows:
 
 1. No GitHub, abra a aba **Actions** → clique na execução mais recente com ✅.
 2. Em **Artifacts**, baixe:
@@ -37,7 +47,7 @@ dotnet workload install wasm-tools
 dotnet publish src/CncStudio.Web -c Release -o publish/web   # site estático em publish/web/wwwroot
 ```
 
-O CI publica o resultado no ramo `ci-web` e no Cloudflare Pages a cada commit (segredos `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`).
+O CI publica o resultado no ramo `ci-web` e, só a partir da `main`, no Cloudflare Pages (segredos `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`).
 
 ## Compilar e rodar a partir do código (Windows 11)
 
@@ -55,7 +65,19 @@ Para testar desempenho com um arquivo grande (10 MB):
 .\tools\gerar-arquivo-grande.ps1           # cria GRANDE.nc na pasta atual
 ```
 
-## O que o protótipo faz
+## Simulação 3D
+
+- **Fresa e torno em 3D** com remoção de material, pelo mesmo Core na web (three.js) e no PC (OpenGL da placa de vídeo).
+- **2D e 3D lado a lado** no PC; no celular, alterna pelo botão 3D.
+- **Setup desenhado:** porta-ferramenta BT40 com porca ER, fresa e broca com cobertura, morsa, grampo e placa de 3 castanhas.
+- **Torno:** peça por revolução com meia seção (vê o perfil e o furo por dentro).
+- **Modo técnico:** corte pintado com a cor de cada ferramenta.
+- **G00 no material** em vermelho, com lista que leva à linha e ao passo.
+- **Voltar passo** sem refazer do bruto (até 16 pontos de retorno); bruto em bloco, redondo ou tubo.
+- Girar (botão esquerdo ou um dedo), mover (botão direito ou dois dedos), zoom (roda ou pinça).
+- No PC sem placa de vídeo compatível, a simulação volta ao desenho por CPU em 3 segundos.
+
+## O que o editor faz
 
 - **Tema claro/escuro:** botão ☀/☾ ao lado do dialeto (o backplot e a simulação ficam escuros, como uma tela de CAM).
 - **Vários programas em abas:** Ctrl+N novo, Ctrl+Tab troca, Ctrl+W fecha (pergunta se quer salvar);
@@ -91,19 +113,23 @@ Para testar desempenho com um arquivo grande (10 MB):
 ```
 CncStudio.sln
 src/CncStudio.Core/          Lógica pura, sem UI e sem pacotes NuGet
-  Dialects/                  Dialeto (Fanuc/Siemens) e detecção pela extensão
-  Lexing/                    Lexer linha a linha (também usado pelo highlighting)
-  Parsing/                   Parser com estado modal e diagnósticos em português
-  Trajectory/                Movimentos (arcos guardados inteiros) e polilinhas para desenho
-  Simulation/                HeightMap 2.5D, simulador de remoção e geração de imagens
-src/CncStudio.App/           Interface Avalonia (editor, área gráfica, estatísticas)
+  Dialects/ Lexing/ Parsing/ Fanuc/Siemens, lexer e parser com diagnósticos em português
+  Execution/ Trajectory/     Execução passo a passo e movimentos
+  Simulation/                Remoção de material (fresa e torno) e fábrica da simulação
+  Scene/                     O que o 3D desenha (malhas, câmera, cores), igual na web e no PC
+  Setup/ Statistics/ Reports/ Editing/  Setup, estatísticas, relatórios e funções NC
+src/CncStudio.App/           Desktop Avalonia (editor, gráfico, 3D por OpenGL em Graphics/)
+src/CncStudio.Web/           Web e celular (WebAssembly; 3D por three.js em wwwroot/scene3d.js)
 tests/CncStudio.Core.Tests/  Testes xUnit do Core
-samples/                     EXEMPLO.nc (Fanuc) e EXEMPLO.mpf (Siemens)
-tools/                       Arquivo grande de teste e geração do ícone
+samples/                     Exemplos Fanuc e Siemens (fresa, torno, macros, peças comentadas)
+admin/                       Painel de ativação de licenças (publicado à parte)
+supabase/                    Migrações e modelos do banco de licenças
 installer/                   Script do instalador (Inno Setup)
+tools/                       Fotos da interface (CI), ícone, página e arquivo grande de teste
+docs/                        ESTADO.md, fichas de tarefas, Academy (glossário) e histórico
 ```
 
-## G-code suportado (Fase 1)
+## G-code suportado
 
 - **Movimento:** G00, G01, G02, G03 nos planos G17/G18/G19, por centro (I/J/K) ou raio (R no Fanuc, CR= no Siemens).
 - **Modos:** G90/G91, G20/G21 (G70/G71 no Siemens), G54–G59 (G500 no Siemens), TRANS/ATRANS.
@@ -112,7 +138,7 @@ installer/                   Script do instalador (Inno Setup)
 - **Sem desenho de movimento:** G04 (espera), G53 (coordenada de máquina), G28/G30.
 - Números sem ponto no Fanuc (`X10`): 10 mm por padrão; configurável para 0,010 mm.
 
-## Programação paramétrica (Fase 1B)
+## Programação paramétrica
 
 - **Fanuc (Macro B):** variáveis `#1`–`#999`, `#[...]`, contas e funções (SIN, COS, TAN, ATAN, SQRT,
   ABS, ROUND, FIX, FUP...), `IF [...] GOTO`, `IF [...] THEN`, `WHILE [...] DOn` / `ENDn`, `GOTO`,
@@ -125,7 +151,7 @@ installer/                   Script do instalador (Inno Setup)
 - **Proteção:** laço infinito e chamadas aninhadas demais interrompem a simulação com erro na linha.
 - Exemplos em `samples/macros/`: ESPIRAL_WHILE.nc, SUBPROGRAMA.nc, CHAVETA.mpf, CHAMA_FURO.mpf + FURO.SPF.
 
-## Estatísticas (Fase 2)
+## Estatísticas
 
 - Aba **Estatísticas**: tempo total estimado, tempo de corte, de rápido e de espera, distâncias,
   movimentos e trocas de ferramenta; tabela por ferramenta (clique para ir à 1ª linha) e limites X/Y/Z.
@@ -133,7 +159,7 @@ installer/                   Script do instalador (Inno Setup)
   *Máquina → Ferramentas e zeros de peça → Programa* (padrão 10.000 mm/min). Sem aceleração.
 - Esperas: `G04 X`/`G04 P` (Fanuc), `G4 F`/`G4 S` (Siemens), `G82 P`, DTB do CYCLE82/CYCLE83.
 
-## Torno (Fase 3)
+## Torno
 
 - **Tipo de máquina:** *Automático* (detecta pelo programa: G71/G70/G76, U/W, G96, CYCLE95/97, DIAMON...), *Fresa* ou *Torno*,
   na caixa **Máquina** ao lado do dialeto. Programas de torno abrem o backplot na vista **Torno (ZX)**.
@@ -142,7 +168,6 @@ installer/                   Script do instalador (Inno Setup)
   (padrão em *Máquina → Programa*). O avanço por rotação vira mm/min com a rotação no diâmetro do movimento.
 - **Fanuc:** G71/G72 (desbaste, inclusive com rebaixo) + G70 (acabamento), G74/G75, G76 (rosca em passes), G90/G92/G94, G32.
 - **Siemens:** CYCLE95 (contorno por subprograma `"KONTUR"` ou rótulos `"INICIO:FIM"`; VARI 1–12), CYCLE97, G33.
-- Torno usa só o backplot (a simulação 2.5D é de fresa).
 - **G71/G72 com rebaixo** (tipo II) e **G74/G75** (bicadas na face e canais em X).
 - Exemplos: `samples/torno/EXEMPLO_TORNO.nc` e `EXEMPLO_TORNO.mpf` (botões *Torno Fanuc* / *Torno Siemens*).
 
