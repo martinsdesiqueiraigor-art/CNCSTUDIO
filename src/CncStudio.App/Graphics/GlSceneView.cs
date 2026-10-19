@@ -20,6 +20,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
     private const int ArrayBuffer = 0x8892, ElementArrayBuffer = 0x8893, StaticDraw = 0x88E4, Float = 0x1406;
     private const int Lines = 1, Triangles = 4, UnsignedInt = 0x1405, DepthTest = 0x0B71, ColorBit = 0x4000, DepthBit = 0x100;
     private const int VertexShader = 0x8B31, FragmentShader = 0x8B30, LessOrEqual = 0x0203;
+    private const int Blend = 0x0BE2, SrcAlpha = 0x0302, OneMinusSrcAlpha = 0x0303;
 
     private sealed class GpuMesh
     {
@@ -37,8 +38,10 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
     private readonly Dictionary<string, GpuMesh> _meshes = [];
     private readonly Dictionary<SceneRole, GpuLines> _lines = [];
     private SceneSnapshot? _snapshot;
-    private int _meshProgram, _lineProgram;
-    private int _uMvp, _uModel, _uEyeX, _uEyeY, _uEyeZ;
+    private int _meshProgram, _lineProgram, _bgProgram, _bgVao;
+    private int _uMvp, _uModel, _uEyeX, _uEyeY, _uEyeZ, _uOpacity;
+    private int _uBgTopR, _uBgTopG, _uBgTopB, _uBgBottomR, _uBgBottomG, _uBgBottomB;
+    private unsafe delegate* unmanaged<int, int, void> _blendFunc; // o GlInterface do Avalonia não traz glBlendFunc
     private int _uLineMvp, _uLineR, _uLineG, _uLineB, _uLineLift, _uLineOffX, _uLineOffY, _uLineOffZ;
     private bool _ready;
     private Point? _drag;
@@ -101,6 +104,21 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
             _uEyeX = gl.GetUniformLocationString(_meshProgram, "uEyeX");
             _uEyeY = gl.GetUniformLocationString(_meshProgram, "uEyeY");
             _uEyeZ = gl.GetUniformLocationString(_meshProgram, "uEyeZ");
+            _uOpacity = gl.GetUniformLocationString(_meshProgram, "uOpacity");
+
+            // Fundo em degradê: um triângulo que cobre a tela, sem malha
+            _bgProgram = Link(gl, header, BackgroundVertex, BackgroundFragment);
+            _uBgTopR = gl.GetUniformLocationString(_bgProgram, "uTopR");
+            _uBgTopG = gl.GetUniformLocationString(_bgProgram, "uTopG");
+            _uBgTopB = gl.GetUniformLocationString(_bgProgram, "uTopB");
+            _uBgBottomR = gl.GetUniformLocationString(_bgProgram, "uBottomR");
+            _uBgBottomG = gl.GetUniformLocationString(_bgProgram, "uBottomG");
+            _uBgBottomB = gl.GetUniformLocationString(_bgProgram, "uBottomB");
+            _bgVao = gl.GenVertexArray();
+            unsafe
+            {
+                _blendFunc = (delegate* unmanaged<int, int, void>)gl.GetProcAddress("glBlendFunc");
+            }
 
             _lineProgram = Link(gl, header, LineVertex, LineFragment);
             _uLineMvp = gl.GetUniformLocationString(_lineProgram, "uMvp");
@@ -138,6 +156,8 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         _lines.Clear();
         if (_meshProgram != 0) gl.DeleteProgram(_meshProgram);
         if (_lineProgram != 0) gl.DeleteProgram(_lineProgram);
+        if (_bgProgram != 0) gl.DeleteProgram(_bgProgram);
+        if (_bgVao != 0) gl.DeleteVertexArray(_bgVao);
         _ready = false;
     }
 
@@ -154,19 +174,16 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         int width = Math.Max(1, (int)(Bounds.Width * scaling));
         int height = Math.Max(1, (int)(Bounds.Height * scaling));
         gl.Viewport(0, 0, width, height);
-        if (LightTheme)
-        {
-            gl.ClearColor(0.953f, 0.961f, 0.973f, 1);
-        }
-        else
-        {
-            gl.ClearColor(0.051f, 0.067f, 0.09f, 1);
-        }
-
+        gl.ClearColor(0.051f, 0.067f, 0.09f, 1);
         gl.ClearDepth(1);
         gl.Enable(DepthTest);
         gl.DepthFunc(LessOrEqual);
         gl.Clear(ColorBit | DepthBit);
+        if (_ready)
+        {
+            DrawBackground(gl);
+        }
+
         if (!_ready || _snapshot is not { } snapshot)
         {
             return;
@@ -186,7 +203,9 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         gl.Uniform1f(_uEyeY, (float)eye.Y);
         gl.Uniform1f(_uEyeZ, (float)eye.Z);
         float* model = stackalloc float[16];
-        foreach (SceneObjectState o in snapshot.Objects)
+        bool blending = false;
+        // Opacos primeiro; o material transparente por último, misturado e sem escrever a profundidade
+        foreach (SceneObjectState o in snapshot.Objects.OrderBy(o => snapshot.OpacityOf(o.Role) < 1f))
         {
             bool hidden = (o.Role == SceneRole.Material && !ShowSolid) || (o.Role is SceneRole.Tool or SceneRole.Holder && !ShowTool);
             if (!o.Visible || hidden || !_meshes.TryGetValue(o.Id, out GpuMesh? gpu) || gpu.IndexCount == 0)
@@ -194,6 +213,16 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
                 continue;
             }
 
+            float opacity = snapshot.OpacityOf(o.Role);
+            if (opacity < 1f && !blending && _blendFunc != null)
+            {
+                gl.Enable(Blend);
+                _blendFunc(SrcAlpha, OneMinusSrcAlpha);
+                gl.DepthMask(0);
+                blending = true;
+            }
+
+            gl.Uniform1f(_uOpacity, blending ? opacity : 1f);
             for (int i = 0; i < 16; i++)
             {
                 model[i] = i % 5 == 0 ? 1 : 0;
@@ -205,6 +234,12 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
             gl.UniformMatrix4fv(_uModel, 1, false, model);
             gl.BindVertexArray(gpu.Vao);
             gl.DrawElements(Triangles, gpu.IndexCount, UnsignedInt, IntPtr.Zero);
+        }
+
+        if (blending)
+        {
+            gl.Disable(Blend);
+            gl.DepthMask(1);
         }
 
         // Arestas marcadas: traço fino nas quinas (paredes e fundos dos cortes, fixações, ferramenta)
@@ -272,6 +307,25 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         }
 
         gl.BindVertexArray(0);
+    }
+
+    // Degradê vertical (cores do Core, um só lugar para o desktop e a web)
+    private void DrawBackground(GlInterface gl)
+    {
+        uint top = SceneBackground.Top(LightTheme);
+        uint bottom = SceneBackground.Bottom(LightTheme);
+        gl.Disable(DepthTest);
+        gl.UseProgram(_bgProgram);
+        gl.Uniform1f(_uBgTopR, ((top >> 16) & 0xFF) / 255f);
+        gl.Uniform1f(_uBgTopG, ((top >> 8) & 0xFF) / 255f);
+        gl.Uniform1f(_uBgTopB, (top & 0xFF) / 255f);
+        gl.Uniform1f(_uBgBottomR, ((bottom >> 16) & 0xFF) / 255f);
+        gl.Uniform1f(_uBgBottomG, ((bottom >> 8) & 0xFF) / 255f);
+        gl.Uniform1f(_uBgBottomB, (bottom & 0xFF) / 255f);
+        gl.BindVertexArray(_bgVao);
+        gl.DrawArrays(Triangles, 0, 3);
+        gl.BindVertexArray(0);
+        gl.Enable(DepthTest);
     }
 
     // Envia as malhas novas ou trocadas e apaga as que saíram da cena
@@ -412,6 +466,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         uniform float uEyeX;
         uniform float uEyeY;
         uniform float uEyeZ;
+        uniform float uOpacity;
         out vec4 fragColor;
         void main() {
             vec3 n = normalize(vNormal);
@@ -421,7 +476,30 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
             float diffuse = max(dot(n, key), 0.0);
             float spec = pow(max(dot(n, normalize(key + toEye)), 0.0), 40.0) * 0.07;
             vec3 color = vColor * (0.30 + 0.25 * hemi + 0.55 * diffuse) + vec3(spec);
-            fragColor = vec4(min(color, vec3(1.0)), 1.0);
+            fragColor = vec4(min(color, vec3(1.0)), uOpacity);
+        }
+        """;
+
+    private const string BackgroundVertex = """
+        out float vT;
+        void main() {
+            vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+            vT = p.y;
+            gl_Position = vec4(p * 2.0 - 1.0, 1.0, 1.0);
+        }
+        """;
+
+    private const string BackgroundFragment = """
+        in float vT;
+        uniform float uTopR;
+        uniform float uTopG;
+        uniform float uTopB;
+        uniform float uBottomR;
+        uniform float uBottomG;
+        uniform float uBottomB;
+        out vec4 fragColor;
+        void main() {
+            fragColor = vec4(mix(vec3(uBottomR, uBottomG, uBottomB), vec3(uTopR, uTopG, uTopB), clamp(vT, 0.0, 1.0)), 1.0);
         }
         """;
 

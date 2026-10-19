@@ -85,6 +85,9 @@ public sealed class GraphicsView : ZoomPanControl
 
     public bool ShowSolid { get; set; } = true;
     public bool ShowPath { get; set; } = true;
+
+    /// <summary>Desenhar os avanços rápidos (G00, tracejados) junto da trajetória.</summary>
+    public bool ShowRapids { get; set; } = true;
     public bool ShowTool { get; set; } = true;
 
     public GraphicsViewKind View
@@ -250,7 +253,7 @@ public sealed class GraphicsView : ZoomPanControl
         if (ShowPath)
         {
             bool stepping = _limit.HasValue;
-            for (int i = 0; i < 4; i++)
+            for (int i = ShowRapids ? 0 : 1; i < 4; i++)
             {
                 if (_fullGeometry[i] is { } full)
                 {
@@ -267,7 +270,7 @@ public sealed class GraphicsView : ZoomPanControl
                     context.DrawGeometry(null, PassPen, _passGeometry);
                 }
 
-                for (int i = 0; i < 4; i++)
+                for (int i = ShowRapids ? 0 : 1; i < 4; i++)
                 {
                     if (_doneGeometry[i] is { } done)
                     {

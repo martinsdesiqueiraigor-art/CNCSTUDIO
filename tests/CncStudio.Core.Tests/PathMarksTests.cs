@@ -116,4 +116,19 @@ public class PathMarksTests
         Assert.Equal(1f, transparent.OpacityOf(SceneRole.Holder));
         Assert.Equal(1f, transparent.OpacityOf(SceneRole.Fixture));
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FundoEmDegradeEscurecendoParaABase(bool claro)
+    {
+        uint top = SceneBackground.Top(claro);
+        uint bottom = SceneBackground.Bottom(claro);
+
+        double Brilho(uint c) => ((c >> 16) & 0xFF) * 0.3 + ((c >> 8) & 0xFF) * 0.59 + (c & 0xFF) * 0.11;
+
+        Assert.NotEqual(top, bottom);
+        Assert.True(Brilho(top) > Brilho(bottom)); // luz vem de cima nos dois temas
+        Assert.True(Brilho(SceneBackground.Top(true)) > Brilho(SceneBackground.Top(false)));
+    }
 }

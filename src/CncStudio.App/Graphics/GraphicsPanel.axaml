@@ -1,129 +1,187 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:g="using:CncStudio.App.Graphics"
+             xmlns:controls="using:CncStudio.App.Controls"
              x:Class="CncStudio.App.Graphics.GraphicsPanel">
+  <UserControl.Resources>
+    <!-- Ícones da barra do gráfico (quadro = vista; barra cheia = o lado que se vê) -->
+    <StreamGeometry x:Key="IconViewIso">F0 M12,2 L21,7 V17 L12,22 L3,17 V7 Z M12,4.3 L5.3,8 L12,11.7 L18.7,8 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconViewTop">F0 M3,3 H21 V21 H3 Z M5,9 V19 H19 V9 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconViewFront">F0 M3,3 H21 V21 H3 Z M5,5 V15 H19 V5 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconViewSide">F0 M3,3 H21 V21 H3 Z M5,5 V19 H15 V5 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconFit">F0 M3,3 H9 V5 H5 V9 H3 Z M15,3 H21 V9 H19 V5 H15 Z M3,15 H5 V19 H9 V21 H3 Z M19,15 H21 V21 H15 V19 H19 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconMeasure">F0 M2,8 H22 V16 H2 Z M4,10 V14 H20 V10 Z M6,10 H7.5 V13 H6 Z M10,10 H11.5 V12 H10 Z M14,10 H15.5 V13 H14 Z M18,10 H19.5 V12 H18 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconBlock">F0 M12,2 L21,7 V17 L12,22 L3,17 V7 Z M12,4.3 L5.3,8 L12,11.7 L18.7,8 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconCutter">F1 M9,2 H15 V7 H9 Z M10,8 H14 V19 L12,22 L10,19 Z</StreamGeometry>
+  </UserControl.Resources>
   <UserControl.Styles>
     <Style Selector="TextBlock.coordLabel">
       <Setter Property="FontSize" Value="11" />
       <Setter Property="Foreground" Value="#9DA5B4" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="Margin" Value="0,0,4,0" />
     </Style>
-    <Style Selector="Border.coordValue">
-      <Setter Property="Background" Value="#0F1114" />
-      <Setter Property="BorderBrush" Value="#3A3F47" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="Padding" Value="6,1" />
-      <Setter Property="Margin" Value="0,1,10,1" />
-      <Setter Property="MinWidth" Value="92" />
-    </Style>
-    <Style Selector="Border.coordValue > TextBlock">
+    <Style Selector="TextBlock.coordValue">
       <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Menlo, monospace" />
-      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontSize" Value="12" />
       <Setter Property="Foreground" Value="#E6E8EB" />
-      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.play">
-      <Setter Property="MinWidth" Value="34" />
-      <Setter Property="Padding" Value="6,3" />
-      <Setter Property="FontSize" Value="14" />
+      <Setter Property="MinWidth" Value="28" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Margin" Value="0,0,1,0" />
+    </Style>
+    <!-- Ícones da barra de cima do gráfico -->
+    <Style Selector="Button.gicon, ToggleButton.gicon">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="5,3" />
+      <Setter Property="MinWidth" Value="30" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.gicon PathIcon, ToggleButton.gicon PathIcon">
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonIcon}" />
+    </Style>
+    <Style Selector="ToggleButton.gicon:checked /template/ ContentPresenter, ToggleButton.seg:checked /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource TabActiveBackground}" />
+    </Style>
+    <!-- Seletor 2D | 2D + 3D | 3D -->
+    <Style Selector="ToggleButton.seg">
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.sepv">
+      <Setter Property="Width" Value="1" />
+      <Setter Property="Height" Value="18" />
+      <Setter Property="Margin" Value="6,0" />
+      <Setter Property="Background" Value="#3A3F47" />
     </Style>
   </UserControl.Styles>
 
   <DockPanel>
-    <!-- Vistas e opções de exibição -->
-    <WrapPanel DockPanel.Dock="Top" Margin="0,4">
-      <StackPanel x:Name="MillViews" Orientation="Horizontal" Spacing="2">
-        <RadioButton x:Name="IsoView" GroupName="View" Content="Isométrica" IsChecked="True" />
-        <RadioButton x:Name="TopView" GroupName="View" Content="Topo" />
-        <RadioButton x:Name="FrontView" GroupName="View" Content="Frente" />
-        <RadioButton x:Name="SideView" GroupName="View" Content="Lado" />
+    <!-- Barra do gráfico numa linha: modo, menu Ver, vistas e ferramentas (só ícones) -->
+    <WrapPanel DockPanel.Dock="Top" Margin="0,4" VerticalAlignment="Center">
+      <Border BorderBrush="#3A3F47" BorderThickness="1" CornerRadius="4" ClipToBounds="True" Margin="0,0,6,0" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal">
+          <ToggleButton x:Name="Mode2D" Classes="seg" Content="2D" ToolTip.Tip="Só o desenho 2D" />
+          <ToggleButton x:Name="Mode2D3D" Classes="seg" Content="2D + 3D" IsChecked="True"
+                        ToolTip.Tip="Desenho 2D ao lado do 3D pela placa de vídeo (no torno, o perfil ZX)" />
+          <ToggleButton x:Name="Mode3D" Classes="seg" Content="3D"
+                        ToolTip.Tip="Só o 3D: arraste para girar, botão direito desloca, roda aproxima" />
+        </StackPanel>
+      </Border>
+
+      <Button x:Name="ViewMenuButton" Content="Ver ▾" Padding="10,3" MinHeight="28" FontSize="12" Margin="0,0,6,0"
+              ToolTip.Tip="O que aparece no gráfico">
+        <Button.Flyout>
+          <Flyout Placement="BottomEdgeAlignedLeft">
+            <StackPanel Spacing="2" MinWidth="210">
+              <CheckBox x:Name="PathCheck" Content="Trajetória" IsChecked="True"
+                        ToolTip.Tip="Trajetória inteira no 2D e no 3D" />
+              <CheckBox x:Name="RapidsCheck" Content="Rápidos (G00)" IsChecked="True"
+                        ToolTip.Tip="Mostrar os avanços rápidos junto da trajetória" />
+              <CheckBox x:Name="ToolCheck" Content="Ferramenta" IsChecked="True" />
+              <CheckBox x:Name="SolidCheck" Content="Sólido" IsChecked="True" ToolTip.Tip="Material da peça" />
+              <CheckBox x:Name="TransparentCheck" Content="Material transparente"
+                        ToolTip.Tip="3D: peça translúcida para ver a ferramenta por dentro" />
+              <CheckBox x:Name="SectionCheck" Content="Meia seção" IsChecked="True" IsVisible="False"
+                        ToolTip.Tip="Torno: peça com 1/4 removido (vê o perfil e o furo por dentro)" />
+              <CheckBox x:Name="TechnicalCheck" Content="Modo técnico"
+                        ToolTip.Tip="3D: corte pintado com a cor de cada ferramenta" />
+              <CheckBox x:Name="LightBgCheck" Content="Fundo claro" ToolTip.Tip="3D: fundo claro, como nos programas de CAM" />
+              <Border Height="1" Background="#3A3F47" Margin="0,4" />
+              <TextBlock x:Name="LegendText" FontSize="12">
+                <Run Text="- - G00" Foreground="{DynamicResource LegendG00}" />
+                <Run Text="  ── G01" Foreground="{DynamicResource LegendG01}" />
+                <Run Text="  ── G02" Foreground="{DynamicResource LegendG02}" />
+                <Run Text="  ── G03" Foreground="{DynamicResource LegendG03}" />
+              </TextBlock>
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+
+      <StackPanel x:Name="ViewIcons" Orientation="Horizontal" VerticalAlignment="Center">
+        <ToggleButton x:Name="IsoView" Classes="gicon" ToolTip.Tip="Vista isométrica"><PathIcon Data="{StaticResource IconViewIso}" /></ToggleButton>
+        <ToggleButton x:Name="TopView" Classes="gicon" ToolTip.Tip="Vista de topo"><PathIcon Data="{StaticResource IconViewTop}" /></ToggleButton>
+        <ToggleButton x:Name="FrontView" Classes="gicon" ToolTip.Tip="Vista de frente"><PathIcon Data="{StaticResource IconViewFront}" /></ToggleButton>
+        <ToggleButton x:Name="SideView" Classes="gicon" ToolTip.Tip="Vista de lado"><PathIcon Data="{StaticResource IconViewSide}" /></ToggleButton>
       </StackPanel>
-      <StackPanel x:Name="LatheViews" Orientation="Horizontal" Spacing="2" IsVisible="False">
-        <RadioButton x:Name="Lathe3DView" GroupName="View" Content="Torno 3D" />
-        <RadioButton x:Name="LatheZXView" GroupName="View" Content="Torno ZX" />
-      </StackPanel>
-      <Border Width="1" Background="#3A3F47" Margin="8,2" />
-      <CheckBox x:Name="Show3DCheck" Content="3D" IsChecked="True" Margin="0,0,6,0"
-                ToolTip.Tip="3D pela placa de vídeo ao lado do desenho: arraste para girar, botão direito desloca, roda aproxima" />
-      <CheckBox x:Name="TechnicalCheck" Content="Técnico" Margin="0,0,6,0"
-                ToolTip.Tip="Modo técnico no 3D: corte pintado com a cor de cada ferramenta" />
-      <CheckBox x:Name="SolidCheck" Content="Sólido" IsChecked="True" Margin="0,0,6,0" />
-      <CheckBox x:Name="PathCheck" Content="Trajetória" IsChecked="True" Margin="0,0,6,0"
-                ToolTip.Tip="Trajetória no desenho 2D" />
-      <CheckBox x:Name="Path3DCheck" Content="Trajetória 3D" Margin="0,0,6,0"
-                ToolTip.Tip="3D: mostra a trajetória inteira por cima da peça (padrão: só o trecho em execução)" />
-      <CheckBox x:Name="LightBgCheck" Content="Fundo claro" Margin="0,0,6,0"
-                ToolTip.Tip="3D: fundo claro, como nos programas de CAM" />
-      <CheckBox x:Name="ToolCheck" Content="Ferramenta" IsChecked="True" Margin="0,0,6,0" />
-      <CheckBox x:Name="SectionCheck" Content="Meia seção" IsChecked="True" IsVisible="False" Margin="0,0,6,0" />
-      <Border Width="1" Background="#3A3F47" Margin="8,2" />
-      <Button x:Name="FitButton" Content="Ajustar" Margin="0,0,4,0" />
-      <ToggleButton x:Name="MeasureToggle" Content="📏 Medir" Margin="0,0,4,0"
-                    ToolTip.Tip="Clique em dois pontos (encaixa nos pontos da trajetória). Esc sai." />
-      <Button x:Name="StockButton" Content="Bruto…" Margin="0,0,4,0" />
-      <Button x:Name="ToolsButton" Content="Ferramentas…" />
-      <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12">
-        <Run Text="- - G00" Foreground="{DynamicResource LegendG00}" />
-        <Run Text="  ── G01" Foreground="{DynamicResource LegendG01}" />
-        <Run Text="  ── G02" Foreground="{DynamicResource LegendG02}" />
-        <Run Text="  ── G03" Foreground="{DynamicResource LegendG03}" />
-      </TextBlock>
+      <Border Classes="sepv" />
+      <Button x:Name="FitButton" Classes="gicon" ToolTip.Tip="Ajustar: enquadra a peça inteira"><PathIcon Data="{StaticResource IconFit}" /></Button>
+      <ToggleButton x:Name="MeasureToggle" Classes="gicon"
+                    ToolTip.Tip="Medir: clique em dois pontos (encaixa nos pontos da trajetória). Esc sai."><PathIcon Data="{StaticResource IconMeasure}" /></ToggleButton>
+      <Button x:Name="StockButton" Classes="gicon" ToolTip.Tip="Bruto: medidas do material"><PathIcon Data="{StaticResource IconBlock}" /></Button>
+      <Button x:Name="ToolsButton" Classes="gicon" ToolTip.Tip="Ferramentas e zeros"><PathIcon Data="{StaticResource IconCutter}" /></Button>
     </WrapPanel>
 
-    <!-- Painel inferior (como o CIMCO): coordenadas à esquerda, reprodução à direita -->
+    <!-- Faixa de baixo: linha de informações pequena + uma linha com reprodução, progresso e velocidade -->
     <Border DockPanel.Dock="Bottom" Background="#1A1D22" BorderBrush="#3A3F47" BorderThickness="0,1,0,0" Padding="6,4">
-      <StackPanel Spacing="4">
-        <Grid ColumnDefinitions="Auto,*">
-          <Grid x:Name="CoordGrid" Grid.Column="0" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
-            <TextBlock Grid.Row="0" Grid.Column="0" Classes="coordLabel" Text="X" />
-            <Border Grid.Row="0" Grid.Column="1" Classes="coordValue"><TextBlock x:Name="XText" Text="—" /></Border>
-            <TextBlock Grid.Row="1" Grid.Column="0" Classes="coordLabel" Text="Y" x:Name="YLabel" />
-            <Border Grid.Row="1" Grid.Column="1" Classes="coordValue" x:Name="YBox"><TextBlock x:Name="YText" Text="—" /></Border>
-            <TextBlock Grid.Row="2" Grid.Column="0" Classes="coordLabel" Text="Z" />
-            <Border Grid.Row="2" Grid.Column="1" Classes="coordValue"><TextBlock x:Name="ZText" Text="—" /></Border>
-
-            <TextBlock Grid.Row="0" Grid.Column="2" Classes="coordLabel" Text="Ferr." />
-            <Border Grid.Row="0" Grid.Column="3" Classes="coordValue"><TextBlock x:Name="ToolText" Text="—" /></Border>
-            <TextBlock Grid.Row="1" Grid.Column="2" Classes="coordLabel" Text="Mov." />
-            <Border Grid.Row="1" Grid.Column="3" Classes="coordValue"><TextBlock x:Name="MotionText" Text="—" /></Border>
-            <TextBlock Grid.Row="2" Grid.Column="2" Classes="coordLabel" Text="Avanço" />
-            <Border Grid.Row="2" Grid.Column="3" Classes="coordValue"><TextBlock x:Name="FeedText" Text="—" /></Border>
-
-            <TextBlock Grid.Row="0" Grid.Column="4" Classes="coordLabel" Text="Linha" />
-            <Border Grid.Row="0" Grid.Column="5" Classes="coordValue"><TextBlock x:Name="LineText" Text="—" /></Border>
-            <TextBlock Grid.Row="1" Grid.Column="4" Classes="coordLabel" Text="Passe" />
-            <Border Grid.Row="1" Grid.Column="5" Classes="coordValue"><TextBlock x:Name="PassText" Text="—" /></Border>
-            <TextBlock Grid.Row="2" Grid.Column="4" Classes="coordLabel" Text="Dist." />
-            <Border Grid.Row="2" Grid.Column="5" Classes="coordValue"><TextBlock x:Name="DistanceText" Text="—" /></Border>
-          </Grid>
-
-          <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0" VerticalAlignment="Center">
-            <Slider x:Name="PositionSlider" Minimum="0" Maximum="1" ToolTip.Tip="Arraste para qualquer ponto do programa" />
-            <WrapPanel HorizontalAlignment="Right">
-              <Button x:Name="ResetButton" Classes="play" Content="⏮" ToolTip.Tip="Início (bruto inteiro)" Margin="0,0,2,0" />
-              <Button x:Name="PreviousPassButton" Classes="play" Content="⏪" ToolTip.Tip="Passe anterior" Margin="0,0,2,0" />
-              <Button x:Name="PreviousLineButton" Classes="play" Content="◀" ToolTip.Tip="Linha anterior" Margin="0,0,2,0" />
-              <Button x:Name="PlayButton" Classes="play" Content="▶" ToolTip.Tip="Executar" Margin="0,0,2,0" />
-              <Button x:Name="PauseButton" Classes="play" Content="⏸" ToolTip.Tip="Pausar" IsEnabled="False" Margin="0,0,2,0" />
-              <Button x:Name="NextLineButton" Classes="play" Content="▶|" ToolTip.Tip="Próxima linha do programa" Margin="0,0,2,0" />
-              <Button x:Name="NextPassButton" Classes="play" Content="⏩" ToolTip.Tip="Próximo passe" Margin="0,0,2,0" />
-              <Button x:Name="EndButton" Classes="play" Content="⏭" ToolTip.Tip="Até o fim" Margin="0,0,10,0" />
-              <ComboBox x:Name="ModeCombo" SelectedIndex="0" Width="150" Margin="0,0,6,0" ToolTip.Tip="Como a execução avança">
-                <ComboBoxItem Content="Linha a linha" />
-                <ComboBoxItem Content="Contínuo" />
-              </ComboBox>
-              <TextBlock Text="Velocidade" VerticalAlignment="Center" FontSize="12" Margin="0,0,4,0" Foreground="#9DA5B4" />
-              <Slider x:Name="SpeedSlider" Minimum="0" Maximum="100" Value="40" Width="110" />
-              <TextBlock x:Name="SpeedLabel" VerticalAlignment="Center" FontSize="12" MinWidth="90" Margin="6,0,0,0" Foreground="#9DA5B4" />
-            </WrapPanel>
+      <StackPanel Spacing="3">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="ResetButton" Classes="play" Content="⏮" ToolTip.Tip="Início (bruto inteiro)" />
+            <Button x:Name="PreviousPassButton" Classes="play" Content="⏪" ToolTip.Tip="Passe anterior" />
+            <Button x:Name="PreviousLineButton" Classes="play" Content="◀" ToolTip.Tip="Linha anterior" />
+            <Button x:Name="PlayButton" Classes="play" Content="▶" ToolTip.Tip="Executar (Espaço)" />
+            <Button x:Name="PauseButton" Classes="play" Content="⏸" ToolTip.Tip="Pausar (Espaço)" IsEnabled="False" />
+            <Button x:Name="NextLineButton" Classes="play" Content="▶|" ToolTip.Tip="Próxima linha do programa" />
+            <Button x:Name="NextPassButton" Classes="play" Content="⏩" ToolTip.Tip="Próximo passe" />
+            <Button x:Name="EndButton" Classes="play" Content="⏭" ToolTip.Tip="Até o fim" />
           </StackPanel>
+
+          <!-- Barra de progresso com as marcas de troca de ferramenta em cima -->
+          <StackPanel Grid.Column="1" Margin="8,0" VerticalAlignment="Center" MinWidth="120">
+            <controls:ToolMarksStrip x:Name="ToolMarks" />
+            <Slider x:Name="PositionSlider" Minimum="0" Maximum="1" Margin="0,-4,0,0"
+                    ToolTip.Tip="Arraste para qualquer ponto do programa" />
+          </StackPanel>
+
+          <Button x:Name="SpeedButton" Grid.Column="2" Padding="8,2" MinHeight="26" FontSize="12" VerticalAlignment="Center"
+                  ToolTip.Tip="Modo e velocidade da execução">
+            <Button.Flyout>
+              <Flyout Placement="TopEdgeAlignedRight">
+                <StackPanel Spacing="6" Width="230">
+                  <ComboBox x:Name="ModeCombo" SelectedIndex="0" HorizontalAlignment="Stretch" ToolTip.Tip="Como a execução avança">
+                    <ComboBoxItem Content="Linha a linha" />
+                    <ComboBoxItem Content="Contínuo" />
+                  </ComboBox>
+                  <TextBlock Text="Velocidade" FontSize="12" Foreground="#9DA5B4" />
+                  <Slider x:Name="SpeedSlider" Minimum="0" Maximum="100" Value="40" />
+                  <TextBlock x:Name="SpeedLabel" FontSize="12" Foreground="#9DA5B4" />
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
         </Grid>
+
+        <!-- Informações do ponto atual (a ferramenta, o G, a linha, o passe e as coordenadas) -->
+        <WrapPanel>
+          <StackPanel Orientation="Horizontal" Spacing="3" Margin="0,0,10,0"><TextBlock Classes="coordLabel" Text="X" /><TextBlock x:Name="XText" Classes="coordValue" Text="—" /></StackPanel>
+          <StackPanel x:Name="YBox" Orientation="Horizontal" Spacing="3" Margin="0,0,10,0"><TextBlock x:Name="YLabel" Classes="coordLabel" Text="Y" /><TextBlock x:Name="YText" Classes="coordValue" Text="—" /></StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="3" Margin="0,0,10,0"><TextBlock Classes="coordLabel" Text="Z" /><TextBlock x:Name="ZText" Classes="coordValue" Text="—" /></StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="3" Margin="0,0,10,0"><TextBlock Classes="coordLabel" Text="Ferr." /><TextBlock x:Name="ToolText" Classes="coordValue" Text="—" /></StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="3" Margin="0,0,10,0"><TextBlock Classes="coordLabel" Text="G" /><TextBlock x:Name="MotionText" Classes="coordValue" Text="—" /></StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="3" Margin="0,0,10,0"><TextBlock Classes="coordLabel" Text="Linha" /><TextBlock x:Name="LineText" Classes="coordValue" Text="—" /></StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="3" Margin="0,0,10,0"><TextBlock Classes="coordLabel" Text="Passe" /><TextBlock x:Name="PassText" Classes="coordValue" Text="—" /></StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="3" Margin="0,0,10,0"><TextBlock Classes="coordLabel" Text="Dist." /><TextBlock x:Name="DistanceText" Classes="coordValue" Text="—" /></StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="3" Margin="0,0,10,0"><TextBlock Classes="coordLabel" Text="Avanço" /><TextBlock x:Name="FeedText" Classes="coordValue" Text="—" /></StackPanel>
+        </WrapPanel>
+
         <DockPanel>
           <!-- G00 que encostaram no material: escolher leva à linha e à posição na simulação -->
           <Button x:Name="RapidsButton" DockPanel.Dock="Left" IsVisible="False" Margin="0,0,8,0" Padding="8,2" FontSize="12"
                   Foreground="#FF7B72" BorderBrush="#F85149" BorderThickness="1" />
-          <TextBlock x:Name="StatusText" FontSize="12" Foreground="#C8CDD3" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+          <TextBlock x:Name="StatusText" FontSize="11" Foreground="#C8CDD3" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
         </DockPanel>
       </StackPanel>
     </Border>
