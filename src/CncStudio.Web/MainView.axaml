@@ -224,7 +224,7 @@
           <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
             <Button x:Name="SetupButton" Classes="view icon" ToolTip.Tip="Setup: bruto, G54 e fixação" AutomationProperties.Name="Setup"><PathIcon Data="{StaticResource IconSetup}" /></Button>
             <Button x:Name="FitButton" Classes="view icon" ToolTip.Tip="Ajustar: mostra a peça inteira (ou duplo toque no gráfico)" AutomationProperties.Name="Ajustar"><PathIcon Data="{StaticResource IconFit}" /></Button>
-            <Button x:Name="DisplayButton" Classes="view" Content="Ver ▾" MinHeight="40" ToolTip.Tip="O que aparece no gráfico" />
+            <Button x:Name="DisplayButton" Classes="view" Content="Ver" MinHeight="40" ToolTip.Tip="O que aparece no gráfico" />
           </StackPanel>
         </Grid>
 

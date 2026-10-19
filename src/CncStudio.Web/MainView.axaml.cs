@@ -1535,7 +1535,11 @@ public partial class MainView : UserControl
         row.Children.Add(SpeedSlider);
         row.Children.Add(SpeedUpButton);
         row.Children.Add(SpeedText);
-        SpeedButton.Flyout = new Flyout { Content = row, Placement = PlacementMode.TopEdgeAlignedRight };
+        // O 3D (elemento do navegador) ficaria por cima do menu: some enquanto o menu está aberto
+        var flyout = new Flyout { Content = row, Placement = PlacementMode.TopEdgeAlignedRight };
+        flyout.Opened += (_, _) => Scene3DSlot.IsVisible = false;
+        flyout.Closed += (_, _) => Scene3DSlot.IsVisible = _view3D;
+        SpeedButton.Flyout = flyout;
     }
 
     private bool _syncingSlider;
@@ -1544,7 +1548,7 @@ public partial class MainView : UserControl
     {
         int speed = (int)Math.Round(SpeedSlider.Value);
         SpeedText.Text = $"{speed}/s";
-        SpeedButton.Content = $"⏱ {speed}/s ▾";
+        SpeedButton.Content = $"{speed}/s";
         _simTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / Math.Max(1, speed));
     }
 
