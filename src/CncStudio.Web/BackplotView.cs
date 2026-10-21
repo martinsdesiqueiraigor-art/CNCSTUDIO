@@ -197,6 +197,62 @@ public sealed class BackplotView : Control
         }
     }
 
+    private StreamGeometry?[]? _partialGeometry;
+    private Point3? _partialTip;
+
+    /// <summary>
+    /// Simulação em andamento: o movimento "moveIndex" já foi percorrido até "fraction" (0 a 1). Desenha esse
+    /// pedaço aceso e põe a ferramenta na ponta dele (em vez de esperar o movimento terminar).
+    /// </summary>
+    public void SetPartial(int moveIndex, double fraction)
+    {
+        if (_path is null || moveIndex < 0 || moveIndex >= _path.Moves.Count || fraction >= 1)
+        {
+            ClearPartial();
+            return;
+        }
+
+        Move move = _path.Moves[moveIndex];
+        var points = new List<Point3> { move.Start };
+        int steps = move.IsArc ? Math.Max(2, (int)Math.Ceiling(fraction * 48)) : 1;
+        for (int i = 1; i <= steps; i++)
+        {
+            points.Add(move.PointAt(fraction * i / steps));
+        }
+
+        var geometry = new StreamGeometry?[4];
+        var g = new StreamGeometry();
+        using (StreamGeometryContext ctx = g.Open())
+        {
+            Point[] screen = points.Select(ProjectPoint).ToArray();
+            ctx.BeginFigure(screen[0], false);
+            for (int i = 1; i < screen.Length; i++)
+            {
+                ctx.LineTo(screen[i]);
+            }
+
+            ctx.EndFigure(false);
+        }
+
+        geometry[(int)move.Motion] = g;
+        _partialGeometry = geometry;
+        _partialTip = points[^1];
+        InvalidateVisual();
+    }
+
+    /// <summary>Sem movimento em andamento: volta a desenhar só o que já terminou.</summary>
+    public void ClearPartial()
+    {
+        if (_partialGeometry is null)
+        {
+            return;
+        }
+
+        _partialGeometry = null;
+        _partialTip = null;
+        InvalidateVisual();
+    }
+
     /// <summary>Mostra uma nova trajetória. "keepView" mantém zoom e posição (edição no mesmo programa).</summary>
     public void SetPath(ToolPath? path, bool keepView)
     {
@@ -205,6 +261,8 @@ public sealed class BackplotView : Control
         _lathe = path?.Machine == MachineKind.Lathe;
         _arcTolerance = path is null ? 0.01 : Math.Max(0.002, PathPolylineBuilder.ScreenTolerance(path));
         _visibleMoves = null;
+        _partialGeometry = null;
+        _partialTip = null;
         Rebuild();
         if (!keepView || latheChanged)
         {
@@ -430,6 +488,10 @@ public sealed class BackplotView : Control
                     }
 
                     DrawSet(context, BuildRange(complete * BlockSize, visible), _palette.Bright, px);
+                    if (_partialGeometry is { } partial)
+                    {
+                        DrawSet(context, partial, _palette.Bright, px);
+                    }
                 }
             }
 
@@ -713,6 +775,11 @@ public sealed class BackplotView : Control
         }
 
         Point world = executed <= 0 ? _polys[0][0] : _polys[Math.Min(executed, _polys.Length) - 1][^1];
+        if (_partialTip is { } partialTip)
+        {
+            world = ProjectPoint(partialTip);
+        }
+
         Point tip = ToScreen(world.X, world.Y);
 
         if (!_lathe && _machiningSetup is { } setup && _path is { } path && path.Moves.Count > 0)
@@ -724,7 +791,7 @@ public sealed class BackplotView : Control
             {
                 // Representação esquemática: ponta no percurso, corpo alinhado ao eixo Z.
                 // Sem remoção de material nem verificação de colisão.
-                var pos = executed <= 0 ? path.Moves[0].Start : path.Moves[moveIndex].End;
+                var pos = _partialTip ?? (executed <= 0 ? path.Moves[0].Start : path.Moves[moveIndex].End);
                 Point3 upper = new(pos.X, pos.Y, pos.Z + geometry.CuttingLength);
                 // O comprimento exibido acompanha o cadastro do Setup (sem truncamento arbitrario).
                 double displayHolderLength = geometry.HolderLength;

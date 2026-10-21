@@ -1,6 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Threading;
 using CncStudio.Core.Execution;
+using CncStudio.Core.Geometry;
+using CncStudio.Core.Trajectory;
 using CncStudio.Core.Scene;
 using CncStudio.Core.Simulation;
 
@@ -50,8 +52,8 @@ public partial class MainView
     private void Wire3D()
     {
         Mode2DButton.Click += async (_, _) => await SetModeAsync(PlotMode.TwoD);
-        Mode2D3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.TwoDPlus3D);
-        Mode3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.ThreeD);
+        Mode2D3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.TwoDPlus3D, startAtBeginning: true);
+        Mode3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.ThreeD, startAtBeginning: true);
         GraphHost.SizeChanged += (_, _) => ApplyPlotsLayout();
         Backplot.SizeChanged += (_, _) =>
         {
@@ -70,8 +72,9 @@ public partial class MainView
         Mode3DButton.IsChecked = _mode == PlotMode.ThreeD;
     }
 
-    private async Task SetModeAsync(PlotMode mode)
+    private async Task SetModeAsync(PlotMode mode, bool startAtBeginning = false)
     {
+        bool wasFlat = _mode == PlotMode.TwoD;
         bool on = mode != PlotMode.TwoD;
         if (_loading3D)
         {
@@ -121,6 +124,13 @@ public partial class MainView
         if (on)
         {
             Rebuild3D();
+            if (startAtBeginning && wasFlat && _stepEnds.Length > 0)
+            {
+                // Abrindo o 3D: peça inteira e ferramenta no início; o play corta, o ▶| vai ao fim
+                StopSimulation();
+                SetStep(0);
+            }
+
             _frame3D?.Start();
             SetStatus(Limit3D);
         }
@@ -310,6 +320,88 @@ public partial class MainView
         }
     }
 
+    private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+    private long _stepStartedMs;
+    private Point3? _animTip;
+    private int _animTool;
+
+    /// <summary>Marca o começo do tempo do passo em andamento (play ou fim do passo anterior).</summary>
+    private void MarkStepStart() => _stepStartedMs = _clock.ElapsedMilliseconds;
+
+    private DispatcherTimer? _animTimer;
+
+    /// <summary>Começa a animar a ferramenta pelo passo (2D e 3D).</summary>
+    private void StartAnimation()
+    {
+        MarkStepStart();
+        _animTimer ??= CreateAnimationTimer();
+        _animTimer.Start();
+    }
+
+    private DispatcherTimer CreateAnimationTimer()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        timer.Tick += (_, _) => UpdateStepAnimation();
+        return timer;
+    }
+
+    /// <summary>Para a animação: 2D e 3D voltam ao fim do último passo inteiro.</summary>
+    private void StopAnimation()
+    {
+        _animTimer?.Stop();
+        _animTip = null;
+        Backplot.ClearPartial();
+        if (_stepEnds.Length > 0)
+        {
+            Backplot.VisibleMoves = _step >= _stepEnds.Length ? null : _step == 0 ? 0 : _stepEnds[_step - 1];
+        }
+
+        OnStepChanged3D();
+    }
+
+    /// <summary>
+    /// Durante o play, a ferramenta percorre o passo (corte e retornos dos ciclos) em vez de saltar para o
+    /// fim dele: no 2D o trecho vai sendo traçado e a ferramenta acompanha a ponta; no 3D o alvo avança
+    /// movimento a movimento e a ponta é interpolada dentro do movimento atual.
+    /// </summary>
+    private void UpdateStepAnimation()
+    {
+        _animTip = null;
+        if (_analysis is not { } analysis || !_simTimer.IsEnabled || _step >= _stepEnds.Length)
+        {
+            return;
+        }
+
+        IReadOnlyList<Move> moves = analysis.ToolPath.Moves;
+        int start = _step == 0 ? 0 : _stepEnds[_step - 1];
+        int end = _stepEnds[_step];
+        double interval = Math.Max(1, _simTimer.Interval.TotalMilliseconds);
+        double progress = (_clock.ElapsedMilliseconds - _stepStartedMs) / interval;
+        StepPose pose = StepAnimation.At(moves, start, end, progress);
+
+        int target = start + pose.Completed;
+
+        // 2D: movimentos terminados + o pedaço do movimento em andamento
+        Backplot.VisibleMoves = target;
+        if (target < end)
+        {
+            Backplot.SetPartial(pose.MoveIndex, pose.Fraction);
+        }
+        else
+        {
+            Backplot.ClearPartial();
+        }
+
+        // 3D
+        Move current = moves[pose.MoveIndex];
+        _animTip = current.PointAt(pose.Fraction);
+        _animTool = current.Tool;
+        if (_driver is not null && _driver.Target != target)
+        {
+            _driver.Target = target;
+        }
+    }
+
     // A cada quadro: simula um pedaço (no máximo ~12 ms) e envia ao 3D só o que mudou
     private void Frame3D()
     {
@@ -344,6 +436,11 @@ public partial class MainView
                 int hits = _collisionsReported;
                 SetStatus($"{hits} {(hits == 1 ? "rápido (G00) encostou" : "rápidos (G00) encostaram")} no material: em vermelho no 3D.");
             }
+        }
+
+        if (_animTip is { } tip && _driver.AtTarget && _animTimer?.IsEnabled == true)
+        {
+            _scene.SetTool(_animTool, tip);
         }
 
         _scene3DView.Sync();

@@ -140,6 +140,17 @@ public partial class MainView : UserControl
         Library.CurrentProgram = () => (_fileName, Editor.Text);
         Library.OpenRequested += (_, item) =>
         {
+            if (_pickingForCompare)
+            {
+                // Escolhendo o arquivo da direita da comparação: não abre no editor
+                _pickingForCompare = false;
+                CloseLibrary();
+                SetCompareVisible(true);
+                string pickedName = item.Path.Contains('/') ? item.Path[(item.Path.LastIndexOf('/') + 1)..] : item.Path;
+                CompareView.SetRight(item.Text, pickedName);
+                return;
+            }
+
             StopSimulation();
             CloseLibrary();
             string name = item.Path.Contains('/') ? item.Path[(item.Path.LastIndexOf('/') + 1)..] : item.Path;
@@ -148,7 +159,30 @@ public partial class MainView : UserControl
         Library.Saved += (_, path) => MarkSaved(path);
         Library.Message += (_, text) => SetStatus(text);
         Library.AllowSave = EnsureFullAccessAsync;
-        Library.Closed += (_, _) => CloseLibrary();
+        Library.Closed += (_, _) =>
+        {
+            CloseLibrary();
+            if (_pickingForCompare)
+            {
+                _pickingForCompare = false; // desistiu de escolher: volta para a comparação
+                SetCompareVisible(true);
+            }
+        };
+
+        // Comparar programas
+        CompareView.Closed += (_, _) => SetCompareVisible(false);
+        CompareView.PickFromLibraryRequested += async (_, _) =>
+        {
+            _pickingForCompare = true;
+            SetCompareVisible(false);
+            await OpenLibraryAsync();
+        };
+        CompareView.LineRequested += (_, line) =>
+        {
+            SetCompareVisible(false);
+            ShowPage(graph: false);
+            GoToLine(line);
+        };
 
         // Botão "Instalar": aparece quando o navegador avisa que o app pode ser instalado
         var installCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -327,6 +361,7 @@ public partial class MainView : UserControl
         menu.Items.Add(new Separator());
         Add("Novo programa (colar ou digitar)…", NewFromPasteAsync);
         menu.Items.Add(new Separator());
+        Add("Comparar com outro programa…", () => { OpenCompare(); return Task.CompletedTask; });
         Add("Estatísticas", () => { OpenStats(); return Task.CompletedTask; });
         Add("Folha de setup…", OpenSetupSheetAsync);
 
@@ -459,6 +494,25 @@ public partial class MainView : UserControl
         }
 
         return sheet;
+    }
+
+    private bool _pickingForCompare;
+
+    private void SetCompareVisible(bool visible)
+    {
+        CompareHost.IsVisible = visible;
+        Scene3DSlot.IsVisible = !visible && _view3D; // o 3D (elemento do navegador) ficaria por cima
+        Dispatcher.UIThread.Post(() => CompareView.RefreshNative(), DispatcherPriority.Background);
+    }
+
+    /// <summary>Abre a comparação: o programa do editor à esquerda; a direita a pessoa escolhe.</summary>
+    private void OpenCompare()
+    {
+        StopSimulation();
+        CloseLibrary();
+        StatsHost.IsVisible = false;
+        CompareView.Open(Editor.Text, _fileName, CurrentDialect);
+        SetCompareVisible(true);
     }
 
     private void OpenStats()
@@ -1130,6 +1184,12 @@ public partial class MainView : UserControl
         _loading = false;
         _analysisTimer.Stop();
         Analyze(keepView: false);
+        // Programa novo: a simulação começa no início (peça inteira, ferramenta no ponto de partida)
+        if (_stepEnds.Length > 0 && !_restoring)
+        {
+            StopSimulation();
+            SetStep(0);
+        }
     }
 
     // ───────────────────────── Análise ─────────────────────────
@@ -1327,6 +1387,7 @@ public partial class MainView : UserControl
     private void SetStep(int step)
     {
         _step = Math.Clamp(step, 0, _stepEnds.Length);
+        Backplot.ClearPartial();
         OnStepChanged3D();
         if (_step >= _stepEnds.Length)
         {
@@ -1500,17 +1561,24 @@ public partial class MainView : UserControl
         }
 
         _simTimer.Start();
+        StartAnimation();
         SimPlayIcon.Data = PauseIcon;
     }
 
     private void StopSimulation()
     {
+        bool wasPlaying = _simTimer.IsEnabled;
         _simTimer.Stop();
         SimPlayIcon.Data = PlayIcon;
+        if (wasPlaying)
+        {
+            StopAnimation(); // pausou no meio do passo: 2D e 3D voltam ao fim do último passo inteiro
+        }
     }
 
     private void SimTick()
     {
+        MarkStepStart();
         SetStep(_step + 1);
         if (_step >= _stepEnds.Length)
         {
