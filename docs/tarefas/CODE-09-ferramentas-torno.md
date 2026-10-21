@@ -13,5 +13,7 @@
 - Editor de tipo no desktop (hoje só a tabela de diâmetros; o tipo vem do setup/JSON).
 - Perfil real da rosca (G76/G92) e passo no material; chanfros/raio do bedame.
 
+- Refinar o visual dos suportes (Igor: "razoável", melhorar depois): cabo do desbaste mais curto no desenho, bedame com lâmina e inserto mais fiéis, fresa com canais helicoidais.
+
 ## Volta
 Ver `docs/tarefas/MODELO.md`.
