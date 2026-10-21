@@ -1,3 +1,4 @@
+using CncStudio.Core.Scene;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Trajectory;
 
@@ -9,19 +10,20 @@ namespace CncStudio.Core.Simulation;
 /// </summary>
 public sealed class TurningSimulator : IMaterialSimulation
 {
-    private const double NoseRadius = 0.4;
-
     private readonly TurningStock _stock;
     private readonly IReadOnlyList<Move> _moves;
     private readonly Func<int, double> _diameterOf;
+    private readonly Func<int, LatheToolShape.CutSpec>? _cutOf;
     private readonly List<Point3> _polyline = [];
     private readonly List<int> _rapidCollisions = [];
     private int _moveIndex;
     private int _pieceIndex;
     private double _distanceInPiece;
 
-    public TurningSimulator(TurningStock stock, IReadOnlyList<Move> moves, Func<int, double> diameterOfTool)
+    public TurningSimulator(TurningStock stock, IReadOnlyList<Move> moves, Func<int, double> diameterOfTool,
+        Func<int, LatheToolShape.CutSpec>? cutOfTool = null)
     {
+        _cutOf = cutOfTool;
         _stock = stock;
         _moves = moves;
         _diameterOf = diameterOfTool;
@@ -213,13 +215,14 @@ public sealed class TurningSimulator : IMaterialSimulation
         double spacing = _stock.SliceLength * 0.5;
         double span = Math.Max(Math.Abs(b.Z - a.Z), Math.Abs(b.X - a.X));
         int count = Math.Max(1, (int)Math.Ceiling(span / spacing));
+        LatheToolShape.CutSpec cut = _cutOf?.Invoke(_moves[_moveIndex].Tool) ?? new LatheToolShape.CutSpec(LatheToolShape.NoseRadius, 0);
         double drillRadius = Math.Max(0.5, _diameterOf(_moves[_moveIndex].Tool) / 2);
         (int first, int last) = MaterialSimulator.StampRange(count, length, from, to);
         bool removed = false;
         for (int k = first; k <= last; k++)
         {
             Point3 p = Point3.Lerp(a, b, (double)k / count);
-            removed |= _stock.Cut(p.Z, p.X, NoseRadius, drillRadius);
+            removed |= _stock.Cut(p.Z + cut.Offset, p.X, cut.HalfWidth, drillRadius);
         }
 
         return removed;

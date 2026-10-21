@@ -173,7 +173,18 @@ public partial class GraphicsPanel : UserControl
     }
 
     /// <summary>Setup do programa (fixações e ferramentas desenhadas no 3D). Vale na próxima trajetória.</summary>
-    public MachiningSetup? Setup { get; set; }
+    public MachiningSetup? Setup
+    {
+        get => _setup;
+        set
+        {
+            _setup = value;
+            MachiningSetup? setup = value;
+            View.LatheShapeOf = tool => LatheToolShape.Of(setup?.ToolOf(tool));
+        }
+    }
+
+    private MachiningSetup? _setup;
 
     /// <summary>Nova trajetória: recria o bruto. Programa novo começa no início; edição mostra a peça pronta.</summary>
     public void SetToolPath(ToolPath path, IReadOnlyList<PathPolyline> figures, bool fit)

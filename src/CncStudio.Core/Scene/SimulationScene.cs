@@ -243,7 +243,7 @@ public sealed class SimulationScene
             if (!_toolMeshes.TryGetValue(tool, out (SolidMesh Cutter, SolidMesh Holder) meshes))
             {
                 meshes = _turning is not null
-                    ? SceneMeshes.LatheTool(_palette)
+                    ? SceneMeshes.LatheTool(_palette, _setup?.ToolOf(tool))
                     : SceneMeshes.MillTool(_profileOf(tool) ?? ToolProfile.Flat(10), _setup?.Tools.FirstOrDefault(t => t.Number == tool), _palette);
                 _toolMeshes[tool] = meshes;
             }

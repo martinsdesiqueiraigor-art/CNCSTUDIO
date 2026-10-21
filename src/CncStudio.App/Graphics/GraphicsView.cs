@@ -1,3 +1,4 @@
+using CncStudio.Core.Scene;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Media;
@@ -433,7 +434,10 @@ public sealed class GraphicsView : ZoomPanControl
         }
     }
 
-    /// <summary>Torno: inserto rômbico 80° na ponta e o porta-ferramenta; broca no eixo.</summary>
+    /// <summary>Desenho 2D da ferramenta do torno por tipo (T → forma); null = torneamento externo.</summary>
+    public Func<int, LatheToolShape>? LatheShapeOf { get; set; }
+
+    /// <summary>Torno: inserto e corpo do tipo da ferramenta; broca no eixo.</summary>
     private void DrawLatheTool(DrawingContext context, GraphicsFrame f)
     {
         Point3 tip = f.ToolPosition;
@@ -448,22 +452,19 @@ public sealed class GraphicsView : ZoomPanControl
             return;
         }
 
-        // Inserto: ponta embaixo/à esquerda, lados a 5° e 85° (losango de 80°), lado 8 mm
+        // Desenho do tipo da ferramenta (inserto + corpo), da mesma fonte do 3D; X espelhado conforme o lado da peça
+        LatheToolShape shape = LatheShapeOf?.Invoke(f.Tool) ?? LatheToolShape.Of(null);
         double sign = tip.X >= 0 ? 1 : -1;
-        const double Side = 8;
-        double a1 = 5 * Math.PI / 180, a2 = 85 * Math.PI / 180;
-        (double dz1, double dx1) = (Math.Cos(a1) * Side, Math.Sin(a1) * Side);
-        (double dz2, double dx2) = (Math.Cos(a2) * Side, Math.Sin(a2) * Side);
-        Point p0 = Screen(tip.X, tip.Z);
-        Point p1 = Screen(tip.X + sign * dx1, tip.Z + dz1);
-        Point p2 = Screen(tip.X + sign * (dx1 + dx2), tip.Z + dz1 + dz2);
-        Point p3 = Screen(tip.X + sign * dx2, tip.Z + dz2);
+        const double Scale = 0.8;
+        Point[] Map(IReadOnlyList<(double X, double Z)> poly) =>
+            [.. poly.Select(p => Screen(tip.X + sign * p.X * Scale, tip.Z + p.Z * Scale))];
 
-        // Porta-ferramenta: barra saindo do inserto para longe da peça
-        double hx = tip.X + sign * (dx1 + dx2) / 2, hz = tip.Z + (dz1 + dz2) / 2;
-        DrawPolygon(context, LatheHolderBrush, HolderOutline,
-            [Screen(hx - sign * 2, hz - 6), Screen(hx - sign * 2, hz + 6), Screen(hx + sign * 30, hz + 6), Screen(hx + sign * 30, hz - 6)]);
-        DrawPolygon(context, InsertBrush, ToolOutline, [p0, p1, p2, p3]);
+        foreach (IReadOnlyList<(double X, double Z)> holder in shape.Holders)
+        {
+            DrawPolygon(context, LatheHolderBrush, HolderOutline, Map(holder));
+        }
+
+        DrawPolygon(context, InsertBrush, ToolOutline, Map(shape.Insert));
     }
 
     private static void DrawPolygon(DrawingContext context, IBrush? brush, Pen? pen, IReadOnlyList<Point> points)

@@ -240,32 +240,53 @@ public static class SceneMeshes
     // ── Ferramenta do torno ──
 
     /// <summary>
-    /// Inserto rômbico de 80° (12,7 mm) com a ponta na origem, no plano XZ do torno (X = raio,
-    /// Z = eixo), corpo para +X e +Z, e a haste do suporte saindo em +X. Devolvido já em
-    /// coordenadas da cena (<see cref="LatheToWorld"/>).
+    /// Ferramenta do torno pelo tipo do setup (sem cadastro: torneamento externo): inserto e corpo
+    /// de <see cref="LatheToolShape"/> com a ponta de corte na origem, no plano XZ (X = raio, Z = eixo).
+    /// A broca é um cilindro com ponta cônica no eixo. Devolvido já em coordenadas da cena
+    /// (<see cref="LatheToWorld"/>).
     /// </summary>
-    public static (SolidMesh Insert, SolidMesh Holder) LatheTool(ScenePalette palette)
+    public static (SolidMesh Insert, SolidMesh Holder) LatheTool(ScenePalette palette, SetupTool? tool = null)
     {
-        const double inscribed = 12.7, thickness = 4.76, tipAngle = 80;
-        double side = inscribed / Math.Sin(tipAngle * Math.PI / 180);
-        double bisector = Math.PI / 4, half = tipAngle / 2 * Math.PI / 180;
-        (double X, double Z) a = (side * Math.Cos(bisector + half), side * Math.Sin(bisector + half));
-        (double X, double Z) b = (side * Math.Cos(bisector - half), side * Math.Sin(bisector - half));
-        (double X, double Z) c = (a.X + b.X, a.Z + b.Z);
+        if (tool is { Kind: ToolKind.Drill })
+        {
+            return LatheDrill(tool, palette);
+        }
 
+        LatheToolShape shape = LatheToolShape.Of(tool);
+        double half = shape.Thickness / 2;
         var insert = SolidMesh.Create(16);
-        Prism(insert, [(0, 0), b, c, a], -thickness / 2, thickness / 2, palette.Tool);
+        Prism(insert, shape.Insert, -half, half, palette.Tool);
 
-        // Quebra-cavaco: platô menor na face de cima do inserto, na cor da cobertura
-        (double X, double Z) center = (c.X / 2, c.Z / 2);
-        (double X, double Z) Shrink((double X, double Z) p) => (center.X + (p.X - center.X) * 0.62, center.Z + (p.Z - center.Z) * 0.62);
-        Prism(insert, [Shrink((0, 0)), Shrink(b), Shrink(c), Shrink(a)], thickness / 2, thickness / 2 + 0.7, palette.Coating);
+        if (shape.ChipBreaker)
+        {
+            // Quebra-cavaco: platô menor na face de cima do inserto, na cor da cobertura
+            double cx = shape.Insert.Average(p => p.X), cz = shape.Insert.Average(p => p.Z);
+            (double X, double Z) Shrink((double X, double Z) p) => (cx + (p.X - cx) * 0.62, cz + (p.Z - cz) * 0.62);
+            Prism(insert, [.. shape.Insert.Select(Shrink)], half, half + 0.7, palette.Coating);
+        }
 
-        // Haste de 20 mm por baixo do inserto, saindo em +X a partir do meio dele
-        double centerX = c.X / 2, centerZ = c.Z / 2;
-        var holder = SolidMesh.Create(8);
-        Box(holder, new Point3(centerX, -thickness / 2 - 10, centerZ - 10), new Point3(70, 10, 20), palette.Holder);
+        // Corpo por baixo do inserto
+        var holder = SolidMesh.Create(16);
+        foreach (IReadOnlyList<(double X, double Z)> part in shape.Holders)
+        {
+            Prism(holder, part, -half - 10, -half, palette.Holder);
+        }
+
         return (insert.Transformed(LatheToWorld), holder.Transformed(LatheToWorld));
+    }
+
+    // Broca no eixo do torno: parte cortante com a cor da cobertura e haste de aço; ponta na origem, corpo em +Z
+    private static (SolidMesh Cutter, SolidMesh Holder) LatheDrill(SetupTool tool, ScenePalette palette)
+    {
+        double r = Math.Max(0.5, tool.Diameter / 2);
+        double tip = r / Math.Tan(Math.Clamp(tool.TipAngle, 20, 170) / 2 * Math.PI / 180);
+        double flutes = Math.Max(tool.CuttingLength, tip + 1);
+        var cutter = SolidMesh.Create(RevolutionSegments * 3);
+        Revolve(cutter, [(0, 0), (r, tip), (r, flutes)], 0, 0, palette.Coating);
+        var holder = SolidMesh.Create(RevolutionSegments * 3);
+        double shank = Math.Max(r, tool.HolderDiameter / 2 * 0.6);
+        Revolve(holder, [(r, flutes), (shank, flutes), (shank, flutes + Math.Max(30, tool.HolderLength))], 0, 0, palette.Holder);
+        return (cutter.Transformed(LatheToWorld), holder.Transformed(LatheToWorld));
     }
 
     // ── Fixações ──
