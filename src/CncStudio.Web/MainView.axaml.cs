@@ -1387,6 +1387,7 @@ public partial class MainView : UserControl
     private void SetStep(int step)
     {
         _step = Math.Clamp(step, 0, _stepEnds.Length);
+        Backplot.ClearPartial();
         OnStepChanged3D();
         if (_step >= _stepEnds.Length)
         {
@@ -1559,8 +1560,8 @@ public partial class MainView : UserControl
             SetStep(0); // estava completo: recomeça do início
         }
 
-        MarkStepStart();
         _simTimer.Start();
+        StartAnimation();
         SimPlayIcon.Data = PauseIcon;
     }
 
@@ -1571,7 +1572,7 @@ public partial class MainView : UserControl
         SimPlayIcon.Data = PlayIcon;
         if (wasPlaying)
         {
-            OnStepChanged3D(); // pausou no meio do passo: o 3D volta ao fim do último passo inteiro
+            StopAnimation(); // pausou no meio do passo: 2D e 3D voltam ao fim do último passo inteiro
         }
     }
 

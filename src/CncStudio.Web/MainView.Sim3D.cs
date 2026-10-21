@@ -328,14 +328,46 @@ public partial class MainView
     /// <summary>Marca o começo do tempo do passo em andamento (play ou fim do passo anterior).</summary>
     private void MarkStepStart() => _stepStartedMs = _clock.ElapsedMilliseconds;
 
+    private DispatcherTimer? _animTimer;
+
+    /// <summary>Começa a animar a ferramenta pelo passo (2D e 3D).</summary>
+    private void StartAnimation()
+    {
+        MarkStepStart();
+        _animTimer ??= CreateAnimationTimer();
+        _animTimer.Start();
+    }
+
+    private DispatcherTimer CreateAnimationTimer()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        timer.Tick += (_, _) => UpdateStepAnimation();
+        return timer;
+    }
+
+    /// <summary>Para a animação: 2D e 3D voltam ao fim do último passo inteiro.</summary>
+    private void StopAnimation()
+    {
+        _animTimer?.Stop();
+        _animTip = null;
+        Backplot.ClearPartial();
+        if (_stepEnds.Length > 0)
+        {
+            Backplot.VisibleMoves = _step >= _stepEnds.Length ? null : _step == 0 ? 0 : _stepEnds[_step - 1];
+        }
+
+        OnStepChanged3D();
+    }
+
     /// <summary>
     /// Durante o play, a ferramenta percorre o passo (corte e retornos dos ciclos) em vez de saltar para o
-    /// fim dele: o alvo do 3D avança movimento a movimento e a ponta é interpolada dentro do movimento atual.
+    /// fim dele: no 2D o trecho vai sendo traçado e a ferramenta acompanha a ponta; no 3D o alvo avança
+    /// movimento a movimento e a ponta é interpolada dentro do movimento atual.
     /// </summary>
     private void UpdateStepAnimation()
     {
         _animTip = null;
-        if (_driver is null || _analysis is not { } analysis || !_simTimer.IsEnabled || _step >= _stepEnds.Length)
+        if (_analysis is not { } analysis || !_simTimer.IsEnabled || _step >= _stepEnds.Length)
         {
             return;
         }
@@ -348,14 +380,26 @@ public partial class MainView
         StepPose pose = StepAnimation.At(moves, start, end, progress);
 
         int target = start + pose.Completed;
-        if (_driver.Target != target)
+
+        // 2D: movimentos terminados + o pedaço do movimento em andamento
+        Backplot.VisibleMoves = target;
+        if (target < end)
         {
-            _driver.Target = target;
+            Backplot.SetPartial(pose.MoveIndex, pose.Fraction);
+        }
+        else
+        {
+            Backplot.ClearPartial();
         }
 
+        // 3D
         Move current = moves[pose.MoveIndex];
         _animTip = current.PointAt(pose.Fraction);
         _animTool = current.Tool;
+        if (_driver is not null && _driver.Target != target)
+        {
+            _driver.Target = target;
+        }
     }
 
     // A cada quadro: simula um pedaço (no máximo ~12 ms) e envia ao 3D só o que mudou
@@ -365,8 +409,6 @@ public partial class MainView
         {
             return;
         }
-
-        UpdateStepAnimation();
 
         if (_driver.Run(SimulationDriver.DefaultBudget))
         {
@@ -396,7 +438,7 @@ public partial class MainView
             }
         }
 
-        if (_animTip is { } tip && _driver.AtTarget)
+        if (_animTip is { } tip && _driver.AtTarget && _animTimer?.IsEnabled == true)
         {
             _scene.SetTool(_animTool, tip);
         }
