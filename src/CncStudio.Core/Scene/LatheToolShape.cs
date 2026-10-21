@@ -22,7 +22,7 @@ public sealed record LatheToolShape(
     /// Peça do corpo: polígono no plano XZ e faixa em Y relativa ao plano do inserto (o inserto vai de
     /// −Thickness/2 a +Thickness/2; o corpo comum fica por baixo dele).
     /// </summary>
-    public sealed record HolderPart(IReadOnlyList<(double X, double Z)> Polygon, double Y0, double Y1);
+    public sealed record HolderPart(IReadOnlyList<(double X, double Z)> Polygon, double Y0, double Y1, bool Round = false);
 
     /// <summary>Seção do cabo de um porta-ferramenta de torneamento (25 × 25 mm, padrão de mercado, ex.: PCLNR 2525).</summary>
     public const double ShankSize = 25;
@@ -30,8 +30,11 @@ public sealed record LatheToolShape(
     /// <summary>Diâmetro da barra de mandrilar (mm).</summary>
     public const double BoringBarSize = 16;
 
-    private static HolderPart Rect(double x0, double x1, double z0, double z1, double y0, double y1) =>
-        new([(x0, z0), (x1, z0), (x1, z1), (x0, z1)], y0, y1);
+    private static HolderPart Rect(double x0, double x1, double z0, double z1, double y0, double y1, bool round = false) =>
+        new([(x0, z0), (x1, z0), (x1, z1), (x0, z1)], y0, y1, round);
+
+    /// <summary>Folga entre o inserto e o topo do cabo, onde fica a sede (calço) do inserto.</summary>
+    public const double SeatHeight = 0.8;
 
     /// <summary>Largura de corte e posição dela em Z: a ponta programada fica em "Offset" do centro do corte.</summary>
     public readonly record struct CutSpec(double HalfWidth, double Offset);
@@ -84,7 +87,11 @@ public sealed record LatheToolShape(
         const double thickness = 4.76;
         return new LatheToolShape(
             [(0, 0), b, c, a],
-            [Rect(3, 75, 2.5, 2.5 + ShankSize, -thickness / 2 - ShankSize, -thickness / 2)],
+            [
+                // Cabeça: afina da seção do cabo até o canto do inserto (como a cabeça de um PCLNR)
+                new HolderPart([(1.4, 3.2), (28, 2.5), (28, 2.5 + ShankSize), (3.4, 15.5)], -thickness / 2 - SeatHeight - ShankSize, -thickness / 2 - SeatHeight),
+                Rect(27, 80, 2.5, 2.5 + ShankSize, -thickness / 2 - SeatHeight - ShankSize, -thickness / 2 - SeatHeight),
+            ],
             thickness, true);
     }
 
@@ -94,7 +101,10 @@ public sealed record LatheToolShape(
         const double length = 9.5, halfBase = 5.5, thickness = 3.5, shank = 20;
         return new LatheToolShape(
             [(0, -0.2), (length, -halfBase), (length, halfBase), (0, 0.2)],
-            [Rect(length - 1, length + 65, -shank / 2, shank / 2, -thickness / 2 - shank, -thickness / 2)],
+            [
+                new HolderPart([(1.2, -6), (20, -shank / 2), (20, shank / 2), (1.2, 6)], -thickness / 2 - SeatHeight - shank, -thickness / 2 - SeatHeight),
+                Rect(19, 80, -shank / 2, shank / 2, -thickness / 2 - SeatHeight - shank, -thickness / 2 - SeatHeight),
+            ],
             thickness, false);
     }
 
@@ -102,14 +112,15 @@ public sealed record LatheToolShape(
     // 26 mm de altura (como as lâminas de canal/corte) presa a um bloco de 25 × 25 mm
     private static LatheToolShape Parting(double width)
     {
-        const double blade = 14, bladeHeight = 26;
+        const double blade = 15, bladeHeight = 22, insertHeight = 8;
+        double top = -insertHeight / 2;
         return new LatheToolShape(
             [(0, 0), (blade, 0), (blade, width), (0, width)],
             [
-                Rect(blade - 1, blade + 32, -0.3, width + 0.3, -bladeHeight / 2, bladeHeight / 2),                 // lâmina
-                Rect(blade + 31, blade + 85, width / 2 - ShankSize / 2, width / 2 + ShankSize / 2, -ShankSize / 2, ShankSize / 2), // bloco
+                Rect(2, blade + 34, -0.3, width + 0.3, top - bladeHeight, top),                                       // lâmina
+                Rect(blade + 33, blade + 90, width / 2 - ShankSize / 2, width / 2 + ShankSize / 2, top - bladeHeight - 3, top + 3), // bloco
             ],
-            Math.Max(2, Math.Min(width, 6)), false);
+            insertHeight, false);
     }
 
     /// <summary>Espelho em X; nas ferramentas internas o corpo é uma barra que corre ao longo de Z, para fora do furo.</summary>
@@ -119,10 +130,8 @@ public sealed record LatheToolShape(
             [.. p.Select(v => (-v.X, v.Z)).Reverse()];
 
         double reach = Insert.Max(p => p.X);
-        double start = Insert.Max(p => p.Z);
-        double top = Holders.Min(h => h.Y1); // a barra fica logo abaixo do inserto
-        // Bedame interno e rosca interna: a barra fica ao lado do inserto; no torneamento, atrás dele
-        HolderPart bar = Rect(-(reach + BoringBarSize * 0.6), -Math.Max(1.5, reach * 0.35), start - 0.5, start + 90, top - BoringBarSize, top);
+        double center = -(reach * 0.45 + BoringBarSize / 2);
+        HolderPart bar = Rect(center - BoringBarSize / 2, center + BoringBarSize / 2, 3.5, 100, -BoringBarSize / 2, BoringBarSize / 2, round: true);
         return this with { Insert = Flip(Insert), Holders = [bar] };
     }
 }

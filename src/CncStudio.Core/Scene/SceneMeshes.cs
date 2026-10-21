@@ -234,6 +234,23 @@ public static class SceneMeshes
 
         var holder = SolidMesh.Create(RevolutionSegments * outline.Count);
         Revolve(holder, outline, 0, 0, palette.Holder, colors);
+
+        // Nervuras de pega no corpo da porca ER
+        uint rib = MillSolidRenderer.Lerp(palette.Nut, 0x000000, 0.35);
+        double ribStart = zb + ln * 0.50, ribStep = ln * 0.50 / 7;
+        for (int k = 0; k < 6; k++)
+        {
+            double z0 = ribStart + k * ribStep;
+            Revolve(holder, [(nutRadius, z0), (nutRadius + 0.5, z0), (nutRadius + 0.5, z0 + ribStep * 0.45), (nutRadius, z0 + ribStep * 0.45)], 0, 0, rib);
+        }
+
+        // Ranhuras de arrasto do flange BT (duas, opostas: 16,1 mm de largura)
+        uint slot = MillSolidRenderer.Lerp(palette.Holder, 0x000000, 0.6);
+        for (int k = 0; k < 2; k++)
+        {
+            Box(holder, new Point3(flangeR - 7, -8.05, zFlange + tf * 0.05), new Point3(7, 16.1, tf * 0.9), slot, k * Math.PI, 0, 0);
+        }
+
         return holder;
     }
 
@@ -253,26 +270,161 @@ public static class SceneMeshes
         }
 
         LatheToolShape shape = LatheToolShape.Of(tool);
+        ToolKind kind = LatheToolShape.KindOf(tool);
         double half = shape.Thickness / 2;
-        var insert = SolidMesh.Create(16);
-        Prism(insert, shape.Insert, -half, half, palette.Tool);
+        uint steel = MillSolidRenderer.Lerp(palette.Holder, 0xFFFFFF, 0.42);
+        uint dark = MillSolidRenderer.Lerp(palette.Holder, 0x000000, 0.55);
+        uint carbide = MillSolidRenderer.Lerp(palette.Coating, 0x000000, 0.45);
+        uint carbideTop = MillSolidRenderer.Lerp(palette.Coating, 0xFFFFFF, 0.08);
 
-        if (shape.ChipBreaker)
-        {
-            // Quebra-cavaco: platô menor na face de cima do inserto, na cor da cobertura
-            double cx = shape.Insert.Average(p => p.X), cz = shape.Insert.Average(p => p.Z);
-            (double X, double Z) Shrink((double X, double Z) p) => (cx + (p.X - cx) * 0.62, cz + (p.Z - cz) * 0.62);
-            Prism(insert, [.. shape.Insert.Select(Shrink)], half, half + 0.7, palette.Coating);
-        }
-
-        // Corpo por baixo do inserto
-        var holder = SolidMesh.Create(16);
+        // Corpo: cabo (com chanfros), barra redonda nas internas, sede escura sob o inserto
+        var holder = SolidMesh.Create(160);
+        bool first = true;
         foreach (LatheToolShape.HolderPart part in shape.Holders)
         {
-            Prism(holder, part.Polygon, part.Y0, part.Y1, palette.Holder);
+            if (part.Round)
+            {
+                (double X, double Z) c = (part.Polygon.Average(p => p.X), 0);
+                double z0 = part.Polygon.Min(p => p.Z), z1 = part.Polygon.Max(p => p.Z);
+                Cylinder(holder, c.X, (part.Y0 + part.Y1) / 2, (part.Y1 - part.Y0) / 2, z0, z1, 1.2, steel);
+            }
+            else
+            {
+                BeveledPrism(holder, part.Polygon, part.Y0, part.Y1, 1.2, steel);
+            }
+
+            if (first && !part.Round && kind is not (ToolKind.PartExternal or ToolKind.PartInternal))
+            {
+                // Sede do inserto: chapa escura um pouco maior que o inserto, sobre o cabo
+                Extrude(holder, Ring(Scale(shape.Insert, 1.16), part.Y1), new Point3(0, LatheToolShape.SeatHeight, 0), dark);
+            }
+
+            first = false;
+        }
+
+        if (shape.Holders.Count > 0 && shape.Holders[0].Round)
+        {
+            // Barra interna: sede escura no ponto de apoio do inserto
+            Extrude(holder, Ring(Scale(shape.Insert, 1.12), -half - 0.8), new Point3(0, 0.8, 0), dark);
+        }
+
+        // Inserto: pastilha de metal duro (cor escura de cobertura), com chanfro e face de cima mais clara
+        var insert = SolidMesh.Create(96);
+        BeveledPrism(insert, shape.Insert, -half, half, Math.Min(0.5, half * 0.3), carbide);
+        Extrude(insert, Ring(Scale(shape.Insert, 0.9), half), new Point3(0, 0.06, 0), carbideTop);
+
+        double cx = shape.Insert.Average(p => p.X), cz = shape.Insert.Average(p => p.Z);
+        if (shape.ChipBreaker)
+        {
+            // Quebra-cavaco: platô elevado no meio do inserto e furo central com o parafuso de fixação
+            Extrude(insert, Ring(Scale(shape.Insert, 0.62), half), new Point3(0, 0.7, 0), palette.Coating);
+            if (kind == ToolKind.TurnExternal)
+            {
+                // Grampo superior sobre a metade de trás do inserto, com o parafuso de aperto
+                List<(double X, double Z)> clamp = [(8.8, 9.0), (15.2, 8.0), (16.6, 15.8), (10.4, 16.8)];
+                BeveledPrism(holder, clamp, half + 0.7, half + 4.2, 0.6, MillSolidRenderer.Lerp(steel, 0xFFFFFF, 0.15));
+                Screw(holder, clamp.Average(p => p.X), half + 4.2, clamp.Average(p => p.Z), 2.1, 1.1, dark);
+            }
+            else
+            {
+                Screw(insert, cx, half + 0.7, cz, 2.2, 1.0, dark);
+                Screw(insert, cx, half + 1.7, cz, 1.4, 0.4, steel);
+            }
         }
 
         return (insert.Transformed(LatheToWorld), holder.Transformed(LatheToWorld));
+    }
+
+    // ── Primitivas da ferramenta do torno (coordenadas do torno: X raio, Y altura, Z eixo) ──
+
+    private static List<Point3> Ring(IReadOnlyList<(double X, double Z)> polygon, double y) =>
+        [.. polygon.Select(p => new Point3(p.X, y, p.Z))];
+
+    private static List<(double X, double Z)> Scale(IReadOnlyList<(double X, double Z)> polygon, double factor)
+    {
+        double cx = polygon.Average(p => p.X), cz = polygon.Average(p => p.Z);
+        return [.. polygon.Select(p => (cx + (p.X - cx) * factor, cz + (p.Z - cz) * factor))];
+    }
+
+    private static Point3 Centroid(IReadOnlyList<Point3> ring) =>
+        new(ring.Average(p => p.X), ring.Average(p => p.Y), ring.Average(p => p.Z));
+
+    /// <summary>Tampa plana de um anel convexo, com a normal para o lado "outward".</summary>
+    private static void Cap(SolidMesh mesh, IReadOnlyList<Point3> ring, Point3 outward, uint color)
+    {
+        for (int i = 1; i + 1 < ring.Count; i++)
+        {
+            mesh.AddQuad(ring[0], ring[i], ring[i + 1], ring[i + 1], outward, color);
+        }
+    }
+
+    /// <summary>Faces laterais entre dois anéis com o mesmo número de pontos (normal para fora do centro).</summary>
+    private static void Loft(SolidMesh mesh, IReadOnlyList<Point3> a, IReadOnlyList<Point3> b, uint color)
+    {
+        Point3 center = Centroid([.. a, .. b]);
+        for (int i = 0; i < a.Count; i++)
+        {
+            int k = (i + 1) % a.Count;
+            Point3 mid = Point3.Lerp(Point3.Lerp(a[i], a[k], 0.5), Point3.Lerp(b[i], b[k], 0.5), 0.5);
+            Point3 normal = ViewCamera.Cross(a[k] - a[i], b[i] - a[i]);
+            if (ViewCamera.Dot(normal, mid - center) < 0)
+            {
+                normal = new Point3(-normal.X, -normal.Y, -normal.Z);
+            }
+
+            mesh.AddQuad(a[i], a[k], b[k], b[i], normal, color);
+        }
+    }
+
+    private static Point3 Dir(Point3 v) => ViewCamera.Normalize(v);
+
+    /// <summary>Sólido de seção convexa: o anel andando "delta".</summary>
+    private static void Extrude(SolidMesh mesh, IReadOnlyList<Point3> ring, Point3 delta, uint color)
+    {
+        List<Point3> moved = [.. ring.Select(p => p + delta)];
+        Point3 up = Dir(delta);
+        Cap(mesh, ring, new Point3(-up.X, -up.Y, -up.Z), color);
+        Cap(mesh, moved, up, color);
+        Loft(mesh, ring, moved, color);
+    }
+
+    /// <summary>Prisma vertical (Y) com os cantos de cima e de baixo chanfrados.</summary>
+    private static void BeveledPrism(SolidMesh mesh, IReadOnlyList<(double X, double Z)> polygon, double y0, double y1, double bevel, uint color)
+    {
+        double radius = polygon.Average(p => Math.Sqrt(Math.Pow(p.X - polygon.Average(q => q.X), 2) + Math.Pow(p.Z - polygon.Average(q => q.Z), 2)));
+        bevel = Math.Min(bevel, (y1 - y0) / 3);
+        List<(double X, double Z)> inset = Scale(polygon, Math.Max(0.5, 1 - bevel / Math.Max(radius, 1e-6)));
+        uint top = MillSolidRenderer.Lerp(color, 0xFFFFFF, 0.12);
+        List<Point3> low = Ring(inset, y0), lowFull = Ring(polygon, y0 + bevel), highFull = Ring(polygon, y1 - bevel), high = Ring(inset, y1);
+        Cap(mesh, low, new Point3(0, -1, 0), color);
+        Loft(mesh, low, lowFull, color);
+        Loft(mesh, lowFull, highFull, color);
+        Loft(mesh, highFull, high, top);
+        Cap(mesh, high, new Point3(0, 1, 0), top);
+    }
+
+    /// <summary>
+    /// Cilindro ao longo de Z, com centro (cx, cy) e raio "radius", de z0 a z1, com chanfro nas pontas.
+    /// </summary>
+    private static void Cylinder(SolidMesh mesh, double cx, double cy, double radius, double z0, double z1, double bevel, uint color)
+    {
+        const int n = 20;
+        List<Point3> Circle(double z, double r) =>
+            [.. Enumerable.Range(0, n).Select(i => new Point3(cx + r * Math.Cos(2 * Math.PI * i / n), cy + r * Math.Sin(2 * Math.PI * i / n), z))];
+        List<Point3> a = Circle(z0, radius - bevel), b = Circle(z0 + bevel, radius), c = Circle(z1 - bevel, radius), d = Circle(z1, radius - bevel);
+        Cap(mesh, a, new Point3(0, 0, -1), color);
+        Loft(mesh, a, b, color);
+        Loft(mesh, b, c, color);
+        Loft(mesh, c, d, MillSolidRenderer.Lerp(color, 0xFFFFFF, 0.1));
+        Cap(mesh, d, new Point3(0, 0, 1), color);
+    }
+
+    /// <summary>Cilindro vertical (eixo Y) de raio "radius" em (cx, cz), de "y" até "y + height" (cabeça de parafuso).</summary>
+    private static void Screw(SolidMesh mesh, double cx, double y, double cz, double radius, double height, uint color)
+    {
+        const int n = 16;
+        List<(double X, double Z)> poly = [.. Enumerable.Range(0, n).Select(i => (cx + radius * Math.Cos(2 * Math.PI * i / n), cz + radius * Math.Sin(2 * Math.PI * i / n)))];
+        Extrude(mesh, Ring(poly, y), new Point3(0, Math.Max(0.01, height), 0), color);
     }
 
     // Broca no eixo do torno: parte cortante com a cor da cobertura e haste de aço; ponta na origem, corpo em +Z
