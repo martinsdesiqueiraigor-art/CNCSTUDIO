@@ -133,6 +133,8 @@ public partial class MainWindow : Window
         MachineSettingsButton.Click += async (_, _) => await OpenMachineSettingsAsync();
         Closing += OnWindowClosing;
         NewButton.Click += (_, _) => NewDocument();
+        ViewTabs.SelectionChanged += (_, _) => SimulationTools.IsVisible = ViewTabs.SelectedIndex == 0;
+        CollapseEditorButton.Click += (_, _) => SetEditorCollapsed(!_editorCollapsed);
         ThemeButton.Click += (_, _) => ApplyTheme(_settings.Theme == "Light" ? "Dark" : "Light");
         ApplyTheme(_settings.Theme);
         RecentButton.Click += (_, _) => ShowRecentMenu();
@@ -491,6 +493,31 @@ public partial class MainWindow : Window
     }
 
     // ───────────────────────── Tema ─────────────────────────
+
+    private bool _editorCollapsed;
+
+    /// <summary>Recolhe o editor (fica só a seta) para o gráfico ocupar a tela; a seta de novo devolve.</summary>
+    private void SetEditorCollapsed(bool collapsed)
+    {
+        _editorCollapsed = collapsed;
+        ColumnDefinitions columns = MainArea.ColumnDefinitions;
+        columns[0].Width = collapsed ? new GridLength(34) : new GridLength(2, GridUnitType.Star);
+        columns[1].Width = collapsed ? new GridLength(0) : new GridLength(4);
+        columns[2].Width = new GridLength(3, GridUnitType.Star);
+        foreach (Control child in EditorPane.Children)
+        {
+            // Só a linha da seta continua à vista
+            child.IsVisible = !collapsed || child is Grid;
+        }
+
+        TabScroll.IsVisible = !collapsed;
+        CollapseEditorButton.Content = collapsed ? "▶" : "◀";
+        ToolTip.SetTip(CollapseEditorButton, collapsed ? "Mostrar o editor (F4)" : "Recolher o editor (F4)");
+        if (!collapsed)
+        {
+            Editor.Focus();
+        }
+    }
 
     /// <summary>Troca entre tema claro e escuro (interface e cores do editor).</summary>
     private void ApplyTheme(string theme)
@@ -941,6 +968,13 @@ public partial class MainWindow : Window
 
     private async void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.F4 && e.KeyModifiers == KeyModifiers.None)
+        {
+            e.Handled = true;
+            SetEditorCollapsed(!_editorCollapsed);
+            return;
+        }
+
         if (e.Key == Key.F3)
         {
             // Próxima ocorrência da busca

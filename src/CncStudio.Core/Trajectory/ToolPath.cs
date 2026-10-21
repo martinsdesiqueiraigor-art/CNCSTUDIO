@@ -8,6 +8,8 @@ namespace CncStudio.Core.Trajectory;
 public sealed class ToolPath
 {
     private int[]? _lineOrder; // índices dos movimentos ordenados por linha (montado sob demanda)
+    private double? _totalLength;
+    private IReadOnlyList<ToolChange>? _toolChanges;
 
     public ToolPath(IReadOnlyList<Move> moves, IReadOnlyList<ParseDiagnostic> diagnostics,
         IReadOnlyList<ProgramMessage>? messages = null, IReadOnlyList<ProgramDwell>? dwells = null,
@@ -55,6 +57,12 @@ public sealed class ToolPath
 
     /// <summary>Ferramentas usadas, em ordem crescente.</summary>
     public IReadOnlyList<int> Tools { get; }
+
+    /// <summary>Comprimento total de todos os movimentos (mm): o "total" da distância percorrida.</summary>
+    public double TotalLength => _totalLength ??= PathMarks.TotalLength(Moves);
+
+    /// <summary>Trocas de ferramenta em ordem de execução (marcas da barra de progresso).</summary>
+    public IReadOnlyList<ToolChange> ToolChanges => _toolChanges ??= PathMarks.ToolChanges(Moves);
 
     /// <summary>Fresa ou torno. No torno, X é o raio (Y = 0) e o desenho é no plano ZX.</summary>
     public MachineKind Machine { get; }

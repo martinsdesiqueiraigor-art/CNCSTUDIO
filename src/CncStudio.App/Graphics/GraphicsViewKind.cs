@@ -90,14 +90,14 @@ public static class GraphicsViews
         return axes.ToArray();
     }
 
-    public static string Caption(this GraphicsViewKind kind) => kind switch
+    public static string Caption(this GraphicsViewKind kind, bool halfSection = true) => kind switch
     {
         GraphicsViewKind.Orbit3D => "3D",
         GraphicsViewKind.Iso => "Isométrica",
         GraphicsViewKind.Top => "Topo (XY)",
         GraphicsViewKind.Front => "Frente (XZ)",
         GraphicsViewKind.Side => "Lado (YZ)",
-        GraphicsViewKind.Lathe3D => "Torno 3D (meia seção)",
+        GraphicsViewKind.Lathe3D => halfSection ? "Torno 3D (meia seção)" : "Torno 3D",
         _ => "Torno ZX",
     };
 }

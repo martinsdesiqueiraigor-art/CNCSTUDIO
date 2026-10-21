@@ -51,27 +51,40 @@ public partial class GraphicsPanel : UserControl
     {
         InitializeComponent();
 
-        IsoView.IsCheckedChanged += (_, _) => OnViewChecked(IsoView, GraphicsViewKind.Iso);
         Gl.Failed += (_, message) => OnGlFailed(message);
-        TopView.IsCheckedChanged += (_, _) => OnViewChecked(TopView, GraphicsViewKind.Top);
-        FrontView.IsCheckedChanged += (_, _) => OnViewChecked(FrontView, GraphicsViewKind.Front);
-        SideView.IsCheckedChanged += (_, _) => OnViewChecked(SideView, GraphicsViewKind.Side);
-        Lathe3DView.IsCheckedChanged += (_, _) => OnViewChecked(Lathe3DView, GraphicsViewKind.Lathe3D);
+        Mode2D.Click += (_, _) => SetMode(ViewMode.TwoD);
+        Mode2D3D.Click += (_, _) => SetMode(ViewMode.TwoDPlus3D);
+        Mode3D.Click += (_, _) => SetMode(ViewMode.ThreeD);
+        IsoView.Click += (_, _) => ChooseView(SceneView.Isometric);
+        TopView.Click += (_, _) => ChooseView(SceneView.Top);
+        FrontView.Click += (_, _) => ChooseView(SceneView.Front);
+        SideView.Click += (_, _) => ChooseView(SceneView.Side);
         TechnicalCheck.IsCheckedChanged += (_, _) => Enqueue(null);
-        Show3DCheck.IsCheckedChanged += (_, _) =>
-        {
-            ShowGl(Show3DCheck.IsChecked == true && !_glFailed);
-            Enqueue(null);
-        };
-        LatheZXView.IsCheckedChanged += (_, _) => OnViewChecked(LatheZXView, GraphicsViewKind.LatheZX);
+        TransparentCheck.IsCheckedChanged += (_, _) => Enqueue(null);
 
         SolidCheck.IsCheckedChanged += (_, _) => { View.ShowSolid = Gl.ShowSolid = SolidCheck.IsChecked == true; Enqueue(null); };
-        PathCheck.IsCheckedChanged += (_, _) => { View.ShowPath = PathCheck.IsChecked == true; View.Redraw(); };
-        // 3D: padrão limpo, só o trecho atual; a trajetória inteira e o fundo claro são opções
-        Path3DCheck.IsCheckedChanged += (_, _) => { Gl.ShowPath = Path3DCheck.IsChecked == true; Gl.RequestNextFrameRendering(); };
+        // Uma só opção de trajetória para o 2D e o 3D
+        PathCheck.IsCheckedChanged += (_, _) =>
+        {
+            View.ShowPath = Gl.ShowPath = PathCheck.IsChecked == true;
+            View.Redraw();
+            Gl.RequestNextFrameRendering();
+        };
+        RapidsCheck.IsCheckedChanged += (_, _) =>
+        {
+            View.ShowRapids = Gl.ShowRapids = RapidsCheck.IsChecked == true;
+            View.Redraw();
+            Gl.RequestNextFrameRendering();
+        };
+        Gl.ShowPath = PathCheck.IsChecked == true;
         LightBgCheck.IsCheckedChanged += (_, _) => ApplyGlBackground();
         ToolCheck.IsCheckedChanged += (_, _) => { View.ShowTool = Gl.ShowTool = ToolCheck.IsChecked == true; View.Redraw(); Gl.RequestNextFrameRendering(); };
-        SectionCheck.IsCheckedChanged += (_, _) => Enqueue(null);
+        SectionCheck.IsCheckedChanged += (_, _) =>
+        {
+            View.HalfSection = SectionCheck.IsChecked == true;
+            View.Redraw();
+            Enqueue(null);
+        };
         FitButton.Click += (_, _) => FitToContent();
         MeasureToggle.IsCheckedChanged += (_, _) => View.MeasureMode = MeasureToggle.IsChecked == true;
         StockButton.Click += (_, _) => StockSettingsRequested?.Invoke(this, EventArgs.Empty);
@@ -108,9 +121,17 @@ public partial class GraphicsPanel : UserControl
             }
         };
         ModeCombo.SelectionChanged += (_, _) => UpdateSpeed();
+        ToolMarks.MarkClicked += (_, change) =>
+        {
+            Pause();
+            GoToMove(change.MoveIndex);
+            LineRequested?.Invoke(this, change.LineNumber);
+        };
 
         _timer.Tick += OnTick;
         UpdateSpeed();
+        SyncModeChecks();
+        ApplyMode();
     }
 
     // ───────────────────────── API para a janela principal ─────────────────────────
@@ -147,7 +168,7 @@ public partial class GraphicsPanel : UserControl
         View.FitToContent();
         if (_show3D)
         {
-            Gl.Fit(SceneView.Isometric);
+            Gl.Fit(_viewChoice);
         }
     }
 
@@ -163,20 +184,16 @@ public partial class GraphicsPanel : UserControl
         _passStarts = PathPasses.Starts(path.Moves);
         View.SetToolPath(path, figures);
 
-        // Vistas que fazem sentido para o tipo de máquina
+        // O que faz sentido para o tipo de máquina
         bool lathe = path.Machine == MachineKind.Lathe;
-        MillViews.IsVisible = !lathe;
-        LatheViews.IsVisible = lathe;
         SectionCheck.IsVisible = lathe;
         YLabel.IsVisible = !lathe;
         YBox.IsVisible = !lathe;
-        if (machineChanged || ViewKind.IsLathe() != lathe)
+        int moveCount = Math.Max(1, path.Moves.Count);
+        ToolMarks.SetMarks(path.ToolChanges, change => change.MoveIndex / (double)moveCount);
+        if (machineChanged)
         {
-            // Com o 3D ao lado, o desenho da esquerda é o 2D (topo na fresa, plano ZX no torno)
-            bool with3D = Show3DCheck.IsChecked == true && !_glFailed;
-            (lathe ? (with3D ? LatheZXView : Lathe3DView) : with3D ? TopView : IsoView).IsChecked = true;
-            View.View = lathe ? (with3D ? GraphicsViewKind.LatheZX : GraphicsViewKind.Lathe3D) : with3D ? GraphicsViewKind.Top : GraphicsViewKind.Iso;
-            ShowGl(with3D);
+            ApplyMode();
         }
 
         _updatingSlider = true;
@@ -234,18 +251,6 @@ public partial class GraphicsPanel : UserControl
         _cachedImage = null;
     }
 
-    private void OnViewChecked(RadioButton button, GraphicsViewKind kind)
-    {
-        if (button.IsChecked != true)
-        {
-            return;
-        }
-
-        View.View = kind;
-        _fitOnNextFrame = true;
-        Enqueue(null);
-    }
-
     // ───────────────────────── Execução ─────────────────────────
 
     private bool LineMode => ModeCombo.SelectedIndex == 0;
@@ -256,6 +261,7 @@ public partial class GraphicsPanel : UserControl
     private void UpdateSpeed()
     {
         SpeedLabel.Text = LineMode ? $"{Speed:0.#} linhas/s" : $"{Speed:0} mm/s";
+        SpeedButton.Content = $"⏱ {SpeedLabel.Text} ▾";
         _timer.Interval = LineMode ? TimeSpan.FromMilliseconds(Math.Max(16, 1000 / Speed)) : TimeSpan.FromMilliseconds(30);
     }
 
@@ -372,6 +378,7 @@ public partial class GraphicsPanel : UserControl
         TurningStock? turning = _turning;
         SimulationScene? scene = _show3D ? _scene : null;
         ScenePalette palette = TechnicalCheck.IsChecked == true ? ScenePalette.Technical : ScenePalette.Realistic;
+        bool transparent = TransparentCheck.IsChecked == true;
         Bounds3 stockBounds = _stockBounds;
         Interlocked.Increment(ref _pendingWork);
 
@@ -383,7 +390,7 @@ public partial class GraphicsPanel : UserControl
                 GraphicsFrame frame = Capture(simulation, path, view, generation, solid, section, map, turning, stockBounds);
                 if (scene is not null)
                 {
-                    frame = frame with { Scene = SceneOf(scene, simulation, section, palette) };
+                    frame = frame with { Scene = SceneOf(scene, simulation, section, palette, transparent) };
                 }
 
                 Dispatcher.UIThread.Post(() => ShowFrame(frame));
@@ -421,23 +428,118 @@ public partial class GraphicsPanel : UserControl
         }
     }
 
-    // Fundo do 3D: claro no tema claro do app ou quando a opção "Fundo claro" está marcada
+    // Fundo do 3D (degradê): claro no tema claro do app ou quando a opção "Fundo claro" está marcada
     private void ApplyGlBackground()
     {
         Gl.LightTheme = _appLight || LightBgCheck.IsChecked == true;
         Gl.RequestNextFrameRendering();
     }
 
-    private void ShowGl(bool on)
+    // ───────────────────────── Modo do gráfico: 2D | 2D + 3D | 3D ─────────────────────────
+
+    private enum ViewMode { TwoD, TwoDPlus3D, ThreeD }
+
+    private ViewMode _mode = ViewMode.TwoDPlus3D;
+
+    // Vista pedida nos ícones (vale para a câmera do 3D e, na fresa, para o desenho 2D)
+    private SceneView _viewChoice = SceneView.Isometric;
+
+    // Desenho 2D da fresa (nunca dois 3D: com o 3D ao lado, a esquerda é topo, frente ou lado)
+    private GraphicsViewKind _left2D = GraphicsViewKind.Top;
+
+    private void SetMode(ViewMode mode)
     {
-        if (on != _show3D)
+        _mode = mode == ViewMode.TwoDPlus3D && _glFailed ? ViewMode.TwoD : mode;
+        if (_mode == ViewMode.TwoD && !IsLatheProgram)
         {
-            _show3D = on;
-            ViewsGrid.ColumnDefinitions = new ColumnDefinitions(on ? "*,6,*" : "*,0,0");
+            _viewChoice = _left2D switch
+            {
+                GraphicsViewKind.Front => SceneView.Front,
+                GraphicsViewKind.Side => SceneView.Side,
+                GraphicsViewKind.Iso => SceneView.Isometric,
+                _ => SceneView.Top,
+            };
         }
 
+        SyncModeChecks();
+        ApplyMode();
+        _fitOnNextFrame = true;
+        _glFitted = false;
+        Enqueue(null);
+    }
+
+    private void SyncModeChecks()
+    {
+        Mode2D.IsChecked = _mode == ViewMode.TwoD;
+        Mode2D3D.IsChecked = _mode == ViewMode.TwoDPlus3D;
+        Mode3D.IsChecked = _mode == ViewMode.ThreeD;
+    }
+
+    private void ChooseView(SceneView view)
+    {
+        _viewChoice = view;
+        if (!IsLatheProgram)
+        {
+            if (view != SceneView.Isometric)
+            {
+                _left2D = view switch { SceneView.Front => GraphicsViewKind.Front, SceneView.Side => GraphicsViewKind.Side, _ => GraphicsViewKind.Top };
+            }
+            else if (_mode == ViewMode.TwoD)
+            {
+                _left2D = GraphicsViewKind.Iso; // só o 2D aberto: a isométrica é desenhada pela CPU
+            }
+        }
+
+        ApplyMode();
+        if (_show3D)
+        {
+            Gl.Fit(view);
+        }
+
+        _fitOnNextFrame = true;
+        Enqueue(null);
+    }
+
+    /// <summary>Desenho da esquerda para o modo e a máquina atuais.</summary>
+    private GraphicsViewKind LeftKind()
+    {
+        bool cpu3D = _mode == ViewMode.ThreeD && _glFailed; // sem OpenGL, o "3D" é o desenho por CPU
+        if (IsLatheProgram)
+        {
+            return cpu3D ? GraphicsViewKind.Lathe3D : GraphicsViewKind.LatheZX;
+        }
+
+        if (cpu3D)
+        {
+            return GraphicsViewKind.Iso;
+        }
+
+        return _mode == ViewMode.TwoDPlus3D && _left2D == GraphicsViewKind.Iso ? GraphicsViewKind.Top : _left2D;
+    }
+
+    /// <summary>Aplica o modo: qual desenho fica à esquerda, se o 3D aparece e quais ícones de vista valem.</summary>
+    private void ApplyMode()
+    {
+        bool show3D = _mode != ViewMode.TwoD && !_glFailed;
+        bool glOnly = show3D && _mode == ViewMode.ThreeD;
+        View.View = LeftKind();
+        View.IsVisible = !glOnly;
+        ShowGl(show3D, glOnly);
+
+        // Torno só no 2D: o perfil ZX não tem outras vistas
+        ViewIcons.IsVisible = !(IsLatheProgram && !show3D);
+        IsoView.IsChecked = _viewChoice == SceneView.Isometric;
+        TopView.IsChecked = _viewChoice == SceneView.Top;
+        FrontView.IsChecked = _viewChoice == SceneView.Front;
+        SideView.IsChecked = _viewChoice == SceneView.Side;
+    }
+
+    private void ShowGl(bool on, bool glOnly = false)
+    {
+        _show3D = on;
+        ViewsGrid.ColumnDefinitions = new ColumnDefinitions(!on ? "*,0,0" : glOnly ? "0,0,*" : "*,6,*");
         Gl.IsVisible = on;
-        ViewsSplitter.IsVisible = on;
+        ViewsSplitter.IsVisible = on && !glOnly;
         if (on && !Gl.GlReady)
         {
             // O Avalonia não avisa quando não há OpenGL (computador sem placa de vídeo): se o 3D não
@@ -491,16 +593,25 @@ public partial class GraphicsPanel : UserControl
     private void OnGlFailed(string message)
     {
         _glFailed = true;
-        Show3DCheck.IsVisible = false;
-        ShowGl(false);
+        Mode2D3D.IsVisible = false;
+        if (_mode == ViewMode.TwoDPlus3D)
+        {
+            _mode = ViewMode.TwoD;
+        }
+
+        SyncModeChecks();
+        ApplyMode();
+        _fitOnNextFrame = true;
+        Enqueue(null);
 
         StatusText.Text = "3D pela placa de vídeo indisponível (" + message + "): usando o desenho por CPU.";
     }
 
     /// <summary>Atualiza a cena 3D com a simulação (na fila de segundo plano, dona da cena) e tira a foto.</summary>
-    private SceneSnapshot SceneOf(SimulationScene scene, IMaterialSimulation simulation, bool section, ScenePalette palette)
+    private SceneSnapshot SceneOf(SimulationScene scene, IMaterialSimulation simulation, bool section, ScenePalette palette, bool transparent)
     {
         scene.QuarterSection = section;
+        scene.TransparentMaterial = transparent;
         scene.Palette = palette;
         scene.Refresh();
         scene.SetTool(simulation.CurrentTool, simulation.ToolPosition);
@@ -582,7 +693,7 @@ public partial class GraphicsPanel : UserControl
             if (_fitOnNextFrame || !_glFitted)
             {
                 _glFitted = true;
-                Gl.Fit(SceneView.Isometric);
+                Gl.Fit(_viewChoice);
             }
         }
 
@@ -624,7 +735,9 @@ public partial class GraphicsPanel : UserControl
         ZText.Text = p.Z.ToString("0.000", culture);
         ToolText.Text = frame.Tool == 0 ? "—" : lathe ? $"T{frame.Tool}" : $"T{frame.Tool} Ø{frame.ToolDiameter:0.##}";
         LineText.Text = frame.LineNumber > 0 ? frame.LineNumber.ToString(culture) : "—";
-        DistanceText.Text = frame.Travelled >= 10_000 ? $"{frame.Travelled / 1000:0.00} m" : $"{frame.Travelled:0.0} mm";
+        double total = _path?.TotalLength ?? 0;
+        DistanceText.Text = PathMarks.FormatDistance(PathMarks.DisplayTravelled(frame.Travelled, total, frame.IsFinished), culture)
+                            + " / " + PathMarks.FormatDistance(total, culture);
 
         if (frame.CurrentMove is { } move)
         {

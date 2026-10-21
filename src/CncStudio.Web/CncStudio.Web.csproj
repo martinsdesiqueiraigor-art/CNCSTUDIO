@@ -32,6 +32,7 @@
   <ItemGroup>
     <Compile Include="..\CncStudio.App\Highlighting\GCodeColorizer.cs" Link="Shared\GCodeColorizer.cs" />
     <Compile Include="..\CncStudio.App\Highlighting\LineMotionRenderer.cs" Link="Shared\LineMotionRenderer.cs" />
+    <Compile Include="..\CncStudio.App\Controls\ToolMarksStrip.cs" Link="Shared\ToolMarksStrip.cs" />
   </ItemGroup>
 
   <ItemGroup>

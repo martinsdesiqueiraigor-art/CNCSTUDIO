@@ -17,6 +17,15 @@ public sealed record SceneSnapshot(IReadOnlyList<SceneObjectState> Objects, IRea
 {
     /// <summary>Cena do torno (muda o ângulo da vista isométrica).</summary>
     public bool IsLathe { get; init; }
+
+    /// <summary>
+    /// Opacidade do material e da face de corte: 1 = sólido (padrão); menor que 1 deixa ver a
+    /// ferramenta por dentro. Só vale para os papéis <see cref="SceneRole.Material"/> e <see cref="SceneRole.Section"/>.
+    /// </summary>
+    public float MaterialOpacity { get; init; } = 1f;
+
+    /// <summary>Opacidade com que a tela desenha um papel (1 para tudo que não é material).</summary>
+    public float OpacityOf(SceneRole role) => role is SceneRole.Material or SceneRole.Section ? MaterialOpacity : 1f;
 }
 
 /// <summary>Uma malha da cena com o papel dela e um deslocamento (a ferramenta anda; o resto fica parado).</summary>
@@ -152,6 +161,12 @@ public sealed class SimulationScene
         }
     }
 
+    /// <summary>Opacidade do material na foto da cena (<see cref="TransparentOpacity"/> no modo transparente).</summary>
+    public const float TransparentOpacity = 0.35f;
+
+    /// <summary>Material transparente: deixa ver a ferramenta por dentro da peça (opção "Ver").</summary>
+    public bool TransparentMaterial { get; set; }
+
     /// <summary>Torno: mostra a peça com 1/4 removido (vê o perfil e o furo por dentro).</summary>
     public bool QuarterSection
     {
@@ -254,6 +269,7 @@ public sealed class SimulationScene
         _palette)
     {
         IsLathe = IsLathe,
+        MaterialOpacity = TransparentMaterial ? TransparentOpacity : 1f,
     };
 
     /// <summary>Refaz as linhas da trajetória com os G00 que encostaram no material destacados.</summary>

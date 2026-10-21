@@ -6,23 +6,22 @@ import * as THREE from './lib/three/three.module.min.js';
 const views = new Map();   // id da vista → estado
 let nextId = 1;
 
-// Cores de fundo por tema
-const BACKGROUND = { dark: 0x0d1117, light: 0xf3f5f8 };
+// O fundo é um degradê (CSS no div); as cores vêm do Core (SceneBackground), um só lugar para o desktop e a web.
 
 /** Cria uma vista 3D dentro de um div novo (o Avalonia posiciona o div). Devolve o div. */
 export function create() {
   const id = nextId++;
   const host = document.createElement('div');
-  host.style.cssText = 'width:100%;height:100%;position:relative;overflow:hidden;touch-action:none;background:#0d1117';
+  host.style.cssText = 'width:100%;height:100%;position:relative;overflow:hidden;touch-action:none;background:linear-gradient(to bottom,#273142,#0a0e14)';
   host.dataset.scene3d = String(id);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+  renderer.setClearColor(0x000000, 0); // transparente: aparece o degradê do div
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.domElement.style.cssText = 'display:block;width:100%;height:100%';
   host.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(BACKGROUND.dark);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7482, 1.05));
   const sun = new THREE.DirectionalLight(0xffffff, 0.95);
   scene.add(sun);
@@ -35,6 +34,7 @@ export function create() {
     id, host, renderer, scene, camera, sun,
     objects: new Map(), lines: new Map(),
     orbit: { tx: 0, ty: 0, tz: 0, distance: 200, az: 35, el: 30 },
+    materialOpacity: 1,
     dirty: true, raf: 0, frames: 0, fps: 0, fpsClock: performance.now(),
   };
   views.set(id, v);
@@ -169,15 +169,41 @@ const toU32 = v => { const b = v.slice(); return new Uint32Array(b.buffer, b.byt
 
 // Material por papel: peça (material) fosca e uniforme, ferramenta com um pouco de brilho metálico,
 // fixações foscas. O aspecto limpo vem da luz suave e das arestas marcadas, não do brilho.
-function materialFor(role) {
-  const matte = role === 'Material' || role === 'Section';
+function materialFor(role, opacity) {
+  const matte = isMatter(role);
   const tool = role === 'Tool';
-  return new THREE.MeshStandardMaterial({
+  const material = new THREE.MeshStandardMaterial({
     vertexColors: true,
     metalness: matte ? 0.0 : tool ? 0.45 : 0.1,
     roughness: matte ? 0.88 : tool ? 0.38 : 0.7,
     polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
   });
+  if (matte) applyOpacity(material, opacity);
+  return material;
+}
+
+const isMatter = role => role === 'Material' || role === 'Section';
+
+// Material transparente: a peça fica translúcida (sem escrever a profundidade) e a ferramenta aparece por dentro
+function applyOpacity(material, opacity) {
+  material.transparent = opacity < 1;
+  material.opacity = opacity;
+  material.depthWrite = opacity >= 1;
+  material.needsUpdate = true;
+}
+
+/** Opacidade do material e da face de corte (1 = sólido). Vem do Core (SceneSnapshot.MaterialOpacity). */
+export function setMaterialOpacity(host, opacity) {
+  const v = viewOf(host);
+  if (!v) return;
+  v.materialOpacity = opacity;
+  for (const entry of v.objects.values()) {
+    if (isMatter(entry.role)) {
+      applyOpacity(entry.mesh.material, opacity);
+      entry.mesh.renderOrder = opacity < 1 ? 5 : 0; // translúcido depois dos opacos
+    }
+  }
+  requestRender(v);
 }
 
 /** Cria ou troca a malha "id". Bytes de Float32 (posições, normais, cores 0–1) e Uint32 (índices). */
@@ -196,7 +222,8 @@ export function setMesh(host, id, role, positions, normals, colors, indices) {
     entry.mesh.geometry.dispose();
     entry.mesh.geometry = geometry;
   } else {
-    const mesh = new THREE.Mesh(geometry, materialFor(role));
+    const mesh = new THREE.Mesh(geometry, materialFor(role, v.materialOpacity));
+    if (isMatter(role) && v.materialOpacity < 1) mesh.renderOrder = 5;
     v.scene.add(mesh);
     entry = { mesh, role, edges: null };
     v.objects.set(id, entry);
@@ -287,12 +314,12 @@ export function getCamera(host) {
   return o ? [o.tx, o.ty, o.tz, o.distance, o.az, o.el].join(';') : '';
 }
 
-export function setTheme(host, light) {
+/** Fundo em degradê vertical: cor de cima e de baixo (0xRRGGBB), calculadas pelo Core. */
+export function setBackground(host, top, bottom) {
   const v = viewOf(host);
   if (!v) return;
-  const color = light ? BACKGROUND.light : BACKGROUND.dark;
-  v.scene.background = new THREE.Color(color);
-  v.host.style.background = '#' + color.toString(16).padStart(6, '0');
+  const css = c => '#' + (c >>> 0).toString(16).padStart(6, '0');
+  v.host.style.background = `linear-gradient(to bottom, ${css(top)}, ${css(bottom)})`;
   requestRender(v);
 }
 

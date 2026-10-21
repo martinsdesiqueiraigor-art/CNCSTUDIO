@@ -111,6 +111,7 @@ public partial class MainView : UserControl
         SimStepButton.Click += (_, _) => { StopSimulation(); SetStep(_step >= _stepEnds.Length ? 1 : _step + 1); };
         SimEndButton.Click += (_, _) => { StopSimulation(); SetStep(_stepEnds.Length); };
         SimPlayButton.Click += (_, _) => TogglePlay();
+        BuildSpeedFlyout();
         SpeedSlider.PropertyChanged += (_, e) =>
         {
             if (e.Property == Slider.ValueProperty)
@@ -232,9 +233,25 @@ public partial class MainView : UserControl
             UpdateTimeChip();
         };
         TimeChip.Click += (_, _) => OpenStats();
-        // Barra de simulação: sem espaço (celular, ou gráfico na metade da tela deitada), some o controle
-        // deslizante de velocidade; o − e o + continuam
-        GraphHost.SizeChanged += (_, e) => SpeedSlider.IsVisible = e.NewSize.Width >= 470;
+        // Barra de progresso: arrastar vai a qualquer passo; tocar numa marca vai à troca de ferramenta
+        SimSlider.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Slider.ValueProperty && !_syncingSlider)
+            {
+                StopSimulation();
+                SetStep((int)Math.Round(SimSlider.Value));
+            }
+        };
+        ToolMarks.MarkClicked += (_, change) =>
+        {
+            StopSimulation();
+            int index = Array.FindIndex(_stepEnds, end => end > change.MoveIndex);
+            if (index >= 0)
+            {
+                SetStep(index + 1);
+            }
+        };
+        CollapseEditorButton.Click += (_, _) => SetEditorCollapsed(!_editorCollapsed);
         StatsView.Closed += (_, _) => StatsHost.IsVisible = false;
         StatsView.SetupSheetRequested += async (_, _) => await OpenSetupSheetAsync();
         StatsView.AccountRequested += async (_, _) =>
@@ -243,7 +260,7 @@ public partial class MainView : UserControl
             await OpenAccountAsync();
         };
         // Espaço ocupado pelos botões (em cima) e pelas informações (embaixo) ao enquadrar a peça
-        Backplot.FitPadding = new Thickness(0, 40, 0, 46);
+        Backplot.FitPadding = new Thickness(0, 8, 0, 34);
 
         CodePageButton.Click += (_, _) => ShowPage(graph: false);
         GraphPageButton.Click += (_, _) => ShowPage(graph: true);
@@ -263,9 +280,16 @@ public partial class MainView : UserControl
 
         // 3D: volta como estava (só carrega o motor 3D se a pessoa deixou aberto)
         _technical = Stored("cc.technical") == "1";
-        if (Stored("cc.view3d") == "1")
+        PlotMode savedMode = Stored("cc.mode") switch
         {
-            Dispatcher.UIThread.Post(async () => await Toggle3DAsync(true), DispatcherPriority.Background);
+            "3d" => PlotMode.ThreeD,
+            "2d3d" => PlotMode.TwoDPlus3D,
+            "2d" => PlotMode.TwoD,
+            _ => Stored("cc.view3d") == "1" ? PlotMode.TwoDPlus3D : PlotMode.TwoD, // versão anterior
+        };
+        if (savedMode != PlotMode.TwoD)
+        {
+            Dispatcher.UIThread.Post(async () => await SetModeAsync(savedMode), DispatcherPriority.Background);
         }
 
         // Conta: confere a situação ao abrir (e pede para entrar se não houver conta)
@@ -846,6 +870,35 @@ public partial class MainView : UserControl
         return true;
     }
 
+    private CheckBox? _sectionOption;
+
+    /// <summary>Legenda das cores (no menu Ver, não solta sobre o gráfico).</summary>
+    private static Control BuildLegend()
+    {
+        Control Row(uint rgb, string text)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(4, 1) };
+            row.Children.Add(new Border
+            {
+                Width = 14,
+                Height = 4,
+                CornerRadius = new CornerRadius(2),
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = new SolidColorBrush(Color.FromUInt32(0xFF000000 | rgb)),
+            });
+            row.Children.Add(new TextBlock { Text = text, FontSize = 12, Opacity = 0.85 });
+            return row;
+        }
+
+        var legend = new StackPanel { Spacing = 0 };
+        legend.Children.Add(new TextBlock { Text = "Legenda", FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(4, 0, 4, 2) });
+        legend.Children.Add(Row(0xFF7A1A, "Corte (avanço)"));
+        legend.Children.Add(Row(0x4AA3FF, "Rápido (G00)"));
+        legend.Children.Add(Row(0xE5484D, "Rápido que encosta no material"));
+        legend.Children.Add(Row(ScenePalette.ToolColors[0], "Modo técnico: uma cor por ferramenta (T1, T2…)"));
+        return legend;
+    }
+
     private void BuildDisplayMenu()
     {
         CheckBox Option(string text, bool initial, Action<bool> apply)
@@ -855,23 +908,29 @@ public partial class MainView : UserControl
             return box;
         }
 
-        var panel = new StackPanel { Spacing = 2, Margin = new Thickness(4) };
+        var panel = new StackPanel { Spacing = 2, Margin = new Thickness(4), MinWidth = 250 };
+        panel.Children.Add(Option("Trajetória", true, v =>
+        {
+            SetPath3D(v);
+        }));
         panel.Children.Add(Option("Rápidos (G00)", true, v =>
         {
             Backplot.ShowRapids = v;
             SetRapids3D(v);
         }));
-        panel.Children.Add(Option("3D: trajetória completa (padrão: só o trecho atual)", false, SetPath3D));
-        panel.Children.Add(Option("3D: fundo claro", Stored("cc.bg3d") == "1", SetLightBackground3D));
-        panel.Children.Add(Option("Percurso à frente (na simulação)", true, v => Backplot.ShowAhead = v));
         panel.Children.Add(Option("Ferramenta", true, v =>
         {
             Backplot.ShowTool = v;
             SetTool3D(v);
         }));
-        panel.Children.Add(Option("Modo técnico no 3D (corte na cor de cada ferramenta)", Stored("cc.technical") == "1", SetTechnical3D));
-        panel.Children.Add(Option("Torno 3D: corte de 1/4 (ver o perfil por dentro)", true, SetQuarterSection));
-        panel.Children.Add(Option("Modo claro (oficina com muita luz)", Stored("cc.theme") == "light", v =>
+        _sectionOption = Option("Meia seção (torno)", true, SetQuarterSection);
+        panel.Children.Add(_sectionOption);
+        panel.Children.Add(Option("Modo técnico (corte na cor de cada ferramenta)", Stored("cc.technical") == "1", SetTechnical3D));
+        panel.Children.Add(Option("Material transparente (3D)", false, SetTransparent3D));
+        panel.Children.Add(Option("Fundo claro (3D)", Stored("cc.bg3d") == "1", SetLightBackground3D));
+        panel.Children.Add(Option("Percurso à frente (na simulação)", true, v => Backplot.ShowAhead = v));
+        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
+        panel.Children.Add(Option("Modo claro do app (oficina com muita luz)", Stored("cc.theme") == "light", v =>
         {
             ApplyTheme(v);
             Store("cc.theme", v ? "light" : "dark");
@@ -882,7 +941,16 @@ public partial class MainView : UserControl
             _vibrate = v;
             Store("cc.vibrate", v ? "1" : "0");
         }));
-        DisplayButton.Flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
+        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
+        panel.Children.Add(BuildLegend());
+        // A vista 3D é um elemento do navegador e fica por cima de qualquer menu: enquanto o Ver está
+        // aberto, ela some (e volta ao fechar). Menu com rolagem para caber em tela baixa (celular deitado).
+        var scroll = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        var flyout = new Flyout { Content = scroll, Placement = PlacementMode.BottomEdgeAlignedRight };
+        flyout.Opening += (_, _) => scroll.MaxHeight = Math.Max(180, Bounds.Height - 90);
+        flyout.Opened += (_, _) => Scene3DSlot.IsVisible = false;
+        flyout.Closed += (_, _) => Scene3DSlot.IsVisible = _view3D;
+        DisplayButton.Flyout = flyout;
     }
 
     private async Task OpenFromDeviceAsync()
@@ -1235,6 +1303,23 @@ public partial class MainView : UserControl
         _stepPass = passes.ToArray();
         _stepPassCount = counts.ToArray();
         _step = _stepEnds.Length;
+
+        // Distância acumulada (para "percorrido / total") e marcas de troca de ferramenta
+        _cumLength = new double[moves.Count + 1];
+        for (int i = 0; i < moves.Count; i++)
+        {
+            _cumLength[i + 1] = _cumLength[i] + moves[i].Length;
+        }
+
+        int stepCount = Math.Max(1, _stepEnds.Length);
+        ToolMarks.SetMarks(
+            _analysis?.ToolPath.ToolChanges ?? [],
+            change =>
+            {
+                int index = Array.FindIndex(_stepEnds, end => end > change.MoveIndex);
+                return index < 0 ? 0 : index / (double)stepCount;
+            });
+        SyncSlider();
         ShowSimPosition();
     }
 
@@ -1296,7 +1381,7 @@ public partial class MainView : UserControl
     {
         int errors = _analysis?.ErrorCount ?? 0;
         int warnings = _analysis?.WarningCount ?? 0;
-        ProblemsButton.IsVisible = errors + warnings > 0;
+        ProblemsButton.IsVisible = errors + warnings > 0 && !_editorCollapsed;
         ProblemsButton.Classes.Set("warnings", errors == 0);
         ProblemsButton.Content = errors > 0
             ? (errors == 1 ? "1 erro" : $"{errors} erros")
@@ -1325,15 +1410,74 @@ public partial class MainView : UserControl
         SetStatus($"{kind} {_problemIndex + 1}/{ordered.Count} · linha {d.LineNumber}: {d.Message}");
     }
 
+    // O navegador roda em modo invariante (sem "pt-BR"): vírgula decimal pela cultura invariante copiada
+    private static readonly System.Globalization.CultureInfo PtCulture = MakePtCulture();
+
+    private static System.Globalization.CultureInfo MakePtCulture()
+    {
+        var culture = (System.Globalization.CultureInfo)System.Globalization.CultureInfo.InvariantCulture.Clone();
+        culture.NumberFormat.NumberDecimalSeparator = ",";
+        return culture;
+    }
+
+    private double[] _cumLength = [0];
+
+    private void SyncSlider()
+    {
+        _syncingSlider = true;
+        SimSlider.Maximum = Math.Max(1, _stepEnds.Length);
+        SimSlider.Value = Math.Min(_step, SimSlider.Maximum);
+        _syncingSlider = false;
+    }
+
+    /// <summary>
+    /// Linha de informações do ponto atual: posição, ferramenta, G, linha, passo, distância
+    /// percorrida / total e avanço.
+    /// </summary>
     private void ShowSimPosition()
     {
-        SimPositionText.Text = _stepEnds.Length == 0
-            ? "Sem movimentos"
-            : _step >= _stepEnds.Length
-                ? $"Completo · {_stepEnds.Length} passos"
-                : _step > 0 && _stepPassCount[_step - 1] > 1
-                    ? $"Passo {_step} de {_stepEnds.Length} · ciclo: passe {_stepPass[_step - 1]}/{_stepPassCount[_step - 1]}"
-                    : $"Passo {_step} de {_stepEnds.Length}";
+        SyncSlider();
+        if (_stepEnds.Length == 0 || _analysis is not { } analysis)
+        {
+            SimPositionText.Text = "Sem movimentos";
+            return;
+        }
+
+        var culture = PtCulture;
+        var moves = analysis.ToolPath.Moves;
+        bool complete = _step >= _stepEnds.Length;
+        int visible = complete ? moves.Count : _step == 0 ? 0 : _stepEnds[_step - 1];
+        double total = analysis.ToolPath.TotalLength;
+        string distance = $"{CncStudio.Core.Trajectory.PathMarks.FormatDistance(_cumLength[visible], culture)} / {CncStudio.Core.Trajectory.PathMarks.FormatDistance(total, culture)}";
+        string step = complete
+            ? $"Completo · {_stepEnds.Length} passos"
+            : _step > 0 && _stepPassCount[_step - 1] > 1
+                ? $"Passo {_step}/{_stepEnds.Length} · passe {_stepPass[_step - 1]}/{_stepPassCount[_step - 1]}"
+                : $"Passo {_step}/{_stepEnds.Length}";
+        if (visible == 0)
+        {
+            SimPositionText.Text = $"{step} · {distance}";
+        }
+        else
+        {
+            CncStudio.Core.Trajectory.Move m = moves[visible - 1];
+            string x = (analysis.ToolPath.Machine == MachineKind.Lathe ? m.End.X * 2 : m.End.X).ToString("0.###", culture);
+            string pos = analysis.ToolPath.Machine == MachineKind.Lathe
+                ? $"X{x} Z{m.End.Z.ToString("0.###", culture)}"
+                : $"X{x} Y{m.End.Y.ToString("0.###", culture)} Z{m.End.Z.ToString("0.###", culture)}";
+            string g = m.Motion switch
+            {
+                CncStudio.Core.Trajectory.MotionMode.Rapid => "G00",
+                CncStudio.Core.Trajectory.MotionMode.Linear => "G01",
+                CncStudio.Core.Trajectory.MotionMode.ClockwiseArc => "G02",
+                CncStudio.Core.Trajectory.MotionMode.CounterClockwiseArc => "G03",
+                _ => "",
+            };
+            string tool = m.Tool != 0 ? $" · T{m.Tool}" : "";
+            string feed = m.IsRapid ? "" : $" · F{m.Feed.ToString("0.###", culture)}";
+            SimPositionText.Text = $"{pos}{tool} · {g} · L{m.LineNumber}{feed} · {step} · {distance}";
+        }
+
         SimPositionText.Text += Progress3D();
     }
 
@@ -1374,10 +1518,37 @@ public partial class MainView : UserControl
         }
     }
 
+    // Velocidade num menu (menos poluição na faixa de baixo); controles criados aqui porque
+    // nomes de x:Name dentro de um Flyout não são encontrados pelo código gerado.
+    private Slider SpeedSlider = new() { Minimum = 1, Maximum = 50, Value = 5, Width = 150, VerticalAlignment = VerticalAlignment.Center };
+    private TextBlock SpeedText = new() { Text = "5/s", VerticalAlignment = VerticalAlignment.Center, FontSize = 13, MinWidth = 40, Margin = new Thickness(4, 0, 0, 0) };
+    private Button SpeedDownButton = new() { Content = "−", MinWidth = 44, MinHeight = 44 };
+    private Button SpeedUpButton = new() { Content = "+", MinWidth = 44, MinHeight = 44 };
+
+    private void BuildSpeedFlyout()
+    {
+        ToolTip.SetTip(SpeedSlider, "Velocidade (passos por segundo)");
+        ToolTip.SetTip(SpeedDownButton, "Mais devagar");
+        ToolTip.SetTip(SpeedUpButton, "Mais rápido");
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(2) };
+        row.Children.Add(SpeedDownButton);
+        row.Children.Add(SpeedSlider);
+        row.Children.Add(SpeedUpButton);
+        row.Children.Add(SpeedText);
+        // O 3D (elemento do navegador) ficaria por cima do menu: some enquanto o menu está aberto
+        var flyout = new Flyout { Content = row, Placement = PlacementMode.TopEdgeAlignedRight };
+        flyout.Opened += (_, _) => Scene3DSlot.IsVisible = false;
+        flyout.Closed += (_, _) => Scene3DSlot.IsVisible = _view3D;
+        SpeedButton.Flyout = flyout;
+    }
+
+    private bool _syncingSlider;
+
     private void UpdateSpeed()
     {
         int speed = (int)Math.Round(SpeedSlider.Value);
         SpeedText.Text = $"{speed}/s";
+        SpeedButton.Content = $"{speed}/s";
         _simTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / Math.Max(1, speed));
     }
 
@@ -1386,7 +1557,8 @@ public partial class MainView : UserControl
         IsoViewButton.IsChecked = view == MillView.Iso;
         TopViewButton.IsChecked = view == MillView.Top;
         FrontViewButton.IsChecked = view == MillView.Front;
-        Backplot.MillView = view;
+        _millViewChoice = view;
+        UpdateBackplotView();
         SetSceneView(view switch { MillView.Top => SceneView.Top, MillView.Front => SceneView.Front, _ => SceneView.Isometric });
     }
 
@@ -1412,12 +1584,25 @@ public partial class MainView : UserControl
 
         if (narrow)
         {
+            CollapseEditorButton.IsVisible = false; // no celular as abas já separam código e gráfico
+            if (_editorCollapsed)
+            {
+                _editorCollapsed = false;
+                Editor.IsVisible = true;
+                FileNameText.IsVisible = true;
+                ToolsButton.IsVisible = true;
+                EditButton.IsVisible = _touch;
+                UpdateProblemsButton();
+            }
+
             Workspace.ColumnDefinitions = new ColumnDefinitions("*,0,0");
             ShowPage(graph: GraphPageButton.IsChecked == true);
         }
         else
         {
-            Workspace.ColumnDefinitions = new ColumnDefinitions("*,6,*");
+            Workspace.ColumnDefinitions = new ColumnDefinitions(_editorCollapsed ? "44,0,*" : "*,6,*");
+            Splitter.IsVisible = !_editorCollapsed;
+            CollapseEditorButton.IsVisible = true;
             Grid.SetColumn(EditorHost, 0);
             Grid.SetColumn(GraphHost, 2);
             EditorHost.IsVisible = true;

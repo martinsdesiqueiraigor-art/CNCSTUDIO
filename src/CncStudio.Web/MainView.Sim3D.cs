@@ -6,6 +6,9 @@ using CncStudio.Core.Simulation;
 
 namespace CncStudio.Web;
 
+/// <summary>Seletor do gráfico: só 2D, 2D ao lado do 3D (no torno, o plano ZX) ou só 3D.</summary>
+public enum PlotMode { TwoD, TwoDPlus3D, ThreeD }
+
 /// <summary>
 /// Simulação 3D na web (Fase 1): remoção de material com o mesmo Core do desktop, simulada em
 /// fatias de tempo (a tela não trava) e desenhada pelo three.js. Acompanha os passos da
@@ -20,7 +23,10 @@ public partial class MainView
     private DispatcherTimer? _frame3D;
     private int _collisionsShown;
     private int _collisionsReported;
-    private bool _view3D;
+    private PlotMode _mode = PlotMode.TwoD;
+    private bool _view3D => _mode != PlotMode.TwoD;
+    private MillView _millViewChoice = MillView.Iso;
+    private bool _transparent;
     private bool _loading3D;
     private bool _technical;
     private bool _showTool3D = true;
@@ -43,7 +49,9 @@ public partial class MainView
 
     private void Wire3D()
     {
-        View3DButton.Click += async (_, _) => await Toggle3DAsync(View3DButton.IsChecked == true);
+        Mode2DButton.Click += async (_, _) => await SetModeAsync(PlotMode.TwoD);
+        Mode2D3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.TwoDPlus3D);
+        Mode3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.ThreeD);
         GraphHost.SizeChanged += (_, _) => ApplyPlotsLayout();
         Backplot.SizeChanged += (_, _) =>
         {
@@ -55,10 +63,19 @@ public partial class MainView
         };
     }
 
-    private async Task Toggle3DAsync(bool on)
+    private void SyncModeChecks()
     {
+        Mode2DButton.IsChecked = _mode == PlotMode.TwoD;
+        Mode2D3DButton.IsChecked = _mode == PlotMode.TwoDPlus3D;
+        Mode3DButton.IsChecked = _mode == PlotMode.ThreeD;
+    }
+
+    private async Task SetModeAsync(PlotMode mode)
+    {
+        bool on = mode != PlotMode.TwoD;
         if (_loading3D)
         {
+            SyncModeChecks();
             return;
         }
 
@@ -72,7 +89,8 @@ public partial class MainView
             }
             catch (Exception ex)
             {
-                View3DButton.IsChecked = false;
+                _mode = PlotMode.TwoD;
+                SyncModeChecks();
                 SetStatus("Não foi possível abrir o 3D neste navegador: " + ex.Message);
                 return;
             }
@@ -93,13 +111,13 @@ public partial class MainView
             _frame3D.Tick += (_, _) => Frame3D();
         }
 
-        _view3D = on;
-        View3DButton.IsChecked = on;
+        _mode = mode;
+        SyncModeChecks();
         ApplyPlotsLayout();
         UpdateTimeChip();
-        IsoViewButton.Content = on ? "Iso" : "2,5D";
+        UpdateBackplotView();
         UpdateViewButtons();
-        Store("cc.view3d", on ? "1" : "0");
+        Store("cc.mode", mode switch { PlotMode.ThreeD => "3d", PlotMode.TwoDPlus3D => "2d3d", _ => "2d" });
         if (on)
         {
             Rebuild3D();
@@ -110,8 +128,16 @@ public partial class MainView
         {
             _frame3D?.Stop();
             RapidsButton.IsVisible = false;
-            SpeedText.IsVisible = true;
         }
+    }
+
+    /// <summary>
+    /// Vista do 2D: na fresa só em 2D puro vale a isométrica 2,5D; ao lado do 3D o 2D mostra o perfil
+    /// (cima ou frente) — nunca dois 3D na tela. O torno é sempre o plano ZX.
+    /// </summary>
+    private void UpdateBackplotView()
+    {
+        Backplot.MillView = _mode == PlotMode.TwoDPlus3D && _millViewChoice == MillView.Iso ? MillView.Top : _millViewChoice;
     }
 
     /// <summary>Área do gráfico com espaço para 2D e 3D lado a lado (PC).</summary>
@@ -126,7 +152,10 @@ public partial class MainView
     /// </summary>
     private void ApplyPlotsLayout()
     {
-        bool side = _view3D && GraphHost.Bounds.Width >= SideBySideWidth;
+        bool wide = GraphHost.Bounds.Width >= SideBySideWidth;
+        Mode2D3DButton.IsVisible = wide;
+        bool side = _mode == PlotMode.TwoDPlus3D && wide;
+        bool only3D = _mode == PlotMode.ThreeD || (_mode == PlotMode.TwoDPlus3D && !wide);
         string columns = !_view3D ? "*,0,0" : side ? "*,6,*" : "0,0,*";
         if (columns != _plotsColumns)
         {
@@ -137,10 +166,36 @@ public partial class MainView
             _refit2D = true;
         }
 
-        Backplot.IsVisible = !_view3D || side;
+        Backplot.IsVisible = !only3D;
         PlotsSplitter.IsVisible = side;
         Scene3DSlot.IsVisible = _view3D;
         UpdateTimeChip();
+    }
+
+    private bool _editorCollapsed;
+
+    /// <summary>Seta no topo do editor (PC): recolhe o código e deixa o gráfico com a tela toda.</summary>
+    private void SetEditorCollapsed(bool collapsed)
+    {
+        _editorCollapsed = collapsed && _narrow != true;
+        if (_narrow == true)
+        {
+            return;
+        }
+
+        Workspace.ColumnDefinitions = new ColumnDefinitions(_editorCollapsed ? "44,0,*" : "*,6,*");
+        Splitter.IsVisible = !_editorCollapsed;
+        Editor.IsVisible = !_editorCollapsed;
+        FileNameText.IsVisible = !_editorCollapsed;
+        EditButton.IsVisible = _touch && !_editorCollapsed;
+        ToolsButton.IsVisible = !_editorCollapsed;
+        ProblemsButton.IsVisible = !_editorCollapsed && ((_analysis?.ErrorCount ?? 0) + (_analysis?.WarningCount ?? 0)) > 0;
+        CollapseEditorButton.Content = new Avalonia.Controls.PathIcon
+        {
+            Data = Avalonia.Media.Geometry.Parse(_editorCollapsed ? "F1 M9,5 L16,12 L9,19 Z" : "F1 M15,5 L8,12 L15,19 Z"),
+        };
+        ToolTip.SetTip(CollapseEditorButton, _editorCollapsed ? "Mostrar o editor" : "Recolher o editor");
+        _refit2D = true;
     }
 
     /// <summary>Lista dos G00 que encostaram no material (botão vermelho na barra da simulação).</summary>
@@ -148,8 +203,6 @@ public partial class MainView
     {
         IReadOnlyList<int> hits = _view3D && _material is not null ? _material.Simulation.RapidCollisions : [];
         RapidsButton.IsVisible = hits.Count > 0;
-        // Celular estreito: o texto da velocidade cede lugar ao botão (o − e o + continuam)
-        SpeedText.IsVisible = hits.Count == 0 || GraphHost.Bounds.Width >= 470;
         if (hits.Count == 0 || _analysis is not { } analysis)
         {
             return;
@@ -198,7 +251,12 @@ public partial class MainView
     private void UpdateViewButtons()
     {
         bool lathe = _analysis?.ToolPath.Machine == MachineKind.Lathe;
-        LatheLabel.IsVisible = lathe && !_view3D;
+        if (_sectionOption is not null)
+        {
+            _sectionOption.IsVisible = lathe; // meia seção só existe no torno
+        }
+
+        LatheLabel.IsVisible = lathe && _mode != PlotMode.ThreeD;
         MillViews.IsVisible = !lathe || _view3D;
     }
 
@@ -216,7 +274,6 @@ public partial class MainView
         _collisionsShown = 0;
         _collisionsReported = 0;
         RapidsButton.IsVisible = false;
-        SpeedText.IsVisible = true;
         if (_analysis is not { } analysis || analysis.ToolPath.Moves.Count == 0)
         {
             _scene3DView.SetScene(null);
@@ -230,6 +287,7 @@ public partial class MainView
             ? SimulationScene.ForLathe(bar, analysis.ToolPath, _machiningSetup, palette)
             : SimulationScene.ForMill(_material.Map!, analysis.ToolPath, _material.Profiles, _machiningSetup, palette);
         _scene.QuarterSection = _quarterSection;
+        _scene.TransparentMaterial = _transparent;
         ApplyToolVisibility();
         _driver = new SimulationDriver(_material.Simulation) { Target = TargetMoves() };
         _scene3DView.SetScene(_scene);
@@ -326,11 +384,24 @@ public partial class MainView
     }
 
     private bool _showRapids3D = true;
-    private bool _showPath3D;   // padrão: só o trecho atual; a trajetória inteira é opcional
+    private bool _showPath3D = true;
 
+    /// <summary>Material transparente (Ver): enxerga o corte e a ferramenta por dentro da peça.</summary>
+    private void SetTransparent3D(bool on)
+    {
+        _transparent = on;
+        if (_scene is not null)
+        {
+            _scene.TransparentMaterial = on;
+            _scene3DView?.Sync();
+        }
+    }
+
+    /// <summary>Trajetória: a mesma opção liga as linhas no 2D e no 3D.</summary>
     private void SetPath3D(bool show)
     {
         _showPath3D = show;
+        Backplot.ShowPath = show;
         if (_scene3DView is not null)
         {
             _scene3DView.ShowPath = show;
