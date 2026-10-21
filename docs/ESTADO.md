@@ -9,4 +9,4 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **CODE-06 na `main` (PR #5, 21/10).** **CODE-07 em andamento** (ramo `ajuste-comparar`): comparação de programas na web/celular — painel "Comparar" no menu Arquivos (`ComparePanel`), com `Core/Editing/DiffNavigation` (blocos, resumo, contexto, linha do editor). Falta o Igor testar no celular.
 - **Depois:** CODE-08 (DNC). PRs #1 (peças) e #2 (glossário) já estão na `main`.
 - **Prévia:** `https://fase-1-simulacao.casillas-code.pages.dev` e o .exe em Actions → Artifacts. Actions fixadas por SHA (exigência do repositório).
-- **Testes:** 463 passando (14 novos de comparação).
+- **Testes:** 469 passando (comparação e animação do passo).

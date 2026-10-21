@@ -1559,18 +1559,25 @@ public partial class MainView : UserControl
             SetStep(0); // estava completo: recomeça do início
         }
 
+        MarkStepStart();
         _simTimer.Start();
         SimPlayIcon.Data = PauseIcon;
     }
 
     private void StopSimulation()
     {
+        bool wasPlaying = _simTimer.IsEnabled;
         _simTimer.Stop();
         SimPlayIcon.Data = PlayIcon;
+        if (wasPlaying)
+        {
+            OnStepChanged3D(); // pausou no meio do passo: o 3D volta ao fim do último passo inteiro
+        }
     }
 
     private void SimTick()
     {
+        MarkStepStart();
         SetStep(_step + 1);
         if (_step >= _stepEnds.Length)
         {

@@ -1,6 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Threading;
 using CncStudio.Core.Execution;
+using CncStudio.Core.Geometry;
+using CncStudio.Core.Trajectory;
 using CncStudio.Core.Scene;
 using CncStudio.Core.Simulation;
 
@@ -318,6 +320,44 @@ public partial class MainView
         }
     }
 
+    private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+    private long _stepStartedMs;
+    private Point3? _animTip;
+    private int _animTool;
+
+    /// <summary>Marca o começo do tempo do passo em andamento (play ou fim do passo anterior).</summary>
+    private void MarkStepStart() => _stepStartedMs = _clock.ElapsedMilliseconds;
+
+    /// <summary>
+    /// Durante o play, a ferramenta percorre o passo (corte e retornos dos ciclos) em vez de saltar para o
+    /// fim dele: o alvo do 3D avança movimento a movimento e a ponta é interpolada dentro do movimento atual.
+    /// </summary>
+    private void UpdateStepAnimation()
+    {
+        _animTip = null;
+        if (_driver is null || _analysis is not { } analysis || !_simTimer.IsEnabled || _step >= _stepEnds.Length)
+        {
+            return;
+        }
+
+        IReadOnlyList<Move> moves = analysis.ToolPath.Moves;
+        int start = _step == 0 ? 0 : _stepEnds[_step - 1];
+        int end = _stepEnds[_step];
+        double interval = Math.Max(1, _simTimer.Interval.TotalMilliseconds);
+        double progress = (_clock.ElapsedMilliseconds - _stepStartedMs) / interval;
+        StepPose pose = StepAnimation.At(moves, start, end, progress);
+
+        int target = start + pose.Completed;
+        if (_driver.Target != target)
+        {
+            _driver.Target = target;
+        }
+
+        Move current = moves[pose.MoveIndex];
+        _animTip = current.PointAt(pose.Fraction);
+        _animTool = current.Tool;
+    }
+
     // A cada quadro: simula um pedaço (no máximo ~12 ms) e envia ao 3D só o que mudou
     private void Frame3D()
     {
@@ -325,6 +365,8 @@ public partial class MainView
         {
             return;
         }
+
+        UpdateStepAnimation();
 
         if (_driver.Run(SimulationDriver.DefaultBudget))
         {
@@ -352,6 +394,11 @@ public partial class MainView
                 int hits = _collisionsReported;
                 SetStatus($"{hits} {(hits == 1 ? "rápido (G00) encostou" : "rápidos (G00) encostaram")} no material: em vermelho no 3D.");
             }
+        }
+
+        if (_animTip is { } tip && _driver.AtTarget)
+        {
+            _scene.SetTool(_animTool, tip);
         }
 
         _scene3DView.Sync();
