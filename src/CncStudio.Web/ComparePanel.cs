@@ -37,6 +37,8 @@ public sealed class ComparePanel : UserControl
     private readonly ToggleButton _ignoreCase = Chip("Ignorar maiúsculas", false);
     private readonly ToggleButton _ignoreNumbers = Chip("Ignorar N", false);
     private readonly ToggleButton _onlyDiffs = Chip("Só diferenças", true);
+    private readonly ToggleButton _sideChip = Chip("Lado a lado", false);
+    private bool _sideBySide;
     private readonly Button _previous = Action("◀", 44);
     private readonly Button _next = Action("▶", 44);
     private readonly NativeFileButton _deviceNative;
@@ -55,7 +57,7 @@ public sealed class ComparePanel : UserControl
         library.Click += (_, _) => PickFromLibraryRequested?.Invoke(this, EventArgs.Empty);
         _previous.Click += (_, _) => GoToBlock(-1);
         _next.Click += (_, _) => GoToBlock(+1);
-        foreach (ToggleButton chip in new[] { _ignoreSpaces, _ignoreCase, _ignoreNumbers, _onlyDiffs })
+        foreach (ToggleButton chip in new[] { _ignoreSpaces, _ignoreCase, _ignoreNumbers, _onlyDiffs, _sideChip })
         {
             chip.IsCheckedChanged += (_, _) => Recompare();
         }
@@ -90,6 +92,7 @@ public sealed class ComparePanel : UserControl
         chips.Children.Add(_ignoreCase);
         chips.Children.Add(_ignoreNumbers);
         chips.Children.Add(_onlyDiffs);
+        chips.Children.Add(_sideChip);
 
         var nav = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,Auto,*"), Margin = new Thickness(12, 6, 12, 6) };
         nav.Children.Add(_previous);
@@ -139,6 +142,8 @@ public sealed class ComparePanel : UserControl
         _leftLines = SplitLines(leftText);
         _dialect = dialect;
         _leftTitle.Text = "Esquerda (editor): " + leftName;
+        // Celular deitado ou tela larga: lado a lado de saída; em pé, uma coluna (dá para ligar)
+        _sideChip.IsChecked = Bounds.Width >= 600;
         Recompare();
     }
 
@@ -157,6 +162,7 @@ public sealed class ComparePanel : UserControl
     {
         _list.SelectedItem = null;
         _block = -1;
+        _sideBySide = _sideChip.IsChecked == true;
         if (_rightText is null)
         {
             _rightTitle.Text = "Direita: (escolha um arquivo)";
@@ -228,6 +234,14 @@ public sealed class ComparePanel : UserControl
 
     private static readonly FontFamily Mono = new("avares://CncStudio.Web/Assets/Fonts#DejaVu Sans Mono");
 
+    private static readonly Color RemovedBack = Color.FromArgb(70, 229, 72, 77);
+    private static readonly Color AddedBack = Color.FromArgb(70, 46, 160, 67);
+    private static readonly Color RemovedWord = Color.FromArgb(190, 229, 72, 77);
+    private static readonly Color AddedWord = Color.FromArgb(190, 46, 160, 67);
+
+    private DiffOptions CurrentOptions =>
+        new(_ignoreSpaces.IsChecked == true, _ignoreCase.IsChecked == true, _ignoreNumbers.IsChecked == true);
+
     private Control BuildRow(Entry entry)
     {
         var stack = new StackPanel();
@@ -243,34 +257,111 @@ public sealed class ComparePanel : UserControl
             });
         }
 
+        // Palavras que mudaram dentro da linha (só nas alteradas)
+        IReadOnlyList<DiffSegment>? leftSegments = null, rightSegments = null;
+        if (entry.Kind == DiffKind.Changed)
+        {
+            (leftSegments, rightSegments) = LineDiff.Segments(entry.LeftText, entry.RightText, CurrentOptions);
+        }
+
+        double size = _sideBySide ? 11.5 : 13;
+        if (_sideBySide)
+        {
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,1,*") };
+            Control left = entry.Kind switch
+            {
+                DiffKind.Added => Cell(null, "", null, null, RemovedBack, RemovedWord, size, 1, empty: true),
+                DiffKind.Equal => Cell(entry.LeftLine, "", entry.LeftText, null, null, null, size, 0.7),
+                DiffKind.Removed => Cell(entry.LeftLine, "−", entry.LeftText, null, RemovedBack, RemovedWord, size, 1),
+                _ => Cell(entry.LeftLine, "−", entry.LeftText, leftSegments, RemovedBack, RemovedWord, size, 1),
+            };
+            Control right = entry.Kind switch
+            {
+                DiffKind.Removed => Cell(null, "", null, null, AddedBack, AddedWord, size, 1, empty: true),
+                DiffKind.Equal => Cell(entry.RightLine, "", entry.RightText, null, null, null, size, 0.7),
+                DiffKind.Added => Cell(entry.RightLine, "+", entry.RightText, null, AddedBack, AddedWord, size, 1),
+                _ => Cell(entry.RightLine, "+", entry.RightText, rightSegments, AddedBack, AddedWord, size, 1),
+            };
+            // Linha vazia do outro lado (incluída/removida): fundo neutro, sem cor de diferença
+            if (entry.Kind == DiffKind.Added)
+            {
+                left = Cell(null, "", null, null, null, null, size, 1, empty: true);
+            }
+            else if (entry.Kind == DiffKind.Removed)
+            {
+                right = Cell(null, "", null, null, null, null, size, 1, empty: true);
+            }
+
+            var divider = new Border { Background = Brush("SubtleBorder"), Width = 1 };
+            Grid.SetColumn(divider, 1);
+            Grid.SetColumn(right, 2);
+            grid.Children.Add(left);
+            grid.Children.Add(divider);
+            grid.Children.Add(right);
+            stack.Children.Add(grid);
+            return stack;
+        }
+
         switch (entry.Kind)
         {
             case DiffKind.Equal:
-                stack.Children.Add(Line(entry.LeftLine, "", entry.LeftText, null, 0.7));
+                stack.Children.Add(Cell(entry.LeftLine, "", entry.LeftText, null, null, null, size, 0.7));
                 break;
             case DiffKind.Removed:
-                stack.Children.Add(Line(entry.LeftLine, "−", entry.LeftText, Color.FromArgb(70, 229, 72, 77), 1));
+                stack.Children.Add(Cell(entry.LeftLine, "−", entry.LeftText, null, RemovedBack, RemovedWord, size, 1));
                 break;
             case DiffKind.Added:
-                stack.Children.Add(Line(entry.RightLine, "+", entry.RightText, Color.FromArgb(70, 46, 160, 67), 1));
+                stack.Children.Add(Cell(entry.RightLine, "+", entry.RightText, null, AddedBack, AddedWord, size, 1));
                 break;
             default: // alterada: as duas versões, uma sobre a outra
-                stack.Children.Add(Line(entry.LeftLine, "−", entry.LeftText, Color.FromArgb(70, 229, 72, 77), 1));
-                stack.Children.Add(Line(entry.RightLine, "+", entry.RightText, Color.FromArgb(70, 46, 160, 67), 1));
+                stack.Children.Add(Cell(entry.LeftLine, "−", entry.LeftText, leftSegments, RemovedBack, RemovedWord, size, 1));
+                stack.Children.Add(Cell(entry.RightLine, "+", entry.RightText, rightSegments, AddedBack, AddedWord, size, 1));
                 break;
         }
 
         return stack;
     }
 
-    private static Control Line(int? number, string sign, string text, Color? back, double opacity)
+    /// <summary>Uma linha (ou metade dela, no lado a lado): número, sinal e texto, com as palavras alteradas em destaque.</summary>
+    private static Control Cell(int? number, string sign, string? text, IReadOnlyList<DiffSegment>? segments, Color? back, Color? word, double size, double opacity, bool empty = false)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("44,18,*"), MinHeight = 26, Background = back is { } c ? new SolidColorBrush(c) : null };
-        grid.Children.Add(new TextBlock { Text = number?.ToString() ?? "", FontFamily = Mono, FontSize = 12, Opacity = 0.55, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
-        var signText = new TextBlock { Text = sign, FontFamily = Mono, FontWeight = FontWeight.Bold, FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
+        bool narrow = size < 12;
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions(narrow ? "26,12,*" : "44,18,*"),
+            MinHeight = narrow ? 24 : 26,
+            Background = back is { } c && !empty ? new SolidColorBrush(c) : null,
+        };
+        if (empty)
+        {
+            return grid;
+        }
+
+        grid.Children.Add(new TextBlock { Text = number?.ToString() ?? "", FontFamily = Mono, FontSize = size - 1, Opacity = 0.55, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) });
+        var signText = new TextBlock { Text = sign, FontFamily = Mono, FontWeight = FontWeight.Bold, FontSize = size, VerticalAlignment = VerticalAlignment.Center };
         Grid.SetColumn(signText, 1);
         grid.Children.Add(signText);
-        var body = new TextBlock { Text = text.Length == 0 ? " " : text, FontFamily = Mono, FontSize = 13, Opacity = opacity, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 8, 2) };
+
+        var body = new TextBlock { FontFamily = Mono, FontSize = size, Opacity = opacity, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 6, 2) };
+        if (segments is { Count: > 0 })
+        {
+            foreach (DiffSegment segment in segments)
+            {
+                var run = new Avalonia.Controls.Documents.Run(segment.Text);
+                if (segment.Changed && word is { } w)
+                {
+                    run.Background = new SolidColorBrush(w);
+                    run.FontWeight = FontWeight.Bold;
+                }
+
+                body.Inlines!.Add(run);
+            }
+        }
+        else
+        {
+            body.Text = string.IsNullOrEmpty(text) ? " " : text;
+        }
+
         Grid.SetColumn(body, 2);
         grid.Children.Add(body);
         return grid;
