@@ -23,8 +23,8 @@ public class LatheToolTypesTests
     {
         LatheToolShape shape = LatheToolShape.Of(Tool(kind));
         Assert.Equal(4, shape.Insert.Count);
-        Assert.All(shape.Holders, h => Assert.Equal(4, h.Count));
-        foreach (var poly in shape.Holders.Prepend(shape.Insert))
+        Assert.All(shape.Holders, h => Assert.Equal(4, h.Polygon.Count));
+        foreach (var poly in shape.Holders.Select(h => h.Polygon).Prepend(shape.Insert))
         {
             double sign = 0;
             for (int i = 0; i < 4; i++)
@@ -48,7 +48,7 @@ public class LatheToolTypesTests
     {
         LatheToolShape shape = LatheToolShape.Of(Tool(kind));
         Assert.All(shape.Insert, p => Assert.True(p.X <= 1e-9));
-        Assert.All(shape.Holders.SelectMany(h => h), p => Assert.True(p.X <= 1e-9));
+        Assert.All(shape.Holders.SelectMany(h => h.Polygon), p => Assert.True(p.X <= 1e-9));
     }
 
     [Theory]

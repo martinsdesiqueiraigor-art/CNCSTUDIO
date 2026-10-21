@@ -459,9 +459,9 @@ public sealed class GraphicsView : ZoomPanControl
         Point[] Map(IReadOnlyList<(double X, double Z)> poly) =>
             [.. poly.Select(p => Screen(tip.X + sign * p.X * Scale, tip.Z + p.Z * Scale))];
 
-        foreach (IReadOnlyList<(double X, double Z)> holder in shape.Holders)
+        foreach (LatheToolShape.HolderPart holder in shape.Holders)
         {
-            DrawPolygon(context, LatheHolderBrush, HolderOutline, Map(holder));
+            DrawPolygon(context, LatheHolderBrush, HolderOutline, Map(holder.Polygon));
         }
 
         DrawPolygon(context, InsertBrush, ToolOutline, Map(shape.Insert));

@@ -267,9 +267,9 @@ public static class SceneMeshes
 
         // Corpo por baixo do inserto
         var holder = SolidMesh.Create(16);
-        foreach (IReadOnlyList<(double X, double Z)> part in shape.Holders)
+        foreach (LatheToolShape.HolderPart part in shape.Holders)
         {
-            Prism(holder, part, -half - 10, -half, palette.Holder);
+            Prism(holder, part.Polygon, part.Y0, part.Y1, palette.Holder);
         }
 
         return (insert.Transformed(LatheToWorld), holder.Transformed(LatheToWorld));

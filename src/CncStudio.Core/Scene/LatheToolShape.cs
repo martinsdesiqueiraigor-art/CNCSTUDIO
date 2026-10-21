@@ -14,10 +14,25 @@ namespace CncStudio.Core.Scene;
 /// <param name="ChipBreaker">Desenha o quebra-cavaco (só no torneamento).</param>
 public sealed record LatheToolShape(
     IReadOnlyList<(double X, double Z)> Insert,
-    IReadOnlyList<IReadOnlyList<(double X, double Z)>> Holders,
+    IReadOnlyList<LatheToolShape.HolderPart> Holders,
     double Thickness,
     bool ChipBreaker)
 {
+    /// <summary>
+    /// Peça do corpo: polígono no plano XZ e faixa em Y relativa ao plano do inserto (o inserto vai de
+    /// −Thickness/2 a +Thickness/2; o corpo comum fica por baixo dele).
+    /// </summary>
+    public sealed record HolderPart(IReadOnlyList<(double X, double Z)> Polygon, double Y0, double Y1);
+
+    /// <summary>Seção do cabo de um porta-ferramenta de torneamento (25 × 25 mm, padrão de mercado, ex.: PCLNR 2525).</summary>
+    public const double ShankSize = 25;
+
+    /// <summary>Diâmetro da barra de mandrilar (mm).</summary>
+    public const double BoringBarSize = 16;
+
+    private static HolderPart Rect(double x0, double x1, double z0, double z1, double y0, double y1) =>
+        new([(x0, z0), (x1, z0), (x1, z1), (x0, z1)], y0, y1);
+
     /// <summary>Largura de corte e posição dela em Z: a ponta programada fica em "Offset" do centro do corte.</summary>
     public readonly record struct CutSpec(double HalfWidth, double Offset);
 
@@ -47,70 +62,67 @@ public sealed record LatheToolShape(
     {
         ToolKind kind = KindOf(tool);
         double width = Math.Max(0.5, tool?.InsertWidth ?? SetupTool.DefaultInsertWidth);
-        double bar = Math.Clamp(tool?.HolderDiameter ?? 20, 8, 40);
         LatheToolShape shape = kind switch
         {
-            ToolKind.PartExternal or ToolKind.PartInternal => Parting(width, bar),
-            ToolKind.ThreadExternal or ToolKind.ThreadInternal => Thread(bar),
-            _ => Turning(bar),
+            ToolKind.PartExternal or ToolKind.PartInternal => Parting(width),
+            ToolKind.ThreadExternal or ToolKind.ThreadInternal => Thread(),
+            _ => Turning(),
         };
 
-        // Interna: espelha em X (o corpo fica do lado do eixo) e inverte a ordem para manter o sentido
-        return IsInternal(kind) ? shape.Mirrored(bar) : shape;
+        // Interna: espelha em X (o corpo fica do lado do eixo) e troca o corpo por uma barra que sai do furo
+        return IsInternal(kind) ? shape.Mirrored() : shape;
     }
 
-    // Inserto rômbico de 80° (12,7 mm), ponta na origem, corpo para +X e +Z; haste por trás
-    private static LatheToolShape Turning(double bar)
+    // Inserto rômbico de 80° (CNMG 12 = 12,7 mm), ponta na origem; cabo quadrado de 25 mm atrás dele (como um PCLNR 2525)
+    private static LatheToolShape Turning()
     {
         double side = TurnInscribed / Math.Sin(80 * Math.PI / 180);
         double bisector = Math.PI / 4, half = 40 * Math.PI / 180;
         (double X, double Z) a = (side * Math.Cos(bisector + half), side * Math.Sin(bisector + half));
         (double X, double Z) b = (side * Math.Cos(bisector - half), side * Math.Sin(bisector - half));
         (double X, double Z) c = (a.X + b.X, a.Z + b.Z);
-        double cx = c.X / 2, cz = c.Z / 2;
+        const double thickness = 4.76;
         return new LatheToolShape(
             [(0, 0), b, c, a],
-            [[(cx, cz - bar / 2), (cx + 70, cz - bar / 2), (cx + 70, cz + bar / 2), (cx, cz + bar / 2)]],
-            4.76, true);
+            [Rect(3, 75, 2.5, 2.5 + ShankSize, -thickness / 2 - ShankSize, -thickness / 2)],
+            thickness, true);
     }
 
-    // Inserto triangular de 60° cortado na ponta (0,4 mm), com o corpo atrás
-    private static LatheToolShape Thread(double bar)
+    // Inserto triangular de 60° (TNMG/16ER) com a ponta cortada em 0,4 mm; cabo de 20 mm centrado no inserto
+    private static LatheToolShape Thread()
     {
-        const double length = 9.5, halfBase = 5.5;
+        const double length = 9.5, halfBase = 5.5, thickness = 3.5, shank = 20;
         return new LatheToolShape(
             [(0, -0.2), (length, -halfBase), (length, halfBase), (0, 0.2)],
-            [[(length - 0.5, -bar / 2), (length + 65, -bar / 2), (length + 65, bar / 2), (length - 0.5, bar / 2)]],
-            3.5, false);
+            [Rect(length - 1, length + 65, -shank / 2, shank / 2, -thickness / 2 - shank, -thickness / 2)],
+            thickness, false);
     }
 
-    // Lâmina reta de largura "width": o canto da ponta está na origem e a lâmina ocupa Z de 0 a width
-    private static LatheToolShape Parting(double width, double bar)
+    // Bedame: lâmina fina de largura "width" com o canto da ponta na origem (ocupa Z de 0 a width),
+    // 26 mm de altura (como as lâminas de canal/corte) presa a um bloco de 25 × 25 mm
+    private static LatheToolShape Parting(double width)
     {
-        const double blade = 14;
+        const double blade = 14, bladeHeight = 26;
         return new LatheToolShape(
             [(0, 0), (blade, 0), (blade, width), (0, width)],
             [
-                [(blade - 1, -0.2), (blade + 28, -0.2), (blade + 28, width + 0.2), (blade - 1, width + 0.2)], // lâmina que sai do suporte
-                [(blade + 27, -bar / 2 + width / 2), (blade + 75, -bar / 2 + width / 2), (blade + 75, bar / 2 + width / 2), (blade + 27, bar / 2 + width / 2)],
+                Rect(blade - 1, blade + 32, -0.3, width + 0.3, -bladeHeight / 2, bladeHeight / 2),                 // lâmina
+                Rect(blade + 31, blade + 85, width / 2 - ShankSize / 2, width / 2 + ShankSize / 2, -ShankSize / 2, ShankSize / 2), // bloco
             ],
             Math.Max(2, Math.Min(width, 6)), false);
     }
 
-    /// <summary>Espelho em X; nas ferramentas internas o corpo vira uma barra que sai do furo para +Z.</summary>
-    private LatheToolShape Mirrored(double bar)
+    /// <summary>Espelho em X; nas ferramentas internas o corpo é uma barra que corre ao longo de Z, para fora do furo.</summary>
+    private LatheToolShape Mirrored()
     {
         static IReadOnlyList<(double X, double Z)> Flip(IReadOnlyList<(double X, double Z)> p) =>
             [.. p.Select(v => (-v.X, v.Z)).Reverse()];
 
-        // A barra interna corre ao longo de Z, para fora do furo, atrás do inserto
         double reach = Insert.Max(p => p.X);
         double start = Insert.Max(p => p.Z);
-        double barWidth = bar * 0.6;
-        List<IReadOnlyList<(double X, double Z)>> holders =
-        [
-            [(-(reach + barWidth), start - 0.5), (-reach * 0.55, start - 0.5), (-reach * 0.55, start + 90), (-(reach + barWidth), start + 90)],
-        ];
-        return this with { Insert = Flip(Insert), Holders = holders };
+        double top = Holders.Min(h => h.Y1); // a barra fica logo abaixo do inserto
+        // Bedame interno e rosca interna: a barra fica ao lado do inserto; no torneamento, atrás dele
+        HolderPart bar = Rect(-(reach + BoringBarSize * 0.6), -Math.Max(1.5, reach * 0.35), start - 0.5, start + 90, top - BoringBarSize, top);
+        return this with { Insert = Flip(Insert), Holders = [bar] };
     }
 }
