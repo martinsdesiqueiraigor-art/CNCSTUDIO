@@ -294,6 +294,11 @@
       <web:StatsPanel x:Name="StatsView" />
     </Border>
 
+    <!-- Comparar programas (cobre a área de trabalho quando aberta) -->
+    <Border x:Name="CompareHost" Grid.Row="1" Grid.RowSpan="2" IsVisible="False" ZIndex="7">
+      <web:ComparePanel x:Name="CompareView" />
+    </Border>
+
     <!-- Biblioteca de programas (cobre a área de trabalho quando aberta) -->
     <Border x:Name="LibraryHost" Grid.Row="1" Grid.RowSpan="2" IsVisible="False" ZIndex="5">
       <web:LibraryPanel x:Name="Library" />
