@@ -1184,6 +1184,12 @@ public partial class MainView : UserControl
         _loading = false;
         _analysisTimer.Stop();
         Analyze(keepView: false);
+        // Programa novo: a simulação começa no início (peça inteira, ferramenta no ponto de partida)
+        if (_stepEnds.Length > 0 && !_restoring)
+        {
+            StopSimulation();
+            SetStep(0);
+        }
     }
 
     // ───────────────────────── Análise ─────────────────────────

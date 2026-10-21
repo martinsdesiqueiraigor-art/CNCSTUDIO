@@ -50,8 +50,8 @@ public partial class MainView
     private void Wire3D()
     {
         Mode2DButton.Click += async (_, _) => await SetModeAsync(PlotMode.TwoD);
-        Mode2D3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.TwoDPlus3D);
-        Mode3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.ThreeD);
+        Mode2D3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.TwoDPlus3D, startAtBeginning: true);
+        Mode3DButton.Click += async (_, _) => await SetModeAsync(PlotMode.ThreeD, startAtBeginning: true);
         GraphHost.SizeChanged += (_, _) => ApplyPlotsLayout();
         Backplot.SizeChanged += (_, _) =>
         {
@@ -70,8 +70,9 @@ public partial class MainView
         Mode3DButton.IsChecked = _mode == PlotMode.ThreeD;
     }
 
-    private async Task SetModeAsync(PlotMode mode)
+    private async Task SetModeAsync(PlotMode mode, bool startAtBeginning = false)
     {
+        bool wasFlat = _mode == PlotMode.TwoD;
         bool on = mode != PlotMode.TwoD;
         if (_loading3D)
         {
@@ -121,6 +122,13 @@ public partial class MainView
         if (on)
         {
             Rebuild3D();
+            if (startAtBeginning && wasFlat && _stepEnds.Length > 0)
+            {
+                // Abrindo o 3D: peça inteira e ferramenta no início; o play corta, o ▶| vai ao fim
+                StopSimulation();
+                SetStep(0);
+            }
+
             _frame3D?.Start();
             SetStatus(Limit3D);
         }
