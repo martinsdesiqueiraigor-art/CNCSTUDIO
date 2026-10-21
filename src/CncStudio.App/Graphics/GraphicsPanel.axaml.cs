@@ -175,7 +175,7 @@ public partial class GraphicsPanel : UserControl
     /// <summary>Setup do programa (fixações e ferramentas desenhadas no 3D). Vale na próxima trajetória.</summary>
     public MachiningSetup? Setup { get; set; }
 
-    /// <summary>Nova trajetória: recria o bruto e mostra a peça pronta (o ⏮ volta ao bruto).</summary>
+    /// <summary>Nova trajetória: recria o bruto. Programa novo começa no início; edição mostra a peça pronta.</summary>
     public void SetToolPath(ToolPath path, IReadOnlyList<PathPolyline> figures, bool fit)
     {
         Pause();
@@ -203,7 +203,9 @@ public partial class GraphicsPanel : UserControl
 
         _fitOnNextFrame |= fit;
         Rebuild();
-        Enqueue(s => s.RunToEnd());
+        // Programa novo (fit): começa no início, peça inteira e ferramenta no ponto de partida (o play corta).
+        // Edição do mesmo programa: continua mostrando a peça pronta.
+        Enqueue(fit ? (s => s.Reset()) : (s => s.RunToEnd()));
     }
 
     /// <summary>Recria o bruto e a simulação (ex.: diâmetros mudaram).</summary>
@@ -262,7 +264,7 @@ public partial class GraphicsPanel : UserControl
     {
         SpeedLabel.Text = LineMode ? $"{Speed:0.#} linhas/s" : $"{Speed:0} mm/s";
         SpeedButton.Content = $"⏱ {SpeedLabel.Text} ▾";
-        _timer.Interval = LineMode ? TimeSpan.FromMilliseconds(Math.Max(16, 1000 / Speed)) : TimeSpan.FromMilliseconds(30);
+        _timer.Interval = TimeSpan.FromMilliseconds(LineMode ? 20 : 30);
     }
 
     private void Play()
@@ -298,15 +300,19 @@ public partial class GraphicsPanel : UserControl
             return; // quadro anterior ainda sendo calculado: não acumula trabalho
         }
 
-        if (LineMode)
-        {
-            Enqueue(s => s.AdvanceLine());
-            return;
-        }
-
         TimeSpan now = _clock.Elapsed;
         double seconds = Math.Min(0.1, (now - _lastTick).TotalSeconds);
         _lastTick = now;
+
+        if (LineMode)
+        {
+            // Linha a linha suave: a ferramenta percorre a linha (e os retornos dos ciclos) em 1/velocidade s
+            double lines = Speed * seconds;
+            IReadOnlyList<Move> moves = _path?.Moves ?? [];
+            Enqueue(s => LinePacing.Advance(s, moves, lines));
+            return;
+        }
+
         double distance = Speed * seconds;
         Enqueue(s => s.Advance(distance));
     }
