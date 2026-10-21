@@ -1,8 +1,11 @@
 // Cadastro local de até 20 ferramentas com desenho técnico dinâmico.
 // Os códigos de tipo (fresa, fresa-esferica...) são os do modelo do Core (ToolKind); a lista pode ficar vazia.
-const KINDS=[['fresa','Fresa de topo'],['fresa-esferica','Fresa esférica'],['fresa-toroidal','Fresa toroidal'],['broca','Broca'],['macho','Macho'],['fresa-facear','Fresa de facear']];
+const KINDS=[['fresa','Fresa de topo'],['fresa-esferica','Fresa esférica'],['fresa-toroidal','Fresa toroidal'],['broca','Broca'],['macho','Macho'],['fresa-facear','Fresa de facear'],
+  ['torno-externa','Torno · Desbaste externo'],['torno-interna','Torno · Barra interna'],['bedame','Torno · Bedame externo'],['bedame-interno','Torno · Bedame interno'],['rosca-externa','Torno · Rosca externa'],['rosca-interna','Torno · Rosca interna']];
+const LATHE=['torno-externa','torno-interna','bedame','bedame-interno','rosca-externa','rosca-interna'];
+const PARTING=['bedame','bedame-interno'];
 export function mountToolEditor(parent, data) {
-  const defaults = () => ({Kind:'fresa',Number:1,Diameter:10,CornerRadius:0,TipAngle:118,CuttingLength:25,HolderDiameter:35,HolderLength:45});
+  const defaults = () => ({Kind:'fresa',Number:1,Diameter:10,CornerRadius:0,TipAngle:118,CuttingLength:25,HolderDiameter:35,HolderLength:45,InsertWidth:3});
   const tools = Array.isArray(data.Tools) ? data.Tools.map(t => ({...defaults(),...t})).slice(0,20) : [];
   let selected = 0;
   const ui = document.createElement('div');
@@ -42,6 +45,22 @@ export function mountToolEditor(parent, data) {
     add.disabled=tools.length>=20;remove.disabled=tools.length===0;selector.disabled=tools.length===0;
     [...selector.options].forEach((opt,i)=>opt.textContent='T'+tools[i].Number+' · Ø'+tools[i].Diameter+' mm');
   }
+  function drawLathe(t,kind){
+    const w=Math.min(20,Math.max(0.5,+t.InsertWidth||3)),inner=kind.endsWith('interna')||kind==='bedame-interno',k=4.2;
+    const ox=inner?250:90,oy=60,mir=inner?-1:1;
+    const P=(x,z)=>(ox+mir*x*k)+','+(oy+z*k);
+    const poly=(pts,fill)=>'<polygon points="'+pts.map(p=>P(p[0],p[1])).join(' ')+'" fill="'+fill+'" stroke="#d4e7f5" stroke-width="1.4"/>';
+    let ins,holders;
+    if(PARTING.includes(kind)){ins=[[0,0],[14,0],[14,w],[0,w]];holders=[[[13,-.2],[28,-.2],[28,w+.2],[13,w+.2]],[[27,-6],[40,-6],[40,w+6],[27,w+6]]];}
+    else if(kind.startsWith('rosca')){ins=[[0,-.2],[9.5,-5.5],[9.5,5.5],[0,.2]];holders=[[[9,-8],[40,-8],[40,8],[9,8]]];}
+    else{ins=[[0,0],[12.5,1.1],[11.4,13.5],[-1.1,12.4]];holders=[[[5,3],[40,3],[40,15],[5,15]]];}
+    if(inner)holders=[[[7,10],[15,10],[15,38],[7,38]]];
+    preview.innerHTML='<rect width="340" height="230" fill="#101b26"/><text x="12" y="20" fill="#e6edf3" font-size="13">T'+t.Number+' · '+(KINDS.find(x=>x[0]===kind)||[0,''])[1]+'</text>'+
+      '<path d="M'+(ox)+' 30 V205" stroke="#415569" stroke-dasharray="4 4"/>'+
+      holders.map(h=>poly(h,'#4a6fa5')).join('')+poly(ins,'#f2c230')+
+      '<circle cx="'+ox+'" cy="'+oy+'" r="3" fill="#ff7b72"/><text x="'+(ox+8)+'" y="'+(oy-6)+'" fill="#8dbbd0" font-size="11">ponta</text>'+
+      (PARTING.includes(kind)?'<text x="12" y="216" fill="#8dbbd0" font-size="12">Largura do inserto '+w+' mm</text>':'<text x="12" y="216" fill="#8dbbd0" font-size="12">Ilustração · lado '+(inner?'interno (no furo)':'externo')+'</text>');
+  }
   function draw(){
     if(!tools.length){preview.innerHTML='<rect width="340" height="230" fill="#101b26"/><text x="170" y="118" text-anchor="middle" fill="#8dbbd0" font-size="13">Toque em + Adicionar para cadastrar</text>';return;}
     const t=tools[selected],safe=n=>Number.isFinite(n)&&n>0?Math.min(n,100000):1;
@@ -51,6 +70,7 @@ export function mountToolEditor(parent, data) {
     const tipY=194,cutH=Math.max(8,cut*scale),holderH=Math.max(10,length*scale),center=164;
     const shaftTop=tipY-cutH,holderTop=shaftTop-holderH;
     const kind=t.Kind||'fresa';
+    if(LATHE.includes(kind)){drawLathe(t,kind);return;}
     const tip=kind==='broca'?'<path d="M'+(center-shaftW/2)+' '+(tipY-9)+' L'+center+' '+tipY+' L'+(center+shaftW/2)+' '+(tipY-9)+'Z" fill="#58a6ff" stroke="#d4e7f5"/>':kind==='fresa-esferica'?'<path d="M'+(center-shaftW/2)+' '+(tipY-shaftW/2)+' A'+(shaftW/2)+' '+(shaftW/2)+' 0 0 0 '+(center+shaftW/2)+' '+(tipY-shaftW/2)+'" fill="none" stroke="#d4e7f5" stroke-width="2"/>':kind==='macho'?'<path d="M'+(center-shaftW/2)+' '+(tipY-22)+' l'+shaftW+' 5 l-'+shaftW+' 5 l'+shaftW+' 5 l-'+shaftW+' 5" fill="none" stroke="#d4e7f5" stroke-width="1.5"/>':'<path d="M'+(center-shaftW/2)+' '+tipY+' H'+(center+shaftW/2)+'" stroke="#d4e7f5" stroke-width="2"/>';
     const corner=kind==='fresa-toroidal'?(()=>{const rc=Math.min(shaftW/2,Math.max(2,(+t.CornerRadius||0)*scale));return '<path d="M'+(center-shaftW/2)+' '+(tipY-rc)+' Q'+(center-shaftW/2)+' '+tipY+' '+(center-shaftW/2+rc)+' '+tipY+' H'+(center+shaftW/2-rc)+' Q'+(center+shaftW/2)+' '+tipY+' '+(center+shaftW/2)+' '+(tipY-rc)+'" fill="none" stroke="#d4e7f5" stroke-width="2"/>';})():'';
     const faceMill=kind==='fresa-facear'?'<rect x="'+(center-Math.max(shaftW,holderW)/2)+'" y="'+(tipY-11)+'" width="'+Math.max(shaftW,holderW)+'" height="11" rx="2" fill="#58a6ff" stroke="#d4e7f5"/>':'';
@@ -71,11 +91,13 @@ export function mountToolEditor(parent, data) {
     tools.forEach((t,i)=>{const opt=document.createElement('option');opt.value=String(i);selector.append(opt);});
     selector.value=String(selected);fields.replaceChildren();
     if(!tools.length){updateLabels();draw();return;}
-    toolType();numeric('Número T','Number',true);numeric('Diâmetro de corte (mm)','Diameter');
+    toolType();numeric('Número T','Number',true);
+    if(PARTING.includes(tools[selected].Kind))numeric('Largura do inserto (mm)','InsertWidth');
+    if(!LATHE.includes(tools[selected].Kind))numeric('Diâmetro de corte (mm)','Diameter');
     if(tools[selected].Kind==='fresa-toroidal')numeric('Raio de canto (mm)','CornerRadius');
     if(tools[selected].Kind==='broca')numeric('Ângulo da ponta (°)','TipAngle');
-    numeric('Comprimento de corte (mm)','CuttingLength');numeric('Diâmetro do porta-ferramenta (mm)','HolderDiameter');
-    numeric('Comprimento do porta-ferramenta (mm)','HolderLength');
+    if(!LATHE.includes(tools[selected].Kind)){numeric('Comprimento de corte (mm)','CuttingLength');numeric('Diâmetro do porta-ferramenta (mm)','HolderDiameter');
+    numeric('Comprimento do porta-ferramenta (mm)','HolderLength');}
     updateLabels();draw();
   }
   render();
@@ -88,6 +110,7 @@ export function mountToolEditor(parent, data) {
         if(!Number.isInteger(t.Number)||t.Number<1||t.Number>9999||nums.has(t.Number))return 'Números T devem ser únicos, entre 1 e 9999.';
         nums.add(t.Number);
         if(!['Diameter','CuttingLength','HolderDiameter','HolderLength'].every(k=>Number.isFinite(t[k])&&t[k]>0&&t[k]<=100000))return 'Confira as dimensões das ferramentas.';
+        if(!(Number.isFinite(t.InsertWidth)&&t.InsertWidth>0&&t.InsertWidth<=50))return 'T'+t.Number+': a largura do inserto vai de 0 até 50 mm.';
         if(!(Number.isFinite(t.CornerRadius)&&t.CornerRadius>=0&&t.CornerRadius<=t.Diameter/2))return 'T'+t.Number+': o raio de canto vai de 0 até metade do diâmetro.';
         if(!(Number.isFinite(t.TipAngle)&&t.TipAngle>0&&t.TipAngle<180))return 'T'+t.Number+': o ângulo da ponta precisa estar entre 0° e 180°.';
       }

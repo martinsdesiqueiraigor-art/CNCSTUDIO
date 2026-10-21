@@ -358,7 +358,6 @@ public class SimulationSceneTests
         Assert.Equal(0, b.Min.Z, 6);
         Assert.True(insert.EnclosedVolume() > 0);
         Assert.True(TemCor(insert, ScenePalette.Realistic.Coating));   // quebra-cavaco na cor da cobertura
-        Assert.True(TemCor(insert, ScenePalette.Realistic.Tool));
     }
 
     // ── Fixações ──

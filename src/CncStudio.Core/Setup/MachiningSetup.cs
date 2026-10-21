@@ -248,12 +248,44 @@ public enum ToolKind
 
     [JsonStringEnumMemberName("fresa-facear")]
     FaceMill,
+
+    // ── Torno ──
+
+    /// <summary>Ferramenta de torneamento externo (inserto rômbico).</summary>
+    [JsonStringEnumMemberName("torno-externa")]
+    TurnExternal,
+
+    /// <summary>Barra de mandrilar (torneamento interno).</summary>
+    [JsonStringEnumMemberName("torno-interna")]
+    TurnInternal,
+
+    /// <summary>Bedame externo (canal e corte).</summary>
+    [JsonStringEnumMemberName("bedame")]
+    PartExternal,
+
+    /// <summary>Bedame interno (canal dentro do furo).</summary>
+    [JsonStringEnumMemberName("bedame-interno")]
+    PartInternal,
+
+    /// <summary>Ferramenta de rosca externa.</summary>
+    [JsonStringEnumMemberName("rosca-externa")]
+    ThreadExternal,
+
+    /// <summary>Ferramenta de rosca interna.</summary>
+    [JsonStringEnumMemberName("rosca-interna")]
+    ThreadInternal,
 }
 
 /// <summary>Ferramenta com geometria: corte e suporte (porta-ferramenta).</summary>
 public sealed class SetupTool
 {
     public const double DefaultDrillTipAngle = 118;
+    public const double DefaultInsertWidth = 3;
+
+    /// <summary>Ferramenta própria do torno (a broca serve aos dois).</summary>
+    [JsonIgnore]
+    public bool IsLathe => Kind is ToolKind.TurnExternal or ToolKind.TurnInternal or ToolKind.PartExternal
+        or ToolKind.PartInternal or ToolKind.ThreadExternal or ToolKind.ThreadInternal;
 
     public ToolKind Kind { get; set; } = ToolKind.FlatEndMill;
 
@@ -267,6 +299,9 @@ public sealed class SetupTool
 
     /// <summary>Ângulo da ponta da broca, em graus (118 é o padrão de mercado).</summary>
     public double TipAngle { get; set; } = DefaultDrillTipAngle;
+
+    /// <summary>Largura do inserto do bedame (mm). Só vale para os bedames.</summary>
+    public double InsertWidth { get; set; } = DefaultInsertWidth;
 
     public double CuttingLength { get; set; } = 25;
     public double HolderDiameter { get; set; } = 35;
@@ -301,6 +336,11 @@ public sealed class SetupTool
         if (!double.IsFinite(TipAngle) || TipAngle <= 0 || TipAngle >= 180)
         {
             return $"T{Number}: o ângulo da ponta precisa estar entre 0° e 180°.";
+        }
+
+        if (!SetupNumbers.Positive(InsertWidth) || InsertWidth > 50)
+        {
+            return $"T{Number}: a largura do inserto vai de 0 até 50 mm.";
         }
 
         return null;

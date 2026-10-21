@@ -1,3 +1,4 @@
+using CncStudio.Core.Scene;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Setup;
 using CncStudio.Core.Trajectory;
@@ -66,7 +67,7 @@ public static class SimulationFactory
         if (path.Machine == MachineKind.Lathe)
         {
             TurningStock bar = LatheStock(stock, path);
-            return new MaterialSimulationParts(new TurningSimulator(bar, path.Moves, analysis.ToolDiameterOf), null, bar, stock);
+            return new MaterialSimulationParts(new TurningSimulator(bar, path.Moves, analysis.ToolDiameterOf, tool => LatheToolShape.CutOf(setup?.ToolOf(tool))), null, bar, stock);
         }
 
         Func<int, ToolProfile> profiles = MillProfiles(setup, analysis.ToolDiameterOf);
