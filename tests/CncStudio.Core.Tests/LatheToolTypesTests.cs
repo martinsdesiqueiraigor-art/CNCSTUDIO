@@ -26,13 +26,11 @@ public class LatheToolTypesTests
         Assert.All(shape.Holders, h => Assert.Equal(4, h.Polygon.Count));
         foreach (var poly in shape.Holders.Select(h => h.Polygon).Prepend(shape.Insert))
         {
-            double sign = 0;
-            for (int i = 0; i < 4; i++)
+                        for (int i = 0; i < 4; i++)
             {
                 var (a, b, c) = (poly[i], poly[(i + 1) % 4], poly[(i + 2) % 4]);
                 double cross = (b.X - a.X) * (c.Z - b.Z) - (b.Z - a.Z) * (c.X - b.X);
                 Assert.True(cross > 0, $"{kind}: polígono fora do sentido anti-horário/convexo");
-                sign += cross;
             }
         }
 
@@ -66,7 +64,7 @@ public class LatheToolTypesTests
     {
         LatheToolShape shape = LatheToolShape.Of(Tool(ToolKind.PartExternal, 4));
         Assert.Equal(4, shape.Insert.Max(p => p.Z) - shape.Insert.Min(p => p.Z), 6);
-        Assert.Equal(new LatheToolShape.CutSpec(2, 2), LatheToolShape.CutOf(Tool(ToolKind.PartExternal, 4)));
+        Assert.Equal(new LatheToolShape.CutSpec(2, -2), LatheToolShape.CutOf(Tool(ToolKind.PartExternal, 4)));
     }
 
     [Fact]
@@ -84,7 +82,7 @@ public class LatheToolTypesTests
         var simulator = new TurningSimulator(stock, [], _ => 10, _ => LatheToolShape.CutOf(tool));
         Assert.NotNull(simulator);
 
-        // Corte direto no estoque com a mesma regra usada pelo simulador: canto em Z = -20, largura 4
+        // Corte direto no estoque com a mesma regra usada pelo simulador: canto em Z = -20, largura 4 (canal de -24 a -20)
         LatheToolShape.CutSpec cut = LatheToolShape.CutOf(tool);
         stock.Cut(-20 + cut.Offset, 20, cut.HalfWidth, 1); // mergulho no mesmo Z
 
@@ -95,7 +93,7 @@ public class LatheToolTypesTests
             if (stock.Outer[i] < 29)
             {
                 below++;
-                Assert.InRange(z, -20 - stock.SliceLength, -16 + stock.SliceLength);
+                Assert.InRange(z, -24 - stock.SliceLength, -20 + stock.SliceLength);
             }
         }
 
