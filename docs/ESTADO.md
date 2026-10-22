@@ -10,3 +10,4 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **Prévia:** push em ramo `fase-*`/`ajuste-*` publica `https://<ramo>.casillas-code.pages.dev` e o .exe de teste em Actions → Artifacts. **Testes:** 473 passando.
 
 - CODE-09 na `main` (21/10, PR #8): tipos de ferramenta de torno (desbaste, barra interna, bedame, rosca) com desenho e corte próprios; editor só na web. Falta: editor de tipo no desktop, perfil real da rosca, refino visual dos suportes.
+- CODE-13 (ramo `ajuste-code13-ferramentas`, 22/10): bedame externo (cabeça fina, alargamento a 45°, cabo 25×25, garra e parafuso), PCLNR com garra em cunha e fresa de topo com 4 canais helicoidais (só visuais). Falta: bedame interno e barras (referências MVQNR), inclinação de 10° da cabeça, ver no app com GPU. **Testes:** 509.

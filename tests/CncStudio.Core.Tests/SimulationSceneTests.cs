@@ -304,10 +304,11 @@ public class SimulationSceneTests
         Assert.True(TemCor(holder, ScenePalette.Realistic.Nut));
         Assert.True(TemCor(holder, ScenePalette.Realistic.Holder));
 
-        // Fresa de topo: volume do prisma de 48 lados
+        // Fresa de topo: os canais helicoidais tiram material só da parte cortante (volume entre 75 % e 100 % do prisma de 48 lados)
+        double prism = Poligono(5) * (nutFace + SceneMeshes.ToolEmbed);
         if (shape == ToolTipShape.Flat)
         {
-            Assert.Equal(Poligono(5) * (nutFace + SceneMeshes.ToolEmbed), cutter.EnclosedVolume(), 3);
+            Assert.InRange(cutter.EnclosedVolume(), prism * 0.75, prism * 0.995);
         }
     }
 

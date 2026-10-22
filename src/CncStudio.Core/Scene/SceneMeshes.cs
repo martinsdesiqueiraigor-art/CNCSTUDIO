@@ -178,9 +178,84 @@ public static class SceneMeshes
         }
 
         var cutter = SolidMesh.Create(RevolutionSegments * outline.Count);
-        Revolve(cutter, outline, 0, 0, palette.Tool, cutterColors);
+        if (profile.Shape == ToolTipShape.Flat)
+        {
+            // Fresa de topo: canais helicoidais só visuais na parte cortante (a remoção de material usa o perfil, não esta malha)
+            FlutedCutter(cutter, r, cutting, MillFlutes, MillHelixDegrees, cutting0);
+            Revolve(cutter, [(r, cutting), (r, nutFace + ToolEmbed), (0, nutFace + ToolEmbed)], 0, 0, palette.Tool);
+        }
+        else
+        {
+            Revolve(cutter, outline, 0, 0, palette.Tool, cutterColors);
+        }
 
         return (cutter, BtHolder(nutFace, holderRadius, holderLength, r, palette));
+    }
+
+    /// <summary>Número de canais e ângulo de hélice ilustrativos da fresa de topo (valores de catálogo variam por modelo).</summary>
+    public const int MillFlutes = 4;
+
+    public const double MillHelixDegrees = 30;
+
+    /// <summary>
+    /// Parte cortante helicoidal de eixo Z, de z = 0 (ponta) a z = length: "flutes" canais torcidos em "helixDegrees".
+    /// Os canais morrem em rampa no fim da parte cortante, onde começa a haste lisa de raio "radius".
+    /// </summary>
+    internal static void FlutedCutter(SolidMesh mesh, double radius, double length, int flutes, double helixDegrees, uint color)
+    {
+        const int perFlute = 16;
+        int points = flutes * perFlute;
+        int rings = Math.Clamp((int)Math.Ceiling(length / 1.0), 8, 48);
+        double valley = radius * 0.6;
+        double tan = Math.Tan(helixDegrees * Math.PI / 180);
+        uint land = MillSolidRenderer.Lerp(color, 0xFFFFFF, 0.18);
+
+        // Perfil de um canal em [0,1): margem (raio cheio), parede, fundo do canal e parede de volta
+        static double Bump(double f)
+        {
+            static double Smooth(double x) => x * x * (3 - 2 * x);
+            if (f < 0.15 || f >= 0.85) { return 0; }
+            if (f < 0.45) { return Smooth((f - 0.15) / 0.3); }
+            return f < 0.6 ? 1 : 1 - Smooth((f - 0.6) / 0.25);
+        }
+
+        List<Point3> Ring(double z)
+        {
+            double ramp = z <= length * 0.8 ? 1 : Math.Max(0, (length - z) / (length * 0.2));
+            double twist = z * tan / radius;
+            var ring = new List<Point3>(points);
+            for (int i = 0; i < points; i++)
+            {
+                double f = (double)(i % perFlute) / perFlute;
+                double rho = radius - (radius - valley) * Bump(f) * ramp;
+                double angle = 2 * Math.PI * i / points + twist;
+                ring.Add(new Point3(rho * Math.Cos(angle), rho * Math.Sin(angle), z));
+            }
+
+            return ring;
+        }
+
+        List<Point3> prev = Ring(0);
+        var tip = new Point3(0, 0, 0);
+        for (int i = 0; i < points; i++)
+        {
+            mesh.AddQuad(tip, prev[i], prev[(i + 1) % points], prev[(i + 1) % points], new Point3(0, 0, -1), land);
+        }
+
+        for (int s = 1; s <= rings; s++)
+        {
+            List<Point3> next = Ring(length * s / rings);
+            for (int i = 0; i < points; i++)
+            {
+                int k = (i + 1) % points;
+                // Contorno anti-horário visto de +Z: a normal para fora é a aresta × (subida em Z)
+                Point3 normal = ViewCamera.Cross(prev[k] - prev[i], next[i] - prev[i]);
+                bool isLand = Bump(((double)(i % perFlute) + 0.5) / perFlute) < 0.02;
+                mesh.AddQuad(prev[i], prev[k], next[k], next[i], normal, isLand ? land : color);
+            }
+
+            prev = next;
+        }
     }
 
     // Porta-ferramenta BT40 com porca ER: do plano da face da porca (zb) para cima, numa revolução só
