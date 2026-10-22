@@ -52,11 +52,11 @@ public sealed record LatheToolShape(
 
     /// <summary>
     /// Largura e posição do corte em Z. Torneamento e rosca cortam na ponta (raio de ponta);
-    /// o bedame corta a largura inteira do inserto a partir do canto da ponta, para o lado de +Z.
+    /// o bedame corta a largura inteira do inserto a partir do canto da ponta do lado da face (+Z), para o lado de −Z (em direção ao mandril).
     /// </summary>
     public static CutSpec CutOf(SetupTool? tool) => KindOf(tool) switch
     {
-        ToolKind.PartExternal or ToolKind.PartInternal => new CutSpec(Math.Max(0.1, tool!.InsertWidth) / 2, Math.Max(0.1, tool.InsertWidth) / 2),
+        ToolKind.PartExternal or ToolKind.PartInternal => new CutSpec(Math.Max(0.1, tool!.InsertWidth) / 2, -Math.Max(0.1, tool.InsertWidth) / 2),
         ToolKind.ThreadExternal or ToolKind.ThreadInternal => new CutSpec(0.2, 0),
         _ => new CutSpec(NoseRadius, 0),
     };
@@ -108,17 +108,17 @@ public sealed record LatheToolShape(
             thickness, false);
     }
 
-    // Bedame: lâmina fina de largura "width" com o canto da ponta na origem (ocupa Z de 0 a width),
+    // Bedame: lâmina fina de largura "width" com o canto da ponta (lado da face, +Z) na origem; ocupa Z de −width a 0,
     // 26 mm de altura (como as lâminas de canal/corte) presa a um bloco de 25 × 25 mm
     private static LatheToolShape Parting(double width)
     {
         const double blade = 15, bladeHeight = 22, insertHeight = 8;
         double top = -insertHeight / 2;
         return new LatheToolShape(
-            [(0, 0), (blade, 0), (blade, width), (0, width)],
+            [(0, -width), (blade, -width), (blade, 0), (0, 0)],
             [
-                Rect(2, blade + 34, -0.3, width + 0.3, top - bladeHeight, top),                                       // lâmina
-                Rect(blade + 33, blade + 90, width / 2 - ShankSize / 2, width / 2 + ShankSize / 2, top - bladeHeight - 3, top + 3), // bloco
+                Rect(2, blade + 34, -width - 0.3, 0.3, top - bladeHeight, top),                                       // lâmina
+                Rect(blade + 33, blade + 90, -width / 2 - ShankSize / 2, -width / 2 + ShankSize / 2, top - bladeHeight - 3, top + 3), // bloco
             ],
             insertHeight, false);
     }

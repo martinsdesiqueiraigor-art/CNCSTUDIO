@@ -24,7 +24,7 @@ Cada programa:
 3. Em cada troca: `T0202 (BEDAME EXTERNO 3MM)`. Furação: `(BROCA D18)`.
 4. Comentário curto antes de cada operação.
 5. Valores de oficina para aço 1045 (rotação, avanço, passe). Bedame: avanço baixo (0,05 a 0,1 mm/rot). Rosca: use G76 com todos os parâmetros.
-6. **Referência do bedame:** o ponto programado é o canto esquerdo do inserto (lado da face); o canal ocupa de Z até Z − largura. Programe com isso em mente.
+6. **Referência do bedame:** o ponto programado é o canto do inserto do lado da face (+Z); o canal ocupa de Z até Z − largura (em direção ao mandril). No simulador do Casillas Code é assim que o bedame corta. Programe com isso em mente.
 7. Nada de G00 dentro do material; `M30` no fim. Ferramentas internas nunca saem do furo com G00 encostado na parede.
 
 ## Pronto quando
