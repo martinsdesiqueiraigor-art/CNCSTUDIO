@@ -9,8 +9,11 @@
 - Web: editor de ferramentas do setup com os 6 tipos + largura do inserto.
 - Sem ferramenta cadastrada: vale desbaste externo (igual a antes, com o inserto melhor desenhado).
 
+## Entrega 2 (ramo `ajuste-torno-desktop`)
+- Desktop: a tabela de ferramentas (Configurações → Ferramentas) ganhou as colunas Tipo (torno) e Largura do inserto (bedame). O tipo escolhido vale quando a ferramenta não está no setup do programa.
+- O simulador do desktop passou a usar a largura de corte do bedame (antes só a web/Core usava).
+
 ## Fica para depois
-- Editor de tipo no desktop (hoje só a tabela de diâmetros; o tipo vem do setup/JSON).
 - Perfil real da rosca (G76/G92) e passo no material; chanfros/raio do bedame.
 
 - Refinar o visual dos suportes (Igor: "razoável", melhorar depois): cabo do desbaste mais curto no desenho, bedame com lâmina e inserto mais fiéis, fresa com canais helicoidais.

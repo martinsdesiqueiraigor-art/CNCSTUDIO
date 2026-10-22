@@ -1,3 +1,4 @@
+using CncStudio.Core.Setup;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using CncStudio.App.Settings;
@@ -73,11 +74,34 @@ public partial class MachineSettingsDialog : Window
         CancelButton.Click += (_, _) => Close(null);
     }
 
+    private static readonly List<(string Code, string Label)> KindChoices =
+    [
+        ("", "Padrão (desbaste externo)"),
+        (nameof(ToolKind.TurnInternal), "Torno · barra interna"),
+        (nameof(ToolKind.PartExternal), "Torno · bedame externo"),
+        (nameof(ToolKind.PartInternal), "Torno · bedame interno"),
+        (nameof(ToolKind.ThreadExternal), "Torno · rosca externa"),
+        (nameof(ToolKind.ThreadInternal), "Torno · rosca interna"),
+    ];
+
+    private static bool IsParting(string kind) => kind is nameof(ToolKind.PartExternal) or nameof(ToolKind.PartInternal);
+
     private void AddToolRow(ToolEntry entry)
     {
         var number = new NumericUpDown { Value = entry.Number, Minimum = 0, Maximum = 9999, Increment = 1, FormatString = "0", Margin = new(0, 0, 8, 0) };
         var diameter = new NumericUpDown { Value = (decimal)entry.Diameter, Minimum = 0.01m, Maximum = 500, Increment = 1, FormatString = "0.###", Margin = new(0, 0, 8, 0) };
         var description = new TextBox { Text = entry.Description, Watermark = "ex.: fresa de topo D10" };
+        var kind = new ComboBox { ItemsSource = KindChoices.Select(k => k.Label).ToList(), Margin = new(0, 0, 8, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
+        kind.SelectedIndex = Math.Max(0, KindChoices.FindIndex(k => k.Code == entry.Kind));
+        ToolTip.SetTip(kind, "Tipo da ferramenta de torno (muda o desenho e o corte no simulador do torno)");
+        var width = new NumericUpDown { Value = (decimal)entry.InsertWidth, Minimum = 0.2m, Maximum = 50, Increment = 0.5m, FormatString = "0.##", Margin = new(0, 0, 8, 0), IsVisible = IsParting(entry.Kind) };
+        ToolTip.SetTip(width, "Largura do inserto do bedame (mm)");
+        kind.SelectionChanged += (_, _) =>
+        {
+            entry.Kind = KindChoices[Math.Max(0, kind.SelectedIndex)].Code;
+            width.IsVisible = IsParting(entry.Kind);
+        };
+        width.ValueChanged += (_, _) => entry.InsertWidth = (double)(width.Value ?? 3);
         var remove = new Button { Content = "✕", HorizontalAlignment = HorizontalAlignment.Right };
         ToolTip.SetTip(remove, "Remover");
 
@@ -85,12 +109,16 @@ public partial class MachineSettingsDialog : Window
         diameter.ValueChanged += (_, _) => entry.Diameter = (double)(diameter.Value ?? 0);
         description.TextChanged += (_, _) => entry.Description = description.Text ?? "";
 
-        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("90,130,*,40") };
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("90,130,210,80,*,40") };
         Grid.SetColumn(diameter, 1);
-        Grid.SetColumn(description, 2);
-        Grid.SetColumn(remove, 3);
+        Grid.SetColumn(kind, 2);
+        Grid.SetColumn(width, 3);
+        Grid.SetColumn(description, 4);
+        Grid.SetColumn(remove, 5);
         row.Children.Add(number);
         row.Children.Add(diameter);
+        row.Children.Add(kind);
+        row.Children.Add(width);
         row.Children.Add(description);
         row.Children.Add(remove);
 

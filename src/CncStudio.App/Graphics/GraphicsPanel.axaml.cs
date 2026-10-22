@@ -239,7 +239,7 @@ public partial class GraphicsPanel : UserControl
         {
             _map = null;
             _turning = SimulationFactory.LatheStock(Stock, _path);
-            _simulation = new TurningSimulator(_turning, _path.Moves, diameterOf);
+            _simulation = new TurningSimulator(_turning, _path.Moves, diameterOf, tool => LatheToolShape.CutOf(Setup?.ToolOf(tool)));
             _scene = SimulationScene.ForLathe(_turning, _path, Setup);
             _sceneCollisions = 0;
             _stockBounds = Bounds3.Empty.Include(new Point3(0, 0, _turning.MinZ)).Include(new Point3(_turning.Radius, 0, _turning.MaxZ));
