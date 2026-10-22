@@ -332,6 +332,14 @@ public static class SceneMeshes
             }
         }
 
+        if (kind == ToolKind.PartExternal)
+        {
+            // Parafuso de fixação (cabeça redonda) no topo do bloco
+            (double px, double pz, double ptop) = LatheToolShape.PartingBlockTop(Math.Max(0.5, tool?.InsertWidth ?? SetupTool.DefaultInsertWidth));
+            Screw(holder, px, ptop, pz, 5.5, 1.2, dark);
+            Screw(holder, px, ptop + 1.2, pz, 3.2, 0.4, steel);
+        }
+
         return (insert.Transformed(LatheToWorld), holder.Transformed(LatheToWorld));
     }
 

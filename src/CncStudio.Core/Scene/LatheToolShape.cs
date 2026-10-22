@@ -108,20 +108,27 @@ public sealed record LatheToolShape(
             thickness, false);
     }
 
-    // Bedame: lâmina fina de largura "width" com o canto da ponta (lado da face, +Z) na origem; ocupa Z de −width a 0,
-    // 26 mm de altura (como as lâminas de canal/corte) presa a um bloco de 25 × 25 mm
+    // Bedame: inserto de metal duro de largura "width" com o canto da ponta (lado da face, +Z) na origem (ocupa Z de −width a 0),
+    // assentado no topo de uma lâmina alta e um pouco mais fina que ele (folga lateral, para entrar no canal), com a garra
+    // de fixação atrás do inserto, tudo preso a um bloco de 25 mm. Medidas ilustrativas, não cotas de fabricante.
     private static LatheToolShape Parting(double width)
     {
-        const double blade = 15, bladeHeight = 22, insertHeight = 8;
+        const double insertLength = 15, bladeHeight = 22, insertHeight = 8, bladeEnd = 48, blockLength = 57;
         double top = -insertHeight / 2;
+        double thickness = Math.Max(0.4, width - 2 * Math.Min(0.4, width * 0.15)); // lâmina mais fina que o inserto
+        double zc = -width / 2;
         return new LatheToolShape(
-            [(0, -width), (blade, -width), (blade, 0), (0, 0)],
+            [(0, -width), (insertLength, -width), (insertLength, 0), (0, 0)],
             [
-                Rect(2, blade + 34, -width - 0.3, 0.3, top - bladeHeight, top),                                       // lâmina
-                Rect(blade + 33, blade + 90, -width / 2 - ShankSize / 2, -width / 2 + ShankSize / 2, top - bladeHeight - 3, top + 3), // bloco
+                Rect(1.5, bladeEnd, zc - thickness / 2, zc + thickness / 2, top - bladeHeight, top),                  // lâmina (sob o inserto)
+                Rect(insertLength, bladeEnd, zc - thickness / 2, zc + thickness / 2, top, insertHeight / 2 - 1),     // garra atrás do inserto
+                Rect(bladeEnd, bladeEnd + blockLength, zc - ShankSize / 2, zc + ShankSize / 2, top - bladeHeight - 3, insertHeight / 2 + 2), // bloco
             ],
             insertHeight, false);
     }
+
+    /// <summary>Centro (X, Z) e altura do topo do bloco do bedame, onde fica o parafuso de fixação.</summary>
+    public static (double X, double Z, double Top) PartingBlockTop(double width) => (48 + 57 * 0.55, -width / 2, 4 + 2);
 
     /// <summary>Espelho em X; nas ferramentas internas o corpo é uma barra que corre ao longo de Z, para fora do furo.</summary>
     private LatheToolShape Mirrored()

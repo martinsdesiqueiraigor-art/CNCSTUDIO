@@ -1,3 +1,4 @@
+using CncStudio.Core.Rendering;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Scene;
 using CncStudio.Core.Setup;
@@ -65,6 +66,60 @@ public class LatheToolTypesTests
         LatheToolShape shape = LatheToolShape.Of(Tool(ToolKind.PartExternal, 4));
         Assert.Equal(4, shape.Insert.Max(p => p.Z) - shape.Insert.Min(p => p.Z), 6);
         Assert.Equal(new LatheToolShape.CutSpec(2, -2), LatheToolShape.CutOf(Tool(ToolKind.PartExternal, 4)));
+    }
+
+    [Fact]
+    public void Parting3mm_InsertOccupiesZ0ToMinus3_AndTheTipIsAtTheOrigin()
+    {
+        var tool = Tool(ToolKind.PartExternal, 3);
+        LatheToolShape shape = LatheToolShape.Of(tool);
+        Assert.Equal(-3, shape.Insert.Min(p => p.Z), 9);
+        Assert.Equal(0, shape.Insert.Max(p => p.Z), 9);
+        Assert.Equal(0, shape.Insert.Min(p => p.X), 9);
+
+        // na cena (torno → mundo: X mundo = Z do torno, Z mundo = X do torno)
+        (SolidMesh insert, SolidMesh holder) = SceneMeshes.LatheTool(ScenePalette.Realistic, tool);
+        var xs = Enumerable.Range(0, insert.VertexCount).Select(i => insert.Positions[i * 3]).ToList();
+        var zs = Enumerable.Range(0, insert.VertexCount).Select(i => insert.Positions[i * 3 + 2]).ToList();
+        Assert.Equal(-3, xs.Min(), 3);
+        Assert.Equal(0, xs.Max(), 3);
+        Assert.Equal(0, zs.Min(), 3);
+        Assert.True(holder.VertexCount > 0);
+    }
+
+    [Fact]
+    public void PartingBladeIsThinnerThanTheInsertAndCenteredOnIt()
+    {
+        LatheToolShape shape = LatheToolShape.Of(Tool(ToolKind.PartExternal, 3));
+        var blades = shape.Holders.Take(2).ToList(); // lâmina e garra
+        foreach (var blade in blades)
+        {
+            double z0 = blade.Polygon.Min(p => p.Z), z1 = blade.Polygon.Max(p => p.Z);
+            Assert.True(z1 - z0 < 3 - 0.1, "a lâmina precisa ser mais fina que o inserto (folga no canal)");
+            Assert.Equal(-1.5, (z0 + z1) / 2, 9);
+        }
+
+        // o inserto não invade a lâmina nem a garra: a lâmina fica abaixo dele e a garra começa atrás dele
+        double insertTop = shape.Thickness / 2, insertBottom = -shape.Thickness / 2;
+        Assert.True(blades[0].Y1 <= insertBottom + 1e-9);
+        Assert.True(blades[1].Polygon.Min(p => p.X) >= shape.Insert.Max(p => p.X) - 1e-9);
+        Assert.True(blades[1].Y1 <= insertTop);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(5)]
+    public void PartingMeshIsFiniteForCommonWidths(double width)
+    {
+        (SolidMesh insert, SolidMesh holder) = SceneMeshes.LatheTool(ScenePalette.Realistic, Tool(ToolKind.PartExternal, width));
+        foreach (SolidMesh mesh in new[] { insert, holder })
+        {
+            Assert.True(mesh.TriangleCount > 0);
+            Assert.All(mesh.Positions.ToArray(), v => Assert.True(float.IsFinite(v)));
+            Assert.All(mesh.Normals.ToArray(), v => Assert.True(float.IsFinite(v)));
+        }
     }
 
     [Fact]
