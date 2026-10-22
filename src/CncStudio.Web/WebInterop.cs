@@ -158,4 +158,15 @@ internal static partial class WebInterop
     [JSImport("showSetupSheet", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
     public static partial Task<string?> ShowSetupSheetAsync([JSMarshalAs<JSType.String>] string html, [JSMarshalAs<JSType.String>] string fileBase);
+
+    /// <summary>
+    /// Geradores de programa (generators-ui.js): o formulário é em HTML e pede o programa ao Core pelo
+    /// callback (id, valores JSON, modo "plain"/"macro") → JSON. Devolve JSON {id, mode, text, view3d, values} ou null.
+    /// </summary>
+    [JSImport("openGenerators", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> OpenGeneratorsAsync(
+        [JSMarshalAs<JSType.String>] string catalogJson,
+        [JSMarshalAs<JSType.Function<JSType.String, JSType.String, JSType.String, JSType.String>>] Func<string, string, string, string> generate,
+        [JSMarshalAs<JSType.String>] string lastJson);
 }

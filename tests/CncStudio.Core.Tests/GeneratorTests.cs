@@ -145,3 +145,46 @@ public class GeneratorTests
         Assert.DoesNotContain("-0.", program.Replace("-0.5", ""));
     }
 }
+
+public class GeneratorsJsonTests
+{
+    [Fact]
+    public void CatalogListsGeneratorsWithTheirFields()
+    {
+        var catalog = System.Text.Json.Nodes.JsonNode.Parse(GeneratorsJson.Catalog())!.AsArray();
+        Assert.Equal(2, catalog.Count);
+        Assert.Equal("bhc", (string?)catalog[0]!["id"]);
+        Assert.Contains(catalog[0]!["params"]!.AsArray(), p => (string?)p!["id"] == "N" && (bool)p["integer"]!);
+    }
+
+    [Fact]
+    public void GenerateReturnsProgramOrErrors()
+    {
+        string ok = GeneratorsJson.Generate("bhc", """{"X":0,"Y":0,"D":40,"N":6,"A":0,"Z":-12,"R":2,"Q":0,"F":90,"S":1100,"T":1}""", "plain");
+        var okNode = System.Text.Json.Nodes.JsonNode.Parse(ok)!;
+        Assert.True((bool)okNode["ok"]!);
+        Assert.Contains("G81", (string?)okNode["program"]);
+
+        string bad = GeneratorsJson.Generate("bhc", """{"X":null,"N":6}""", "plain");
+        var badNode = System.Text.Json.Nodes.JsonNode.Parse(bad)!;
+        Assert.False((bool)badNode["ok"]!);
+        Assert.NotEmpty(badNode["errors"]!.AsArray());
+
+        Assert.False((bool)System.Text.Json.Nodes.JsonNode.Parse(GeneratorsJson.Generate("x", "{}", "plain"))!["ok"]!);
+        Assert.Contains("G65 P9010", (string?)System.Text.Json.Nodes.JsonNode.Parse(
+            GeneratorsJson.Generate("bhc", """{"X":0,"Y":0,"D":40,"N":6,"A":0,"Z":-12,"R":2,"Q":3,"F":90,"S":1100,"T":1}""", "macro"))!["program"]);
+    }
+
+    [Fact]
+    public void RememberLastKeepsValuesPerGenerator()
+    {
+        string first = GeneratorsJson.RememberLast(null, "bhc", "macro", System.Text.Json.Nodes.JsonNode.Parse("""{"X":5}"""));
+        string second = GeneratorsJson.RememberLast(first, "pocket", "plain", System.Text.Json.Nodes.JsonNode.Parse("""{"I":30}"""));
+        var node = System.Text.Json.Nodes.JsonNode.Parse(second)!;
+        Assert.Equal("pocket", (string?)node["id"]);
+        Assert.Equal(5, (double)node["values"]!["bhc"]!["X"]!);
+        Assert.Equal(30, (double)node["values"]!["pocket"]!["I"]!);
+        // JSON quebrado no armazenamento não derruba
+        Assert.Equal("bhc", (string?)System.Text.Json.Nodes.JsonNode.Parse(GeneratorsJson.RememberLast("{ruim", "bhc", "plain", null))!["id"]);
+    }
+}
