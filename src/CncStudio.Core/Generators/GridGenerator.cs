@@ -14,8 +14,9 @@ public sealed class GridGenerator : ProgramGenerator
         new("U", "Espaçamento em X", "mm", 20, 0.001, 9999),
         new("V", "Espaçamento em Y", "mm", 15, 0.001, 9999),
         new("A", "Ângulo da grade", "graus", 0, -360, 360, Hint: "Gira a grade em volta do 1º furo."),
-        new("Z", "Fundo", "mm", -10, -500, -0.001, Hint: "Negativo (abaixo do zero da peça)."),
-        new("R", "Plano de retorno", "mm", 2, 0.1, 100),
+        new("W", "Z inicial (topo do bruto)", "mm", 0, -500, 40, Hint: "Onde o bruto começa; a ferramenta desce daqui. Se o material vier maior, informe aqui."),
+        new("Z", "Fundo", "mm", -10, -500, 50, Hint: "Negativo (abaixo do zero da peça)."),
+        new("R", "Folga acima do bruto", "mm", 2, 0.1, 100, Hint: "O ciclo recua a Z inicial + esta folga."),
         new("Q", "Picada (0 = sem)", "mm", 0, 0, 100, Hint: "0 usa G81; maior que 0 usa G83."),
         new("F", "Avanço", "mm/min", 90, 1, 10000),
         new("S", "Rotação", "rpm", 1100, 1, 30000),
@@ -43,7 +44,12 @@ public sealed class GridGenerator : ProgramGenerator
             yield return $"Grade: {Fmt(holes)} furos é demais; o limite é 500.";
         }
 
-        if (v["Q"] > 0 && v["Q"] > -v["Z"])
+        if (v["Z"] >= v["W"])
+        {
+            yield return "Fundo: precisa ficar abaixo do Z inicial.";
+        }
+
+        if (v["Q"] > 0 && v["Q"] > v["W"] - v["Z"])
         {
             yield return "Picada: não pode ser maior que a profundidade.";
         }
@@ -61,7 +67,7 @@ public sealed class GridGenerator : ProgramGenerator
             List<(char, double)> words =
             [
                 ('X', v["X"]), ('Y', v["Y"]), ('I', columns), ('J', rows), ('U', v["U"]), ('V', v["V"]),
-                ('A', v["A"]), ('Z', v["Z"]), ('R', v["R"]),
+                ('A', v["A"]), ('Z', v["Z"]), ('R', v["W"] + v["R"]),
             ];
             if (peck)
             {
@@ -82,7 +88,7 @@ public sealed class GridGenerator : ProgramGenerator
                 if (first)
                 {
                     Line(sb, "G00", ('X', x), ('Y', y));
-                    List<(char, double)> cycle = [('X', x), ('Y', y), ('Z', v["Z"]), ('R', v["R"])];
+                    List<(char, double)> cycle = [('X', x), ('Y', y), ('Z', v["Z"]), ('R', v["W"] + v["R"])];
                     if (peck)
                     {
                         cycle.Add(('Q', v["Q"]));

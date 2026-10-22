@@ -14,7 +14,8 @@ public sealed class PocketGenerator : ProgramGenerator
         new("Y", "Centro Y", "mm", 0, -9999, 9999),
         new("I", "Comprimento (X)", "mm", 30, 0.1, 9999),
         new("J", "Largura (Y)", "mm", 20, 0.1, 9999),
-        new("Z", "Profundidade", "mm", -4, -500, -0.001, Hint: "Negativa (abaixo do topo da peça)."),
+        new("W", "Z inicial (topo do bruto)", "mm", 0, -500, 40, Hint: "Onde o bruto começa; a ferramenta desce daqui. Se o material vier maior, informe aqui."),
+        new("Z", "Profundidade", "mm", -4, -500, 50, Hint: "Negativa (abaixo do topo da peça)."),
         new("Q", "Passe em Z", "mm", 1, 0.01, 100),
         new("D", "Diâmetro da fresa", "mm", 10, 0.1, 500, Hint: "Precisa ter corte ao centro (entrada vertical)."),
         new("U", "Sobremetal nas paredes", "mm", 0.2, 0.01, 50, Hint: "Fica nas paredes; não há passe de acabamento."),
@@ -33,6 +34,11 @@ public sealed class PocketGenerator : ProgramGenerator
 
     protected override IEnumerable<string> ValidateRules(IReadOnlyDictionary<string, double> v)
     {
+        if (v["Z"] >= v["W"])
+        {
+            yield return "Profundidade: precisa ficar abaixo do Z inicial.";
+        }
+
         double min = v["D"] + 2 * v["U"];
         if (v["I"] <= min)
         {
@@ -55,7 +61,7 @@ public sealed class PocketGenerator : ProgramGenerator
             sb.Append("G65 P9011 ")
               .Append(Word('X', v["X"])).Append(' ').Append(Word('Y', v["Y"])).Append(' ')
               .Append(Word('I', v["I"])).Append(' ').Append(Word('J', v["J"])).Append(' ')
-              .Append(Word('Z', v["Z"])).Append(' ').Append(Word('Q', v["Q"])).Append(' ')
+              .Append(Word('W', v["W"])).Append(' ').Append(Word('Z', v["Z"])).Append(' ').Append(Word('Q', v["Q"])).Append(' ')
               .Append(Word('D', v["D"])).Append(' ').Append(Word('U', v["U"])).Append(' ')
               .Append(Word('F', v["F"])).Append(' ').Append(Word('S', v["S"])).Append('\n');
             Footer(sb);
@@ -70,9 +76,9 @@ public sealed class PocketGenerator : ProgramGenerator
         int rows = (int)Math.Ceiling((yHigh - yLow) / step - 1e-9);
         string feed = Word('F', v["F"]);
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         sb.Append("G00 ").Append(Word('X', xLeft)).Append(' ').Append(Word('Y', yLow)).Append('\n');
-        double z = 0;
+        double z = v["W"];
         while (z > v["Z"] + 1e-9)
         {
             z = Math.Max(z - v["Q"], v["Z"]);
@@ -89,7 +95,7 @@ public sealed class PocketGenerator : ProgramGenerator
             sb.Append("G01 ").Append(Word('X', xLeft)).Append(' ').Append(Word('Y', yLow)).Append(' ').Append(feed).Append('\n');
         }
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         Footer(sb);
         sb.Append('%').Append('\n');
         return sb.ToString();

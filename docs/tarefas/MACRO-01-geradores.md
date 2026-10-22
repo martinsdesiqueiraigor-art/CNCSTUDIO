@@ -23,6 +23,9 @@ Mais 6 geradores, cada um com macro (`samples/macros/geradores/0N_*_macro.nc`) e
 | Rosca helicoidal | O9017 | interna/externa, direita/esquerda, passe único, sem arco de entrada |
 Teste genérico: programa pronto e macro geram os mesmos movimentos de corte nos 8 geradores (551 testes).
 
+## Z inicial (W)
+Todo gerador tem "Z inicial (topo do bruto)", padrão 0. Camadas começam nele, a altura segura é max(5, W+5) e, na furação, o plano R = W + folga. Na macro G65 vai como W (#23, omitido = 0). Valores salvos sem W usam 0.
+
 ## Limites conhecidos
 - Rosca helicoidal: passe único na profundidade e aproximação radial (sem arco de entrada); a simulação 3D mostra o percurso, não o perfil do filete.
 - Só Fanuc, fresa. Bolsão: entrada vertical (fresa com corte ao centro), sem passe de acabamento, sem ilhas.

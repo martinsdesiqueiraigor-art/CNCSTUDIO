@@ -51,6 +51,7 @@ public abstract class ProgramGenerator
     /// <summary>Confere cada valor contra a faixa do campo e as regras do gerador; devolve as mensagens (vazio = ok).</summary>
     public IReadOnlyList<string> Validate(IReadOnlyDictionary<string, double> values)
     {
+        values = WithDefaultTop(values);
         List<string> errors = [];
         foreach (GeneratorParameter p in Parameters)
         {
@@ -78,8 +79,21 @@ public abstract class ProgramGenerator
 
     public GeneratorResult Generate(IReadOnlyDictionary<string, double> values, GeneratorOutput output)
     {
+        values = WithDefaultTop(values);
         IReadOnlyList<string> errors = Validate(values);
         return errors.Count > 0 ? new GeneratorResult("", errors) : new GeneratorResult(Build(values, output), []);
+    }
+
+    /// <summary>Valores salvos antes do Z inicial existir não trazem o "W": vale o padrão (topo em Z0).</summary>
+    private IReadOnlyDictionary<string, double> WithDefaultTop(IReadOnlyDictionary<string, double> values)
+    {
+        if (values.ContainsKey("W") || Parameters.All(p => p.Id != "W"))
+        {
+            return values;
+        }
+
+        Dictionary<string, double> copy = new(values) { ["W"] = Parameters.First(p => p.Id == "W").Default };
+        return copy;
     }
 
     /// <summary>Regras entre campos (ex.: bolsão maior que a fresa); os campos já passaram pela faixa.</summary>

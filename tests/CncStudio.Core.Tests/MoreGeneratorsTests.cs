@@ -52,6 +52,70 @@ public class MoreGeneratorsTests
 
     [Theory]
     [MemberData(nameof(Ids))]
+    public void InitialZ_PlainAndMacroMatch_AndNothingCutsAboveStock(string id)
+    {
+        ProgramGenerator g = Generators.Generators.ById(id)!;
+        var values = With(g, ("W", 3));
+        List<Move> plain = Cuts(g, values), macro = Cuts(g, values, GeneratorOutput.MacroCall);
+        Assert.NotEmpty(plain);
+        Assert.Equal(plain.Count, macro.Count);
+        for (int i = 0; i < plain.Count; i++)
+        {
+            Assert.InRange(Math.Abs(plain[i].End.X - macro[i].End.X), 0, 0.01);
+            Assert.InRange(Math.Abs(plain[i].End.Y - macro[i].End.Y), 0, 0.01);
+            Assert.InRange(Math.Abs(plain[i].End.Z - macro[i].End.Z), 0, 0.01);
+        }
+
+        // o ciclo/avanço nunca começa acima do topo do bruto
+        Assert.All(plain, m => Assert.True(m.End.Z <= 3 + 0.01 || m.IsRapid));
+    }
+
+    [Theory]
+    [MemberData(nameof(Ids))]
+    public void InitialZ_ApproachClearsTheStock(string id)
+    {
+        // a rosca entra pelo furo (ou por fora da peça) já na cota de início da hélice; os demais descem do topo
+        if (id == "threadmill")
+        {
+            return;
+        }
+
+        ProgramGenerator g = Generators.Generators.ById(id)!;
+        var values = With(g, ("W", 20));
+        foreach (GeneratorOutput o in new[] { GeneratorOutput.Plain, GeneratorOutput.MacroCall })
+        {
+            List<Move> moves = Run(g, values, o);
+            // a primeira descida em avanço parte de uma altura livre (>= topo)
+            Move firstCut = moves.First(m => !m.IsRapid);
+            Assert.True(firstCut.Start.Z >= 20 - 0.01, $"{id}/{o}: início do corte em Z{firstCut.Start.Z}");
+        }
+    }
+
+    [Fact]
+    public void InitialZ_MissingInSavedValuesFallsBackToZero()
+    {
+        ProgramGenerator g = Generators.Generators.ById("pocket")!;
+        var values = g.Defaults.Where(p => p.Key != "W").ToDictionary(p => p.Key, p => p.Value);
+        Assert.True(g.Generate(values, GeneratorOutput.Plain).Ok);
+    }
+
+    [Fact]
+    public void InitialZ_DepthMustBeBelowIt()
+    {
+        ProgramGenerator g = Generators.Generators.ById("pocket")!;
+        Assert.False(g.Generate(With(g, ("W", -5), ("Z", -3)), GeneratorOutput.Plain).Ok);
+    }
+
+    [Fact]
+    public void InitialZ_PocketLayersStartAtStockTop()
+    {
+        ProgramGenerator g = Generators.Generators.ById("pocket")!;
+        var zs = Cuts(g, With(g, ("W", 3), ("Z", -2), ("Q", 1))).Select(m => Math.Round(m.End.Z, 3)).Distinct().OrderByDescending(z => z).ToList();
+        Assert.Equal([2.0, 1.0, 0.0, -1.0, -2.0], zs);
+    }
+
+    [Theory]
+    [MemberData(nameof(Ids))]
     public void EveryDefaultProgramReachesTheRequestedDepth(string id)
     {
         ProgramGenerator g = Generators.Generators.All.Single(x => x.Id == id);

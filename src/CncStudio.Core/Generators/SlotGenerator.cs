@@ -15,7 +15,8 @@ public sealed class SlotGenerator : ProgramGenerator
         new("I", "Comprimento total", "mm", 40, 0.1, 9999, Hint: "Ponta a ponta, já com as extremidades."),
         new("J", "Largura", "mm", 10, 0.1, 9999),
         new("A", "Ângulo", "graus", 0, -360, 360, Hint: "0 = ao longo de X; anti-horário."),
-        new("Z", "Profundidade", "mm", -5, -500, -0.001, Hint: "Negativa (abaixo do topo)."),
+        new("W", "Z inicial (topo do bruto)", "mm", 0, -500, 40, Hint: "Onde o bruto começa; a ferramenta desce daqui. Se o material vier maior, informe aqui."),
+        new("Z", "Profundidade", "mm", -5, -500, 50, Hint: "Negativa (abaixo do topo)."),
         new("Q", "Passe em Z", "mm", 1, 0.01, 100),
         new("D", "Diâmetro da fresa", "mm", 10, 0.1, 500, Hint: "Até a largura do rasgo; com corte ao centro."),
         new("F", "Avanço", "mm/min", 100, 1, 10000),
@@ -33,6 +34,11 @@ public sealed class SlotGenerator : ProgramGenerator
 
     protected override IEnumerable<string> ValidateRules(IReadOnlyDictionary<string, double> v)
     {
+        if (v["Z"] >= v["W"])
+        {
+            yield return "Profundidade: precisa ficar abaixo do Z inicial.";
+        }
+
         if (v["D"] > v["J"])
         {
             yield return "Fresa: o diâmetro não pode ser maior que a largura do rasgo.";
@@ -52,7 +58,7 @@ public sealed class SlotGenerator : ProgramGenerator
         if (output == GeneratorOutput.MacroCall)
         {
             return MacroProgram(sb, 9014, "05_RASGO_macro.nc",
-                ('X', v["X"]), ('Y', v["Y"]), ('I', v["I"]), ('J', v["J"]), ('A', v["A"]), ('Z', v["Z"]),
+                ('X', v["X"]), ('Y', v["Y"]), ('W', v["W"]), ('I', v["I"]), ('J', v["J"]), ('A', v["A"]), ('Z', v["Z"]),
                 ('Q', v["Q"]), ('D', v["D"]), ('F', v["F"]), ('S', v["S"]));
         }
 
@@ -62,10 +68,10 @@ public sealed class SlotGenerator : ProgramGenerator
         int rows = vEnd > 0 ? (int)Math.Ceiling((vEnd - vStart) / step - 1e-9) : 0;
         (double X, double Y) At(double u, double w) => Rotate(v["X"], v["Y"], u, w, v["A"]);
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         var start = At(uStart, vStart);
         Line(sb, "G00", ('X', start.X), ('Y', start.Y));
-        double z = 0;
+        double z = v["W"];
         while (z > v["Z"] + 1e-9)
         {
             z = Math.Max(z - v["Q"], v["Z"]);
@@ -91,7 +97,7 @@ public sealed class SlotGenerator : ProgramGenerator
             Line(sb, "G01", ('X', back.X), ('Y', back.Y), ('F', v["F"]));
         }
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         Footer(sb);
         sb.Append("%\n");
         return sb.ToString();

@@ -14,7 +14,8 @@ public sealed class HelicalHoleGenerator : ProgramGenerator
         new("Y", "Centro Y", "mm", 0, -9999, 9999),
         new("B", "Diâmetro do furo", "mm", 14, 0.1, 9999),
         new("D", "Diâmetro da fresa", "mm", 10, 0.1, 500, Hint: "O furo fica entre a fresa e 2× a fresa."),
-        new("Z", "Profundidade", "mm", -10, -500, -0.001, Hint: "Negativa (abaixo do topo)."),
+        new("W", "Z inicial (topo do bruto)", "mm", 0, -500, 40, Hint: "Onde o bruto começa; a ferramenta desce daqui. Se o material vier maior, informe aqui."),
+        new("Z", "Profundidade", "mm", -10, -500, 50, Hint: "Negativa (abaixo do topo)."),
         new("Q", "Descida por volta", "mm", 1, 0.01, 50, Hint: "Passo da hélice."),
         new("F", "Avanço", "mm/min", 150, 1, 10000),
         new("S", "Rotação", "rpm", 2500, 1, 30000),
@@ -31,6 +32,11 @@ public sealed class HelicalHoleGenerator : ProgramGenerator
 
     protected override IEnumerable<string> ValidateRules(IReadOnlyDictionary<string, double> v)
     {
+        if (v["Z"] >= v["W"])
+        {
+            yield return "Profundidade: precisa ficar abaixo do Z inicial.";
+        }
+
         if (v["B"] <= v["D"] + 0.02)
         {
             yield return "Diâmetro do furo: precisa ser maior que a fresa.";
@@ -50,27 +56,28 @@ public sealed class HelicalHoleGenerator : ProgramGenerator
         if (output == GeneratorOutput.MacroCall)
         {
             return MacroProgram(sb, 9016, "07_FURO_HELICOIDAL_macro.nc",
-                ('X', v["X"]), ('Y', v["Y"]), ('B', v["B"]), ('D', v["D"]), ('Z', v["Z"]), ('Q', v["Q"]), ('F', v["F"]), ('S', v["S"]));
+                ('X', v["X"]), ('Y', v["Y"]), ('W', v["W"]), ('B', v["B"]), ('D', v["D"]), ('Z', v["Z"]), ('Q', v["Q"]), ('F', v["F"]), ('S', v["S"]));
         }
 
         double radius = (v["B"] - v["D"]) / 2;
-        int turns = (int)Math.Ceiling(-v["Z"] / v["Q"] - 1e-9);
+        double top = v["W"];
+        int turns = (int)Math.Ceiling((top - v["Z"]) / v["Q"] - 1e-9);
         double xs = v["X"] + radius;
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         Line(sb, "G00", ('X', v["X"]), ('Y', v["Y"]));
-        sb.Append("G00 Z1.\n");
-        Line(sb, "G01", ('Z', 0), ('F', v["F"]));
+        Line(sb, "G00", ('Z', top + 1));
+        Line(sb, "G01", ('Z', top), ('F', v["F"]));
         Line(sb, "G01", ('X', xs), ('F', v["F"]));
         for (int turn = 1; turn <= turns; turn++)
         {
-            double z = Math.Max(-turn * v["Q"], v["Z"]);
+            double z = Math.Max(top - turn * v["Q"], v["Z"]);
             Line(sb, "G03", ('X', xs), ('Y', v["Y"]), ('I', -radius), ('J', 0), ('Z', z), ('F', v["F"]));
         }
 
         Line(sb, "G03", ('X', xs), ('Y', v["Y"]), ('I', -radius), ('J', 0), ('F', v["F"]));
         Line(sb, "G01", ('X', v["X"]), ('Y', v["Y"]), ('F', v["F"]));
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         Footer(sb);
         sb.Append("%\n");
         return sb.ToString();

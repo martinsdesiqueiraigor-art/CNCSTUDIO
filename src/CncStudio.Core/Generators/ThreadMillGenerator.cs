@@ -16,7 +16,8 @@ public sealed class ThreadMillGenerator : ProgramGenerator
         new("B", "Diâmetro nominal da rosca", "mm", 16, 0.1, 9999, Hint: "Ex.: 16 para M16."),
         new("D", "Diâmetro da fresa de rosca", "mm", 10, 0.1, 500),
         new("K", "Passo", "mm", 2, 0.05, 20, Hint: "Ex.: 2 para M16 grossa."),
-        new("Z", "Comprimento da rosca", "mm", -15, -500, -0.001, Hint: "Negativo, do topo para baixo."),
+        new("W", "Z inicial (topo do bruto)", "mm", 0, -500, 40, Hint: "Onde o bruto começa; a ferramenta desce daqui. Se o material vier maior, informe aqui."),
+        new("Z", "Z final da rosca", "mm", -15, -500, 50, Hint: "Fundo da rosca (negativo); a rosca vai do Z inicial até aqui."),
         new("H", "Tipo (0 = interna, 1 = externa)", "", 0, 0, 1, IsInteger: true),
         new("E", "Mão (0 = direita, 1 = esquerda)", "", 0, 0, 1, IsInteger: true),
         new("F", "Avanço", "mm/min", 120, 1, 10000, Hint: "Na trajetória do centro da fresa."),
@@ -34,7 +35,12 @@ public sealed class ThreadMillGenerator : ProgramGenerator
 
     protected override IEnumerable<string> ValidateRules(IReadOnlyDictionary<string, double> v)
     {
-        if (-v["Z"] < v["K"])
+        if (v["Z"] >= v["W"])
+        {
+            yield return "Profundidade: precisa ficar abaixo do Z inicial.";
+        }
+
+        if (v["W"] - v["Z"] < v["K"])
         {
             yield return "Comprimento da rosca: precisa ter pelo menos um passo.";
         }
@@ -55,18 +61,18 @@ public sealed class ThreadMillGenerator : ProgramGenerator
         if (output == GeneratorOutput.MacroCall)
         {
             return MacroProgram(sb, 9017, "08_ROSCA_HELICOIDAL_macro.nc",
-                ('X', v["X"]), ('Y', v["Y"]), ('B', v["B"]), ('D', v["D"]), ('K', v["K"]), ('Z', v["Z"]),
+                ('X', v["X"]), ('Y', v["Y"]), ('W', v["W"]), ('B', v["B"]), ('D', v["D"]), ('K', v["K"]), ('Z', v["Z"]),
                 ('H', v["H"]), ('E', v["E"]), ('F', v["F"]), ('S', v["S"]));
         }
 
         double radius = external ? (v["B"] + v["D"]) / 2 : (v["B"] - v["D"]) / 2;
         bool up = external ? left : !left;           // interna: direita sobe; externa: direita desce
-        int turns = (int)Math.Ceiling(-v["Z"] / v["K"] - 1e-9);
+        int turns = (int)Math.Ceiling((v["W"] - v["Z"]) / v["K"] - 1e-9);
         double zStart = up ? v["Z"] : v["Z"] + turns * v["K"];
         double xStart = v["X"] + radius, xApproach = xStart + 5;
         string arc = external ? "G02" : "G03";
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         if (external)
         {
             Line(sb, "G00", ('X', xApproach), ('Y', v["Y"]));
@@ -93,7 +99,7 @@ public sealed class ThreadMillGenerator : ProgramGenerator
             Line(sb, "G01", ('X', v["X"]), ('Y', v["Y"]), ('F', v["F"]));
         }
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         Footer(sb);
         sb.Append("%\n");
         return sb.ToString();

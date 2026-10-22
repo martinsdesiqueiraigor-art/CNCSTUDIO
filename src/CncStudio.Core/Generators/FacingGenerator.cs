@@ -16,7 +16,8 @@ public sealed class FacingGenerator : ProgramGenerator
         new("J", "Largura (Y)", "mm", 60, 0.1, 9999),
         new("D", "Diâmetro da fresa", "mm", 50, 0.1, 500, Hint: "Fresa de facear ou de topo."),
         new("E", "Passo lateral", "% do diâmetro", 70, 10, 100),
-        new("Z", "Profundidade total", "mm", -1, -50, -0.001, Hint: "Quanto tirar, abaixo do topo (negativo)."),
+        new("W", "Z inicial (topo do bruto)", "mm", 0, -500, 40, Hint: "Onde o bruto começa; a ferramenta desce daqui. Se o material vier maior, informe aqui."),
+        new("Z", "Z final (face pronta)", "mm", -1, -50, 50, Hint: "Altura final da face. Do Z inicial até aqui, em passes."),
         new("Q", "Passe em Z", "mm", 0.5, 0.01, 50),
         new("F", "Avanço", "mm/min", 400, 1, 10000),
         new("S", "Rotação", "rpm", 2000, 1, 30000),
@@ -31,7 +32,15 @@ public sealed class FacingGenerator : ProgramGenerator
 
     public override IReadOnlyList<GeneratorParameter> Parameters => Fields;
 
-    protected override IEnumerable<string> ValidateRules(IReadOnlyDictionary<string, double> v) => [];
+    protected override IEnumerable<string> ValidateRules(IReadOnlyDictionary<string, double> v)
+    {
+        if (v["Z"] >= v["W"])
+        {
+            yield return "Profundidade: precisa ficar abaixo do Z inicial.";
+        }
+
+        yield break;
+    }
 
     protected override string Build(IReadOnlyDictionary<string, double> v, GeneratorOutput output)
     {
@@ -41,7 +50,7 @@ public sealed class FacingGenerator : ProgramGenerator
         if (output == GeneratorOutput.MacroCall)
         {
             return MacroProgram(sb, 9013, "04_FACEAMENTO_macro.nc",
-                ('X', v["X"]), ('Y', v["Y"]), ('I', v["I"]), ('J', v["J"]), ('D', v["D"]), ('E', v["E"]),
+                ('X', v["X"]), ('Y', v["Y"]), ('W', v["W"]), ('I', v["I"]), ('J', v["J"]), ('D', v["D"]), ('E', v["E"]),
                 ('Z', v["Z"]), ('Q', v["Q"]), ('F', v["F"]), ('S', v["S"]));
         }
 
@@ -58,9 +67,9 @@ public sealed class FacingGenerator : ProgramGenerator
             yLow = yHigh = v["Y"];
         }
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         Line(sb, "G00", ('X', xStart), ('Y', yLow));
-        double z = 0;
+        double z = v["W"];
         while (z > v["Z"] + 1e-9)
         {
             z = Math.Max(z - v["Q"], v["Z"]);
@@ -77,7 +86,7 @@ public sealed class FacingGenerator : ProgramGenerator
             Line(sb, "G01", ('X', xStart), ('Y', yLow), ('F', v["F"]));
         }
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         Footer(sb);
         sb.Append("%\n");
         return sb.ToString();

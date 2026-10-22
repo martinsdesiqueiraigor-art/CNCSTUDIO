@@ -13,7 +13,8 @@ public sealed class CircularPocketGenerator : ProgramGenerator
         new("D", "Diâmetro da fresa", "mm", 10, 0.1, 500, Hint: "Precisa ter corte ao centro (entrada vertical)."),
         new("U", "Sobremetal na parede", "mm", 0.2, 0.01, 50, Hint: "Fica na parede; não há passe de acabamento."),
         new("E", "Passo entre anéis", "% do diâmetro", 70, 10, 100),
-        new("Z", "Profundidade", "mm", -5, -500, -0.001, Hint: "Negativa (abaixo do topo)."),
+        new("W", "Z inicial (topo do bruto)", "mm", 0, -500, 40, Hint: "Onde o bruto começa; a ferramenta desce daqui. Se o material vier maior, informe aqui."),
+        new("Z", "Profundidade", "mm", -5, -500, 50, Hint: "Negativa (abaixo do topo)."),
         new("Q", "Passe em Z", "mm", 1, 0.01, 100),
         new("F", "Avanço", "mm/min", 100, 1, 10000),
         new("S", "Rotação", "rpm", 1800, 1, 30000),
@@ -30,6 +31,11 @@ public sealed class CircularPocketGenerator : ProgramGenerator
 
     protected override IEnumerable<string> ValidateRules(IReadOnlyDictionary<string, double> v)
     {
+        if (v["Z"] >= v["W"])
+        {
+            yield return "Profundidade: precisa ficar abaixo do Z inicial.";
+        }
+
         double min = v["D"] + 2 * v["U"];
         if (v["B"] <= min)
         {
@@ -45,7 +51,7 @@ public sealed class CircularPocketGenerator : ProgramGenerator
         if (output == GeneratorOutput.MacroCall)
         {
             return MacroProgram(sb, 9015, "06_BOLSAO_CIRCULAR_macro.nc",
-                ('X', v["X"]), ('Y', v["Y"]), ('B', v["B"]), ('D', v["D"]), ('U', v["U"]), ('E', v["E"]),
+                ('X', v["X"]), ('Y', v["Y"]), ('W', v["W"]), ('B', v["B"]), ('D', v["D"]), ('U', v["U"]), ('E', v["E"]),
                 ('Z', v["Z"]), ('Q', v["Q"]), ('F', v["F"]), ('S', v["S"]));
         }
 
@@ -53,9 +59,9 @@ public sealed class CircularPocketGenerator : ProgramGenerator
         double step = v["D"] * v["E"] / 100;
         int rings = (int)Math.Ceiling(maxRadius / step - 1e-9);
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         Line(sb, "G00", ('X', v["X"]), ('Y', v["Y"]));
-        double z = 0;
+        double z = v["W"];
         while (z > v["Z"] + 1e-9)
         {
             z = Math.Max(z - v["Q"], v["Z"]);
@@ -70,7 +76,7 @@ public sealed class CircularPocketGenerator : ProgramGenerator
             Line(sb, "G01", ('X', v["X"]), ('Y', v["Y"]), ('F', v["F"]));
         }
 
-        sb.Append("G00 Z5.\n");
+        Line(sb, "G00", ('Z', Math.Max(5, v["W"] + 5)));
         Footer(sb);
         sb.Append("%\n");
         return sb.ToString();

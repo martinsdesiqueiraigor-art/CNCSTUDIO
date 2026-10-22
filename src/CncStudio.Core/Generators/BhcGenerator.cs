@@ -15,8 +15,9 @@ public sealed class BhcGenerator : ProgramGenerator
         new("D", "Diâmetro do círculo", "mm", 40, 0.1, 9999, Hint: "Diâmetro, não raio."),
         new("N", "Número de furos", "", 6, 2, 36, IsInteger: true),
         new("A", "Ângulo do 1º furo", "graus", 0, -360, 360, Hint: "Medido de +X, anti-horário."),
-        new("Z", "Fundo", "mm", -12, -500, -0.001, Hint: "Negativo (abaixo do zero da peça)."),
-        new("R", "Plano de retorno", "mm", 2, 0.1, 100, Hint: "Altura acima da peça onde o ciclo recua."),
+        new("W", "Z inicial (topo do bruto)", "mm", 0, -500, 40, Hint: "Onde o bruto começa; a ferramenta desce daqui. Se o material vier maior, informe aqui."),
+        new("Z", "Fundo", "mm", -12, -500, 50, Hint: "Negativo (abaixo do zero da peça)."),
+        new("R", "Folga acima do bruto", "mm", 2, 0.1, 100, Hint: "O ciclo recua a Z inicial + esta folga."),
         new("Q", "Picada (0 = sem)", "mm", 3, 0, 100, Hint: "0 usa G81; maior que 0 usa G83."),
         new("F", "Avanço", "mm/min", 90, 1, 10000),
         new("S", "Rotação", "rpm", 1100, 1, 30000),
@@ -33,7 +34,12 @@ public sealed class BhcGenerator : ProgramGenerator
 
     protected override IEnumerable<string> ValidateRules(IReadOnlyDictionary<string, double> v)
     {
-        if (v["Q"] > 0 && v["Q"] > -v["Z"])
+        if (v["Z"] >= v["W"])
+        {
+            yield return "Fundo: precisa ficar abaixo do Z inicial.";
+        }
+
+        if (v["Q"] > 0 && v["Q"] > v["W"] - v["Z"])
         {
             yield return "Picada: não pode ser maior que a profundidade.";
         }
@@ -52,7 +58,7 @@ public sealed class BhcGenerator : ProgramGenerator
               .Append(Word('X', v["X"])).Append(' ').Append(Word('Y', v["Y"])).Append(' ')
               .Append(Word('D', v["D"])).Append(' ').Append(Word('H', count)).Append(' ')
               .Append(Word('A', v["A"])).Append(' ').Append(Word('Z', v["Z"])).Append(' ')
-              .Append(Word('R', v["R"]));
+              .Append(Word('R', v["W"] + v["R"]));
             if (peck)
             {
                 sb.Append(' ').Append(Word('Q', v["Q"]));
@@ -73,7 +79,7 @@ public sealed class BhcGenerator : ProgramGenerator
             {
                 sb.Append("G00 ").Append(x).Append(' ').Append(y).Append('\n');
                 sb.Append(peck ? "G83 " : "G81 ").Append(x).Append(' ').Append(y).Append(' ')
-                  .Append(Word('Z', v["Z"])).Append(' ').Append(Word('R', v["R"]));
+                  .Append(Word('Z', v["Z"])).Append(' ').Append(Word('R', v["W"] + v["R"]));
                 if (peck)
                 {
                     sb.Append(' ').Append(Word('Q', v["Q"]));
