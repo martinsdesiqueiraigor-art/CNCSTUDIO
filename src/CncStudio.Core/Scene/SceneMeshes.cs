@@ -290,7 +290,7 @@ public static class SceneMeshes
             }
             else
             {
-                BeveledPrism(holder, part.Polygon, part.Y0, part.Y1, 1.2, steel);
+                BeveledPrism(holder, part.Polygon, part.Y0, part.Y1, kind is (ToolKind.PartExternal or ToolKind.PartInternal) ? 1.2 : 2.0, steel);
             }
 
             if (first && !part.Round && kind is not (ToolKind.PartExternal or ToolKind.PartInternal))
@@ -322,8 +322,16 @@ public static class SceneMeshes
             {
                 // Grampo superior sobre a metade de trás do inserto, com o parafuso de aperto
                 List<(double X, double Z)> clamp = [(8.8, 9.0), (15.2, 8.0), (16.6, 15.8), (10.4, 16.8)];
-                BeveledPrism(holder, clamp, half + 0.7, half + 4.2, 0.6, MillSolidRenderer.Lerp(steel, 0xFFFFFF, 0.15));
-                Screw(holder, clamp.Average(p => p.X), half + 4.2, clamp.Average(p => p.Z), 2.1, 1.1, dark);
+                uint clampColor = MillSolidRenderer.Lerp(steel, 0xFFFFFF, 0.15);
+                // Garra em cunha: a face de cima é menor e mais alta atrás, como o grampo de um PCLNR
+                List<Point3> clampBase = Ring(clamp, half + 0.7), clampTop = Ring(Scale(clamp, 0.72), half + 4.2);
+                Cap(holder, clampBase, new Point3(0, -1, 0), clampColor);
+                Loft(holder, clampBase, clampTop, clampColor);
+                Cap(holder, clampTop, new Point3(0, 1, 0), MillSolidRenderer.Lerp(clampColor, 0xFFFFFF, 0.1));
+                // Bico da garra, apoiado na borda do inserto
+                BeveledPrism(holder, [(6.9, 10.3), (9.2, 9.0), (10.6, 16.0), (8.6, 17.0)], half + 0.7, half + 2.2, 0.3, clampColor);
+                Screw(holder, clamp.Average(p => p.X), half + 4.2, clamp.Average(p => p.Z), 2.6, 1.0, dark);
+                Screw(holder, clamp.Average(p => p.X), half + 5.2, clamp.Average(p => p.Z), 1.5, 0.3, steel);
             }
             else
             {

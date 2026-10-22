@@ -123,6 +123,29 @@ public class LatheToolTypesTests
     }
 
     [Fact]
+    public void ExternalTurning_Insert80DegreesWithNominalThickness_AndFiniteMeshes()
+    {
+        LatheToolShape shape = LatheToolShape.Of(Tool(ToolKind.TurnExternal));
+        Assert.Equal(4.76, shape.Thickness, 9);
+        // ângulo da ponta (canto na origem) = 80°
+        var tip = shape.Insert.OrderBy(p => p.X * p.X + p.Z * p.Z).First();
+        int i = shape.Insert.ToList().IndexOf(tip);
+        var a = shape.Insert[(i + 1) % 4]; var b = shape.Insert[(i + 3) % 4];
+        double angle = Math.Acos(((a.X - tip.X) * (b.X - tip.X) + (a.Z - tip.Z) * (b.Z - tip.Z)) /
+            (Math.Sqrt(Math.Pow(a.X - tip.X, 2) + Math.Pow(a.Z - tip.Z, 2)) * Math.Sqrt(Math.Pow(b.X - tip.X, 2) + Math.Pow(b.Z - tip.Z, 2)))) * 180 / Math.PI;
+        Assert.Equal(80, angle, 3);
+        // cabo 25 × 25
+        Assert.Contains(shape.Holders, h => Math.Abs((h.Polygon.Max(p => p.Z) - h.Polygon.Min(p => p.Z)) - 25) < 1e-9 && Math.Abs(h.Y1 - h.Y0 - 25) < 1e-9);
+
+        (SolidMesh insert, SolidMesh holder) = SceneMeshes.LatheTool(ScenePalette.Realistic, Tool(ToolKind.TurnExternal));
+        foreach (SolidMesh mesh in new[] { insert, holder })
+        {
+            Assert.All(mesh.Positions.ToArray(), v => Assert.True(float.IsFinite(v)));
+            Assert.All(mesh.Normals.ToArray(), v => Assert.True(float.IsFinite(v)));
+        }
+    }
+
+    [Fact]
     public void ToolWithoutSetupCutsLikeExternalTurning()
     {
         Assert.Equal(new LatheToolShape.CutSpec(LatheToolShape.NoseRadius, 0), LatheToolShape.CutOf(null));
