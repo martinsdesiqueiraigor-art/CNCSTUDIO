@@ -13,6 +13,12 @@ public sealed class ToolEntry
     public int Number { get; set; }
     public double Diameter { get; set; } = 10;
     public string Description { get; set; } = "";
+
+    /// <summary>Tipo da ferramenta de torno (nome de <see cref="ToolKind"/>); vazio = padrão (desbaste externo).</summary>
+    public string Kind { get; set; } = "";
+
+    /// <summary>Largura do inserto do bedame (mm).</summary>
+    public double InsertWidth { get; set; } = SetupTool.DefaultInsertWidth;
 }
 
 /// <summary>
@@ -80,6 +86,31 @@ public sealed class AppSettings
 
     /// <summary>Setups por programa (os mais recentes no fim). Fonte única do bruto de cada programa.</summary>
     public List<SetupEntry> Setups { get; set; } = [];
+
+    /// <summary>
+    /// Cópia do setup com os tipos de ferramenta de torno escolhidos na tabela de ferramentas.
+    /// Quem já está cadastrado no próprio setup do programa vale mais que a tabela.
+    /// </summary>
+    public MachiningSetup WithToolKinds(MachiningSetup setup)
+    {
+        MachiningSetup copy = setup.Clone();
+        foreach (ToolEntry entry in Tools)
+        {
+            if (Enum.TryParse(entry.Kind, out ToolKind kind) && new SetupTool { Kind = kind }.IsLathe
+                && copy.ToolOf(entry.Number) is null && copy.Tools.Count < MachiningSetup.MaxTools)
+            {
+                copy.Tools.Add(new SetupTool
+                {
+                    Kind = kind,
+                    Number = entry.Number,
+                    Diameter = entry.Diameter > 0 ? entry.Diameter : 10,
+                    InsertWidth = entry.InsertWidth > 0 ? entry.InsertWidth : SetupTool.DefaultInsertWidth,
+                });
+            }
+        }
+
+        return copy;
+    }
 
     /// <summary>Setup do programa (o padrão, sem bruto informado, se não houver um salvo).</summary>
     public MachiningSetup SetupFor(string key)
