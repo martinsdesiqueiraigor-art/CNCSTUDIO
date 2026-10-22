@@ -31,7 +31,7 @@ public partial class MainView
             if (text.Length == 0) return;
 
             Store(GeneratorsKey, GeneratorsJson.RememberLast(Stored(GeneratorsKey), id, mode, result["values"]));
-            string name = (id == "bhc" ? "BHC_FURACAO_CIRCULO" : id == "pocket" ? "BOLSAO_RETANGULAR" : "GERADO") + ".nc";
+            string name = FileNameOf(CncStudio.Core.Generators.Generators.ById(id)?.Title ?? "Gerado") + ".nc";
             LoadProgram(name, text.Replace("\r\n", "\n"));
             _dirty = true;
             UpdateTitle();
@@ -45,5 +45,13 @@ public partial class MainView
         {
             _openingGenerators = false;
         }
+    }
+
+    /// <summary>"Furação em círculo" → "FURACAO_EM_CIRCULO".</summary>
+    private static string FileNameOf(string title)
+    {
+        string plain = new string(title.Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray());
+        return string.Concat(plain.ToUpperInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '_')).Trim('_');
     }
 }

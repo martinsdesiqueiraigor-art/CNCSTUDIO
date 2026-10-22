@@ -116,6 +116,34 @@ public abstract class ProgramGenerator
         return s.Contains('.') ? s : s + ".";
     }
 
+    /// <summary>Uma linha de programa: comando seguido das palavras ("G01 X10. Y5. F100.").</summary>
+    protected static void Line(StringBuilder sb, string command, params (char Letter, double Value)[] words)
+    {
+        sb.Append(command);
+        foreach ((char letter, double value) in words)
+        {
+            sb.Append(' ').Append(Word(letter, value));
+        }
+
+        sb.Append('\n');
+    }
+
+    /// <summary>Chamada G65 com as palavras na ordem dada, seguida do rodapé e da macro embutida (programa único).</summary>
+    protected static string MacroProgram(StringBuilder header, int macro, string macroFile, params (char Letter, double Value)[] words)
+    {
+        Line(header, $"G65 P{macro}", words);
+        Footer(header);
+        header.Append('\n').Append(MacroText(macroFile).Trim('%').Trim()).Append('\n').Append('%').Append('\n');
+        return header.ToString();
+    }
+
+    /// <summary>Gira o ponto (u, v) pelo ângulo (graus) e soma ao centro (cx, cy).</summary>
+    protected static (double X, double Y) Rotate(double cx, double cy, double u, double v, double degrees)
+    {
+        double a = degrees * Math.PI / 180;
+        return (cx + u * Math.Cos(a) - v * Math.Sin(a), cy + u * Math.Sin(a) + v * Math.Cos(a));
+    }
+
     /// <summary>Número para mensagens (sem o ponto final do Fanuc).</summary>
     protected static string Fmt(double value) => Math.Round(value, 3).ToString("0.###", CultureInfo.GetCultureInfo("pt-BR"));
 
