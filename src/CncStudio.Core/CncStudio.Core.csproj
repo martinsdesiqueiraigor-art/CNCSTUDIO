@@ -11,6 +11,11 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <!-- Macros dos geradores: o mesmo arquivo de samples/macros/geradores, embutido (uma fonte de verdade) -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\samples\macros\geradores\*_macro.nc" LogicalName="Macro.%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="CncStudio.Core.Tests" />
   </ItemGroup>

@@ -362,6 +362,7 @@ public partial class MainView : UserControl
         Add("Novo programa (colar ou digitar)…", NewFromPasteAsync);
         menu.Items.Add(new Separator());
         Add("Comparar com outro programa…", () => { OpenCompare(); return Task.CompletedTask; });
+        Add("Geradores de programa…", OpenGeneratorsAsync);
         Add("Estatísticas", () => { OpenStats(); return Task.CompletedTask; });
         Add("Folha de setup…", OpenSetupSheetAsync);
 
