@@ -108,19 +108,45 @@ public sealed record LatheToolShape(
             thickness, false);
     }
 
-    // Bedame: lâmina fina de largura "width" com o canto da ponta (lado da face, +Z) na origem; ocupa Z de −width a 0,
-    // 26 mm de altura (como as lâminas de canal/corte) presa a um bloco de 25 × 25 mm
+    // Bedame (como um porta-lâmina de canal tipo DGTR 25B, 25 × 25 mm): inserto de metal duro de largura "width" com o canto da
+    // ponta (lado da face, +Z) na origem (ocupa Z de −width a 0), assentado no topo de uma cabeça fina (um pouco mais fina que o
+    // inserto, para entrar no canal), com a garra atrás dele. Atrás da cabeça o corpo alarga a 45° só para o lado +Z (oposto
+    // ao mandril) até o cabo de 25 × 25 mm, com o parafuso de fixação na frente do cabo. Medidas ilustrativas, não cotas de fabricante.
+    private const double PartingInsertLength = 14, PartingHeadLength = 32, PartingHeight = 25, PartingBodyLength = 140;
+
+    private readonly record struct PartingLayout(double Top, double Thickness, double Z0, double Z1, double Widen)
+    {
+        public static PartingLayout Of(double width, double insertHeight)
+        {
+            double thickness = Math.Max(0.4, width - 2 * Math.Min(0.2, width * 0.1)); // cabeça mais fina que o inserto (ex.: 3 → 2,6)
+            double z0 = -width / 2 - thickness / 2;                                    // cabeça centrada no inserto
+            return new PartingLayout(-insertHeight / 2, thickness, z0, z0 + thickness, ShankSize - thickness);
+        }
+    }
+
     private static LatheToolShape Parting(double width)
     {
-        const double blade = 15, bladeHeight = 22, insertHeight = 8;
-        double top = -insertHeight / 2;
+        const double insertHeight = 8;
+        PartingLayout l = PartingLayout.Of(width, insertHeight);
+        double bottom = l.Top - PartingHeight + insertHeight; // cabeça e cabo com 25 mm de altura no total, abaixo do inserto
+        double bodyStart = PartingHeadLength + l.Widen;
         return new LatheToolShape(
-            [(0, -width), (blade, -width), (blade, 0), (0, 0)],
+            [(0, -width), (PartingInsertLength, -width), (PartingInsertLength, 0), (0, 0)],
             [
-                Rect(2, blade + 34, -width - 0.3, 0.3, top - bladeHeight, top),                                       // lâmina
-                Rect(blade + 33, blade + 90, -width / 2 - ShankSize / 2, -width / 2 + ShankSize / 2, top - bladeHeight - 3, top + 3), // bloco
+                Rect(1.5, PartingHeadLength, l.Z0, l.Z1, bottom, l.Top),                                          // cabeça (sob o inserto)
+                Rect(PartingInsertLength, PartingHeadLength, l.Z0, l.Z1, l.Top, insertHeight / 2 - 1),            // garra atrás do inserto
+                new HolderPart([(PartingHeadLength, l.Z0), (bodyStart, l.Z0), (bodyStart, l.Z0 + ShankSize), (PartingHeadLength, l.Z1)],
+                    bottom, insertHeight / 2 + 2),                                                                // alargamento a 45°
+                Rect(bodyStart, PartingBodyLength, l.Z0, l.Z0 + ShankSize, bottom, insertHeight / 2 + 2),         // cabo 25 × 25
             ],
             insertHeight, false);
+    }
+
+    /// <summary>Centro (X, Z) e altura do topo do cabo do bedame, onde fica o parafuso de fixação.</summary>
+    public static (double X, double Z, double Top) PartingBlockTop(double width)
+    {
+        PartingLayout l = PartingLayout.Of(width, 8);
+        return (PartingHeadLength + l.Widen + 10, l.Z0 + ShankSize / 2, 4 + 2);
     }
 
     /// <summary>Espelho em X; nas ferramentas internas o corpo é uma barra que corre ao longo de Z, para fora do furo.</summary>
