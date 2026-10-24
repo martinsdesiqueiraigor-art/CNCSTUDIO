@@ -1,0 +1,74 @@
+{
+  "id": "acad-m1-a03",
+  "modulo": "acad-m1",
+  "titulo": "Zero máquina e zero peça",
+  "nivel": "Introdução",
+  "caminho": "Comum",
+  "status": "rascunho",
+  "objetivo": "Distinguir referências de máquina e de peça e reconhecer o papel da origem no programa.",
+  "pre_requisito": "acad-m1-a02",
+  "texto": "O programa CNC precisa de uma referência para interpretar coordenadas. O zero máquina é definido pelo fabricante e está relacionado ao sistema de coordenadas da máquina. O zero peça é uma origem escolhida para a operação, por exemplo um canto superior do bruto em uma fresadora. Essas referências não são a mesma coisa. O comando utiliza ajustes e sistemas de coordenadas de trabalho para relacionar as posições programadas ao equipamento real.\n\nEm muitas aplicações Fanuc de fresamento, G54 seleciona um sistema de coordenadas de trabalho. Porém, selecionar G54 não cria nem mede automaticamente o zero da peça. Os valores desse sistema precisam ser preparados e conferidos no equipamento. Também é necessário considerar o comprimento da ferramenta e os corretores apropriados, que dependem da configuração. Neste módulo, os programas são apenas demonstrativos e evitam movimentos de corte reais que dependam de compensações não especificadas.\n\nImagine uma peça retangular fixada em uma morsa. O programador pode escolher X0 Y0 em um canto da peça e Z0 na superfície superior. Outro programador pode escolher o centro do bruto. Ambos os critérios podem funcionar quando a programação, a medição e a montagem são coerentes. O erro aparece quando o programa foi escrito para uma origem e a máquina foi preparada para outra. Um deslocamento aparentemente pequeno pode colocar a ferramenta sobre a morsa ou fora da área desejada.\n\nAntes de executar, identifique no desenho e no cabeçalho do programa onde estão X0, Y0 e Z0. Verifique se a unidade está correta e se o sistema de trabalho selecionado corresponde à montagem. Uma visualização 3D ajuda a enxergar a relação entre bruto, origem e trajetória, mas não substitui a conferência dos offsets reais. Uma simulação pode assumir valores de corretores diferentes dos da máquina física.\n\nErro comum no chão de fábrica: considerar que o programa está seguro porque começa com G54. O código apenas seleciona uma referência; não confirma que ela foi medida corretamente. Para esta aula, o valor real de G54, o método de apalpação e o comprimento de ferramenta são A definir conforme máquina e preparação. O objetivo é reconhecer a dependência entre coordenadas e origem, sem ensinar uma rotina específica de zeramento.\n\nExemplo guiado: considere um bruto de 80 x 60 mm com G54 em seu canto inferior esquerdo e Z0 no topo. A posição X20 Y20 Z15 significa 20 mm em X, 20 mm em Y e 15 mm acima do topo, no sistema G54. Se a origem real for medida 5 mm deslocada em X, o caminho inteiro ficará deslocado 5 mm. A conclusão é conferir os valores de G54, não apenas a presenca do codigo.",
+  "erro_comum": "Descrito no texto da aula.",
+  "programa": "samples/academy/acad-m1-a03.nc",
+  "aviso": "Simule antes de rodar na máquina",
+  "exercicio": {
+    "tipo": "complete/corrija",
+    "enunciado": "Complete a seleção de coordenadas de trabalho: ____ ; G00 X20.0 Y20.0",
+    "gabarito": "G54 (com offset previamente conferido)"
+  },
+  "quiz": [
+    {
+      "id": "acad-m1-a03-q01",
+      "enunciado": "O que caracteriza o zero máquina?",
+      "alternativas": [
+        "Referência definida pelo fabricante",
+        "Canto escolhido pelo programador",
+        "Ponto da ferramenta",
+        "Centro de qualquer bruto"
+      ],
+      "correta": "A",
+      "explicacao": "A: Zero máquina é uma referência definida pelo fabricante no sistema da máquina. B: O canto escolhido pelo programador é um possível zero peça, não zero máquina. C: A ponta da ferramenta tem posição e corretores próprios; não define o zero máquina. D: O centro do bruto pode ser origem de trabalho, mas não é necessariamente a referência da máquina.",
+      "dica": "Distinga a referência fixa do equipamento da origem escolhida para o desenho."
+    },
+    {
+      "id": "acad-m1-a03-q02",
+      "enunciado": "O que G54 geralmente seleciona em fresamento Fanuc?",
+      "alternativas": [
+        "A ferramenta ativa",
+        "Um sistema de coordenadas de trabalho",
+        "A rotação do spindle",
+        "Um ciclo de furação"
+      ],
+      "correta": "B",
+      "explicacao": "A: G54 não seleciona ferramenta; seleção de ferramenta usa funções próprias da máquina. B: G54 seleciona um sistema de coordenadas de trabalho em aplicações Fanuc de fresamento. C: G54 não comanda rotação; funções de spindle são programadas separadamente. D: G54 não é um ciclo de furação; ciclos são comandos como G81 em configurações compatíveis.",
+      "dica": "Pense no cadastro de origens de trabalho do comando."
+    },
+    {
+      "id": "acad-m1-a03-q03",
+      "enunciado": "No trecho G54 seguido de G00 X20.0 Y20.0, o que falta conferir antes da execução real?",
+      "alternativas": [
+        "Somente a numeração O",
+        "Somente o comentário",
+        "Valores do offset G54 e montagem",
+        "Somente a extensão .nc"
+      ],
+      "correta": "C",
+      "explicacao": "A: O número O identifica programa, mas não garante que G54 esteja medido corretamente. B: Comentários ajudam na leitura, mas não comprovam o offset instalado. C: É necessário confirmar o offset G54 e a montagem física antes de confiar nas posições. D: A extensão .nc não valida a posição do zero peça.",
+      "dica": "Selecionar uma origem não garante que ela tenha sido medida corretamente."
+    },
+    {
+      "id": "acad-m1-a03-q04",
+      "enunciado": "Qual prática evita trocar origens inadvertidamente?",
+      "alternativas": [
+        "Ignorar o cabeçalho",
+        "Usar sempre qualquer canto",
+        "Eliminar o desenho",
+        "Conferir origem prevista e origem medida"
+      ],
+      "correta": "D",
+      "explicacao": "A: Ignorar o cabeçalho elimina uma fonte de informação sobre a origem prevista. B: Um canto arbitrário pode divergir da origem usada na programação. C: Sem desenho não há referência confiável para relacionar cotas e origem. D: Comparar a origem prevista com a medida evita deslocar a trajetória para o lugar errado.",
+      "dica": "Compare a referência anotada no programa com a medida na preparação."
+    }
+  ],
+  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica."
+}

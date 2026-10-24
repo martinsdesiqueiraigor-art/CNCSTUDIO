@@ -1,0 +1,74 @@
+{
+  "id": "acad-m1-a04",
+  "modulo": "acad-m1",
+  "titulo": "Segurança na preparação e na simulação",
+  "nivel": "Introdução",
+  "caminho": "Comum",
+  "status": "rascunho",
+  "objetivo": "Identificar verificações essenciais antes de qualquer execução física de um programa CNC.",
+  "pre_requisito": "acad-m1-a03",
+  "texto": "Segurança em CNC começa antes de apertar o botão de início. O primeiro passo é conhecer o equipamento, os procedimentos da empresa e as orientações do fabricante. Proteções, portas e intertravamentos devem funcionar conforme previsto. A área de trabalho precisa estar livre de objetos soltos, e a fixação da peça deve ser adequada à operação. Equipamentos de proteção individual são definidos pela avaliação de riscos local; seu uso não substitui as proteções da máquina.\n\nA leitura de um programa procura condições perigosas: origem incorreta, unidade inesperada, aproximação rápida sobre grampos, ferramenta incompatível, avanço inadequado ou rotação indevida. Nem todos esses fatores podem ser detectados pelo texto do código. Uma ferramenta pode estar corretamente programada e, ainda assim, ser muito longa ou estar montada de maneira diferente da simulação. A conferência deve comparar programa, montagem e dados reais.\n\nUma sequência prudente inclui revisar o desenho e o plano de processo, identificar o comando, confirmar ferramentas e corretores, verificar bruto e fixação, inspecionar a trajetória no simulador e aplicar os procedimentos de prova previstos pelo fabricante e pela empresa. Funções como bloco a bloco, avanço reduzido e outras modalidades de teste não possuem comportamento idêntico em todos os comandos. Seus usos e limites precisam ser definidos para o equipamento concreto: A definir.\n\nOs exemplos deste piloto não são programas de produção. Mesmo quando apresentam apenas movimentos acima da peça, não devem ser enviados diretamente para uma máquina sem adaptação e validação. Um valor positivo de Z não é garantia universal de distância segura: tudo depende da origem selecionada, do comprimento da ferramenta, dos dispositivos e da cinemática. O simulador pode revelar colisões geométricas, mas também pode omitir elementos que não foram modelados.\n\nErro comum no chão de fábrica: confiar apenas na ausência de alarmes. Um comando pode aceitar um programa sintaticamente válido que descreve uma trajetória inadequada. A segurança depende de planejamento, montagem, simulação e supervisão humana. Nesta etapa, o aluno deve aprender a formular perguntas antes de executar: qual é a máquina, onde está o zero, qual ferramenta está ativa, quais obstáculos existem e como a trajetória foi verificada?\n\nExemplo guiado: suponha uma morsa com um grampo que alcança Z12 em uma região da mesa. Um movimento lateral em Z20 pode ter folga geométrica no modelo, mas Z10 pode atravessar o volume do grampo. Por isso, compare a altura da trajetória, a altura da fixação e o volume da ferramenta; mesmo Z20 não é garantia universal sem conferir porta-ferramenta e montagem reais.",
+  "erro_comum": "Descrito no texto da aula.",
+  "programa": "samples/academy/acad-m1-a04.nc",
+  "aviso": "Simule antes de rodar na máquina",
+  "exercicio": {
+    "tipo": "complete/corrija",
+    "enunciado": "Corrija a afirmação: \"Sem alarmes, a execução física é segura\".",
+    "gabarito": "Sem alarmes não significa trajetória segura; conferir preparação, simular e seguir procedimentos locais."
+  },
+  "quiz": [
+    {
+      "id": "acad-m1-a04-q01",
+      "enunciado": "Qual é a primeira interpretação correta de um programa sem alarmes?",
+      "alternativas": [
+        "Pode ainda conter trajetória perigosa",
+        "É automaticamente seguro",
+        "Está pronto para qualquer máquina",
+        "Não precisa de simulação"
+      ],
+      "correta": "A",
+      "explicacao": "A: Ausência de alarmes não prova ausência de colisões ou erro de montagem. B: Um programa pode não gerar alarme e ainda cruzar a fixação. C: Máquinas distintas podem ter offsets, ferramentas e limites diferentes. D: Simulação e preparação continuam necessárias mesmo sem alarmes.",
+      "dica": "Um programa pode ser sintaticamente válido e ter geometria perigosa."
+    },
+    {
+      "id": "acad-m1-a04-q02",
+      "enunciado": "Qual ação é apropriada antes de executar fisicamente?",
+      "alternativas": [
+        "Ignorar corretores",
+        "Conferir ferramenta, fixação e origem",
+        "Abrir a porta durante o ciclo",
+        "Desativar intertravamentos"
+      ],
+      "correta": "B",
+      "explicacao": "A: Ignorar corretores pode deslocar a ferramenta da posição pretendida. B: Conferir ferramenta, fixação e origem conecta o programa à montagem real. C: Abrir a porta durante o ciclo viola a condição de proteção prevista para a máquina. D: Desativar intertravamentos elimina uma barreira de segurança.",
+      "dica": "Relacione o programa aos componentes realmente montados na máquina."
+    },
+    {
+      "id": "acad-m1-a04-q03",
+      "enunciado": "No trecho G00 X15.0 Y5.0, qual risco exige análise?",
+      "alternativas": [
+        "A quantidade de comentários",
+        "O número O do arquivo",
+        "A presença de obstáculos no percurso",
+        "A ordem das letras no nome"
+      ],
+      "correta": "C",
+      "explicacao": "A: Comentários não determinam a segurança geométrica de G00. B: O número do programa não informa se a trajetória cruza a fixação. C: O deslocamento rápido pode atingir peça, morsa ou grampos no percurso. D: A ordem de letras no nome do arquivo não altera a trajetória programada.",
+      "dica": "O trajeto entre dois pontos importa tanto quanto o destino."
+    },
+    {
+      "id": "acad-m1-a04-q04",
+      "enunciado": "Por que uma simulação não basta isoladamente?",
+      "alternativas": [
+        "Porque elimina a necessidade de desenho",
+        "Porque altera automaticamente G54",
+        "Porque garante todos os offsets reais",
+        "Porque pode omitir elementos da montagem real"
+      ],
+      "correta": "D",
+      "explicacao": "A: Simular não elimina a necessidade de consultar o desenho e a preparação. B: Simulação não altera automaticamente o offset G54 real da máquina. C: Simulação não garante que os offsets medidos na máquina coincidam com os do modelo. D: Elementos reais, como grampos e comprimento de ferramenta, podem faltar no modelo simulado.",
+      "dica": "Compare o modelo 3D com os elementos que existem na área de trabalho."
+    }
+  ],
+  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica."
+}

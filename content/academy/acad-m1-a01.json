@@ -1,0 +1,74 @@
+{
+  "id": "acad-m1-a01",
+  "modulo": "acad-m1",
+  "titulo": "Máquinas CNC e fluxo de trabalho",
+  "nivel": "Introdução",
+  "caminho": "Comum",
+  "status": "rascunho",
+  "objetivo": "Identificar os componentes de uma máquina CNC e o fluxo entre preparação, programação e execução.",
+  "pre_requisito": null,
+  "texto": "Uma máquina CNC executa movimentos comandados por um programa numérico. CNC significa controle numérico computadorizado. O comando interpreta instruções e coordena os eixos, enquanto a parte mecânica realiza deslocamentos e operações. Em uma fresadora, normalmente a ferramenta gira e a peça fica fixada na mesa. Em um torno, normalmente a peça gira no eixo-árvore e a ferramenta se desloca para usinar. Existem máquinas com configurações diferentes; portanto, é importante reconhecer a máquina real antes de interpretar qualquer programa.\n\nO operador encontra na máquina o painel do comando, a área de trabalho, o eixo-árvore, os dispositivos de fixação, o sistema de ferramentas e os recursos de refrigeração. O botão de parada de emergência é um recurso de segurança, não um substituto para preparação correta. Portas, proteções e intertravamentos não devem ser contornados. O nome de cada tecla e o procedimento de partida dependem do fabricante e do modelo: A definir para uma máquina específica.\n\nO processo começa com o desenho da peça. Nele aparecem dimensões, tolerâncias e material. Depois são escolhidos o bruto, a fixação, as ferramentas e a sequência de operações. A programação transforma esse planejamento em movimentos e funções auxiliares. Antes da fabricação, o programa deve ser conferido por leitura, simulação e procedimentos de prova adequados à máquina. Somente depois se prepara a execução, com atenção à origem da peça, corretores, ferramentas e limites de percurso.\n\nUm programa CNC não é uma ordem universal que funcione em qualquer equipamento. A mesma linha pode exigir adaptação conforme comando, cinemática, unidades e opções instaladas. Neste curso usamos exemplos introdutórios com sintaxe de referência Fanuc; eles são material didático, não instruções liberadas para produção. Os arquivos de exemplo devem ser abertos no editor e simulados antes de qualquer consideração sobre uso físico.\n\nErro comum no chão de fábrica: carregar um programa antigo e presumir que a fixação, a ferramenta e o zero continuam iguais. Mesmo que o código não tenha mudado, o ambiente pode ter mudado. A leitura responsável verifica tanto o programa quanto a preparação atual. O objetivo inicial não é decorar todos os códigos, mas compreender o que o comando controla e quais informações precisam ser confirmadas.\n\nExemplo guiado: para um bloco de alumínio de 80 x 60 x 20 mm, primeiro confira o desenho e decida se a operação será feita em fresadora. Fixe o bruto, defina a origem e escolha a ferramenta antes de programar. Um trajeto demonstrativo entre X0 Y0 e X20 Y10 serve para verificar leitura de eixos, mas não representa uma usinagem aprovada. O raciocínio é: identificar processo, definir referencias, conferir montagem e só então simular.",
+  "erro_comum": "Descrito no texto da aula.",
+  "programa": "samples/academy/acad-m1-a01.nc",
+  "aviso": "Simule antes de rodar na máquina",
+  "exercicio": {
+    "tipo": "complete/corrija",
+    "enunciado": "Complete a linha para posicionar em X20.0 Y10.0 no modo rápido: ____ X20.0 Y10.0",
+    "gabarito": "G00"
+  },
+  "quiz": [
+    {
+      "id": "acad-m1-a01-q01",
+      "enunciado": "Qual equipamento normalmente gira a peça durante a usinagem?",
+      "alternativas": [
+        "Torno CNC",
+        "Fresadora vertical convencional de 3 eixos",
+        "Centro de usinagem com mesa fixa",
+        "Máquina de medição por coordenadas"
+      ],
+      "correta": "A",
+      "explicacao": "A: No torno CNC convencional, a peça gira presa ao eixo-árvore. B: Na fresadora vertical convencional, em geral, quem gira é a ferramenta, não a peça. C: Num centro de usinagem de mesa fixa, a peça permanece fixada enquanto a ferramenta gira. D: Uma máquina de medição por coordenadas mede geometria; não realiza torneamento da peça.",
+      "dica": "Compare o que gira no torneamento e no fresamento convencional."
+    },
+    {
+      "id": "acad-m1-a01-q02",
+      "enunciado": "Qual informação deve ser conferida antes de reaproveitar um programa?",
+      "alternativas": [
+        "Somente o nome do arquivo",
+        "Fixação, zero e ferramentas atuais",
+        "Somente a data do programa",
+        "Somente a cor do bruto"
+      ],
+      "correta": "B",
+      "explicacao": "A: O nome identifica o arquivo, mas não confirma que a montagem coincide com o programa. B: Fixação, origem e ferramentas determinam se a trajetória programada corresponde à preparação atual. C: A data informa quando o arquivo foi salvo, mas não verifica offsets nem ferramentas. D: A cor do bruto não informa suas dimensões, sua fixação ou os corretores necessários.",
+      "dica": "Pense nos elementos físicos que podem mudar entre duas montagens da mesma peça."
+    },
+    {
+      "id": "acad-m1-a01-q03",
+      "enunciado": "No trecho G00 X20.0 Y10.0, quais endereços representam coordenadas?",
+      "alternativas": [
+        "G e 00",
+        "Somente G",
+        "X e Y",
+        "Somente 10.0"
+      ],
+      "correta": "C",
+      "explicacao": "A: G00 é uma função de movimento, não um endereço de eixo. B: G identifica a função preparatória; não representa a posição X ou Y. C: X e Y são endereços de coordenadas; 20.0 e 10.0 são seus valores. D: 10.0 é um valor numérico associado a Y, não o nome de um eixo.",
+      "dica": "Separe a palavra de função G dos endereços que apontam posições."
+    },
+    {
+      "id": "acad-m1-a01-q04",
+      "enunciado": "Qual sequência melhor representa um fluxo responsável?",
+      "alternativas": [
+        "Executar, depois medir e simular",
+        "Selecionar ferramenta sem desenho",
+        "Carregar qualquer arquivo e iniciar",
+        "Planejar, programar, simular e conferir preparação"
+      ],
+      "correta": "D",
+      "explicacao": "A: Executar antes da simulação elimina a verificação preventiva da trajetória. B: Escolher a ferramenta sem consultar desenho e material pode levar a uma operação incompatível. C: Carregar um arquivo sem conferir sua origem e ferramentas pode causar colisão. D: Planejar, programar, simular e conferir a preparação cria etapas de verificação antes da execução.",
+      "dica": "Organize as etapas pelo momento em que um erro deve ser detectado."
+    }
+  ],
+  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica."
+}
