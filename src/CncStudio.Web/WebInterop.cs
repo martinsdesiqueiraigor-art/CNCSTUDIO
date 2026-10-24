@@ -114,6 +114,10 @@ internal static partial class WebInterop
     [JSImport("onHidden", Module)]
     public static partial void OnHidden([JSMarshalAs<JSType.Function>] Action callback);
 
+    /// <summary>Tela inicial da plataforma (platform-ui.js): avisa quando a pessoa escolhe "academy" ou "macro".</summary>
+    [JSImport("onPlatform", Module)]
+    public static partial void OnPlatform([JSMarshalAs<JSType.Function<JSType.String>>] Action<string> callback);
+
     /// <summary>Editor nativo em tela cheia; texto novo ou null se cancelar.</summary>
     [JSImport("editText", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
