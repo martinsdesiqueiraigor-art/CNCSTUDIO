@@ -80,10 +80,40 @@ public static class AcademyJson
             ["warning"] = l.Warning,
             ["programName"] = Path.GetFileName(l.ProgramPath),
             ["program"] = Library.Programs.GetValueOrDefault(l.ProgramPath, ""),
+            ["walk"] = Walk(Library.Programs.GetValueOrDefault(l.ProgramPath, "")),
             ["exercise"] = l.Exercise is null ? null : new JsonObject { ["prompt"] = l.Exercise.Prompt, ["answer"] = l.Exercise.Answer },
             ["quizId"] = l.Id + "-quiz",
             ["quiz"] = Questions(l.Quiz),
         }.ToJsonString();
+    }
+
+    /// <summary>Leitura linha a linha: [{n,text,explain,rapid,path:[[x,y,z],…]}] e o bruto {min,max}.</summary>
+    private static JsonObject? Walk(string program)
+    {
+        if (program.Length == 0)
+        {
+            return null;
+        }
+
+        Walkthrough w = ProgramWalkthrough.Build(program);
+        var lines = new JsonArray();
+        foreach (WalkLine l in w.Lines)
+        {
+            var path = new JsonArray();
+            foreach (var p in l.Path)
+            {
+                path.Add(new JsonArray(JsonValue.Create(Math.Round(p.X, 3)), JsonValue.Create(Math.Round(p.Y, 3)), JsonValue.Create(Math.Round(p.Z, 3))));
+            }
+
+            lines.Add(new JsonObject { ["n"] = l.Number, ["text"] = l.Text, ["explain"] = l.Explanation, ["rapid"] = l.Rapid, ["path"] = path });
+        }
+
+        return new JsonObject
+        {
+            ["lines"] = lines,
+            ["min"] = new JsonArray(JsonValue.Create(w.StockMin.X), JsonValue.Create(w.StockMin.Y), JsonValue.Create(w.StockMin.Z)),
+            ["max"] = new JsonArray(JsonValue.Create(w.StockMax.X), JsonValue.Create(w.StockMax.Y), JsonValue.Create(w.StockMax.Z)),
+        };
     }
 
     /// <summary>Teste final do módulo: sorteia 10 perguntas do banco mais as de leitura de programa (semente repetível).</summary>

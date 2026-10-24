@@ -275,3 +275,53 @@ public class AcademyEmbeddedTests
         Assert.True((bool)JsonNode.Parse(AcademyJson.Dispatch("final", "{\"module\":\"acad-m1\",\"seed\":5}"))!["ok"]!);
     }
 }
+
+public class WalkthroughTests
+{
+    private const string Prog = "%\nO1002\n(BRUTO: BLOCO 80 X 60 X 20 MM)\nG21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y10.0\nG01 X40.0 Y10.0 Z15.0 F120.0\nX40.0 Y30.0\nM30\n%\n";
+
+    [Fact]
+    public void ExplainsEachLineAndKeepsModalMotion()
+    {
+        Walkthrough w = ProgramWalkthrough.Build(Prog);
+        string Explain(string text) => w.Lines.First(l => l.Text == text).Explanation;
+        Assert.Contains("comentário", Explain("(BRUTO: BLOCO 80 X 60 X 20 MM)"), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("milímetros", Explain("G21 G90 G17 G94"));
+        Assert.Contains("absolutas", Explain("G21 G90 G17 G94"));
+        Assert.Contains("rápido", Explain("G00 X10.0 Y10.0"));
+        Assert.Contains("120", Explain("G01 X40.0 Y10.0 Z15.0 F120.0"));
+        string modal = Explain("X40.0 Y30.0");
+        Assert.Contains("linha reta", modal);
+        Assert.Contains("linha anterior", modal);
+        Assert.Contains("fim do programa", Explain("M30"));
+    }
+
+    [Fact]
+    public void MovingLinesCarryThePathAndStockComesFromTheHeader()
+    {
+        Walkthrough w = ProgramWalkthrough.Build(Prog);
+        WalkLine rapid = w.Lines.First(l => l.Text == "G00 X10.0 Y10.0");
+        Assert.True(rapid.Rapid);
+        Assert.Equal(2, rapid.Path.Count);
+        Assert.Equal(10, rapid.Path[1].X);
+        WalkLine cut = w.Lines.First(l => l.Text.StartsWith("G01"));
+        Assert.False(cut.Rapid);
+        Assert.Equal(15, cut.Path[^1].Z);
+        Assert.Empty(w.Lines.First(l => l.Text == "G54").Path);
+        Assert.Equal(new CncStudio.Core.Geometry.Point3(0, 0, -20), w.StockMin);
+        Assert.Equal(new CncStudio.Core.Geometry.Point3(80, 60, 0), w.StockMax);
+    }
+
+    [Fact]
+    public void EveryEmbeddedLessonProgramHasAWalkthrough()
+    {
+        AcademyJson.UseLibrary(null);
+        foreach (string id in new[] { "acad-m1-a01", "acad-m1-a02", "acad-m1-a03", "acad-m1-a04", "acad-m1-a05" })
+        {
+            JsonNode lesson = JsonNode.Parse(AcademyJson.Dispatch("lesson", $"{{\"id\":\"{id}\"}}"))!;
+            JsonArray lines = lesson["walk"]!["lines"]!.AsArray();
+            Assert.True(lines.Count > 5);
+            Assert.Contains(lines, l => l!["path"]!.AsArray().Count >= 2);
+        }
+    }
+}

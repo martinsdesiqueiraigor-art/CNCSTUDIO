@@ -157,6 +157,140 @@ export function openAcademy(call) {
       return box;
     };
 
+
+    // ---------- Leitura linha a linha com mini 3D (desenho em aramado, sem biblioteca) ----------
+    const walkViewer = walk => {
+      const box = make('div');
+      const canvas = make('canvas', null, 'width:100%;height:250px;background:#0a0f14;border:1px solid #30445a;border-radius:9px;touch-action:none;display:block');
+      const ctx = canvas.getContext('2d');
+      const lines = walk.lines;
+      const [x0, y0, z0] = walk.min, [x1, y1, z1] = walk.max;
+      // enquadramento: bruto, origem e todo o percurso
+      let lo = [Math.min(x0, 0), Math.min(y0, 0), Math.min(z0, 0)], hi = [Math.max(x1, 0), Math.max(y1, 0), Math.max(z1, 0)];
+      lines.forEach(l => l.path.forEach(p => { for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], p[i]); hi[i] = Math.max(hi[i], p[i]); } }));
+      const center = [0, 1, 2].map(i => (lo[i] + hi[i]) / 2);
+      const radius = Math.max(1, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2);
+      let az = -0.7, el = 0.55, sel = -1, t = 1, playing = false, timer = 0, raf = 0;
+
+      const project = (p, w, h) => {
+        const x = p[0] - center[0], y = p[1] - center[1], z = p[2] - center[2];
+        const ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
+        const rx = x * ca - y * sa, ry = x * sa + y * ca;
+        const s = Math.min(w, h) / (radius * 2.5);
+        return [w / 2 + rx * s, h / 2 - (z * ce + ry * se) * s];
+      };
+      const seg = (a, b, color, width, dash) => {
+        const w = canvas.width, h = canvas.height;
+        const pa = project(a, w, h), pb = project(b, w, h);
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+        ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
+      };
+      const polyline = (pts, upTo, color, width, dash) => {
+        // desenha só a fração "upTo" (0..1) do comprimento da polilinha
+        let total = 0; const len = [];
+        for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]); len.push(d); total += d; }
+        let left = total * upTo, tip = pts[0];
+        for (let i = 1; i < pts.length && left > 0; i++) {
+          const d = len[i - 1], f = d === 0 ? 1 : Math.min(1, left / d);
+          const end = [0, 1, 2].map(k => pts[i - 1][k] + (pts[i][k] - pts[i - 1][k]) * f);
+          seg(pts[i - 1], end, color, width, dash); tip = end; left -= d;
+        }
+        return tip;
+      };
+
+      const draw = () => {
+        const dpr = window.devicePixelRatio || 1;
+        const cw = Math.round(canvas.clientWidth * dpr), ch = Math.round(canvas.clientHeight * dpr);
+        if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.lineCap = 'round';
+        const k = dpr;
+        // bruto
+        const c = [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]];
+        [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]].forEach(([a, b]) => seg(c[a], c[b], '#5b6b7b', 1 * k));
+        // eixos na origem (zero da peça)
+        const L = radius * 0.6;
+        [['X', [L, 0, 0], '#ff6b6b'], ['Y', [0, L, 0], '#6bdc8c'], ['Z', [0, 0, L], '#6bb0ff']].forEach(([name, end, color]) => {
+          seg([0, 0, 0], end, color, 2 * k);
+          const pe = project(end, canvas.width, canvas.height);
+          ctx.fillStyle = color; ctx.font = `${12 * k}px system-ui`; ctx.fillText(name, pe[0] + 3 * k, pe[1] - 3 * k);
+        });
+        // percurso: linhas anteriores fracas, linha atual em destaque
+        let tool = null;
+        lines.forEach((l, i) => {
+          if (l.path.length < 2 || i > sel) return;
+          const current = i === sel;
+          const color = l.rapid ? (current ? '#7cc4ff' : '#3d5d7a') : (current ? '#ffb454' : '#8a6a3a');
+          tool = polyline(l.path, current ? t : 1, color, (current ? 3 : 2) * k, l.rapid ? [6 * k, 5 * k] : []);
+        });
+        if (tool) {
+          const p0 = project(tool, canvas.width, canvas.height), p1 = project([tool[0], tool[1], tool[2] + radius * 0.35], canvas.width, canvas.height);
+          ctx.strokeStyle = '#e6edf3'; ctx.lineWidth = 3 * k; ctx.setLineDash([]);
+          ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+          ctx.fillStyle = '#ff5c5c'; ctx.beginPath(); ctx.arc(p0[0], p0[1], 4 * k, 0, 7); ctx.fill();
+        }
+        ctx.fillStyle = '#9baab9'; ctx.font = `${11 * k}px system-ui`;
+        ctx.fillText('arraste para girar · azul = rápido (G00) · laranja = corte (G01)', 8 * k, canvas.height - 8 * k);
+      };
+
+      // girar com o dedo ou o mouse
+      let drag = null;
+      canvas.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); });
+      canvas.addEventListener('pointermove', e => {
+        if (!drag) return;
+        az += (e.clientX - drag[0]) * 0.01; el = Math.max(-1.4, Math.min(1.4, el + (e.clientY - drag[1]) * 0.01));
+        drag = [e.clientX, e.clientY]; draw();
+      });
+      canvas.addEventListener('pointerup', () => { drag = null; });
+
+      // lista de linhas do programa e a explicação
+      const listBox = make('div', null, 'background:#0a0f14;border:1px solid #30445a;border-radius:9px;margin:8px 0;max-height:210px;overflow:auto');
+      const rows = lines.map((l, i) => {
+        const r = make('div', l.text, 'padding:5px 10px;font:12px/1.4 ui-monospace,Consolas,monospace;color:#c9d6e2;white-space:pre;cursor:pointer;border-left:3px solid transparent');
+        r.addEventListener('click', () => { stopPlay(); select(i, 1); });
+        listBox.append(r); return r;
+      });
+      const explain = make('div', 'Toque numa linha do programa para ver o que ela faz e por onde a ferramenta anda.', 'background:#131a22;border:1px solid #303d4b;border-radius:9px;padding:10px;font-size:14px;margin-bottom:8px');
+      const select = (i, frac) => {
+        sel = Math.max(-1, Math.min(lines.length - 1, i)); t = frac;
+        rows.forEach((r, j) => { r.style.background = j === sel ? '#2d4a63' : 'transparent'; r.style.borderLeftColor = j === sel ? '#ffb454' : 'transparent'; });
+        if (sel >= 0) {
+          explain.textContent = `Linha ${lines[sel].n}: ${lines[sel].explain}`;
+          rows[sel].scrollIntoView({ block: 'nearest' });
+        }
+        draw();
+      };
+
+      const stopPlay = () => { playing = false; clearTimeout(timer); cancelAnimationFrame(raf); playBtn.textContent = '▶ Reproduzir'; };
+      const animate = onDone => {
+        const start = performance.now(), dur = lines[sel].path.length >= 2 ? 650 : 450;
+        const step = now => {
+          t = Math.min(1, (now - start) / dur); draw();
+          if (t < 1 && playing) raf = requestAnimationFrame(step); else onDone();
+        };
+        raf = requestAnimationFrame(step);
+      };
+      const next = () => {
+        if (!playing) return;
+        if (sel + 1 >= lines.length) { stopPlay(); return; }
+        select(sel + 1, 0);
+        animate(() => { timer = setTimeout(next, 250); });
+      };
+      const playBtn = btn('▶ Reproduzir', '#b45b1f', () => {
+        if (playing) { stopPlay(); return; }
+        if (sel + 1 >= lines.length) select(-1, 1);
+        playing = true; playBtn.textContent = '❚❚ Pausar'; next();
+      }, 2);
+      const controls = make('div', null, 'display:flex;gap:8px;margin-top:8px');
+      controls.append(btn('‹ Linha', '#30363d', () => { stopPlay(); select(sel - 1, 1); }), playBtn, btn('Linha ›', '#30363d', () => { stopPlay(); select(sel + 1, 1); }));
+
+      box.append(canvas, controls, listBox, explain);
+      new ResizeObserver(draw).observe(canvas);
+      setTimeout(draw, 0);
+      box.stop = stopPlay;
+      return box;
+    };
+
     // ---------- Aula ----------
     const lessonScreen = (id, mod) => {
       const l = ask('lesson', { id });
@@ -174,11 +308,16 @@ export function openAcademy(call) {
       if (l.program) {
         const c = card();
         c.append(make('strong', 'Programa de exemplo: ' + l.programName));
-        c.append(make('pre', l.program, 'background:#0a0f14;border:1px solid #30445a;border-radius:8px;padding:10px;margin:8px 0;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;color:#c9d6e2'));
-        c.append(make('div', l.warning, 'color:#f3c969;font-size:12px;margin-bottom:8px'));
+        if (l.walk && l.walk.lines.length) {
+          c.append(make('div', 'Veja a ferramenta andar e leia o programa linha a linha.', 'color:#9baab9;font-size:13px;margin:2px 0 8px'));
+          c.append(walkViewer(l.walk));
+        } else {
+          c.append(make('pre', l.program, 'background:#0a0f14;border:1px solid #30445a;border-radius:8px;padding:10px;margin:8px 0;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;color:#c9d6e2'));
+        }
+        c.append(make('div', l.warning, 'color:#f3c969;font-size:12px;margin:8px 0'));
         const row = make('div', null, 'display:flex;gap:8px;flex-wrap:wrap');
         const open = view3d => finish(JSON.stringify({ name: l.programName.toUpperCase(), text: l.program, view3d }));
-        row.append(btn('Abrir no editor', '#2d4a63', () => open(false)), btn('Ver em 3D', '#b45b1f', () => open(true), 2));
+        row.append(btn('Abrir no editor', '#2d4a63', () => open(false)), btn('Ver em 3D completo', '#30363d', () => open(true), 2));
         c.append(row);
         parts.push(c);
       }
