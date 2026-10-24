@@ -260,3 +260,18 @@ public class AcademyTests
         Assert.True(errors.Count == 0, string.Join("\n", errors.Select(e => e.Where + ": " + e.Message)));
     }
 }
+
+public class AcademyEmbeddedTests
+{
+    [Fact]
+    public void EmbeddedCatalogAndLessonWork()
+    {
+        AcademyJson.UseLibrary(null);
+        JsonNode cat = JsonNode.Parse(AcademyJson.Dispatch("catalog", "{\"progress\":\"\"}"))!;
+        JsonNode first = cat["tracks"]![0]!["levels"]![0]!["module"]!;
+        Assert.False((bool)first["soon"]!);
+        Assert.Equal(5, first["lessons"]!.AsArray().Count);
+        Assert.True((bool)JsonNode.Parse(AcademyJson.Dispatch("lesson", "{\"id\":\"acad-m1-a01\"}"))!["ok"]!);
+        Assert.True((bool)JsonNode.Parse(AcademyJson.Dispatch("final", "{\"module\":\"acad-m1\",\"seed\":5}"))!["ok"]!);
+    }
+}

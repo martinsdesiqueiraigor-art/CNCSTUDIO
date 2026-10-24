@@ -143,6 +143,19 @@ public static class AcademyJson
     /// </summary>
     public static string Dispatch(string command, string argsJson)
     {
+        try
+        {
+            return DispatchCore(command, argsJson);
+        }
+        catch (Exception e)
+        {
+            // a tela mostra o motivo em vez de falhar em silêncio
+            return new JsonObject { ["ok"] = false, ["error"] = e.GetType().Name + ": " + e.Message }.ToJsonString();
+        }
+    }
+
+    private static string DispatchCore(string command, string argsJson)
+    {
         JsonObject args;
         try
         {

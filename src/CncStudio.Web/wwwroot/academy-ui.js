@@ -14,7 +14,7 @@ export function openAcademy(call) {
     };
     const ask = (cmd, args) => {
       try { return JSON.parse(call(cmd, JSON.stringify({ ...args, progress }))); }
-      catch { return { ok: false }; }
+      catch (e) { return { ok: false, error: 'JS: ' + e }; }
     };
 
     const css = (el, text) => { el.style.cssText = text; return el; };
@@ -48,7 +48,7 @@ export function openAcademy(call) {
     let activeTrack = 'Comum';
     const home = () => {
       const cat = ask('catalog', {});
-      if (!cat.tracks) { screen(header('Academy'), hint('Não foi possível carregar os cursos.')); return; }
+      if (!cat.tracks) { screen(header('Academy'), hint('Não foi possível carregar os cursos.' + (cat.error ? ' (' + cat.error + ')' : ''))); return; }
       const tabs = make('div', null, 'display:flex;gap:8px;margin-bottom:12px');
       cat.tracks.forEach(t => {
         const b = btn(t.name, t.name === activeTrack ? '#b45b1f' : '#21262d', () => { activeTrack = t.name; home(); });
