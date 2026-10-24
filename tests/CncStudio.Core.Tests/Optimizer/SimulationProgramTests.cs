@@ -57,6 +57,6 @@ public class SimulationProgramTests
         var r = Run(ZLevels(6).Prepend("#500 = 1"));
         Assert.Contains(r.Proposals, p => p.Accepted);
         Assert.Null(r.SimulationProgram);
-        Assert.Contains("nao pode ser conferido inteiro", Assert.Single(r.SimulationBlockers));
+        Assert.Contains("não pode ser conferido inteiro", Assert.Single(r.SimulationBlockers));
     }
 }

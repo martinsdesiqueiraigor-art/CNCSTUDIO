@@ -72,12 +72,12 @@ public static class MacroInterpreter
                 else if (code[0] == '#')
                 {
                     var eq = code.IndexOf('=');
-                    if (eq < 0) return Fail("Linha " + line + ": atribuicao invalida");
+                    if (eq < 0) return Fail("Linha " + line + ": atribuição inválida");
                     var target = Variable(code[1..eq], line);
                     vars[target] = Evaluate(code[(eq + 1)..], vars);
                 }
                 else if (code.StartsWith("IF", StringComparison.Ordinal) || code.StartsWith("GOTO", StringComparison.Ordinal))
-                    return Fail("Linha " + line + ": IF/GOTO nao permitido");
+                    return Fail("Linha " + line + ": IF/GOTO não permitido");
                 else
                 {
                     var (block, expanded) = NcLine(line, code, vars, units);
@@ -85,10 +85,10 @@ public static class MacroInterpreter
                     if (block.Unsupported is not null) return Fail("Linha " + line + ": " + block.Unsupported);
                     // M98 is resolved by NcMachine against subprograms of the same file; M99/G65/G66 are not allowed here.
                     if (block.Words.Any(w => (w.Letter == 'M' && w.Value == 99) || (w.Letter == 'G' && w.Value is 65 or 66 or 67)))
-                        return Fail("Linha " + line + ": M99/G65/G66 nao permitido no fragmento");
+                        return Fail("Linha " + line + ": M99/G65/G66 não permitido no fragmento");
                     blocks.Add(block with { Line = blocks.Count + 1 });
                     text.Add(expanded);
-                    if (blocks.Count > MaxBlocks) return Fail("Expansao excede " + MaxBlocks + " blocos");
+                    if (blocks.Count > MaxBlocks) return Fail("Expansão excede " + MaxBlocks + " blocos");
                 }
             }
             catch (MacroException e) { return Fail("Linha " + line + ": " + e.Message); }
@@ -151,7 +151,7 @@ public static class MacroInterpreter
                 if (i < code.Length && (code[i] == '-' || code[i] == '+')) i++;
                 while (i < code.Length && (char.IsDigit(code[i]) || code[i] == '.')) i++;
                 var literal = NcTokenizer.Tokenize(line, letter + code[start..i]);
-                if (literal.Unsupported is not null || literal.Words.Count != 1) throw new MacroException("palavra invalida " + letter);
+                if (literal.Unsupported is not null || literal.Words.Count != 1) throw new MacroException("palavra inválida " + letter);
                 words.Add(literal.Words[0]);
             }
         }
@@ -163,7 +163,7 @@ public static class MacroInterpreter
     private static int Variable(string text, int line)
     {
         if (!int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var n) || n < 1 || n > 999)
-            throw new MacroException("variavel invalida #" + text + " (somente #1-#999)");
+            throw new MacroException("variável inválida #" + text + " (somente #1-#999)");
         return n;
     }
 
@@ -171,13 +171,13 @@ public static class MacroInterpreter
     {
         var p = new Parser(expression, 0, vars);
         var value = p.Expression();
-        if (p.Position != expression.Length) throw new MacroException("expressao invalida: " + expression);
+        if (p.Position != expression.Length) throw new MacroException("expressão inválida: " + expression);
         return value;
     }
 
     private static bool Condition(string text, Dictionary<int, double> vars)
     {
-        if (text.Length < 2 || text[0] != '[' || text[^1] != ']') throw new MacroException("condicao deve estar entre colchetes");
+        if (text.Length < 2 || text[0] != '[' || text[^1] != ']') throw new MacroException("condição deve estar entre colchetes");
         var inner = text[1..^1];
         foreach (var op in new[] { "EQ", "NE", "LT", "LE", "GT", "GE" })
         {
@@ -186,7 +186,7 @@ public static class MacroInterpreter
             var a = Evaluate(inner[..at], vars); var b = Evaluate(inner[(at + 2)..], vars);
             return op switch { "EQ" => a == b, "NE" => a != b, "LT" => a < b, "LE" => a <= b, "GT" => a > b, _ => a >= b };
         }
-        throw new MacroException("operador de comparacao ausente");
+        throw new MacroException("operador de comparação ausente");
     }
 
     private sealed class MacroException(string message) : Exception(message);
@@ -220,7 +220,7 @@ public static class MacroInterpreter
             {
                 var op = text[Position++];
                 var right = Unary();
-                if (op == '/' && right == 0) throw new MacroException("divisao por zero");
+                if (op == '/' && right == 0) throw new MacroException("divisão por zero");
                 value = op == '*' ? value * right : value / right;
             }
             return value;
@@ -230,7 +230,7 @@ public static class MacroInterpreter
         {
             if (Position < text.Length && text[Position] == '-') { Position++; return -Unary(); }
             if (Position < text.Length && text[Position] == '+') { Position++; return Unary(); }
-            if (Position >= text.Length) throw new MacroException("expressao incompleta");
+            if (Position >= text.Length) throw new MacroException("expressão incompleta");
             foreach (var (name, function) in Functions)
                 if (string.CompareOrdinal(text, Position, name, 0, name.Length) == 0)
                 {
@@ -251,7 +251,7 @@ public static class MacroInterpreter
                 int start = Position;
                 while (Position < text.Length && char.IsDigit(text[Position])) Position++;
                 var n = Variable(text[start..Position], 0);
-                if (!vars.TryGetValue(n, out var v)) throw new MacroException("variavel #" + n + " vazia");
+                if (!vars.TryGetValue(n, out var v)) throw new MacroException("variável #" + n + " vazia");
                 return v;
             }
             int s = Position;

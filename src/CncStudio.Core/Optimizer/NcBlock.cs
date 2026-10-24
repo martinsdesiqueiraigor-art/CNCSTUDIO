@@ -34,7 +34,7 @@ public static class NcTokenizer
         if (text.Trim() == "%") return new(line, raw, words, null, true, null);
         int i = 0;
         while (i < text.Length && char.IsWhiteSpace(text[i])) i++;
-        if (i < text.Length && text[i] == '/') error = "Bloco com barra de supressao (/)";
+        if (i < text.Length && text[i] == '/') error = "Bloco com barra de supressão (/)";
         while (i < text.Length && error is null)
         {
             var c = text[i];
@@ -57,7 +57,7 @@ public static class NcTokenizer
             }
             if (c == '#' || c == '[' || c == ']') { error = "Sintaxe de macro"; break; }
             var letter = char.ToUpperInvariant(c);
-            if (letter < 'A' || letter > 'Z') { error = "Caractere nao reconhecido: " + c; break; }
+            if (letter < 'A' || letter > 'Z') { error = "Caractere não reconhecido: " + c; break; }
             int j = i + 1;
             while (j < text.Length && text[j] == ' ') j++;
             int start = j;
@@ -81,7 +81,7 @@ public static class NcTokenizer
         }
         if (error is null)
             foreach (var g in words.GroupBy(w => w.Letter).Where(g => g.Key is not ('G' or 'M') && g.Count() > 1))
-                error = "Endereco repetido: " + g.Key;
+                error = "Endereço repetido: " + g.Key;
         return new(line, raw, words, comment.Length > 0 ? comment.ToString().Trim() : null, false, error);
     }
 

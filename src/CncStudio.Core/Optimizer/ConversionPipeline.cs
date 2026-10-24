@@ -52,7 +52,7 @@ public static class ConversionPipeline
             codeBlocks++;
             if (miss is null) continue;
             notModeled++;
-            if (unmodeled.Count < 200) unmodeled.Add(new(blocks[i].Line, blocks[i].Raw.Trim(), miss.Note ?? "Nao modelado"));
+            if (unmodeled.Count < 200) unmodeled.Add(new(blocks[i].Line, blocks[i].Raw.Trim(), miss.Note ?? "Não modelado"));
         }
         var segments = Segment(blocks, entries, mainEnd);
 
@@ -73,7 +73,7 @@ public static class ConversionPipeline
             {
                 var check = EquivalenceChecker.Check(profile, entry, source, fragment, subprograms);
                 expanded = check.ExpandedText;
-                if (!check.Match) blockers.AddRange(check.Differences.Prepend("Expansao independente diverge do original."));
+                if (!check.Match) blockers.AddRange(check.Differences.Prepend("Expansão independente diverge do original."));
             }
             var audit = SafetyAudit.Check(entry, steps);
             blockers.AddRange(audit.Blockers);
@@ -153,13 +153,13 @@ public static class ConversionPipeline
         var accepted = proposals.Where(p => p.Accepted).OrderBy(p => p.StartLine).ToArray();
         if (accepted.Length == 0)
         {
-            blockers = new[] { "Nenhuma proposta aceita: o programa para simulacao seria igual ao original." };
+            blockers = new[] { "Nenhuma proposta aceita: o programa para simulação seria igual ao original." };
             return null;
         }
         // A program that already uses macro statements cannot be re-executed as a whole by the restricted interpreter.
         if (blocks.Take(mainEnd).FirstOrDefault(b => b.Unsupported is not null) is { } foreign)
         {
-            blockers = new[] { "Linha " + foreign.Line + " (" + foreign.Unsupported + "): o programa original nao pode ser conferido inteiro; use o documento de revisao." };
+            blockers = new[] { "Linha " + foreign.Line + " (" + foreign.Unsupported + "): o programa original não pode ser conferido inteiro; use o documento de revisão." };
             return null;
         }
         var header = new[]

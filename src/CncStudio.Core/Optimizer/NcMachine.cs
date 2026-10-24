@@ -109,7 +109,7 @@ public sealed class NcMachine
         if (block.IsDelimiter || (!block.HasCode && block.Unsupported is null))
             return new(block.Line, -1, "", s, null);
         if (block.Unsupported is not null)
-            return Taint(block, "Nao modelado: " + block.Unsupported, lose: true);
+            return Taint(block, "Não modelado: " + block.Unsupported, lose: true);
 
         int? motion = null, cycle = null; bool dwell = false, reference = false; string? note = null; bool lose = false, taint = false;
         // Value words first so that T1 M6 in one block activates tool 1.
@@ -124,7 +124,7 @@ public sealed class NcMachine
             }
         foreach (var w in block.Words)
         {
-            if (!Known.Contains(w.Letter)) { taint = true; note = "Endereco nao modelado: " + w.Letter; }
+            if (!Known.Contains(w.Letter)) { taint = true; note = "Endereço não modelado: " + w.Letter; }
             if (w.Letter == 'G')
             {
                 var g = w.Value;
@@ -149,7 +149,7 @@ public sealed class NcMachine
                     case 98 or 99: s = s with { ReturnMode = (int)g }; break;
                     default:
                         // G28/G30/G53/G92/G52/G68/canned cycles move or redefine axes: positions are lost.
-                        taint = lose = true; note = "G" + g.ToString(CultureInfo.InvariantCulture) + " nao modelado"; break;
+                        taint = lose = true; note = "G" + g.ToString(CultureInfo.InvariantCulture) + " não modelado"; break;
                 }
             }
             else if (w.Letter == 'M')
@@ -165,10 +165,10 @@ public sealed class NcMachine
                         var (program, count) = p > 9999 ? (p % 10000, p / 10000) : (p, 1);
                         if (block.Get('L') is { } l) count = (int)l.Value;
                         if (subprograms.ContainsKey(program) && depth < MaxDepth && count is >= 1 and <= 9999) call = (program, count);
-                        else { taint = lose = true; note = "M98 P" + p + ": subprograma fora do arquivo, recursivo ou repeticao invalida"; }
+                        else { taint = lose = true; note = "M98 P" + p + ": subprograma fora do arquivo, recursivo ou repeticao inválida"; }
                         break;
-                    case 99: taint = lose = true; note = "M99 fora de subprograma nao modelado"; break;
-                    default: taint = true; note = "M" + w.Value.ToString(CultureInfo.InvariantCulture) + " nao modelado"; break;
+                    case 99: taint = lose = true; note = "M99 fora de subprograma não modelado"; break;
+                    default: taint = true; note = "M" + w.Value.ToString(CultureInfo.InvariantCulture) + " não modelado"; break;
                 }
             }
         }
@@ -209,7 +209,7 @@ public sealed class NcMachine
                 Z = Move(s.Z, block.Get('Z'), s.Distance, units, scale)
             };
             executed = s.Motion;
-            if (s.Distance == -1) { s = s with { Tainted = true }; note = "G90/G91 nao estabelecido"; }
+            if (s.Distance == -1) { s = s with { Tainted = true }; note = "G90/G91 não estabelecido"; }
         }
         var arc = executed is 2 or 3 ? Arc(block, State, s, units) : null;
         State = s;
@@ -223,7 +223,7 @@ public sealed class NcMachine
         if (s.Distance != 90 || s.Plane != 17)
         {
             State = Lose(s, true) with { Tainted = true };
-            return new(block.Line, -1, words, State, "Ciclo fixo fora de G90/G17 nao modelado", Unmodeled: true);
+            return new(block.Line, -1, words, State, "Ciclo fixo fora de G90/G17 não modelado", Unmodeled: true);
         }
         double scale = units == 20 ? 25.4 : 1;
         double Dim(char letter, double old) => block.Get(letter) is { } w ? Math.Round(profile.Dimension(w, units) * scale, 6) : old;

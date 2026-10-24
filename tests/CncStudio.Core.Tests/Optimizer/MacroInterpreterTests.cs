@@ -31,8 +31,8 @@ public class MacroInterpreterTests
     [InlineData("X#5", "vazia")]
     [InlineData("M99", "M99/G65/G66")]
     [InlineData("G65 P9010 A1.", "M99/G65/G66")]
-    [InlineData("#1=1/0", "divisao")]
-    [InlineData("#1000=1", "variavel invalida")]
+    [InlineData("#1=1/0", "divisão")]
+    [InlineData("#1000=1", "variável inválida")]
     [InlineData("#1=0\nWHILE [#1 GE 0] DO1\nG01 X1.\nEND1", "excede")]
     public void RejectsUnsupportedOrUnsafeMacro(string fragment, string expected)
     {

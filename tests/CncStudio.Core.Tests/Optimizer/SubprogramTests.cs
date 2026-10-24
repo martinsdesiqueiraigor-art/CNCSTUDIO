@@ -53,7 +53,7 @@ public class SubprogramTests
             .Concat(Enumerable.Range(0, 8).SelectMany(k => new[] { $"G0 X{N(30 + 20 * k)} Y50.", "Z2.", "M98 P7777", "G0 Z25." }));
         var p = Assert.Single(Fixtures.Run(lines).Proposals);
         Assert.False(p.Accepted);
-        Assert.Contains(p.Blockers, b => b.Contains("nao modelado"));
+        Assert.Contains(p.Blockers, b => b.Contains("não modelado"));
     }
 
     [Fact]

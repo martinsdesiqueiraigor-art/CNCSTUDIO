@@ -16,7 +16,7 @@ public static class MacroGenerator
         error = null;
         string outer = "#" + profile.CounterVariable, inner = "#" + (profile.CounterVariable + 1);
         if (c.Polar is not null && units != 21)
-        { error = "Padrao circular exige G21 declarado (arredondamento de 0,001 mm)."; return null; }
+        { error = "Padrão circular exige G21 declarado (arredondamento de 0,001 mm)."; return null; }
         Func<int, NcWord[]> words = k => blocks[c.StartIndex + k].Words.Where(w => w.Letter != 'N').ToArray();
         bool grid = c.Kind == RepetitionKind.Grid;
         int innerStart = grid ? c.InnerOffset : -1, innerEnd = grid ? c.InnerOffset + c.InnerPeriod : -1;

@@ -8,8 +8,8 @@ public static class SafetyAudit
     {
         var blockers = new List<string>();
         var warnings = new List<string>();
-        if (entry.Units is not (20 or 21)) warnings.Add("G20/G21 nao declarado antes do trecho: valores interpretados no modo do controle.");
-        if (entry.Wcs == "?") warnings.Add("Origem de trabalho (G54-G59) nao declarada antes do trecho.");
+        if (entry.Units is not (20 or 21)) warnings.Add("G20/G21 não declarado antes do trecho: valores interpretados no modo do controle.");
+        if (entry.Wcs == "?") warnings.Add("Origem de trabalho (G54-G59) não declarada antes do trecho.");
         if (entry.CutterComp is 41 or 42) warnings.Add("Compensacao de raio G" + entry.CutterComp + " ativa: trajetoria real difere da programada.");
         if (entry.Tool < 0) warnings.Add("Ferramenta ativa desconhecida (sem T/M6 antes do trecho).");
 
@@ -22,7 +22,7 @@ public static class SafetyAudit
             var a = s.After;
             bool xy = a.X != previous.X || a.Y != previous.Y;
             if (a.Tainted && !previous.Tainted)
-                Add(blockers, "Linha " + s.Line + ": comando nao modelado no trecho (" + (s.Note ?? "?") + ").");
+                Add(blockers, "Linha " + s.Line + ": comando não modelado no trecho (" + (s.Note ?? "?") + ").");
             if (s.Arc is { } arc)
             {
                 // FANUC alarms when start and end radius differ beyond parameter 3410; 0.002 mm is conservative.
@@ -34,7 +34,7 @@ public static class SafetyAudit
                 {
                     helical = true;
                     if (arc.UsesR) Add(blockers, "Linha " + s.Line + ": helice com R (exigir I/J para centro inequivoco).");
-                    if (arc.Plane != 17) Add(blockers, "Linha " + s.Line + ": helice fora de G17 nao validada.");
+                    if (arc.Plane != 17) Add(blockers, "Linha " + s.Line + ": helice fora de G17 não validada.");
                 }
             }
             if (s.Motion is 1 or 2 or 3 or >= 73 && a.Feed <= 0)
