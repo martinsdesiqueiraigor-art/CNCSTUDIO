@@ -24,4 +24,10 @@
     <None Include="..\..\samples\**\*.*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Programas CAM sintéticos do Otimizador (gerados no estilo de pós-processadores Fanuc; não são programas de produção) -->
+  <ItemGroup>
+    <None Include="Optimizer\fixtures\cam-sinteticos\*.nc" Link="otimizador-fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Optimizer\fixtures\gerais\*.nc" Link="otimizador-gerais\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

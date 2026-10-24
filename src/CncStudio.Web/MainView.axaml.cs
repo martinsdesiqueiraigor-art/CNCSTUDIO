@@ -370,8 +370,7 @@ public partial class MainView : UserControl
         Add("Novo programa (colar ou digitar)…", NewFromPasteAsync);
         menu.Items.Add(new Separator());
         Add("Comparar com outro programa…", () => { OpenCompare(); return Task.CompletedTask; });
-        Add("Geradores de programa…", OpenGeneratorsAsync);
-        Add("Academy (cursos)…", OpenAcademyAsync);
+        // Geradores (Macro), Academy e Otimizador abrem pela barra inferior da plataforma
         Add("Estatísticas", () => { OpenStats(); return Task.CompletedTask; });
         Add("Folha de setup…", OpenSetupSheetAsync);
 
@@ -516,12 +515,12 @@ public partial class MainView : UserControl
     }
 
     /// <summary>Abre a comparação: o programa do editor à esquerda; a direita a pessoa escolhe.</summary>
-    private void OpenCompare()
+    private void OpenCompare(string? leftText = null, string? leftName = null)
     {
         StopSimulation();
         CloseLibrary();
         StatsHost.IsVisible = false;
-        CompareView.Open(Editor.Text, _fileName, CurrentDialect);
+        CompareView.Open(leftText ?? Editor.Text, leftName ?? _fileName, CurrentDialect);
         SetCompareVisible(true);
     }
 

@@ -1,0 +1,26 @@
+(OPERATION 1 - G91 INCREMENTAL CONTOUR - SIMULATOR ONLY)
+[Reading 21 lines from start (total: 21 lines, 0 remaining)]
+
+G91 G01 Z-8. F100
+X10. F400
+Y10.
+X-10.
+Y-10.
+G00 Z8.
+X30.
+G91 G01 Z-8. F100
+X10. F400
+Y10.
+X-10.
+Y-10.
+G00 Z8.
+X30.
+G91 G01 Z-8. F100
+X10. F400
+Y10.
+X-10.
+Y-10.
+G00 Z8.
+X30.
+
+[executed on device: Pesix-DESKTOP (ee6b84b5-8414-4034-b791-ed40a0ae7ce9)]

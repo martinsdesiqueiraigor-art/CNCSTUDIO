@@ -428,4 +428,5 @@ export function onPlatform(callback) {
     const waiting = p.pending.splice(0);
     waiting.forEach(id => callback(id));
 }
+export function openOptimizer(call, programText, programName) { return import('./optimizer-ui.js').then(m => m.openOptimizer(call, programText, programName)); }
 export function openAcademy(call) { return import('./academy-ui.js').then(m => m.openAcademy(call)); }
