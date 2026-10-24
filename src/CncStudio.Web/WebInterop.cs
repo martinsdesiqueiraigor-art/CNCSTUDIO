@@ -178,6 +178,13 @@ internal static partial class WebInterop
     /// Academy (academy-ui.js): trilhas, aulas, quizzes e teste final em HTML. O conteúdo e a correção vêm do Core pelo callback
     /// (comando, argumentos JSON) → JSON. O progresso fica no aparelho (localStorage). Devolve JSON {name, text, view3d} ou null.
     /// </summary>
+    [JSImport("openOptimizer", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> OpenOptimizerAsync(
+        [JSMarshalAs<JSType.Function<JSType.String, JSType.String, JSType.String>>] Func<string, string, string> call,
+        [JSMarshalAs<JSType.String>] string programText,
+        [JSMarshalAs<JSType.String>] string programName);
+
     [JSImport("openAcademy", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
     public static partial Task<string?> OpenAcademyAsync(

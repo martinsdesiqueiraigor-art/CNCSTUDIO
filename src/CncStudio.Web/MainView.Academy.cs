@@ -14,6 +14,7 @@ public partial class MainView
         {
             if (id == "academy") await OpenAcademyAsync();
             else if (id == "macro") await OpenGeneratorsAsync();
+            else if (id == "otimizador") await OpenOptimizerAsync();
         }
         catch (Exception ex)
         {
