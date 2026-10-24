@@ -14,7 +14,23 @@
   "exercicio": {
     "tipo": "complete/corrija",
     "enunciado": "Corrija o destino do segundo bloco para X40.0 Y10.0 em modo absoluto: G00 X30.0 Y10.0",
-    "gabarito": "G00 X40.0 Y10.0"
+    "gabarito": "G00 X40.0 Y10.0",
+    "editor": {
+      "prefixo": "G21 G90 G17\nG00 X10.0 Y10.0",
+      "inicial": "G00 X30.0 Y10.0",
+      "solucao": "G00 X40.0 Y10.0",
+      "checagens": [
+        {
+          "tipo": "posicao_final",
+          "x": 40,
+          "y": 10,
+          "dica": "Em modo absoluto, X é a posição, não quanto andar."
+        },
+        {
+          "tipo": "sem_erros"
+        }
+      ]
+    }
   },
   "quiz": [
     {
@@ -70,5 +86,9 @@
       "dica": "Imagine uma morsa entre o ponto inicial e o ponto final."
     }
   ],
-  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica."
+  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica.",
+  "diagramas": [
+    "eixos",
+    "ponto-xy"
+  ]
 }

@@ -14,7 +14,27 @@
   "exercicio": {
     "tipo": "complete/corrija",
     "enunciado": "Complete a linha para posicionar em X20.0 Y10.0 no modo rápido: ____ X20.0 Y10.0",
-    "gabarito": "G00"
+    "gabarito": "G00",
+    "editor": {
+      "prefixo": "G21 G90 G17",
+      "inicial": "____ X20.0 Y10.0",
+      "solucao": "G00 X20.0 Y10.0",
+      "checagens": [
+        {
+          "tipo": "contem",
+          "texto": "G00",
+          "dica": "Dica: G00 é o movimento rápido."
+        },
+        {
+          "tipo": "posicao_final",
+          "x": 20,
+          "y": 10
+        },
+        {
+          "tipo": "sem_erros"
+        }
+      ]
+    }
   },
   "quiz": [
     {
@@ -70,5 +90,8 @@
       "dica": "Organize as etapas pelo momento em que um erro deve ser detectado."
     }
   ],
-  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica."
+  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica.",
+  "diagramas": [
+    "eixos"
+  ]
 }

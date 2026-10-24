@@ -291,20 +291,249 @@ export function openAcademy(call) {
       return box;
     };
 
+
+    // ---------- Texto em cartões curtos, com pausa rápida no meio ----------
+    const cardReader = (text, pause) => {
+      const pars = text.split(/\n\s*\n/).filter(s => s.trim());
+      const steps = pars.map(s => ({ kind: 'text', text: s }));
+      if (pause && pars.length >= 4) steps.splice(Math.ceil(pars.length / 2), 0, { kind: 'pause', q: pause });
+      const box = card('background:#131a22');
+      const body = make('div', null, 'min-height:120px');
+      const dots = make('div', null, 'display:flex;gap:6px;justify-content:center;margin:8px 0');
+      const nav = make('div', null, 'display:flex;gap:8px');
+      let i = 0;
+      const prev = btn('‹ Anterior', '#30363d', () => { i = Math.max(0, i - 1); show(); });
+      const nextBtn = btn('Próximo ›', '#b45b1f', () => { i = Math.min(steps.length - 1, i + 1); show(); }, 2);
+      nav.append(prev, nextBtn);
+      const show = () => {
+        const s = steps[i];
+        body.replaceChildren();
+        if (s.kind === 'text') {
+          body.append(make('p', s.text, 'margin:0;font-size:16px;line-height:1.6'));
+        } else {
+          body.append(make('strong', '⏸ Pausa rápida (não vale nota)', 'color:#f3c969'));
+          body.append(make('div', s.q.prompt, 'margin:6px 0 8px;white-space:pre-wrap'));
+          const fb = make('div', '', 'font-size:13px;margin-top:6px;white-space:pre-wrap');
+          const bs = s.q.options.map((o, oi) => {
+            const b = make('button', `${'ABCD'[oi]}) ${o}`, 'display:block;width:100%;text-align:left;min-height:42px;margin-bottom:6px;border:1px solid #4a5665;border-radius:8px;background:#161b22;color:#e6edf3;font-size:14px;padding:8px 10px;white-space:normal');
+            b.type = 'button';
+            b.addEventListener('click', () => {
+              bs.forEach((x, xi) => { x.disabled = true; if (xi === s.q.correct) x.style.background = '#1f6f43'; else if (xi === oi) x.style.background = '#8a2d2d'; });
+              fb.textContent = (oi === s.q.correct ? '✓ Correto. ' : '✗ Resposta certa: ' + 'ABCD'[s.q.correct] + '. ') + s.q.explanation;
+            });
+            body.append(b); return b;
+          });
+          body.append(fb);
+        }
+        dots.replaceChildren(...steps.map((_, k) => make('span', null, `width:8px;height:8px;border-radius:50%;background:${k === i ? '#ffb454' : k < i ? '#6b7a8a' : '#2a3441'}`)));
+        prev.disabled = i === 0; prev.style.opacity = i === 0 ? '.5' : '1';
+        nextBtn.disabled = i === steps.length - 1; nextBtn.style.opacity = i === steps.length - 1 ? '.5' : '1';
+        nextBtn.textContent = i === steps.length - 1 ? 'Fim do texto ✓' : 'Próximo ›';
+        counter.textContent = `${i + 1} de ${steps.length}`;
+      };
+      const counter = make('div', '', 'color:#9baab9;font-size:12px;text-align:right');
+      box.append(counter, body, dots, nav);
+      show();
+      return box;
+    };
+
+    // ---------- Aramado 3D simples (para o diagrama dos eixos) ----------
+    const wire3d = (stock, height) => {
+      const canvas = make('canvas', null, `width:100%;height:${height}px;background:#0a0f14;border:1px solid #30445a;border-radius:9px;touch-action:none;display:block`);
+      const ctx = canvas.getContext('2d');
+      const [x0, y0, z0] = stock.min, [x1, y1, z1] = stock.max;
+      const center = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1 + 20) / 2];
+      const radius = Math.hypot(x1 - x0, y1 - y0, z1 - z0 + 40) / 2;
+      let az = -0.7, el = 0.55, state = { tool: [0, 0, 0] };
+      const project = p => {
+        const x = p[0] - center[0], y = p[1] - center[1], z = p[2] - center[2];
+        const ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
+        const s = Math.min(canvas.width, canvas.height) / (radius * 2.4);
+        return [canvas.width / 2 + (x * ca - y * sa) * s, canvas.height / 2 - (z * ce + (x * sa + y * ca) * se) * s];
+      };
+      const seg = (a, b, color, w, dash) => { const pa = project(a), pb = project(b); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke(); };
+      const draw = () => {
+        const dpr = window.devicePixelRatio || 1;
+        const cw = Math.round(canvas.clientWidth * dpr), ch = Math.round(canvas.clientHeight * dpr);
+        if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+        ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.lineCap = 'round';
+        const k = dpr;
+        const c = [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]];
+        [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]].forEach(([a, b]) => seg(c[a], c[b], '#5b6b7b', k));
+        [['X', [60, 0, 0], '#ff6b6b'], ['Y', [0, 60, 0], '#6bdc8c'], ['Z', [0, 0, 40], '#6bb0ff']].forEach(([n, e, col]) => {
+          seg([0, 0, 0], e, col, 2 * k); const pe = project(e); ctx.fillStyle = col; ctx.font = `${12 * k}px system-ui`; ctx.fillText(n, pe[0] + 3 * k, pe[1] - 3 * k);
+        });
+        const [tx, ty, tz] = state.tool;
+        seg([tx, ty, tz], [tx, ty, 0], '#9baab9', k, [3 * k, 3 * k]);
+        seg([tx, ty, 0], [tx, 0, 0], '#ff6b6b', k, [2 * k, 3 * k]);
+        seg([tx, ty, 0], [0, ty, 0], '#6bdc8c', k, [2 * k, 3 * k]);
+        const p0 = project([tx, ty, tz]), p1 = project([tx, ty, tz + 14]);
+        ctx.setLineDash([]); ctx.strokeStyle = '#e6edf3'; ctx.lineWidth = 3 * k; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+        ctx.fillStyle = '#ff5c5c'; ctx.beginPath(); ctx.arc(p0[0], p0[1], 4 * k, 0, 7); ctx.fill();
+      };
+      let drag = null;
+      canvas.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); });
+      canvas.addEventListener('pointermove', e => { if (!drag) return; az += (e.clientX - drag[0]) * 0.01; el = Math.max(-1.4, Math.min(1.4, el + (e.clientY - drag[1]) * 0.01)); drag = [e.clientX, e.clientY]; draw(); });
+      canvas.addEventListener('pointerup', () => { drag = null; });
+      new ResizeObserver(draw).observe(canvas);
+      return { canvas, set: tool => { state = { tool }; draw(); } };
+    };
+
+    const slider = (label, min, max, value, onChange) => {
+      const row = make('label', null, 'display:grid;grid-template-columns:118px 1fr 40px;align-items:center;gap:8px;min-height:40px');
+      const input = make('input', null, 'width:100%;accent-color:#b45b1f');
+      input.type = 'range'; input.min = min; input.max = max; input.value = value;
+      const out = make('span', String(value), 'text-align:right;font:13px ui-monospace,Consolas,monospace');
+      input.addEventListener('input', () => { out.textContent = input.value; onChange(+input.value); });
+      row.append(make('span', label, 'font-size:14px'), input, out);
+      return row;
+    };
+
+    // Diagrama 1: eixos (move a ferramenta com os controles e vê X, Y e Z)
+    const diagramEixos = () => {
+      const box = make('div');
+      box.append(make('strong', 'Eixos X, Y e Z'), make('div', 'Mexa nos controles: a ferramenta anda nos três eixos a partir do zero da peça (canto do bloco, Z0 no topo). Arraste o desenho para girar.', 'color:#9baab9;font-size:13px;margin:2px 0 8px'));
+      const w = wire3d({ min: [0, 0, -20], max: [80, 60, 0] }, 230);
+      const pos = [20, 20, 15];
+      const read = make('div', '', 'font:14px ui-monospace,Consolas,monospace;margin:8px 0');
+      const upd = () => { w.set(pos); read.textContent = `X${pos[0]} Y${pos[1]} Z${pos[2]}   ${pos[2] > 0 ? '(acima do topo: seguro)' : pos[2] === 0 ? '(no topo da peça)' : '(dentro do bloco!)'}`; };
+      box.append(w.canvas, slider('X (esq→dir)', 0, 80, pos[0], v => { pos[0] = v; upd(); }), slider('Y (frente→fundo)', 0, 60, pos[1], v => { pos[1] = v; upd(); }), slider('Z (baixo→cima)', -20, 40, pos[2], v => { pos[2] = v; upd(); }), read);
+      setTimeout(upd, 0);
+      return box;
+    };
+
+    // Vista de cima simples para os diagramas 2 e 3
+    const plan2d = (worldW, worldH, height) => {
+      const canvas = make('canvas', null, `width:100%;height:${height}px;background:#0a0f14;border:1px solid #30445a;border-radius:9px;display:block`);
+      const ctx = canvas.getContext('2d');
+      const m = 22;
+      const api = {
+        canvas, ctx, k: 1,
+        begin() {
+          const dpr = window.devicePixelRatio || 1; api.k = dpr;
+          const cw = Math.round(canvas.clientWidth * dpr), ch = Math.round(canvas.clientHeight * dpr);
+          if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+          ctx.clearRect(0, 0, cw, ch);
+          api.s = Math.min((cw - 2 * m * dpr) / worldW, (ch - 2 * m * dpr) / worldH);
+        },
+        px(x, y) { return [m * api.k + x * api.s, canvas.height - m * api.k - y * api.s]; },
+        line(a, b, col, w, dash) { const pa = api.px(...a), pb = api.px(...b); ctx.strokeStyle = col; ctx.lineWidth = w * api.k; ctx.setLineDash((dash || []).map(d => d * api.k)); ctx.beginPath(); ctx.moveTo(...pa); ctx.lineTo(...pb); ctx.stroke(); },
+        rect(x, y, w, h, fill, stroke, dash) { const a = api.px(x, y), b = api.px(x + w, y + h); if (fill) { ctx.fillStyle = fill; ctx.fillRect(a[0], b[1], b[0] - a[0], a[1] - b[1]); } ctx.strokeStyle = stroke; ctx.lineWidth = api.k * 1.5; ctx.setLineDash((dash || []).map(d => d * api.k)); ctx.strokeRect(a[0], b[1], b[0] - a[0], a[1] - b[1]); },
+        dot(x, y, col, r) { const p = api.px(x, y); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p[0], p[1], (r || 5) * api.k, 0, 7); ctx.fill(); },
+        text(s, x, y, col, size, dx, dy) { const p = api.px(x, y); ctx.fillStyle = col; ctx.font = `${(size || 12) * api.k}px system-ui`; ctx.fillText(s, p[0] + (dx || 0) * api.k, p[1] + (dy || 0) * api.k); },
+      };
+      return api;
+    };
+
+    // Diagrama 2: absoluto (G90) × incremental (G91)
+    const diagramPontoXY = () => {
+      const box = make('div');
+      box.append(make('strong', 'Absoluto (G90) ou incremental (G91)?'), make('div', 'A ferramenta está em X10 Y10. Digite X e Y e escolha o modo: veja para onde ela vai.', 'color:#9baab9;font-size:13px;margin:2px 0 8px'));
+      const plan = plan2d(90, 70, 220);
+      let mode = 'G90', X = 40, Y = 10;
+      const modes = make('div', null, 'display:flex;gap:8px;margin:8px 0');
+      const inputs = make('div', null, 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px');
+      const field = (name, val, set) => { const i = make('input', null, 'min-width:0;width:100%;box-sizing:border-box;background:#161b22;color:white;border:1px solid #4a5665;border-radius:7px;min-height:44px;padding:8px;font-size:17px'); i.type = 'text'; i.inputMode = 'decimal'; i.value = String(val); i.addEventListener('input', () => { const n = Number(i.value.replace(',', '.')); if (!isNaN(n) && i.value.trim() !== '') { set(n); upd(); } }); const l = make('label', null, 'display:grid;gap:4px;font-size:13px'); l.append(make('span', name), i); return l; };
+      const read = make('div', '', 'font-size:14px;margin-top:8px;white-space:pre-wrap');
+      const mbtn = {};
+      ['G90', 'G91'].forEach(m => { const b = btn(m === 'G90' ? 'G90 absoluto' : 'G91 incremental', '#21262d', () => { mode = m; upd(); }); mbtn[m] = b; modes.append(b); });
+      inputs.append(field('X', X, v => { X = v; }), field('Y', Y, v => { Y = v; }));
+      const upd = () => {
+        Object.keys(mbtn).forEach(m => { mbtn[m].style.background = m === mode ? '#b45b1f' : '#21262d'; });
+        const dx = mode === 'G90' ? X : 10 + X, dy = mode === 'G90' ? Y : 10 + Y;
+        plan.begin();
+        for (let g = 0; g <= 80; g += 10) { plan.line([g, 0], [g, 60], '#1c2733', 1); plan.text(String(g), g, 0, '#6b7a8a', 10, -4, 14); }
+        for (let g = 0; g <= 60; g += 10) { plan.line([0, g], [80, g], '#1c2733', 1); if (g) plan.text(String(g), 0, g, '#6b7a8a', 10, -18, 4); }
+        plan.rect(0, 0, 80, 60, 'rgba(120,140,160,.10)', '#5b6b7b');
+        plan.line([10, 10], [dx, dy], '#ffb454', 2, [6, 4]);
+        plan.dot(10, 10, '#7cc4ff', 5); plan.text('início X10 Y10', 10, 10, '#7cc4ff', 11, 8, -8);
+        plan.dot(dx, dy, '#ff5c5c', 6); plan.text(`destino X${dx} Y${dy}`, dx, dy, '#ff9a83', 11, 8, -8);
+        read.textContent = mode === 'G90'
+          ? `G90 X${X} Y${Y}  →  vai para o ponto X${dx} Y${dy}.\nEm absoluto, X e Y dizem ONDE a ferramenta fica.`
+          : `G91 X${X} Y${Y}  →  anda ${X} em X e ${Y} em Y a partir do ponto atual e chega em X${dx} Y${dy}.\nEm incremental, X e Y dizem QUANTO a ferramenta anda.`;
+      };
+      box.append(plan.canvas, modes, inputs, read);
+      new ResizeObserver(upd).observe(plan.canvas);
+      setTimeout(upd, 0);
+      return box;
+    };
+
+    // Diagrama 3: zero máquina, zero peça (G54) e o erro de medição
+    const diagramZeros = () => {
+      const box = make('div');
+      box.append(make('strong', 'Zero máquina, zero peça e G54'), make('div', 'A mesa tem o zero da máquina (canto). O G54 guarda onde está o zero da PEÇA. Mexa no G54 e no erro de medição: a ferramenta vai para X20 Y20 do G54.', 'color:#9baab9;font-size:13px;margin:2px 0 8px'));
+      const plan = plan2d(210, 150, 240);
+      let ox = 60, oy = 40, err = 0;
+      const read = make('div', '', 'font-size:14px;margin-top:8px;white-space:pre-wrap');
+      const upd = () => {
+        plan.begin();
+        plan.rect(0, 0, 200, 140, 'rgba(120,140,160,.08)', '#5b6b7b');
+        plan.dot(0, 0, '#6bb0ff', 6); plan.text('zero máquina', 0, 0, '#6bb0ff', 11, 8, -8);
+        const realX = ox + err;
+        plan.rect(realX, oy, 80, 60, 'rgba(255,180,84,.18)', '#ffb454');
+        if (err !== 0) plan.rect(ox, oy, 80, 60, null, '#7cc4ff', [5, 4]);
+        plan.dot(realX, oy, '#ffb454', 5); plan.text('zero da peça (real)', realX, oy, '#ffb454', 11, 8, 14);
+        if (err !== 0) plan.text(`G54 aponta aqui (X${ox} Y${oy})`, ox, oy, '#7cc4ff', 11, -8, -8);
+        plan.dot(ox + 20, oy + 20, '#ff5c5c', 6); plan.text('X20 Y20', ox + 20, oy + 20, '#ff9a83', 11, 8, -8);
+        const lands = 20 - err;
+        read.textContent = `G54 = X${ox} Y${oy} (valor guardado no controle).\nG00 X20 Y20 leva a ferramenta a X${ox + 20} Y${oy + 20} da máquina.\n` + (err === 0
+          ? 'Como o G54 está certo, isso é X20 Y20 da PEÇA.'
+          : `Mas a peça está ${err > 0 ? err + ' mm mais à direita' : -err + ' mm mais à esquerda'}: a ferramenta chega a X${lands} da peça, e não X20. Esse é o erro de quem confia só no G54.`);
+      };
+      box.append(plan.canvas, slider('G54 em X', 0, 120, ox, v => { ox = v; upd(); }), slider('G54 em Y', 0, 80, oy, v => { oy = v; upd(); }), slider('Erro medição', -10, 10, err, v => { err = v; upd(); }), read);
+      new ResizeObserver(upd).observe(plan.canvas);
+      setTimeout(upd, 0);
+      return box;
+    };
+
+    const DIAGRAMS = { 'eixos': diagramEixos, 'ponto-xy': diagramPontoXY, 'zeros': diagramZeros };
+
+    // ---------- Exercício no editor (o Core confere) ----------
+    const exerciseEditor = (lessonId, ex) => {
+      const box = make('div');
+      const e = ex.editor;
+      if (e.prefix) box.append(make('pre', e.prefix, 'background:#0a0f14;border:1px solid #30445a;border-bottom:none;border-radius:8px 8px 0 0;padding:8px 10px;margin:8px 0 0;font:13px/1.45 ui-monospace,Consolas,monospace;color:#6b7a8a'));
+      const ta = make('textarea', null, `width:100%;box-sizing:border-box;min-height:84px;background:#161b22;color:#e6edf3;border:1px solid #4a5665;border-radius:${e.prefix ? '0 0 8px 8px' : '8px'};padding:8px 10px;font:14px/1.45 ui-monospace,Consolas,monospace;margin-bottom:8px`);
+      ta.value = e.initial; ta.spellcheck = false; ta.autocapitalize = 'characters'; ta.rows = Math.max(3, e.initial.split('\n').length + 1);
+      const out = make('div', '', 'font-size:14px;margin:6px 0;white-space:pre-wrap');
+      const row = make('div', null, 'display:flex;gap:8px;flex-wrap:wrap');
+      const ans = make('div', 'Gabarito: ' + ex.answer, 'display:none;color:#6fd39b;font-size:14px;margin-top:6px;white-space:pre-wrap');
+      row.append(btn('Conferir', '#b45b1f', () => {
+        const r = ask('check', { id: lessonId, text: ta.value });
+        if (!r.ok) { out.textContent = 'Não foi possível conferir.'; out.style.color = '#ff9a83'; return; }
+        out.style.color = r.passed ? '#6fd39b' : '#ff9a83';
+        out.textContent = r.passed ? '✓ Certo! O programa faz o que o exercício pede.' : '✗ Ainda não:\n' + r.messages.join('\n');
+      }, 2), btn('Recomeçar', '#30363d', () => { ta.value = e.initial; out.textContent = ''; }), btn('Ver gabarito', '#30363d', () => { ans.style.display = 'block'; }));
+      box.append(ta, row, out, ans);
+      return box;
+    };
+
     // ---------- Aula ----------
     const lessonScreen = (id, mod) => {
       const l = ask('lesson', { id });
       if (!l.ok) { screen(header('Aula', () => moduleScreen(mod)), hint('Aula não encontrada.')); return; }
       const parts = [header(l.title, () => moduleScreen(mod), l.draft)];
       parts.push(make('p', 'Objetivo: ' + l.goal, 'color:#9baab9;margin:0 0 10px'));
-      const textCard = card();
-      l.text.split(/\n\s*\n/).forEach(par => textCard.append(make('p', par, 'margin:0 0 10px')));
-      parts.push(textCard);
-      if (l.commonMistake) {
+      if (l.video && l.video.url) {
+        const v = card('background:#1a1424;border-color:#5b3d7a');
+        v.append(make('strong', '🎬 Vídeo desta aula'), make('div', l.video.title || '', 'color:#c9d6e2;font-size:13px;margin:2px 0 8px'));
+        const a = make('a', 'Assistir no YouTube', 'display:inline-block;min-height:44px;line-height:44px;padding:0 16px;border-radius:8px;background:#7a1f1f;color:white;font-weight:700;text-decoration:none');
+        a.href = l.video.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        v.append(a); parts.push(v);
+      }
+      parts.push(cardReader(l.text, l.quiz && l.quiz.length ? l.quiz[0] : null));
+      if (l.commonMistake && !/^Descrito no texto/i.test(l.commonMistake)) {
         const c = card('background:#2a1d10;border-color:#7a4a1f');
         c.append(make('strong', 'Erro comum no chão de fábrica'), make('div', l.commonMistake, 'margin-top:4px'));
         parts.push(c);
       }
+      (l.diagrams || []).forEach(id => {
+        const make_ = DIAGRAMS[id];
+        if (!make_) return;
+        const c = card('background:#10161d');
+        c.append(make_());
+        parts.push(c);
+      });
       if (l.program) {
         const c = card();
         c.append(make('strong', 'Programa de exemplo: ' + l.programName));
@@ -324,9 +553,13 @@ export function openAcademy(call) {
       if (l.exercise) {
         const c = card();
         c.append(make('strong', 'Exercício'), make('div', l.exercise.prompt, 'margin:4px 0 8px;white-space:pre-wrap'));
-        const ans = make('div', 'Gabarito: ' + l.exercise.answer, 'display:none;color:#6fd39b;font-size:14px;margin-bottom:6px;white-space:pre-wrap');
-        const show = btn('Ver gabarito', '#30363d', () => { ans.style.display = 'block'; show.remove(); }, 0);
-        c.append(ans, show);
+        if (l.exercise.editor) {
+          c.append(exerciseEditor(l.id, l.exercise));
+        } else {
+          const ans = make('div', 'Gabarito: ' + l.exercise.answer, 'display:none;color:#6fd39b;font-size:14px;margin-bottom:6px;white-space:pre-wrap');
+          const show = btn('Ver gabarito', '#30363d', () => { ans.style.display = 'block'; show.remove(); }, 0);
+          c.append(ans, show);
+        }
         parts.push(c);
       }
       parts.push(make('h3', 'Quiz da aula', 'margin:16px 0 8px'));

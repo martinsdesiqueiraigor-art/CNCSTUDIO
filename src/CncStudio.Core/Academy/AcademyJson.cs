@@ -81,7 +81,13 @@ public static class AcademyJson
             ["programName"] = Path.GetFileName(l.ProgramPath),
             ["program"] = Library.Programs.GetValueOrDefault(l.ProgramPath, ""),
             ["walk"] = Walk(Library.Programs.GetValueOrDefault(l.ProgramPath, "")),
-            ["exercise"] = l.Exercise is null ? null : new JsonObject { ["prompt"] = l.Exercise.Prompt, ["answer"] = l.Exercise.Answer },
+            ["exercise"] = l.Exercise is null ? null : new JsonObject
+            {
+                ["prompt"] = l.Exercise.Prompt, ["answer"] = l.Exercise.Answer,
+                ["editor"] = l.Exercise.Editor is null ? null : new JsonObject { ["prefix"] = l.Exercise.Editor.Prefix, ["initial"] = l.Exercise.Editor.Initial },
+            },
+            ["diagrams"] = Strings(l.Diagrams ?? []),
+            ["video"] = l.Video is null ? null : new JsonObject { ["title"] = l.Video.Title, ["url"] = l.Video.Url },
             ["quizId"] = l.Id + "-quiz",
             ["quiz"] = Questions(l.Quiz),
         }.ToJsonString();
@@ -204,6 +210,7 @@ public static class AcademyJson
             "lesson" => Lesson(Text("id")),
             "final" => FinalTest(Text("module"), args["seed"] is JsonValue sv && sv.TryGetValue(out int seed) ? seed : 1),
             "grade" => Grade(Text("quizId"), args["ids"]?.ToJsonString() ?? "[]", args["answers"]?.ToJsonString() ?? "[]", progress),
+            "check" => CheckExercise(Text("id"), Text("text")),
             "done" => new JsonObject { ["ok"] = true, ["progress"] = MarkDone(Text("id"), progress) }.ToJsonString(),
             _ => new JsonObject { ["ok"] = false }.ToJsonString(),
         };
@@ -219,6 +226,30 @@ public static class AcademyJson
         }
 
         return progress.ToJson();
+    }
+
+    private static JsonArray Strings(IEnumerable<string> items)
+    {
+        var array = new JsonArray();
+        foreach (string s in items)
+        {
+            array.Add(JsonValue.Create(s));
+        }
+
+        return array;
+    }
+
+    /// <summary>Confere o programa digitado no exercício da aula: {ok, passed, messages[]}.</summary>
+    public static string CheckExercise(string lessonId, string studentText)
+    {
+        ExerciseEditor? editor = Library.FindLesson(lessonId)?.Exercise?.Editor;
+        if (editor is null)
+        {
+            return new JsonObject { ["ok"] = false }.ToJsonString();
+        }
+
+        CheckResult r = ExerciseChecker.Check(editor, studentText);
+        return new JsonObject { ["ok"] = true, ["passed"] = r.Passed, ["messages"] = Strings(r.Messages) }.ToJsonString();
     }
 
     private static string ModuleOfFinal(string quizId) =>

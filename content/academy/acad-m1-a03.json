@@ -14,7 +14,27 @@
   "exercicio": {
     "tipo": "complete/corrija",
     "enunciado": "Complete a seleção de coordenadas de trabalho: ____ ; G00 X20.0 Y20.0",
-    "gabarito": "G54 (com offset previamente conferido)"
+    "gabarito": "G54 (com offset previamente conferido)",
+    "editor": {
+      "prefixo": "G21 G90 G17",
+      "inicial": "____\nG00 X20.0 Y20.0",
+      "solucao": "G54\nG00 X20.0 Y20.0",
+      "checagens": [
+        {
+          "tipo": "contem",
+          "texto": "G54",
+          "dica": "G54 escolhe o sistema de coordenadas de trabalho."
+        },
+        {
+          "tipo": "posicao_final",
+          "x": 20,
+          "y": 20
+        },
+        {
+          "tipo": "sem_erros"
+        }
+      ]
+    }
   },
   "quiz": [
     {
@@ -70,5 +90,8 @@
       "dica": "Compare a referência anotada no programa com a medida na preparação."
     }
   ],
-  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica."
+  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica.",
+  "diagramas": [
+    "zeros"
+  ]
 }

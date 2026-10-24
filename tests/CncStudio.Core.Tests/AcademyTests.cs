@@ -325,3 +325,79 @@ public class WalkthroughTests
         }
     }
 }
+
+public class ExerciseTests
+{
+    private static ExerciseEditor Editor(params ExerciseCheck[] checks) => new ExerciseEditor("G21 G90 G17\nG00 X10.0 Y10.0", "", checks);
+
+    [Fact]
+    public void PositionCheckPassesAndFailsWithTheRealPosition()
+    {
+        ExerciseEditor e = Editor(new ExerciseCheck("posicao_final", "", 40, 10, null, "Dica."), new ExerciseCheck("sem_erros", "", null, null, null, ""));
+        Assert.True(ExerciseChecker.Check(e, "G00 X40.0 Y10.0").Passed);
+        CheckResult bad = ExerciseChecker.Check(e, "G00 X30.0 Y10.0");
+        Assert.False(bad.Passed);
+        Assert.Contains("X30", bad.Messages[0]);
+        Assert.Contains("Dica.", bad.Messages[0]);
+    }
+
+    [Fact]
+    public void ModalLineAndContainsCheckWork()
+    {
+        ExerciseEditor e = Editor(new ExerciseCheck("contem", "X30.0", null, null, null, ""), new ExerciseCheck("posicao_final", "", 30, 10, null, ""));
+        Assert.True(ExerciseChecker.Check(e, "X30.0").Passed);
+        Assert.False(ExerciseChecker.Check(e, "X30").Passed);                  // "X30" não é o texto X30.0
+        Assert.False(ExerciseChecker.Check(e, "(X30.0)\nY10.0").Passed);      // comentário não conta
+    }
+
+    [Fact]
+    public void ErrorCheckCatchesBrokenCode()
+    {
+        ExerciseEditor e = Editor(new ExerciseCheck("sem_erros", "", null, null, null, ""));
+        Assert.False(ExerciseChecker.Check(e, "____").Passed);
+        Assert.True(ExerciseChecker.Check(e, "G00 X20.0").Passed);
+    }
+
+    [Fact]
+    public void Module1ExercisesAcceptTheirSolutionAndRejectTheStart()
+    {
+        AcademyLibrary lib = AcademyLibrary.FromEmbedded();
+        int tested = 0;
+        foreach (Lesson l in lib.Module("acad-m1")!.Lessons)
+        {
+            ExerciseEditor? e = l.Exercise?.Editor;
+            if (e is null) continue;
+            tested++;
+            Assert.True(ExerciseChecker.Check(e, e.Solution).Passed, l.Id);
+            Assert.False(ExerciseChecker.Check(e, e.Initial).Passed, l.Id + " (o início não pode já estar certo)");
+        }
+
+        Assert.True(tested >= 4);
+    }
+
+    [Fact]
+    public void ValidatorRejectsUnknownDiagramBadVideoAndImpossibleExercise()
+    {
+        var lesson = AcademyReader.ReadLesson("""
+        {"id":"a","modulo":"m","titulo":"t","nivel":"Introdução","caminho":"Comum","status":"rascunho","objetivo":"o","texto":"x","erro_comum":"e",
+         "programa":"p.nc","aviso":"Simule antes de rodar na máquina","diagramas":["foguete"],"video":{"titulo":"v","url":"http://exemplo.com/v"},
+         "exercicio":{"tipo":"t","enunciado":"e","gabarito":"g","editor":{"prefixo":"G21","inicial":"","solucao":"G00 X1.0","checagens":[{"tipo":"posicao_final","x":99}]}},"quiz":[]}
+        """, out _)!;
+        var issues = AcademyValidator.Validate([lesson], null, new Dictionary<string, string>());
+        Assert.Contains(issues, i => i.Message.Contains("foguete"));
+        Assert.Contains(issues, i => i.Message.Contains("YouTube"));
+        Assert.Contains(issues, i => i.Message.Contains("não passa nas conferências"));
+    }
+
+    [Fact]
+    public void DispatchCheckUsesTheLessonExercise()
+    {
+        AcademyJson.UseLibrary(null);
+        Assert.True((bool)JsonNode.Parse(AcademyJson.Dispatch("check", "{\"id\":\"acad-m1-a02\",\"text\":\"G00 X40.0 Y10.0\"}"))!["passed"]!);
+        Assert.False((bool)JsonNode.Parse(AcademyJson.Dispatch("check", "{\"id\":\"acad-m1-a02\",\"text\":\"G00 X30.0 Y10.0\"}"))!["passed"]!);
+        Assert.False((bool)JsonNode.Parse(AcademyJson.Dispatch("check", "{\"id\":\"acad-m1-a04\",\"text\":\"x\"}"))!["ok"]!);
+        JsonNode lesson = JsonNode.Parse(AcademyJson.Dispatch("lesson", "{\"id\":\"acad-m1-a03\"}"))!;
+        Assert.Equal("zeros", (string)lesson["diagrams"]![0]!);
+        Assert.Contains("G21", (string)lesson["exercise"]!["editor"]!["prefix"]!);
+    }
+}

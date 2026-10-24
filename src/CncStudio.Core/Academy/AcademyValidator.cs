@@ -10,6 +10,8 @@ public static class AcademyValidator
     public const int MinFinalQuestions = 12;
     private static readonly string[] AllowedStatus = ["rascunho", "revisado"];
     private static readonly string[] Levels = ["Introdução", "Iniciante", "Básico", "Intermediário", "Avançado", "Especialista"];
+    private static readonly string[] Diagrams = ["eixos", "ponto-xy", "zeros"];
+    private static readonly string[] CheckKinds = ["posicao_final", "contem", "sem_erros"];
     private static readonly string[] Tracks = ["Comum", "Fresa", "Torno"];
 
     /// <param name="programs">Texto dos programas de exemplo, pelo caminho citado na aula.</param>
@@ -63,6 +65,7 @@ public static class AcademyValidator
             }
 
             CheckProgram(issues, where, lesson, programs);
+            CheckExtras(issues, where, lesson);
 
             if (lesson.Quiz.Count != QuestionsPerLesson)
             {
@@ -98,6 +101,59 @@ public static class AcademyValidator
         }
 
         return issues;
+    }
+
+    private static void CheckExtras(List<ContentIssue> issues, string where, Lesson lesson)
+    {
+        foreach (string d in lesson.Diagrams ?? [])
+        {
+            if (!Diagrams.Contains(d))
+            {
+                issues.Add(new ContentIssue(where, $"Diagrama \"{d}\" desconhecido (use: {string.Join(", ", Diagrams)})."));
+            }
+        }
+
+        if (lesson.Video is { } v && !(v.Url.StartsWith("https://www.youtube.com/", StringComparison.Ordinal) || v.Url.StartsWith("https://youtu.be/", StringComparison.Ordinal)))
+        {
+            issues.Add(new ContentIssue(where, "O link do vídeo precisa ser do YouTube (https://www.youtube.com/… ou https://youtu.be/…)."));
+        }
+
+        ExerciseEditor? editor = lesson.Exercise?.Editor;
+        if (editor is null)
+        {
+            return;
+        }
+
+        if (editor.Checks.Count == 0)
+        {
+            issues.Add(new ContentIssue(where, "Exercício no editor sem conferências."));
+        }
+
+        foreach (ExerciseCheck c in editor.Checks)
+        {
+            if (!CheckKinds.Contains(c.Kind))
+            {
+                issues.Add(new ContentIssue(where, $"Conferência \"{c.Kind}\" desconhecida."));
+            }
+            else if (c.Kind == "posicao_final" && c.X is null && c.Y is null && c.Z is null)
+            {
+                issues.Add(new ContentIssue(where, "\"posicao_final\" precisa de x, y ou z."));
+            }
+            else if (c.Kind == "contem" && c.Text.Length == 0)
+            {
+                issues.Add(new ContentIssue(where, "\"contem\" precisa do campo \"texto\"."));
+            }
+        }
+
+        // o gabarito do exercício precisa passar nas próprias conferências (evita exercício impossível)
+        if (lesson.Exercise is { Answer.Length: > 0 } && editor.Checks.Count > 0 && editor.Solution.Length > 0)
+        {
+            CheckResult r = ExerciseChecker.Check(editor, editor.Solution);
+            if (!r.Passed)
+            {
+                issues.Add(new ContentIssue(where, "A solução do exercício não passa nas conferências: " + string.Join(" ", r.Messages)));
+            }
+        }
     }
 
     private static void Require(List<ContentIssue> issues, string where, string value, string field)

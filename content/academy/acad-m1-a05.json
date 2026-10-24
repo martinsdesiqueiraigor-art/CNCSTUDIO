@@ -14,7 +14,27 @@
   "exercicio": {
     "tipo": "complete/corrija",
     "enunciado": "Após G00 X10.0 Y10.0, complete a linha que desloca somente X para 30.0: ____",
-    "gabarito": "X30.0 (G00 permanece modal)"
+    "gabarito": "X30.0 (G00 permanece modal)",
+    "editor": {
+      "prefixo": "G21 G90 G17\nG00 X10.0 Y10.0",
+      "inicial": "____",
+      "solucao": "X30.0",
+      "checagens": [
+        {
+          "tipo": "contem",
+          "texto": "X30.0"
+        },
+        {
+          "tipo": "posicao_final",
+          "x": 30,
+          "y": 10,
+          "dica": "G00 continua valendo (modal); só o X muda."
+        },
+        {
+          "tipo": "sem_erros"
+        }
+      ]
+    }
   },
   "quiz": [
     {
