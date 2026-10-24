@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+<filter id="g" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<linearGradient id="bd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a5666"/><stop offset="1" stop-color="#1a212a"/></linearGradient>
+<linearGradient id="sc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f7d8"/><stop offset="1" stop-color="#6fd39b"/></linearGradient>
+</defs>
+<g filter="url(#g)" opacity=".9"><rect x="58" y="24" width="140" height="208" rx="20" fill="none" stroke="#ff9a4a" stroke-width="4"/></g>
+<rect x="58" y="24" width="140" height="208" rx="20" fill="url(#bd)"/>
+<rect x="72" y="40" width="112" height="46" rx="8" fill="url(#sc)"/>
+<path d="M82 74 l12 -18 l10 12 l14 -22 l14 26" stroke="#1d6b45" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<g fill="#7b8794">
+<rect x="72" y="102" width="30" height="26" rx="6"/><rect x="113" y="102" width="30" height="26" rx="6"/><rect x="154" y="102" width="30" height="26" rx="6"/>
+<rect x="72" y="138" width="30" height="26" rx="6"/><rect x="113" y="138" width="30" height="26" rx="6"/><rect x="154" y="138" width="30" height="26" rx="6"/>
+<rect x="72" y="174" width="30" height="26" rx="6"/><rect x="113" y="174" width="30" height="26" rx="6"/>
+</g>
+<rect x="154" y="174" width="30" height="50" rx="6" fill="#ff9a4a"/>
+<rect x="72" y="208" width="71" height="16" rx="6" fill="#9aa5b1"/>
+<g stroke="#e6edf3" stroke-width="3" stroke-linecap="round" opacity=".85"><path d="M87 115h0M87 151h0"/><path d="M128 115v0M128 151v0"/></g>
+</svg>
