@@ -35,6 +35,7 @@ public class AcademyTests
             ["erro_comum"] = "Esquecer o zero.", ["programa"] = $"samples/academy/{id}.nc", ["aviso"] = "Simule antes de rodar na máquina",
             ["exercicio"] = new JsonObject { ["tipo"] = "complete", ["enunciado"] = "Complete ____", ["gabarito"] = "G54" },
             ["quiz"] = quiz,
+            ["resumo"] = new JsonArray("ponto um", "ponto dois", "ponto três"),
         }.ToJsonString();
     }
 
@@ -399,5 +400,67 @@ public class ExerciseTests
         JsonNode lesson = JsonNode.Parse(AcademyJson.Dispatch("lesson", "{\"id\":\"acad-m1-a03\"}"))!;
         Assert.Equal("zeros", (string)lesson["diagrams"]![0]!);
         Assert.Contains("G21", (string)lesson["exercise"]!["editor"]!["prefix"]!);
+    }
+}
+
+
+public class AcademyExtrasTests
+{
+    [Fact]
+    public void StreakCountsConsecutiveDaysAndForgivesToday()
+    {
+        AcademyProgress p = new();
+        foreach (string d in new[] { "2026-10-20", "2026-10-22", "2026-10-23", "2026-10-24", "lixo" })
+        {
+            p.RecordStudyDay(d);
+        }
+
+        Assert.Equal(3, p.Streak("2026-10-24"));
+        Assert.Equal(3, p.Streak("2026-10-25"));     // hoje ainda não estudou: conta até ontem
+        Assert.Equal(0, p.Streak("2026-10-27"));
+        Assert.Equal(0, p.Streak("hoje"));
+        Assert.Equal(4, AcademyProgress.FromJson(p.ToJson()).StudyDays.Count);
+    }
+
+    [Fact]
+    public void ModuleBadgeNeedsAllLessonsAndTheFinalTest()
+    {
+        AcademyLibrary lib = AcademyLibrary.FromEmbedded();
+        AcademyModule m = lib.Module("acad-m1")!;
+        AcademyProgress p = new();
+        JsonNode Module(AcademyProgress pr) => JsonNode.Parse(AcademyJson.Catalog(pr.ToJson(), "2026-10-24"))!["tracks"]![0]!["levels"]![0]!["module"]!;
+        Assert.False((bool)Module(p)["badge"]!);
+        foreach (Lesson l in m.Lessons) p.MarkDone(l.Id);
+        Assert.False((bool)Module(p)["badge"]!);
+        p.RecordScore(m.Final!.Id, 100);
+        Assert.True((bool)Module(p)["badge"]!);
+    }
+
+    [Fact]
+    public void GradeRecordsTheStudyDay()
+    {
+        AcademyJson.UseLibrary(null);
+        JsonNode lesson = JsonNode.Parse(AcademyJson.Dispatch("lesson", "{\"id\":\"acad-m1-a01\"}"))!;
+        Assert.False(string.IsNullOrEmpty((string)lesson["opening"]!));
+        Assert.Equal(3, lesson["summary"]!.AsArray().Count);
+        JsonArray quiz = lesson["quiz"]!.AsArray();
+        string ids = new JsonArray(quiz.Select(q => (JsonNode)(string)q!["id"]!).ToArray()).ToJsonString();
+        string right = new JsonArray(quiz.Select(q => (JsonNode)(int)q!["correct"]!).ToArray()).ToJsonString();
+        string args = $"{{\"quizId\":\"acad-m1-a01-quiz\",\"ids\":{ids},\"answers\":{right},\"progress\":\"\",\"today\":\"2026-10-24\"}}";
+        JsonNode r = JsonNode.Parse(AcademyJson.Dispatch("grade", args))!;
+        Assert.Equal(1, AcademyProgress.FromJson((string)r["progress"]!).Streak("2026-10-24"));
+    }
+
+    [Fact]
+    public void ValidatorRequiresSummaryAndKnownParagraphTags()
+    {
+        var lesson = AcademyReader.ReadLesson("""
+        {"id":"a","modulo":"m","titulo":"t","nivel":"Introdução","caminho":"Comum","status":"rascunho","objetivo":"o",
+         "texto":"[atenção] ok\n\n[perigo] marca inventada","erro_comum":"e","programa":"p.nc","aviso":"Simule antes de rodar na máquina","resumo":["só um"],"quiz":[]}
+        """, out _)!;
+        var issues = AcademyValidator.Validate([lesson], null, new Dictionary<string, string>());
+        Assert.Contains(issues, i => i.Message.Contains("resumo"));
+        Assert.Contains(issues, i => i.Message.Contains("[perigo]"));
+        Assert.DoesNotContain(issues, i => i.Message.Contains("\"[atenção]\" desconhecida"));
     }
 }

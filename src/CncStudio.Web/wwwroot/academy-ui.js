@@ -44,12 +44,78 @@ export function openAcademy(call) {
     const card = style => make('div', null, 'border:1px solid #303d4b;border-radius:10px;padding:12px;margin-bottom:10px;' + (style || ''));
     const hint = text => make('p', text, 'color:#9baab9;font-size:13px;margin:0 0 12px');
 
+
+    // ---------- Cores: código G, termos-chave e tipos de cartão ----------
+    const AXIS_COLORS = { X: '#ff7b7b', Y: '#6bdc8c', Z: '#6bb0ff' };
+    const wordColor = w => {
+      const c = w[0].toUpperCase();
+      if (c === 'G') return '#ffb454';
+      if (c === 'M') return '#c792ea';
+      if (AXIS_COLORS[c]) return AXIS_COLORS[c];
+      if (c === 'F' || c === 'S') return '#4fd1c5';
+      if (c === 'T' || c === 'H' || c === 'D') return '#f3c969';
+      if (c === 'O' || c === 'N') return '#8b9aa9';
+      return null;
+    };
+    const CODE_WORD = /\b([GMXYZFSTHDON]-?\d+(?:\.\d+)?)(?![\w.])/g;
+    // Cria os trechos de um texto: palavras de G-code coloridas e **termos** em destaque
+    const richInto = (el, text) => {
+      text.split(/(\*\*[^*]+\*\*)/).forEach(chunk => {
+        if (/^\*\*[^*]+\*\*$/.test(chunk)) {
+          el.append(make('strong', chunk.slice(2, -2), 'color:#ffd27d'));
+          return;
+        }
+        let last = 0, m;
+        CODE_WORD.lastIndex = 0;
+        while ((m = CODE_WORD.exec(chunk))) {
+          const col = wordColor(m[1]);
+          if (!col) continue;
+          if (m.index > last) el.append(document.createTextNode(chunk.slice(last, m.index)));
+          el.append(make('span', m[1], `color:${col};font-weight:600;font-family:ui-monospace,Consolas,monospace`));
+          last = m.index + m[1].length;
+        }
+        if (last < chunk.length) el.append(document.createTextNode(chunk.slice(last)));
+      });
+      return el;
+    };
+    const rich = (tag, text, style) => richInto(make(tag, null, style), text);
+    // Linha de programa inteira colorida (comentário em cinza)
+    const codeLine = (text, style) => {
+      const el = make('div', null, style || '');
+      const m = text.match(/^(.*?)(\(.*\))?\s*$/);
+      const code = m ? m[1] : text, comment = m && m[2] ? m[2] : '';
+      let last = 0, w;
+      const re = /([A-Za-z])(-?\d+(?:\.\d+)?)/g;
+      while ((w = re.exec(code))) {
+        if (w.index > last) el.append(document.createTextNode(code.slice(last, w.index)));
+        const col = wordColor(w[1]);
+        el.append(col ? make('span', w[0], `color:${col};font-weight:600`) : document.createTextNode(w[0]));
+        last = w.index + w[0].length;
+      }
+      if (last < code.length) el.append(document.createTextNode(code.slice(last)));
+      if (comment) el.append(make('span', comment, 'color:#6b7a8a'));
+      return el;
+    };
+    // Tipos de cartão do texto: [conceito] [atenção] [dica] [exemplo]
+    const KINDS = {
+      conceito: { icon: '💡', label: 'Conceito', color: '#4aa3ff', bg: '#0f1b2b' },
+      atenção: { icon: '⚠️', label: 'Atenção', color: '#ff6b6b', bg: '#2a1316' },
+      dica: { icon: '✅', label: 'Dica', color: '#6fd39b', bg: '#102319' },
+      exemplo: { icon: '🧩', label: 'Exemplo', color: '#ffb454', bg: '#2a1d10' },
+    };
+    const parseKind = par => {
+      const m = par.match(/^\[(conceito|atenção|dica|exemplo)\]\s*/i);
+      return m ? { tag: m[1].toLowerCase(), text: par.slice(m[0].length) } : { tag: 'conceito', text: par };
+    };
+    const LEVEL_COLORS = { 'Introdução': '#4aa3ff', 'Iniciante': '#6fd39b', 'Básico': '#f3c969', 'Intermediário': '#ffb454', 'Avançado': '#ff7b7b', 'Especialista': '#c792ea' };
+
     // ---------- Início: trilhas e níveis ----------
     let activeTrack = 'Comum';
     const home = () => {
       const cat = ask('catalog', {});
       if (!cat.tracks) { screen(header('Academy'), hint('Não foi possível carregar os cursos.' + (cat.error ? ' (' + cat.error + ')' : ''))); return; }
       const tabs = make('div', null, 'display:flex;gap:8px;margin-bottom:12px');
+      const streak = cat.streak > 0 ? make('div', `🔥 ${cat.streak} ${cat.streak === 1 ? 'dia' : 'dias'} seguidos estudando`, 'color:#ffb454;font-weight:700;margin:0 0 10px') : null;
       cat.tracks.forEach(t => {
         const b = btn(t.name, t.name === activeTrack ? '#b45b1f' : '#21262d', () => { activeTrack = t.name; home(); });
         tabs.append(b);
@@ -59,9 +125,10 @@ export function openAcademy(call) {
       track.levels.forEach(l => {
         const m = l.module;
         const available = m && !m.soon;
-        const c = card(available ? 'cursor:pointer;background:#131a22' : 'opacity:.55');
+        const lc = LEVEL_COLORS[l.level] || '#4a5665';
+        const c = card(`border-left:6px solid ${lc};` + (available ? 'cursor:pointer;background:#131a22' : 'opacity:.55'));
         const top = make('div', null, 'display:flex;justify-content:space-between;gap:8px;align-items:baseline');
-        top.append(make('strong', l.level, 'font-size:16px'));
+        top.append(make('strong', l.level + (m && m.badge ? '  🏅' : ''), `font-size:16px;color:${lc}`));
         if (available) {
           const done = m.lessons.filter(x => x.done).length;
           top.append(make('span', `${done}/${m.lessons.length} aulas`, 'color:#9baab9;font-size:13px'));
@@ -76,7 +143,7 @@ export function openAcademy(call) {
         }
         list.append(c);
       });
-      screen(header('Academy'), hint('Cursos de CNC em português, do básico ao avançado. Conteúdo em rascunho até a revisão.'), tabs, list);
+      screen(...[header('Academy'), hint('Cursos de CNC em português, do básico ao avançado. Conteúdo em rascunho até a revisão.'), streak, tabs, list].filter(Boolean));
     };
 
     // ---------- Módulo: aulas e teste final ----------
@@ -293,10 +360,13 @@ export function openAcademy(call) {
 
 
     // ---------- Texto em cartões curtos, com pausa rápida no meio ----------
-    const cardReader = (text, pause) => {
+    const cardReader = (text, pause, opening, summary) => {
       const pars = text.split(/\n\s*\n/).filter(s => s.trim());
-      const steps = pars.map(s => ({ kind: 'text', text: s }));
-      if (pause && pars.length >= 4) steps.splice(Math.ceil(pars.length / 2), 0, { kind: 'pause', q: pause });
+      const steps = [];
+      if (opening) steps.push({ kind: 'opening', text: opening });
+      pars.forEach(s => steps.push({ kind: 'text', ...parseKind(s) }));
+      if (summary && summary.length) steps.push({ kind: 'summary', items: summary });
+      if (pause && pars.length >= 4) steps.splice(Math.ceil(steps.filter(s => s.kind !== 'summary').length / 2), 0, { kind: 'pause', q: pause });
       const box = card('background:#131a22');
       const body = make('div', null, 'min-height:120px');
       const dots = make('div', null, 'display:flex;gap:6px;justify-content:center;margin:8px 0');
@@ -308,8 +378,18 @@ export function openAcademy(call) {
       const show = () => {
         const s = steps[i];
         body.replaceChildren();
-        if (s.kind === 'text') {
-          body.append(make('p', s.text, 'margin:0;font-size:16px;line-height:1.6'));
+        box.style.borderLeft = '6px solid #303d4b';
+        if (s.kind === 'opening') {
+          box.style.borderLeftColor = '#c792ea';
+          body.append(make('div', '❓ Para começar', 'color:#c792ea;font-weight:700;margin-bottom:6px'), make('p', s.text, 'margin:0;font-size:18px;line-height:1.5;font-weight:600'));
+        } else if (s.kind === 'summary') {
+          box.style.borderLeftColor = '#6fd39b';
+          body.append(make('div', '📌 O que levar desta aula', 'color:#6fd39b;font-weight:700;margin-bottom:6px'));
+          s.items.forEach((it, k) => body.append(rich('p', `${k + 1}. ${it}`, 'margin:0 0 8px;font-size:16px;line-height:1.5')));
+        } else if (s.kind === 'text') {
+          const k = KINDS[s.tag] || KINDS.conceito;
+          box.style.borderLeftColor = k.color;
+          body.append(make('div', `${k.icon} ${k.label}`, `color:${k.color};font-weight:700;font-size:13px;margin-bottom:6px`), rich('p', s.text, 'margin:0;font-size:16px;line-height:1.6'));
         } else {
           body.append(make('strong', '⏸ Pausa rápida (não vale nota)', 'color:#f3c969'));
           body.append(make('div', s.q.prompt, 'margin:6px 0 8px;white-space:pre-wrap'));
@@ -521,7 +601,7 @@ export function openAcademy(call) {
         a.href = l.video.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
         v.append(a); parts.push(v);
       }
-      parts.push(cardReader(l.text, l.quiz && l.quiz.length ? l.quiz[0] : null));
+      parts.push(cardReader(l.text, l.quiz && l.quiz.length ? l.quiz[0] : null, l.opening, l.summary));
       if (l.commonMistake && !/^Descrito no texto/i.test(l.commonMistake)) {
         const c = card('background:#2a1d10;border-color:#7a4a1f');
         c.append(make('strong', 'Erro comum no chão de fábrica'), make('div', l.commonMistake, 'margin-top:4px'));

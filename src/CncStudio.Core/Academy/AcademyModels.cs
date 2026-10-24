@@ -20,7 +20,8 @@ public sealed record LessonVideo(string Title, string Url);
 public sealed record Lesson(
     string Id, string ModuleId, string Title, string Level, string Track, string Status, string Goal, string Prerequisite,
     string Text, string CommonMistake, string ProgramPath, string Warning, LessonExercise? Exercise,
-    IReadOnlyList<QuizQuestion> Quiz, string Notes, IReadOnlyList<string>? Diagrams = null, LessonVideo? Video = null);
+    IReadOnlyList<QuizQuestion> Quiz, string Notes, IReadOnlyList<string>? Diagrams = null, LessonVideo? Video = null,
+    IReadOnlyList<string>? Summary = null, string Opening = "");
 
 /// <summary>Teste final do módulo.</summary>
 public sealed record FinalTest(string Id, string ModuleId, string Status, int PassPercent, bool CanSkip, IReadOnlyList<QuizQuestion> Questions);

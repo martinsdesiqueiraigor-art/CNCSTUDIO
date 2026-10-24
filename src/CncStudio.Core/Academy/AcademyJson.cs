@@ -17,7 +17,7 @@ public static class AcademyJson
     /// Trilhas e níveis: {"levels":[…],"tracks":[{"name","levels":[{"level","module":null|{id,title,lessons:[{id,title,done}],hasFinal,finalBest,draft}}]}]}.
     /// Módulo sem conteúdo vem com <c>soon:true</c> (aparece como "em breve").
     /// </summary>
-    public static string Catalog(string? progressJson)
+    public static string Catalog(string? progressJson, string? today = null)
     {
         AcademyProgress progress = AcademyProgress.FromJson(progressJson);
         var tracks = new JsonArray();
@@ -47,6 +47,9 @@ public static class AcademyJson
                     module["hasFinal"] = m.Final is not null;
                     module["finalBest"] = m.Final is null ? -1 : progress.BestScore(m.Final.Id);
                     module["draft"] = m.Lessons.Any(l => l.Status != "revisado");
+                    // selo: todas as aulas feitas e o teste final aprovado
+                    module["badge"] = m.Lessons.Count > 0 && m.Lessons.All(l => progress.IsDone(l.Id))
+                        && m.Final is not null && progress.BestScore(m.Final.Id) >= m.Final.PassPercent;
                 }
 
                 levels.Add(new JsonObject { ["level"] = level, ["module"] = module });
@@ -61,7 +64,7 @@ public static class AcademyJson
             levelNames.Add(JsonValue.Create(l));
         }
 
-        return new JsonObject { ["levels"] = levelNames, ["tracks"] = tracks }.ToJsonString();
+        return new JsonObject { ["levels"] = levelNames, ["tracks"] = tracks, ["streak"] = progress.Streak(today) }.ToJsonString();
     }
 
     /// <summary>Uma aula completa para ler: texto, programa de exemplo, exercício e quiz (com a resposta e a explicação, para corrigir na hora).</summary>
@@ -81,6 +84,8 @@ public static class AcademyJson
             ["programName"] = Path.GetFileName(l.ProgramPath),
             ["program"] = Library.Programs.GetValueOrDefault(l.ProgramPath, ""),
             ["walk"] = Walk(Library.Programs.GetValueOrDefault(l.ProgramPath, "")),
+            ["opening"] = l.Opening,
+            ["summary"] = Strings(l.Summary ?? []),
             ["exercise"] = l.Exercise is null ? null : new JsonObject
             {
                 ["prompt"] = l.Exercise.Prompt, ["answer"] = l.Exercise.Answer,
@@ -143,7 +148,7 @@ public static class AcademyJson
     /// Corrige: <paramref name="answersJson"/> é uma lista de índices (0–3, ou null/-1 em branco), na ordem de <paramref name="questionIdsJson"/>.
     /// Guarda a nota e, em quiz de aula aprovado, marca a aula como feita. Devolve {percent,passed,correct,total,progress}.
     /// </summary>
-    public static string Grade(string quizId, string questionIdsJson, string answersJson, string? progressJson)
+    public static string Grade(string quizId, string questionIdsJson, string answersJson, string? progressJson, string? today = null)
     {
         AcademyProgress progress = AcademyProgress.FromJson(progressJson);
         List<string> ids = StringList(questionIdsJson);
@@ -161,6 +166,7 @@ public static class AcademyJson
         int pass = Library.Module(ModuleOfFinal(quizId))?.Final?.PassPercent ?? QuizGrader.DefaultPassPercent;
         QuizResult r = QuizGrader.Grade(questions, answers, pass);
         progress.RecordScore(quizId, r.Percent);
+        progress.RecordStudyDay(today);
         if (r.Passed && quizId.EndsWith("-quiz", StringComparison.Ordinal))
         {
             progress.MarkDone(quizId[..^5]);
@@ -206,23 +212,24 @@ public static class AcademyJson
         string progress = Text("progress");
         return command switch
         {
-            "catalog" => Catalog(progress),
+            "catalog" => Catalog(progress, Text("today")),
             "lesson" => Lesson(Text("id")),
             "final" => FinalTest(Text("module"), args["seed"] is JsonValue sv && sv.TryGetValue(out int seed) ? seed : 1),
-            "grade" => Grade(Text("quizId"), args["ids"]?.ToJsonString() ?? "[]", args["answers"]?.ToJsonString() ?? "[]", progress),
+            "grade" => Grade(Text("quizId"), args["ids"]?.ToJsonString() ?? "[]", args["answers"]?.ToJsonString() ?? "[]", progress, Text("today")),
             "check" => CheckExercise(Text("id"), Text("text")),
-            "done" => new JsonObject { ["ok"] = true, ["progress"] = MarkDone(Text("id"), progress) }.ToJsonString(),
+            "done" => new JsonObject { ["ok"] = true, ["progress"] = MarkDone(Text("id"), progress, Text("today")) }.ToJsonString(),
             _ => new JsonObject { ["ok"] = false }.ToJsonString(),
         };
     }
 
     /// <summary>Marca a aula como feita (botão "Concluir aula").</summary>
-    public static string MarkDone(string lessonId, string? progressJson)
+    public static string MarkDone(string lessonId, string? progressJson, string? today = null)
     {
         AcademyProgress progress = AcademyProgress.FromJson(progressJson);
         if (Library.FindLesson(lessonId) is not null)
         {
             progress.MarkDone(lessonId);
+            progress.RecordStudyDay(today);
         }
 
         return progress.ToJson();

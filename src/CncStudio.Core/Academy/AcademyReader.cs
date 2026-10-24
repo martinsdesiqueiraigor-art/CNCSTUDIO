@@ -19,7 +19,8 @@ public static class AcademyReader
             Str(o, "objetivo"), Str(o, "pre_requisito"), Str(o, "texto"), Str(o, "erro_comum"), Str(o, "programa"), Str(o, "aviso"),
             ex is null ? null : new LessonExercise(Str(ex, "tipo"), Str(ex, "enunciado"), Str(ex, "gabarito"), Editor(ex["editor"] as JsonObject)),
             Questions(o["quiz"]), Str(o, "observacoes"), Strings(o["diagramas"]),
-            o["video"] is JsonObject v && (Str(v, "url").Length > 0) ? new LessonVideo(Str(v, "titulo"), Str(v, "url")) : null);
+            o["video"] is JsonObject v && (Str(v, "url").Length > 0) ? new LessonVideo(Str(v, "titulo"), Str(v, "url")) : null,
+            Strings(o["resumo"]), Str(o, "abertura"));
     }
 
     public static FinalTest? ReadFinal(string json, out string error)

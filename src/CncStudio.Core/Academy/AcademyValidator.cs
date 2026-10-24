@@ -11,6 +11,7 @@ public static class AcademyValidator
     private static readonly string[] AllowedStatus = ["rascunho", "revisado"];
     private static readonly string[] Levels = ["Introdução", "Iniciante", "Básico", "Intermediário", "Avançado", "Especialista"];
     private static readonly string[] Diagrams = ["eixos", "ponto-xy", "zeros"];
+    public static readonly string[] ParagraphTags = ["conceito", "atenção", "dica", "exemplo"];
     private static readonly string[] CheckKinds = ["posicao_final", "contem", "sem_erros"];
     private static readonly string[] Tracks = ["Comum", "Fresa", "Torno"];
 
@@ -105,6 +106,20 @@ public static class AcademyValidator
 
     private static void CheckExtras(List<ContentIssue> issues, string where, Lesson lesson)
     {
+        if (lesson.Summary is null || lesson.Summary.Count != 3 || lesson.Summary.Any(string.IsNullOrWhiteSpace))
+        {
+            issues.Add(new ContentIssue(where, "\"resumo\" precisa de exatamente 3 pontos (\"O que levar desta aula\")."));
+        }
+
+        foreach (string paragraph in lesson.Text.Split("\n\n", StringSplitOptions.RemoveEmptyEntries))
+        {
+            string p = paragraph.TrimStart();
+            if (p.StartsWith('[') && p.IndexOf(']') is int end and > 0 && !ParagraphTags.Contains(p[1..end]))
+            {
+                issues.Add(new ContentIssue(where, $"Marca de parágrafo \"{p[..(end + 1)]}\" desconhecida (use: {string.Join(", ", ParagraphTags.Select(x => "[" + x + "]"))})."));
+            }
+        }
+
         foreach (string d in lesson.Diagrams ?? [])
         {
             if (!Diagrams.Contains(d))
