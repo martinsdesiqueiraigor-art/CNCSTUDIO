@@ -421,3 +421,4 @@ export function confirmBox(message, okText, danger) {
 
 export function editMachiningSetup(json) { return import('./setup-ui.js').then(m => m.openSetup(json)); }
 export function openGenerators(catalogJson, generate, lastJson) { return import('./generators-ui.js').then(m => m.openGenerators(catalogJson, generate, lastJson)); }
+export function openAcademy(call) { return import('./academy-ui.js').then(m => m.openAcademy(call)); }

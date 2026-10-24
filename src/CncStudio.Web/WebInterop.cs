@@ -169,4 +169,13 @@ internal static partial class WebInterop
         [JSMarshalAs<JSType.String>] string catalogJson,
         [JSMarshalAs<JSType.Function<JSType.String, JSType.String, JSType.String, JSType.String>>] Func<string, string, string, string> generate,
         [JSMarshalAs<JSType.String>] string lastJson);
+
+    /// <summary>
+    /// Academy (academy-ui.js): trilhas, aulas, quizzes e teste final em HTML. O conteúdo e a correção vêm do Core pelo callback
+    /// (comando, argumentos JSON) → JSON. O progresso fica no aparelho (localStorage). Devolve JSON {name, text, view3d} ou null.
+    /// </summary>
+    [JSImport("openAcademy", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> OpenAcademyAsync(
+        [JSMarshalAs<JSType.Function<JSType.String, JSType.String, JSType.String>>] Func<string, string, string> call);
 }
