@@ -32,7 +32,7 @@ export function openAcademy(call) {
     document.body.append(root);
 
     const finish = value => { root.remove(); resolve(value); };
-    const screen = (...nodes) => { wrap.replaceChildren(...nodes); root.scrollTop = 0; };
+    const screen = (...nodes) => { if (navEl) { navEl.remove(); navEl = null; } wrap.replaceChildren(...nodes); root.scrollTop = 0; };
     const header = (title, onBack, isDraft) => {
       const bar = make('div', null, 'display:flex;align-items:center;gap:10px;margin-bottom:10px');
       const back = btn(onBack ? '‹ Voltar' : 'Fechar', '#30363d', onBack || (() => finish(null)), 0);
@@ -110,41 +110,134 @@ export function openAcademy(call) {
     };
     const LEVEL_COLORS = { 'Introdução': '#4aa3ff', 'Iniciante': '#6fd39b', 'Básico': '#f3c969', 'Intermediário': '#ffb454', 'Avançado': '#ff7b7b', 'Especialista': '#c792ea' };
 
-    // ---------- Início: trilhas e níveis ----------
-    let activeTrack = 'Comum';
+    // ---------- Abas inferiores: Início, Trilhas, Conquistas ----------
+    let activeTrack = 'Comum', currentTab = 'inicio', navEl = null;
+    const TABS = [['inicio', '🏠', 'Início'], ['trilhas', '🗺️', 'Trilhas'], ['conquistas', '🏅', 'Conquistas']];
+    const bar = (pct, color) => {
+      const o = make('div', null, 'height:8px;border-radius:4px;background:#222c38;overflow:hidden;margin-top:6px');
+      o.append(make('div', null, `height:100%;width:${Math.max(0, Math.min(100, pct))}%;background:${color || '#6fd39b'}`));
+      return o;
+    };
+    const ring = (pct, label) => {
+      const wrapEl = make('div', null, 'position:relative;width:96px;height:96px;flex:none');
+      const r = 40, c = 2 * Math.PI * r;
+      wrapEl.innerHTML = `<svg viewBox="0 0 100 100" width="96" height="96"><circle cx="50" cy="50" r="${r}" fill="none" stroke="#222c38" stroke-width="10"/><circle cx="50" cy="50" r="${r}" fill="none" stroke="#6fd39b" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(c * pct / 100).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 50 50)"/></svg>`;
+      wrapEl.append(make('div', label, 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px'));
+      return wrapEl;
+    };
+    const available = cat => cat.tracks.flatMap(t => t.levels.map(l => ({ track: t.name, level: l.level, module: l.module }))).filter(x => x.module && !x.module.soon);
+    const mkNav = () => {
+      const n = make('div', null, 'position:fixed;left:0;right:0;bottom:0;z-index:10031;background:#0d1117;border-top:1px solid #303d4b;display:flex;padding:6px 8px calc(6px + env(safe-area-inset-bottom))');
+      TABS.forEach(([id, icon, label]) => {
+        const b = make('button', null, `flex:1;min-height:52px;border:none;background:none;color:${id === currentTab ? '#ffb454' : '#9baab9'};font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer`);
+        b.type = 'button';
+        b.append(make('span', icon, 'font-size:20px'), make('span', label));
+        b.addEventListener('click', () => { currentTab = id; home(); });
+        n.append(b);
+      });
+      return n;
+    };
+    const tabScreen = (title, ...nodes) => {
+      screen(header(title), ...nodes.filter(Boolean));
+      navEl = mkNav();
+      root.append(navEl);
+    };
+
     const home = () => {
       const cat = ask('catalog', {});
-      if (!cat.tracks) { screen(header('Academy'), hint('Não foi possível carregar os cursos.' + (cat.error ? ' (' + cat.error + ')' : ''))); return; }
+      if (!cat.tracks) { tabScreen('Academy', hint('Não foi possível carregar os cursos.' + (cat.error ? ' (' + cat.error + ')' : ''))); return; }
+      if (currentTab === 'trilhas') trilhasTab(cat);
+      else if (currentTab === 'conquistas') conquistasTab(cat);
+      else inicioTab(cat);
+    };
+
+    const inicioTab = cat => {
+      const mods = available(cat);
+      const lessons = mods.flatMap(x => x.module.lessons.map(l => ({ ...l, mod: x.module, track: x.track, level: x.level })));
+      const done = lessons.filter(l => l.done).length;
+      const pct = lessons.length ? Math.round(100 * done / lessons.length) : 0;
+      const next = lessons.find(l => !l.done);
+      const top = card('display:flex;gap:14px;align-items:center;background:#131a22');
+      top.append(ring(pct, pct + '%'));
+      const info = make('div', null, 'flex:1;min-width:0');
+      info.append(make('div', 'Olá! Bora estudar CNC?', 'font-size:18px;font-weight:700'), make('div', `${done} de ${lessons.length} aulas concluídas`, 'color:#9baab9;font-size:13px;margin-top:2px'));
+      if (cat.streak > 0) info.append(make('div', `🔥 ${cat.streak} ${cat.streak === 1 ? 'dia' : 'dias'} seguidos`, 'color:#ffb454;font-weight:700;margin-top:6px'));
+      top.append(info);
+      const cont = card('background:#2a1d10;border-color:#7a4a1f');
+      if (next) {
+        const doneIn = next.mod.lessons.filter(l => l.done).length;
+        cont.append(make('div', done > 0 ? '▶ Continuar de onde parou' : '▶ Comece por aqui', 'color:#ffb454;font-weight:700;font-size:13px'));
+        cont.append(make('div', next.title, 'font-size:18px;font-weight:700;margin:4px 0 2px'), make('div', `${next.track} · ${next.level} · ${next.mod.title}`, 'color:#c9d6e2;font-size:13px'));
+        cont.append(bar(100 * doneIn / next.mod.lessons.length, '#ffb454'), make('div', `${doneIn}/${next.mod.lessons.length} aulas deste módulo`, 'color:#9baab9;font-size:12px;margin:4px 0 10px'));
+        cont.append(btn('Continuar', '#b45b1f', () => lessonScreen(next.id, next.mod)));
+      } else {
+        cont.append(make('div', lessons.length ? '🎉 Você concluiu todas as aulas disponíveis!' : 'Os cursos estão chegando.', 'font-weight:700'), make('div', 'Faça os testes finais em Trilhas e volte em breve: há novos módulos a caminho.', 'color:#c9d6e2;font-size:13px;margin-top:4px'));
+      }
+      tabScreen('Academy', hint('Cursos de CNC em português. Conteúdo em rascunho até a revisão.'), top, cont);
+    };
+
+    const trilhasTab = cat => {
       const tabs = make('div', null, 'display:flex;gap:8px;margin-bottom:12px');
-      const streak = cat.streak > 0 ? make('div', `🔥 ${cat.streak} ${cat.streak === 1 ? 'dia' : 'dias'} seguidos estudando`, 'color:#ffb454;font-weight:700;margin:0 0 10px') : null;
-      cat.tracks.forEach(t => {
-        const b = btn(t.name, t.name === activeTrack ? '#b45b1f' : '#21262d', () => { activeTrack = t.name; home(); });
-        tabs.append(b);
-      });
-      const list = make('div');
+      cat.tracks.forEach(t => tabs.append(btn(t.name, t.name === activeTrack ? '#b45b1f' : '#21262d', () => { activeTrack = t.name; home(); })));
       const track = cat.tracks.find(t => t.name === activeTrack) || cat.tracks[0];
+      const list = make('div', null, 'position:relative;padding-left:34px');
+      list.append(make('div', null, 'position:absolute;left:13px;top:12px;bottom:12px;width:3px;background:#303d4b'));
+      let currentMarked = false;
       track.levels.forEach(l => {
-        const m = l.module;
-        const available = m && !m.soon;
+        const m = l.module, ok = m && !m.soon;
         const lc = LEVEL_COLORS[l.level] || '#4a5665';
-        const c = card(`border-left:6px solid ${lc};` + (available ? 'cursor:pointer;background:#131a22' : 'opacity:.55'));
-        const top = make('div', null, 'display:flex;justify-content:space-between;gap:8px;align-items:baseline');
-        top.append(make('strong', l.level + (m && m.badge ? '  🏅' : ''), `font-size:16px;color:${lc}`));
-        if (available) {
-          const done = m.lessons.filter(x => x.done).length;
-          top.append(make('span', `${done}/${m.lessons.length} aulas`, 'color:#9baab9;font-size:13px'));
-        } else {
-          top.append(make('span', 'Em breve', 'color:#9baab9;font-size:13px'));
-        }
-        c.append(top);
+        const nDone = ok ? m.lessons.filter(x => x.done).length : 0;
+        const complete = ok && nDone === m.lessons.length && (!m.hasFinal || m.badge);
+        const isCurrent = ok && !complete && !currentMarked;
+        if (isCurrent) currentMarked = true;
+        const node = make('div', null, 'position:relative;margin-bottom:12px');
+        const dot = make('div', complete ? '✓' : ok ? '' : '', `position:absolute;left:-34px;top:10px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;box-sizing:border-box;` +
+          (complete ? 'background:#1f6f43;color:white;border:2px solid #6fd39b' : isCurrent ? `background:${lc};border:3px solid #fff;box-shadow:0 0 0 4px ${lc}55` : ok ? `background:#0d1117;border:3px solid ${lc}` : 'background:#0d1117;border:3px dashed #4a5665'));
+        const c = card(`margin-bottom:0;border-left:6px solid ${lc};` + (ok ? 'cursor:pointer;background:#131a22' : 'opacity:.55'));
+        const head = make('div', null, 'display:flex;justify-content:space-between;gap:8px;align-items:baseline');
+        head.append(make('strong', l.level + (m && m.badge ? '  🏅' : ''), `font-size:16px;color:${lc}`), make('span', ok ? `${nDone}/${m.lessons.length} aulas` : 'Em breve', 'color:#9baab9;font-size:13px'));
+        c.append(head);
         if (m) c.append(make('div', m.title, 'color:#c9d6e2;font-size:14px;margin-top:2px'));
-        if (available) {
-          if (m.draft) c.append(make('div', 'Conteúdo em rascunho: ainda não revisado.', 'color:#f3c969;font-size:12px;margin-top:4px'));
+        if (ok) {
+          c.append(bar(100 * nDone / m.lessons.length, lc));
+          if (m.draft) c.append(make('div', 'Conteúdo em rascunho: ainda não revisado.', 'color:#f3c969;font-size:12px;margin-top:6px'));
           c.addEventListener('click', () => moduleScreen(m));
         }
-        list.append(c);
+        node.append(dot, c);
+        list.append(node);
       });
-      screen(...[header('Academy'), hint('Cursos de CNC em português, do básico ao avançado. Conteúdo em rascunho até a revisão.'), streak, tabs, list].filter(Boolean));
+      tabScreen('Trilhas', tabs, list);
+    };
+
+    const conquistasTab = cat => {
+      const mods = available(cat);
+      const lessons = mods.flatMap(x => x.module.lessons);
+      const done = lessons.filter(l => l.done).length;
+      const stats = card('display:grid;grid-template-columns:1fr 1fr;gap:10px');
+      const stat = (n, label) => { const s = make('div', null, 'background:#131a22;border:1px solid #303d4b;border-radius:9px;padding:10px;text-align:center'); s.append(make('div', String(n), 'font-size:24px;font-weight:700;color:#ffb454'), make('div', label, 'color:#9baab9;font-size:12px')); return s; };
+      stats.append(stat(`🔥 ${cat.streak || 0}`, 'dias seguidos'), stat(`${done}/${lessons.length}`, 'aulas concluídas'), stat(mods.filter(x => x.module.badge).length, 'selos de módulo'), stat(Math.max(0, ...mods.map(x => x.module.finalBest)) >= 0 ? Math.max(...mods.map(x => x.module.finalBest)) + '%' : '—', 'melhor teste final'));
+      const badges = card();
+      badges.append(make('strong', 'Selos de módulo'), make('div', 'Conclua todas as aulas e passe no teste final para ganhar o selo.', 'color:#9baab9;font-size:13px;margin:2px 0 10px'));
+      const grid = make('div', null, 'display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px');
+      cat.tracks.forEach(t => t.levels.forEach(l => {
+        if (!l.module) return;
+        const m = l.module, earned = !!m.badge, lc = LEVEL_COLORS[l.level] || '#4a5665';
+        const b = make('div', null, `text-align:center;padding:10px 6px;border-radius:10px;border:2px solid ${earned ? lc : '#303d4b'};background:${earned ? '#131a22' : '#0d1117'};${earned ? '' : 'opacity:.5;filter:grayscale(1)'}`);
+        b.append(make('div', earned ? '🏅' : '🔒', 'font-size:30px'), make('div', m.soon ? 'Em breve' : (t.name + ' · ' + l.level), `font-size:12px;font-weight:700;color:${earned ? lc : '#9baab9'}`), make('div', m.title, 'font-size:11px;color:#9baab9;margin-top:2px'));
+        grid.append(b);
+      }));
+      badges.append(grid);
+      const tests = card();
+      tests.append(make('strong', 'Notas dos testes finais'));
+      const withTest = mods.filter(x => x.module.hasFinal);
+      if (!withTest.length) tests.append(make('div', 'Ainda não há testes finais.', 'color:#9baab9;font-size:13px;margin-top:4px'));
+      withTest.forEach(x => {
+        const best = x.module.finalBest;
+        const row = make('div', null, 'margin-top:8px');
+        row.append(make('div', `${x.track} · ${x.level}: ${best >= 0 ? best + '%' : 'ainda não feito'}`, 'font-size:14px'), bar(Math.max(0, best), best >= 70 ? '#6fd39b' : '#ffb454'));
+        tests.append(row);
+      });
+      tabScreen('Conquistas', stats, badges, tests);
     };
 
     // ---------- Módulo: aulas e teste final ----------
@@ -174,7 +267,14 @@ export function openAcademy(call) {
       const box = make('div');
       const answers = quiz.map(() => -1);
       const optionButtons = quiz.map(() => []);
+      const pickedRow = quiz.map(() => null);
       let graded = false;
+      // depois de responder, só a escolhida fica visível (com "trocar"); ao corrigir, todas voltam com cores
+      const refresh = qi => {
+        const picked = answers[qi], collapsed = picked >= 0 && !graded;
+        optionButtons[qi].forEach((b, oi) => { b.style.display = collapsed && oi !== picked ? 'none' : 'block'; });
+        pickedRow[qi].style.display = collapsed ? 'block' : 'none';
+      };
       quiz.forEach((q, qi) => {
         const c = card();
         c.append(make('div', `${qi + 1}. ${q.prompt}`, 'font-weight:600;margin-bottom:8px;white-space:pre-wrap'));
@@ -185,12 +285,18 @@ export function openAcademy(call) {
             if (graded) return;
             answers[qi] = oi;
             optionButtons[qi].forEach((x, xi) => { x.style.background = xi === oi ? '#2d4a63' : '#161b22'; });
+            refresh(qi);
           });
           optionButtons[qi].push(b);
           c.append(b);
         });
+        const again = make('button', '↺ Trocar resposta', 'display:none;background:none;border:none;color:#7cc4ff;font-size:13px;padding:2px 0 6px;cursor:pointer');
+        again.type = 'button';
+        again.addEventListener('click', () => { answers[qi] = -1; optionButtons[qi].forEach(x => { x.style.background = '#161b22'; }); refresh(qi); });
+        pickedRow[qi] = again;
+        c.append(again);
         if (q.hint) {
-          const h = make('div', 'Dica: ' + q.hint, 'color:#9baab9;font-size:12px;display:none');
+          const h = rich('div', 'Dica: ' + q.hint, 'color:#9baab9;font-size:12px;display:none');
           const show = make('button', 'Ver dica', 'background:none;border:none;color:#7cc4ff;font-size:13px;padding:4px 0;cursor:pointer');
           show.type = 'button'; show.addEventListener('click', () => { h.style.display = 'block'; show.remove(); });
           c.append(show, h);
@@ -209,7 +315,9 @@ export function openAcademy(call) {
         graded = true;
         saveProgress(r.progress);
         quiz.forEach((q, qi) => {
+          pickedRow[qi].style.display = 'none';
           optionButtons[qi].forEach((b, oi) => {
+            b.style.display = 'block';
             if (oi === q.correct) b.style.background = '#1f6f43';
             else if (oi === answers[qi]) b.style.background = '#8a2d2d';
           });
@@ -225,11 +333,10 @@ export function openAcademy(call) {
       return box;
     };
 
-
     // ---------- Leitura linha a linha com mini 3D (desenho em aramado, sem biblioteca) ----------
     const walkViewer = walk => {
       const box = make('div');
-      const canvas = make('canvas', null, 'width:100%;height:250px;background:#0a0f14;border:1px solid #30445a;border-radius:9px;touch-action:none;display:block');
+      const canvas = make('canvas', null, 'width:100%;height:250px;background:#0a0f14;border:1px solid #30445a;border-radius:9px;display:block');
       const ctx = canvas.getContext('2d');
       const lines = walk.lines;
       const [x0, y0, z0] = walk.min, [x1, y1, z1] = walk.max;
@@ -298,14 +405,14 @@ export function openAcademy(call) {
           ctx.fillStyle = '#ff5c5c'; ctx.beginPath(); ctx.arc(p0[0], p0[1], 4 * k, 0, 7); ctx.fill();
         }
         ctx.fillStyle = '#9baab9'; ctx.font = `${11 * k}px system-ui`;
-        ctx.fillText('arraste para girar · azul = rápido (G00) · laranja = corte (G01)', 8 * k, canvas.height - 8 * k);
+        ctx.fillText('azul = rápido (G00) · laranja = corte (G01)', 8 * k, canvas.height - 8 * k);
       };
 
       // girar com o dedo ou o mouse
-      let drag = null;
-      canvas.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); });
+      let drag = null, rotate = false;
+      canvas.addEventListener('pointerdown', e => { if (!rotate) return; drag = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); });
       canvas.addEventListener('pointermove', e => {
-        if (!drag) return;
+        if (!drag || !rotate) return;
         az += (e.clientX - drag[0]) * 0.01; el = Math.max(-1.4, Math.min(1.4, el + (e.clientY - drag[1]) * 0.01));
         drag = [e.clientX, e.clientY]; draw();
       });
@@ -314,7 +421,7 @@ export function openAcademy(call) {
       // lista de linhas do programa e a explicação
       const listBox = make('div', null, 'background:#0a0f14;border:1px solid #30445a;border-radius:9px;margin:8px 0;max-height:210px;overflow:auto');
       const rows = lines.map((l, i) => {
-        const r = make('div', l.text, 'padding:5px 10px;font:12px/1.4 ui-monospace,Consolas,monospace;color:#c9d6e2;white-space:pre;cursor:pointer;border-left:3px solid transparent');
+        const r = codeLine(l.text, 'padding:5px 10px;font:12px/1.4 ui-monospace,Consolas,monospace;color:#c9d6e2;white-space:pre;cursor:pointer;border-left:3px solid transparent');
         r.addEventListener('click', () => { stopPlay(); select(i, 1); });
         listBox.append(r); return r;
       });
@@ -350,9 +457,17 @@ export function openAcademy(call) {
         playing = true; playBtn.textContent = '❚❚ Pausar'; next();
       }, 2);
       const controls = make('div', null, 'display:flex;gap:8px;margin-top:8px');
+      const rotBtn = btn('↻ Girar', '#30363d', () => {
+        rotate = !rotate;
+        rotBtn.style.background = rotate ? '#2d4a63' : '#30363d';
+        rotBtn.textContent = rotate ? '↻ Girando: arraste' : '↻ Girar';
+        canvas.style.touchAction = rotate ? 'none' : 'auto';
+      }, 1);
       controls.append(btn('‹ Linha', '#30363d', () => { stopPlay(); select(sel - 1, 1); }), playBtn, btn('Linha ›', '#30363d', () => { stopPlay(); select(sel + 1, 1); }));
+      const rotRow = make('div', null, 'margin-top:8px;display:flex');
+      rotRow.append(rotBtn);
 
-      box.append(canvas, controls, listBox, explain);
+      box.append(canvas, controls, rotRow, listBox, explain);
       new ResizeObserver(draw).observe(canvas);
       setTimeout(draw, 0);
       box.stop = stopPlay;
@@ -420,7 +535,7 @@ export function openAcademy(call) {
 
     // ---------- Aramado 3D simples (para o diagrama dos eixos) ----------
     const wire3d = (stock, height) => {
-      const canvas = make('canvas', null, `width:100%;height:${height}px;background:#0a0f14;border:1px solid #30445a;border-radius:9px;touch-action:none;display:block`);
+      const canvas = make('canvas', null, `width:100%;height:${height}px;background:#0a0f14;border:1px solid #30445a;border-radius:9px;display:block`);
       const ctx = canvas.getContext('2d');
       const [x0, y0, z0] = stock.min, [x1, y1, z1] = stock.max;
       const center = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1 + 20) / 2];
@@ -452,10 +567,6 @@ export function openAcademy(call) {
         ctx.setLineDash([]); ctx.strokeStyle = '#e6edf3'; ctx.lineWidth = 3 * k; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
         ctx.fillStyle = '#ff5c5c'; ctx.beginPath(); ctx.arc(p0[0], p0[1], 4 * k, 0, 7); ctx.fill();
       };
-      let drag = null;
-      canvas.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); });
-      canvas.addEventListener('pointermove', e => { if (!drag) return; az += (e.clientX - drag[0]) * 0.01; el = Math.max(-1.4, Math.min(1.4, el + (e.clientY - drag[1]) * 0.01)); drag = [e.clientX, e.clientY]; draw(); });
-      canvas.addEventListener('pointerup', () => { drag = null; });
       new ResizeObserver(draw).observe(canvas);
       return { canvas, set: tool => { state = { tool }; draw(); } };
     };
