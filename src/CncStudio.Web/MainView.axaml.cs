@@ -517,12 +517,12 @@ public partial class MainView : UserControl
     }
 
     /// <summary>Abre a comparação: o programa do editor à esquerda; a direita a pessoa escolhe.</summary>
-    private void OpenCompare()
+    private void OpenCompare(string? leftText = null, string? leftName = null)
     {
         StopSimulation();
         CloseLibrary();
         StatsHost.IsVisible = false;
-        CompareView.Open(Editor.Text, _fileName, CurrentDialect);
+        CompareView.Open(leftText ?? Editor.Text, leftName ?? _fileName, CurrentDialect);
         SetCompareVisible(true);
     }
 

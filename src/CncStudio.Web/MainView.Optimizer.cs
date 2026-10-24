@@ -15,11 +15,6 @@ public partial class MainView
     {
         if (_openingOptimizer) return;
         string original = Editor.Text;
-        if (string.IsNullOrWhiteSpace(original))
-        {
-            SetStatus("Abra um programa no editor para analisar no Otimizador.");
-            return;
-        }
 
         _openingOptimizer = true;
         try
@@ -36,7 +31,8 @@ public partial class MainView
             string action = (string?)result["action"] ?? "editor";
             if (action == "compare")
             {
-                OpenCompare();
+                string left = ((string?)result["original"] ?? original).Replace("\r\n", "\n");
+                OpenCompare(left, (string?)result["originalName"] ?? originalName);
                 CompareView.SetRight(text, name);
                 SetStatus("Comparação: original à esquerda, versão otimizada (somente simulador) à direita.");
                 return;

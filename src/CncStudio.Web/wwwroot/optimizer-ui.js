@@ -2,8 +2,9 @@
 // O cálculo é do Core (C#, OptimizerJson); esta tela só mostra o resultado e entrega o programa ao editor.
 // call(comando, argsJson) -> JSON; programText/programName: o programa aberto no editor.
 // Resolve com JSON {action: 'editor'|'view3d'|'compare', name, text, original, originalName} ou null.
-export function openOptimizer(call, programText, programName) {
+export function openOptimizer(call, initialText, initialName) {
   return new Promise(resolve => {
+    let programText = initialText || '', programName = initialName || 'programa.nc';
     const css = (el, text) => { el.style.cssText = text; return el; };
     const make = (tag, text, style) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (style) css(el, style); return el; };
     const btn = (label, bg, onClick, grow = 1) => {
@@ -42,16 +43,24 @@ export function openOptimizer(call, programText, programName) {
     const pct = x => Math.round(x * 100) + '%';
 
     // ---------- Entrada ----------
+    const msg = make('div', '', 'color:#ff9a83;font-size:14px;margin-top:8px');
     const start = () => {
-      const lines = programText ? programText.split(/\r?\n/).length : 0;
+      msg.textContent = '';
+      const lines = programText.trim() ? programText.split(/\r?\n/).length : 0;
       const intro = card();
-      intro.append(make('strong', 'Programa a analisar'), make('div', programName + ' · ' + lines + ' linhas', 'margin:4px 0 8px;color:#c9d6e2'));
+      intro.append(make('strong', 'Programa a analisar'), make('div', lines ? programName + ' · ' + lines + ' linhas' : 'Nenhum programa aberto no editor.', 'margin:4px 0 8px;color:#c9d6e2'));
+      const file = make('input', null, 'display:none'); file.type = 'file'; file.accept = '.nc,.tap,.txt,.mpf,.cnc,.min,.eia';
+      file.addEventListener('change', async () => {
+        const f = file.files && file.files[0]; if (!f) return;
+        try { programText = await f.text(); programName = f.name; start(); } catch { msg.textContent = 'Não foi possível ler o arquivo.'; }
+      });
+      intro.append(file, btn(lines ? 'Trocar por outro arquivo…' : 'Escolher arquivo…', '#30363d', () => file.click(), 0));
+      intro.lastChild.style.margin = '0 0 10px';
       intro.append(make('div', 'Procura repetições (níveis em Z, cópias em XY, bolsões, grades, círculos de furos, hélices e subprogramas) e propõe laços Macro B para você simular no Code.', 'font-size:13px;color:#9baab9'));
       const sel = make('select', null, 'width:100%;box-sizing:border-box;min-height:46px;margin-top:10px;background:#161b22;color:white;border:1px solid #4a5665;border-radius:8px;font-size:15px;padding:8px');
       [['calculadora', 'Entrada decimal tipo calculadora (3401#0=1): X10 = 10 mm'], ['convencional', 'Entrada decimal convencional (3401#0=0): X10 = 0,010 mm']].forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); });
       try { const saved = localStorage.getItem('cc.otimizador.perfil'); if (saved) sel.value = saved; } catch { /* sem armazenamento */ }
       intro.append(make('div', 'Como o controle lê números sem ponto decimal:', 'font-size:13px;color:#9baab9;margin-top:10px'), sel);
-      const msg = make('div', '', 'color:#ff9a83;font-size:14px;margin-top:8px');
       const run = btn('Analisar programa', '#1f6f43', () => {
         try { localStorage.setItem('cc.otimizador.perfil', sel.value); } catch { /* ignora */ }
         msg.textContent = '';
@@ -63,7 +72,7 @@ export function openOptimizer(call, programText, programName) {
           result(r, sel.value);
         }, 30);
       }, 0);
-      run.style.width = '100%'; run.style.marginTop = '12px';
+      run.style.width = '100%'; run.style.marginTop = '12px'; if (!lines) run.disabled = true;
       intro.append(run, msg);
       screen(header('Casillas Otimizador'), safety(), intro);
     };
@@ -80,7 +89,7 @@ export function openOptimizer(call, programText, programName) {
       a.download = name; document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     };
-    const baseName = programName.replace(/\.[^.]+$/, '');
+    const baseName = () => programName.replace(/\.[^.]+$/, '');
 
     const proposalCard = p => {
       const ok = p.accepted;
@@ -120,7 +129,7 @@ export function openOptimizer(call, programText, programName) {
       if (r.simulationProgram) {
         acts.append(make('strong', 'Simular a versão otimizada'), make('div', 'Abra no editor e rode o 3D para ver que o resultado é o mesmo.', 'font-size:13px;color:#9baab9;margin:2px 0 8px'));
         const row = make('div', null, 'display:flex;gap:8px;flex-wrap:wrap');
-        const pack = action => finish(JSON.stringify({ action, name: baseName + '_OTIMIZADO.nc', text: r.simulationProgram, original: programText, originalName: programName }));
+        const pack = action => finish(JSON.stringify({ action, name: baseName() + '_OTIMIZADO.nc', text: r.simulationProgram, original: programText, originalName: programName }));
         row.append(btn('Abrir no editor', '#2d4a63', () => pack('editor')), btn('Ver em 3D', '#30363d', () => pack('view3d')), btn('Comparar com o original', '#30363d', () => pack('compare'), 2));
         acts.append(row);
       } else {
@@ -130,10 +139,10 @@ export function openOptimizer(call, programText, programName) {
         why.forEach(w => acts.append(make('div', '⛔ ' + w, 'font-size:13px;color:#ff9a83;margin-top:4px')));
       }
       const dl = make('div', null, 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px');
-      dl.append(btn('Baixar revisão (.txt)', '#30363d', () => download(baseName + '_revisao.txt', r.document)));
+      dl.append(btn('Baixar revisão (.txt)', '#30363d', () => download(baseName() + '_revisao.txt', r.document)));
       const anon = btn('Cópia anonimizada', '#30363d', () => {
         const a = ask('anonymize', { text: programText });
-        if (a.ok) download(baseName + '_anonimo.nc', a.text); else alert(a.error || 'Não foi possível anonimizar.');
+        if (a.ok) download(baseName() + '_anonimo.nc', a.text); else alert(a.error || 'Não foi possível anonimizar.');
       });
       dl.append(anon);
       acts.append(dl, make('div', 'A cópia anonimizada troca os comentários por códigos: serve para compartilhar um programa real sem expor o cliente.', 'font-size:12px;color:#9baab9;margin-top:6px'));
