@@ -7,12 +7,12 @@ const LAST_KEY = 'cc.platform.last';
 
 // ids: code, academy, macro = ativos; cam, biblioteca, ferramentas = em breve
 const MODULES = [
-  { id: 'code', name: 'Casillas Code', text: 'Editor e simulador CNC com 3D', color: '#f0883e', icon: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />' },
-  { id: 'academy', name: 'Casillas Academy', text: 'Cursos, aulas e quizzes de CNC', color: '#6fa8ff', icon: '<path d="M2 9l10-5 10 5-10 5-10-5zM6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5M22 9v6" />' },
-  { id: 'macro', name: 'Casillas Macro', text: 'Geradores de programa com prévia 3D', color: '#6fd39b', icon: '<path d="M4 4h16v16H4zM4 9h16M9 9v11" />' },
-  { id: 'cam', name: 'Casillas CAM', text: 'Do desenho ao programa 2,5D', color: '#b08cff', soon: true, icon: '<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />' },
-  { id: 'biblioteca', name: 'Casillas Biblioteca CNC', text: 'Códigos, ciclos e consulta rápida', color: '#ffd166', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
-  { id: 'ferramentas', name: 'Casillas Ferramentas', text: 'Calculadora de usinagem Casillas', color: '#5ad1d1', soon: true, icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
+  { id: 'academy', name: 'Casillas Academy', text: 'Formação profissional', color: '#3ddc84', icon: '<path d="M2 9l10-5 10 5-10 5-10-5zM6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5M22 9v6" />' },
+  { id: 'cam', name: 'Casillas CAM', text: 'Do desenho ao programa 2,5D', color: '#4d8dff', soon: true, icon: '<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />' },
+  { id: 'code', name: 'Casillas Code', text: 'Editor G-code e M-code', color: '#e36bf0', icon: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />' },
+  { id: 'biblioteca', name: 'Casillas Biblioteca CNC', text: 'Banco de dados G-code', color: '#ee5a45', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
+  { id: 'macro', name: 'Casillas Macro', text: 'Programação paramétrica e lógica', color: '#9b7bff', icon: '<path d="M4 4h16v16H4zM4 9h16M9 9v11" />' },
+  { id: 'ferramentas', name: 'Casillas Ferramentas', text: 'Gestão e seleção de ferramentas', color: '#2fd0c8', soon: true, icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
 ];
 const DOCK = ['inicio', 'code', 'academy', 'macro'];
 
@@ -74,8 +74,10 @@ function showHome() {
   const head = make('div', null, 'text-align:center;margin:6px 0 18px');
   const logo = make('img', null, 'width:76px;height:76px;border-radius:18px');
   logo.src = './icone.png'; logo.alt = 'Casillas';
-  head.append(logo, make('h1', 'Plataforma Casillas', 'font-size:22px;margin:10px 0 2px'), make('div', 'Escolha o módulo', 'color:#9baab9;font-size:14px'));
+  head.append(logo, make('h1', 'Plataforma Casillas', 'font-size:24px;margin:10px 0 2px;color:#f3d9a4'), make('div', 'Escolha o módulo', 'color:#9baab9;font-size:14px'));
   wrap.append(head);
+  const mq = window.matchMedia('(min-width: 600px)');
+  el.style.setProperty('--cols', mq.matches ? '3' : '2');
 
   const last = MODULES.find(m => m.id === store.get() && !m.soon);
   if (last) {
@@ -89,18 +91,19 @@ function showHome() {
     wrap.append(c);
   }
 
-  const grid = make('div', null, 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px');
+  const grid = make('div', null, 'display:grid;grid-template-columns:repeat(var(--cols,2),1fr);gap:12px');
   MODULES.forEach(m => {
-    const c = make('button', null, `position:relative;display:flex;flex-direction:column;gap:6px;text-align:left;min-height:140px;border:1px solid ${m.soon ? '#30363d' : m.color};border-radius:14px;background:#131a22;color:#e6edf3;padding:14px;cursor:pointer;font:inherit;${m.soon ? 'opacity:.6' : ''}`);
+    const c = make('button', null, `position:relative;display:flex;flex-direction:column;gap:6px;text-align:left;min-height:150px;border:2px solid ${m.color};border-radius:16px;background:linear-gradient(160deg,${m.color}26,#0f151c 60%);box-shadow:0 0 14px ${m.color}55,inset 0 0 16px ${m.color}14;color:#e6edf3;padding:14px;cursor:pointer;font:inherit;${m.soon ? 'opacity:.7' : ''}`);
     c.type = 'button';
-    const ic = make('div', null, `width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:${m.color}22`);
+    const ic = make('div', null, `width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:${m.color}26`);
     ic.innerHTML = svg(m.icon, m.color, 26);
-    c.append(ic, make('strong', m.name, 'font-size:15px;line-height:1.25'), make('span', m.text, 'color:#9baab9;font-size:12.5px;line-height:1.35'));
+    c.append(ic, make('strong', m.name, `font-size:15px;line-height:1.25;color:${m.color}`), make('span', m.text, 'color:#9baab9;font-size:12.5px;line-height:1.35'));
     if (m.soon) c.append(make('span', 'Em breve', 'position:absolute;top:10px;right:10px;font-size:11px;font-weight:700;color:#f3c969;background:#3b2f12;border:1px solid #7a6122;border-radius:999px;padding:1px 8px'));
     c.addEventListener('click', () => openModule(m.id));
     grid.append(c);
   });
   wrap.append(grid);
+  wrap.append(make('div', 'Formação profissional • Gestão de usinagem • Banco de dados G-code • Análise e otimização • Editores avançados • Gestão de ativos', 'text-align:center;color:#c9a96a;font-size:11.5px;font-weight:700;letter-spacing:.3px;margin:18px 8px 0;line-height:1.6'));
   el.append(wrap);
   document.body.append(el);
   homeEl = el;
