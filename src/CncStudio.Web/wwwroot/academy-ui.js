@@ -2,6 +2,7 @@
 // call(comando, argsJson) -> JSON. Comandos: catalog | lesson | final | grade | done.
 // O progresso fica no aparelho (localStorage, opcional). Resolve com JSON {name, text, view3d} ou null.
 const PROGRESS_KEY = 'cc.academy.progress';
+const CHANNEL_URL = 'https://www.youtube.com/@casillasusinagembr';
 
 export function openAcademy(call) {
   return new Promise(resolve => {
@@ -599,6 +600,13 @@ export function openAcademy(call) {
         v.append(make('strong', '🎬 Vídeo desta aula'), make('div', l.video.title || '', 'color:#c9d6e2;font-size:13px;margin:2px 0 8px'));
         const a = make('a', 'Assistir no YouTube', 'display:inline-block;min-height:44px;line-height:44px;padding:0 16px;border-radius:8px;background:#7a1f1f;color:white;font-weight:700;text-decoration:none');
         a.href = l.video.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        v.append(a); parts.push(v);
+      } else {
+        // enquanto a aula não tem vídeo próprio: leva ao canal do Casillas
+        const v = card('background:#1a1424;border-color:#5b3d7a');
+        v.append(make('strong', '🎬 Vídeo desta aula: em breve'), make('div', 'Enquanto isso, veja outros vídeos de usinagem no canal Casillas.', 'color:#c9d6e2;font-size:13px;margin:2px 0 8px'));
+        const a = make('a', 'Abrir canal no YouTube', 'display:inline-block;min-height:44px;line-height:44px;padding:0 16px;border-radius:8px;background:#7a1f1f;color:white;font-weight:700;text-decoration:none');
+        a.href = CHANNEL_URL; a.target = '_blank'; a.rel = 'noopener noreferrer';
         v.append(a); parts.push(v);
       }
       parts.push(cardReader(l.text, l.quiz && l.quiz.length ? l.quiz[0] : null, l.opening, l.summary));
