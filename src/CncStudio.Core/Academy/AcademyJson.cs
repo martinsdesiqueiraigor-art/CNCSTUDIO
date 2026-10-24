@@ -137,6 +137,35 @@ public static class AcademyJson
         }.ToJsonString();
     }
 
+    /// <summary>
+    /// Ponto único de entrada da tela: <paramref name="command"/> = catalog | lesson | final | grade | done, com os argumentos
+    /// em <paramref name="argsJson"/> ({progress, id, module, seed, quizId, ids, answers}). Devolve o JSON do comando.
+    /// </summary>
+    public static string Dispatch(string command, string argsJson)
+    {
+        JsonObject args;
+        try
+        {
+            args = JsonNode.Parse(argsJson) as JsonObject ?? [];
+        }
+        catch (JsonException)
+        {
+            args = [];
+        }
+
+        string Text(string key) => args[key] is JsonValue v && v.TryGetValue(out string? s) ? s ?? "" : "";
+        string progress = Text("progress");
+        return command switch
+        {
+            "catalog" => Catalog(progress),
+            "lesson" => Lesson(Text("id")),
+            "final" => FinalTest(Text("module"), args["seed"] is JsonValue sv && sv.TryGetValue(out int seed) ? seed : 1),
+            "grade" => Grade(Text("quizId"), args["ids"]?.ToJsonString() ?? "[]", args["answers"]?.ToJsonString() ?? "[]", progress),
+            "done" => new JsonObject { ["ok"] = true, ["progress"] = MarkDone(Text("id"), progress) }.ToJsonString(),
+            _ => new JsonObject { ["ok"] = false }.ToJsonString(),
+        };
+    }
+
     /// <summary>Marca a aula como feita (botão "Concluir aula").</summary>
     public static string MarkDone(string lessonId, string? progressJson)
     {

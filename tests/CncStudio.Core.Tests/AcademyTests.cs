@@ -211,6 +211,26 @@ public class AcademyTests
     }
 
     [Fact]
+    public void DispatchRoutesCommandsAndSurvivesBadInput()
+    {
+        AcademyJson.UseLibrary(AcademyLibrary.FromFiles(Files()));
+        try
+        {
+            Assert.True((bool)JsonNode.Parse(AcademyJson.Dispatch("lesson", "{\"id\":\"acad-m1-a02\"}"))!["ok"]!);
+            Assert.NotNull(JsonNode.Parse(AcademyJson.Dispatch("catalog", "{}"))!["tracks"]);
+            Assert.True((bool)JsonNode.Parse(AcademyJson.Dispatch("final", "{\"module\":\"acad-m1\",\"seed\":3}"))!["ok"]!);
+            JsonNode done = JsonNode.Parse(AcademyJson.Dispatch("done", "{\"id\":\"acad-m1-a02\"}"))!;
+            Assert.True(AcademyProgress.FromJson((string)done["progress"]!).IsDone("acad-m1-a02"));
+            Assert.False((bool)JsonNode.Parse(AcademyJson.Dispatch("xyz", "{}"))!["ok"]!);
+            Assert.False((bool)JsonNode.Parse(AcademyJson.Dispatch("lesson", "isto não é json"))!["ok"]!);
+        }
+        finally
+        {
+            AcademyJson.UseLibrary(null);
+        }
+    }
+
+    [Fact]
     public void FinalTestUsesModulePassMark()
     {
         AcademyJson.UseLibrary(AcademyLibrary.FromFiles(Files()));
