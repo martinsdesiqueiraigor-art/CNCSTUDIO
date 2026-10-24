@@ -106,11 +106,12 @@ public partial class MainView : UserControl
 
         _simTimer = new DispatcherTimer();
         _simTimer.Tick += (_, _) => SimTick();
-        SimStartButton.Click += (_, _) => { StopSimulation(); SetStep(0); };
-        SimBackButton.Click += (_, _) => { StopSimulation(); SetStep(Math.Min(_step, _stepEnds.Length) - 1); };
-        SimStepButton.Click += (_, _) => { StopSimulation(); SetStep(_step >= _stepEnds.Length ? 1 : _step + 1); };
-        SimEndButton.Click += (_, _) => { StopSimulation(); SetStep(_stepEnds.Length); };
-        SimPlayButton.Click += (_, _) => TogglePlay();
+        // Sem licença nem teste, a simulação (reproduzir e passo a passo) fica travada
+        SimStartButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(0); } };
+        SimBackButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(Math.Min(_step, _stepEnds.Length) - 1); } };
+        SimStepButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(_step >= _stepEnds.Length ? 1 : _step + 1); } };
+        SimEndButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(_stepEnds.Length); } };
+        SimPlayButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { TogglePlay(); } };
         BuildSpeedFlyout();
         SpeedSlider.PropertyChanged += (_, e) =>
         {
@@ -158,7 +159,7 @@ public partial class MainView : UserControl
         };
         Library.Saved += (_, path) => MarkSaved(path);
         Library.Message += (_, text) => SetStatus(text);
-        Library.AllowSave = EnsureFullAccessAsync;
+        Library.AllowSave = () => EnsureFullAccessAsync();
         Library.Closed += (_, _) =>
         {
             CloseLibrary();
@@ -661,6 +662,9 @@ public partial class MainView : UserControl
             case "login":
                 await RefreshAccountAsync(askLogin: true);
                 break;
+            case "refresh":
+                await RefreshAccountAsync(askLogin: false);
+                break;
         }
     }
 
@@ -668,7 +672,10 @@ public partial class MainView : UserControl
     /// Salvar e exportar: liberados no trial e com licença. Sem isso, explica e oferece entrar
     /// (ou ver a conta). Retorna true se pode seguir.
     /// </summary>
-    private async Task<bool> EnsureFullAccessAsync()
+    private async Task<bool> EnsureSimAccessAsync() =>
+        _fullAccess || await EnsureFullAccessAsync("A simulação precisa de uma conta. Crie a sua e use tudo grátis por 30 dias.");
+
+    private async Task<bool> EnsureFullAccessAsync(string? loginReason = null)
     {
         if (!_accountChecked)
         {
@@ -683,7 +690,7 @@ public partial class MainView : UserControl
         var account = ReadAccount(_accountJson);
         if (!account.SignedIn)
         {
-            await RefreshAccountAsync(askLogin: true, "Salvar e exportar precisam de uma conta. Crie a sua e use tudo grátis por 14 dias.");
+            await RefreshAccountAsync(askLogin: true, loginReason ?? "Salvar e exportar precisam de uma conta. Crie a sua e use tudo grátis por 30 dias.");
         }
         else
         {

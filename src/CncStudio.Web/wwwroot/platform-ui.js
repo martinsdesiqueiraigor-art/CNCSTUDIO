@@ -2,6 +2,8 @@
 // Tudo em HTML; roda antes do .NET carregar. Para abrir Academy e Macro (que dependem do .NET), avisa o C#
 // pelo callback registrado em onPlatform (web.js). Se o .NET ainda não carregou, guarda o pedido e entrega depois.
 
+import { accountCheck, accountLogin, accountPanel, moduleState } from './account.js';
+
 const DOCK_H = 'calc(56px + env(safe-area-inset-bottom, 0px))';
 const LAST_KEY = 'cc.platform.last';
 
@@ -48,11 +50,63 @@ function deliver(id) {
   else state.pending.push(id);
 }
 
+// Módulos que exigem teste ativo ou licença (o Code trava a simulação por dentro; a Academy abre o módulo 1)
+const GATED = new Set(['macro', 'otimizador']);
+const BUY_URL = 'https://wa.me/5519996816755?text=' + encodeURIComponent('Olá! Quero comprar a licença do Casillas.');
+
+/** Aviso "Comprar licença" quando o teste acabou. */
+function buyDialog(mod) {
+  const ov = make('div', null, 'position:fixed;inset:0;z-index:10040;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;font:15px/1.4 system-ui,sans-serif');
+  const box = make('div', null, `width:100%;max-width:380px;background:#161b22;color:#e6edf3;border:2px solid ${mod.color};border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;text-align:center;box-shadow:0 0 24px ${mod.color}55`);
+  box.append(make('div', '🔒', 'font-size:34px'));
+  box.append(make('strong', mod.name, `font-size:18px;color:${mod.color}`));
+  box.append(make('div', 'Seu período de teste terminou. Este módulo precisa de licença para continuar.', 'color:#9baab9;font-size:14px'));
+  const btn = (text, kind) => make('button', text, 'min-height:44px;border-radius:10px;font:600 15px system-ui;cursor:pointer;' + (kind === 'buy' ? `background:${mod.color};color:#0d1117;border:0` : 'background:transparent;color:#e6edf3;border:1px solid #30363d'));
+  const buy = btn('Comprar licença', 'buy'); buy.type = 'button';
+  buy.addEventListener('click', () => window.open(BUY_URL, '_blank', 'noopener'));
+  const code = btn('Já tenho um código'); code.type = 'button';
+  code.addEventListener('click', async () => {
+    try {
+      const action = await accountPanel(await accountCheck());
+      if (action === 'refresh') { ov.remove(); openModule(mod.id); }
+    } catch { /* sem conta */ }
+  });
+  const close = btn('Voltar'); close.type = 'button';
+  close.addEventListener('click', () => ov.remove());
+  box.append(buy, code, close);
+  ov.append(box);
+  document.body.append(ov);
+}
+
+/** Confere conta e licença do módulo. Resolve true se pode abrir. */
+async function allowed(mod) {
+  let st = moduleState(mod.id);
+  if (st === 'VALID' || st === 'TRIAL') { accountCheck().catch(() => {}); return true; } // confere de novo em segundo plano
+  try {
+    let info = JSON.parse(await accountCheck());
+    if (!info.signedIn) {
+      if (await accountLogin('Crie uma conta para testar todos os módulos por 30 dias.') !== 'ok') return false;
+      info = JSON.parse(await accountCheck());
+    }
+    if (!info.signedIn) return false;
+  } catch { toast('Conecte-se à internet para conferir a licença'); return false; }
+  st = moduleState(mod.id);
+  if (st === 'VALID' || st === 'TRIAL') return true;
+  if (st === null) { toast('Conecte-se à internet para conferir a licença'); return false; }
+  buyDialog(mod);
+  return false;
+}
+
 /** Abre um módulo (ou o início). */
 export function openModule(id) {
   const mod = MODULES.find(m => m.id === id);
   if (mod && mod.url) { window.open(mod.url, '_blank', 'noopener'); return; }
   if (mod && mod.soon) { toast(mod.name + ': em breve'); return; }
+  if (GATED.has(id)) { allowed(mod).then(ok => { if (ok) doOpen(id); }); return; }
+  doOpen(id);
+}
+
+function doOpen(id) {
   if (id === 'inicio') {
     closeOverlays();
     current = 'inicio';
@@ -129,6 +183,7 @@ function showHome() {
     sub.className = 'pl-sub';
     c.append(ic, make('strong', m.name, `font-size:13px;line-height:1.2;color:${m.color};flex:none`), sub);
     if (m.soon) c.append(make('span', 'Em breve', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#f3c969;background:rgba(59,47,18,.9);border:1px solid #7a6122;border-radius:999px;padding:0 7px'));
+    else if (GATED.has(m.id) && moduleState(m.id) === 'EXPIRED') c.append(make('span', '🔒 Licença', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#ffd7a8;background:rgba(80,40,10,.92);border:1px solid #a05a1d;border-radius:999px;padding:0 7px'));
     else if (m.id === lastId) c.append(make('span', 'Último', 'position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;color:#0d1117;background:' + m.color + ';border-radius:999px;padding:0 7px'));
     c.addEventListener('click', () => openModule(m.id));
     grid.append(c);
@@ -176,14 +231,17 @@ function init() {
   // Link direto: #academy, #macro ou #code abre o módulo; sem marca, mostra a tela inicial
   const wanted = (location.hash || '').replace('#', '').toLowerCase();
   const direct = MODULES.find(m => m.id === wanted && !m.soon);
-  if (direct) {
+  if (direct && !GATED.has(direct.id)) {
     current = direct.id;
     store.set(direct.id);
     if (direct.id !== 'code') deliver(direct.id);
   } else {
     showHome();
+    if (direct) openModule(direct.id); // módulo com trava: confere a conta antes de abrir
   }
   drawDock();
+  // atualiza o aviso de teste e os cadeados com a situação do servidor
+  accountCheck().then(() => { if (current === 'inicio' && homeEl) showHome(); }).catch(() => {});
 }
 
 if (document.body) init(); else document.addEventListener('DOMContentLoaded', init);
