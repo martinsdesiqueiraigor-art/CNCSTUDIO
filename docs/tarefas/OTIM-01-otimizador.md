@@ -21,11 +21,11 @@ Programa aberto no editor → Otimizador → escolhe a entrada decimal do contro
 ## Regras
 - Aviso fixo "Somente para simulador. Não executar na máquina." em todas as telas.
 - Programas dos testes são sintéticos (nenhum programa de cliente no repositório público).
-- Mensagens vindas do núcleo ainda estão sem acento (herdadas): ajustar junto com os testes que as conferem.
+- ✅ Mensagens do núcleo acentuadas (24/10), testes ajustados.
 
 ## Falta
 - Trocar o interpretador Macro B próprio pelo do Code (uma só fonte de verdade para a conferência e o 3D).
-- Acentuar as mensagens do núcleo; imagem do cartão (Igor gera).
+- (feito: acentos e imagem do cartão).
 - Tela no desktop (Avalonia).
 - Testar com programas reais de CAM (anonimizados) e validar em controle real antes de qualquer promessa comercial.
 - Licença: módulo `otimizador` incluído no plano PLAT-03 (pacote, avulso, liberado no teste de 30 dias, travado depois com "Comprar licença"); o travamento em si vem com a PLAT-03.
