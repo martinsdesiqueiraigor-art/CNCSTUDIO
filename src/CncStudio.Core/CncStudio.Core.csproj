@@ -14,6 +14,8 @@
   <!-- Macros dos geradores: o mesmo arquivo de samples/macros/geradores, embutido (uma fonte de verdade) -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\samples\macros\geradores\*_macro.nc" LogicalName="Macro.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\content\academy\*.json" LogicalName="Academy.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\samples\academy\*.nc" LogicalName="AcademyProgram.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

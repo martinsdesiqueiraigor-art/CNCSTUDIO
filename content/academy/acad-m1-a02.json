@@ -1,0 +1,74 @@
+{
+  "id": "acad-m1-a02",
+  "modulo": "acad-m1",
+  "titulo": "Eixos, direções e movimentos",
+  "nivel": "Introdução",
+  "caminho": "Comum",
+  "status": "rascunho",
+  "objetivo": "Reconhecer eixos lineares, sentidos de deslocamento e a diferença entre posição e movimento.",
+  "pre_requisito": "acad-m1-a01",
+  "texto": "Para entender um programa CNC é necessário localizar os eixos da máquina. Em muitas fresadoras de três eixos, X e Y descrevem movimentos no plano da mesa e Z descreve o deslocamento associado à direção do eixo-árvore. O sentido positivo é definido pelo sistema de coordenadas da máquina, não pela posição de quem olha a tela. O referencial deve ser conferido no equipamento e na documentação. Máquinas de torno costumam trabalhar principalmente com X e Z, mas não se deve transportar automaticamente a interpretação da fresadora para o torno.\n\nCoordenadas são números que descrevem posições em relação a uma origem. Se uma instrução contém X20.0, ela indica uma coordenada de X conforme o modo ativo, as unidades e a origem selecionada. Isso não significa, isoladamente, que a máquina vai avançar vinte milímetros. A posição anterior e o sistema de coordenadas importam. Para exercícios introdutórios, adotaremos milímetros e posicionamento absoluto, declarados explicitamente nos exemplos. A forma de selecionar esses modos pode variar conforme o comando.\n\nHá diferença entre movimento rápido e avanço de trabalho. Em uma referência Fanuc de fresamento, G00 indica posicionamento rápido e G01 indica interpolação linear com avanço programado. O caminho e a velocidade efetiva devem ser avaliados na máquina e no simulador. Nunca se deve supor que uma movimentação rápida está livre de obstáculos. Grampos, morsas, ferramenta, porta-ferramenta e peça ocupam espaço tridimensional.\n\nAo ler um bloco, procure primeiro o modo de movimento e depois os endereços de eixo. Um bloco com X e Y pode deslocar os dois eixos conforme a interpretação do controle. A ausência de um eixo no bloco geralmente significa que ele não recebeu nova coordenada naquele bloco, mas estados modais anteriores continuam relevantes. Por isso, linhas isoladas podem enganar. Leia também o contexto que antecede a linha.\n\nErro comum no chão de fábrica: confundir direção positiva de um eixo com o sentido visual do movimento da mesa. Dependendo da máquina, a peça se move em relação à ferramenta e a percepção visual pode ser inversa à do sistema de coordenadas. Use as referências do comando e uma simulação para validar. Neste módulo, a meta é interpretar deslocamentos simples sem entrar ainda em interpolação circular, compensações ou ciclos de usinagem.\n\nExemplo guiado: partindo de X10 Y10, em G90, a ordem X40 Y10 leva ao ponto (40,10), ou seja, desloca X em 30 mm e não em 40 mm. Se o bloco seguinte trouxer Y30, o destino passa a ser (40,30). Para treinar Z sem corte, considere Z20 como altura didatica acima do topo Z0 e G01 Z15 F120 como descida controlada de 5 mm, ainda acima do bruto. Verifique se o percurso está livre.",
+  "erro_comum": "Descrito no texto da aula.",
+  "programa": "samples/academy/acad-m1-a02.nc",
+  "aviso": "Simule antes de rodar na máquina",
+  "exercicio": {
+    "tipo": "complete/corrija",
+    "enunciado": "Corrija o destino do segundo bloco para X40.0 Y10.0 em modo absoluto: G00 X30.0 Y10.0",
+    "gabarito": "G00 X40.0 Y10.0"
+  },
+  "quiz": [
+    {
+      "id": "acad-m1-a02-q01",
+      "enunciado": "Em uma fresadora de três eixos, qual eixo costuma acompanhar a direção do eixo-árvore?",
+      "alternativas": [
+        "Z",
+        "X",
+        "Y",
+        "C"
+      ],
+      "correta": "A",
+      "explicacao": "A: Em uma fresadora vertical típica, Z acompanha a direção do eixo-árvore. B: X costuma ser um eixo do plano da mesa, perpendicular a Z. C: Y costuma ser o outro eixo do plano da mesa, não o do eixo-árvore. D: C costuma designar um eixo rotativo, não o eixo linear do spindle.",
+      "dica": "Imagine o movimento da ferramenta se aproximando verticalmente da mesa."
+    },
+    {
+      "id": "acad-m1-a02-q02",
+      "enunciado": "O que define o significado de X20.0 em um bloco?",
+      "alternativas": [
+        "Somente o número 20",
+        "Modo de coordenadas, unidade e origem",
+        "A cor do visor",
+        "Somente a ferramenta"
+      ],
+      "correta": "B",
+      "explicacao": "A: O valor 20 sozinho não informa se é absoluto ou incremental nem a unidade. B: Modo, unidade e origem determinam como interpretar X20.0. C: A cor do visor não altera a interpretação geométrica da coordenada. D: A ferramenta afeta alcance e correção, mas não define sozinha a origem e o modo de X20.0.",
+      "dica": "Pergunte de onde a coordenada é medida e como o número é interpretado."
+    },
+    {
+      "id": "acad-m1-a02-q03",
+      "enunciado": "Após G90 G00 X10.0 Y10.0, o bloco X40.0 Y10.0 descreve qual destino absoluto?",
+      "alternativas": [
+        "X30 Y0",
+        "X10 Y40",
+        "X40 Y10",
+        "X50 Y20"
+      ],
+      "correta": "C",
+      "explicacao": "A: X30 Y0 seria um deslocamento ou outra posição; G90 indica destino X40 Y10. B: X10 Y40 troca os valores dos eixos que aparecem no bloco. C: Em G90, X40.0 Y10.0 indica o ponto absoluto (40,10). D: X50 Y20 soma indevidamente os valores à posição anterior, como se fossem incrementos.",
+      "dica": "Observe que G90 descreve uma posição, não uma distância a somar."
+    },
+    {
+      "id": "acad-m1-a02-q04",
+      "enunciado": "Qual é o principal risco de G00 próximo à fixação?",
+      "alternativas": [
+        "O comentário ficar longo",
+        "O arquivo ficar maior",
+        "A peça mudar de material",
+        "A trajetória rápida interceptar obstáculos"
+      ],
+      "correta": "D",
+      "explicacao": "A: Comprimento de comentário não é o risco físico de um avanço rápido. B: Tamanho do arquivo não determina colisão durante G00. C: O material não muda por executar G00; o risco é a geometria do deslocamento. D: G00 pode cruzar grampos ou peça, por isso é necessário verificar todo o percurso.",
+      "dica": "Imagine uma morsa entre o ponto inicial e o ponto final."
+    }
+  ],
+  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica."
+}

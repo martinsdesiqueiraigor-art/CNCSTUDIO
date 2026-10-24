@@ -363,6 +363,7 @@ public partial class MainView : UserControl
         menu.Items.Add(new Separator());
         Add("Comparar com outro programa…", () => { OpenCompare(); return Task.CompletedTask; });
         Add("Geradores de programa…", OpenGeneratorsAsync);
+        Add("Academy (cursos)…", OpenAcademyAsync);
         Add("Estatísticas", () => { OpenStats(); return Task.CompletedTask; });
         Add("Folha de setup…", OpenSetupSheetAsync);
 

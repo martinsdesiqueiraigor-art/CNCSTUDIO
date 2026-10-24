@@ -1,0 +1,178 @@
+{
+  "id": "acad-m1-final",
+  "modulo": "acad-m1",
+  "status": "rascunho",
+  "nota_minima_percentual": 70,
+  "pode_pular": true,
+  "politica_de_nota": "12 questoes com peso igual: 1 ponto por acerto. Aprovacao com pelo menos 9 de 12 acertos (75%), pois 8 de 12 = 66,7% e nao atinge 70%. Aluno pode pular o teste conforme regra do piloto.",
+  "questoes": [
+    {
+      "id": "acad-m1-final-q01",
+      "origem_aula": "acad-m1-a01",
+      "enunciado": "Qual equipamento normalmente gira a peça durante a usinagem?",
+      "alternativas": [
+        "Torno CNC",
+        "Fresadora vertical convencional de 3 eixos",
+        "Centro de usinagem com mesa fixa",
+        "Máquina de medição por coordenadas"
+      ],
+      "correta": "A",
+      "explicacao": "A: No torno CNC convencional, a peça gira presa ao eixo-árvore. B: Na fresadora vertical convencional, em geral, quem gira é a ferramenta, não a peça. C: Num centro de usinagem de mesa fixa, a peça permanece fixada enquanto a ferramenta gira. D: Uma máquina de medição por coordenadas mede geometria; não realiza torneamento da peça.",
+      "dica": "Compare o que gira no torneamento e no fresamento convencional."
+    },
+    {
+      "id": "acad-m1-final-q02",
+      "origem_aula": "acad-m1-a01",
+      "enunciado": "Qual informação deve ser conferida antes de reaproveitar um programa?",
+      "alternativas": [
+        "Fixação, zero e ferramentas atuais",
+        "Somente o nome do arquivo",
+        "Somente a data do programa",
+        "Somente a cor do bruto"
+      ],
+      "correta": "A",
+      "explicacao": "A: Fixação, origem e ferramentas determinam se a trajetória programada corresponde à preparação atual. B: O nome identifica o arquivo, mas não confirma que a montagem coincide com o programa. C: A data informa quando o arquivo foi salvo, mas não verifica offsets nem ferramentas. D: A cor do bruto não informa suas dimensões, sua fixação ou os corretores necessários.",
+      "dica": "Pense nos elementos físicos que podem mudar entre duas montagens da mesma peça."
+    },
+    {
+      "id": "acad-m1-final-q03",
+      "origem_aula": "acad-m1-a02",
+      "enunciado": "Em uma fresadora de três eixos, qual eixo costuma acompanhar a direção do eixo-árvore?",
+      "alternativas": [
+        "Z",
+        "X",
+        "Y",
+        "C"
+      ],
+      "correta": "A",
+      "explicacao": "A: Em uma fresadora vertical típica, Z acompanha a direção do eixo-árvore. B: X costuma ser um eixo do plano da mesa, perpendicular a Z. C: Y costuma ser o outro eixo do plano da mesa, não o do eixo-árvore. D: C costuma designar um eixo rotativo, não o eixo linear do spindle.",
+      "dica": "Imagine o movimento da ferramenta se aproximando verticalmente da mesa."
+    },
+    {
+      "id": "acad-m1-final-q04",
+      "origem_aula": "acad-m1-a02",
+      "enunciado": "O que define o significado de X20.0 em um bloco?",
+      "alternativas": [
+        "Somente o número 20",
+        "Modo de coordenadas, unidade e origem",
+        "A cor do visor",
+        "Somente a ferramenta"
+      ],
+      "correta": "B",
+      "explicacao": "A: O valor 20 sozinho não informa se é absoluto ou incremental nem a unidade. B: Modo, unidade e origem determinam como interpretar X20.0. C: A cor do visor não altera a interpretação geométrica da coordenada. D: A ferramenta afeta alcance e correção, mas não define sozinha a origem e o modo de X20.0.",
+      "dica": "Pergunte de onde a coordenada é medida e como o número é interpretado."
+    },
+    {
+      "id": "acad-m1-final-q05",
+      "origem_aula": "acad-m1-a03",
+      "enunciado": "O que caracteriza o zero máquina?",
+      "alternativas": [
+        "Canto escolhido pelo programador",
+        "Referência definida pelo fabricante",
+        "Ponto da ferramenta",
+        "Centro de qualquer bruto"
+      ],
+      "correta": "B",
+      "explicacao": "A: O canto escolhido pelo programador é um possível zero peça, não zero máquina. B: Zero máquina é uma referência definida pelo fabricante no sistema da máquina. C: A ponta da ferramenta tem posição e corretores próprios; não define o zero máquina. D: O centro do bruto pode ser origem de trabalho, mas não é necessariamente a referência da máquina.",
+      "dica": "Distinga a referência fixa do equipamento da origem escolhida para o desenho."
+    },
+    {
+      "id": "acad-m1-final-q06",
+      "origem_aula": "acad-m1-a03",
+      "enunciado": "O que G54 geralmente seleciona em fresamento Fanuc?",
+      "alternativas": [
+        "A ferramenta ativa",
+        "Um sistema de coordenadas de trabalho",
+        "A rotação do spindle",
+        "Um ciclo de furação"
+      ],
+      "correta": "B",
+      "explicacao": "A: G54 não seleciona ferramenta; seleção de ferramenta usa funções próprias da máquina. B: G54 seleciona um sistema de coordenadas de trabalho em aplicações Fanuc de fresamento. C: G54 não comanda rotação; funções de spindle são programadas separadamente. D: G54 não é um ciclo de furação; ciclos são comandos como G81 em configurações compatíveis.",
+      "dica": "Pense no cadastro de origens de trabalho do comando."
+    },
+    {
+      "id": "acad-m1-final-q07",
+      "origem_aula": "acad-m1-a04",
+      "enunciado": "Qual é a primeira interpretação correta de um programa sem alarmes?",
+      "alternativas": [
+        "Está pronto para qualquer máquina",
+        "É automaticamente seguro",
+        "Pode ainda conter trajetória perigosa",
+        "Não precisa de simulação"
+      ],
+      "correta": "C",
+      "explicacao": "A: Máquinas distintas podem ter offsets, ferramentas e limites diferentes. B: Um programa pode não gerar alarme e ainda cruzar a fixação. C: Ausência de alarmes não prova ausência de colisões ou erro de montagem. D: Simulação e preparação continuam necessárias mesmo sem alarmes.",
+      "dica": "Um programa pode ser sintaticamente válido e ter geometria perigosa."
+    },
+    {
+      "id": "acad-m1-final-q08",
+      "origem_aula": "acad-m1-a04",
+      "enunciado": "Qual ação é apropriada antes de executar fisicamente?",
+      "alternativas": [
+        "Ignorar corretores",
+        "Abrir a porta durante o ciclo",
+        "Conferir ferramenta, fixação e origem",
+        "Desativar intertravamentos"
+      ],
+      "correta": "C",
+      "explicacao": "A: Ignorar corretores pode deslocar a ferramenta da posição pretendida. B: Abrir a porta durante o ciclo viola a condição de proteção prevista para a máquina. C: Conferir ferramenta, fixação e origem conecta o programa à montagem real. D: Desativar intertravamentos elimina uma barreira de segurança.",
+      "dica": "Relacione o programa aos componentes realmente montados na máquina."
+    },
+    {
+      "id": "acad-m1-final-q09",
+      "origem_aula": "acad-m1-a05",
+      "enunciado": "Qual código geralmente indica posicionamento rápido em Fanuc?",
+      "alternativas": [
+        "G02",
+        "G01",
+        "G00",
+        "G03"
+      ],
+      "correta": "C",
+      "explicacao": "A: G02 representa interpolação circular em um sentido, não posicionamento rápido. B: G01 é interpolação linear com avanço F, não movimento rápido. C: G00 programa posicionamento rápido na referência Fanuc de fresamento. D: G03 representa interpolação circular no sentido oposto, não posicionamento rápido.",
+      "dica": "Diferencie posicionamento rápido de avanço linear e interpolação circular."
+    },
+    {
+      "id": "acad-m1-final-q10",
+      "origem_aula": "acad-m1-a05",
+      "enunciado": "O que significa um código modal?",
+      "alternativas": [
+        "Só vale na linha em que aparece",
+        "É um número de ferramenta",
+        "É sempre um comentário",
+        "Permanece ativo até ser substituído ou cancelado conforme grupo"
+      ],
+      "correta": "D",
+      "explicacao": "A: Essa descrição ignora que certos códigos continuam ativos em blocos seguintes. B: Número de ferramenta e modo modal são conceitos distintos. C: Comentários não executam funções modais de movimento. D: Um modo modal permanece ativo até ser substituído ou cancelado conforme seu grupo.",
+      "dica": "Considere o que acontece quando o bloco seguinte omite o mesmo código G."
+    },
+    {
+      "id": "acad-m1-final-p01",
+      "tipo": "leitura_programa",
+      "enunciado": "Leia G21 G90 G00 X10.0 Y10.0 seguido de X30.0. Qual é a coordenada final X, em milímetros?",
+      "alternativas": [
+        "10.0",
+        "20.0",
+        "40.0",
+        "30.0"
+      ],
+      "correta": "D",
+      "explicacao": "A: X10.0 é a posição do primeiro bloco; o segundo bloco a substitui. B: X20.0 confundiria diferença de posições com coordenada absoluta. C: X40.0 somaria 10 e 30, como se o segundo comando fosse incremental. D: Em G90, o segundo bloco X30.0 define posição final absoluta X30.0.",
+      "dica": "Em G90, cada coordenada expressa uma posição no sistema ativo."
+    },
+    {
+      "id": "acad-m1-final-p02",
+      "tipo": "leitura_programa",
+      "enunciado": "Leia G54 seguido de G00 X20.0 Y20.0. O que deve ser confirmado antes de executar fisicamente?",
+      "alternativas": [
+        "Apenas o número O",
+        "Somente a extensão do arquivo",
+        "Apenas a cor do bruto",
+        "Offset G54, fixação e trajetória"
+      ],
+      "correta": "D",
+      "explicacao": "A: Número O identifica o programa, mas não garante origem nem trajetória seguras. B: Extensão do arquivo não verifica offsets nem grampos. C: Cor do bruto não indica a localização da origem G54. D: G54 deve coincidir com a montagem; fixação e percurso precisam ser conferidos.",
+      "dica": "Uma seleção de origem só é segura se corresponder ao ajuste físico."
+    }
+  ]
+}
