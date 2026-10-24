@@ -17,8 +17,10 @@ public static class AcademyReader
         return new Lesson(
             Str(o, "id"), Str(o, "modulo"), Str(o, "titulo"), Str(o, "nivel"), Str(o, "caminho"), Str(o, "status"),
             Str(o, "objetivo"), Str(o, "pre_requisito"), Str(o, "texto"), Str(o, "erro_comum"), Str(o, "programa"), Str(o, "aviso"),
-            ex is null ? null : new LessonExercise(Str(ex, "tipo"), Str(ex, "enunciado"), Str(ex, "gabarito")),
-            Questions(o["quiz"]), Str(o, "observacoes"));
+            ex is null ? null : new LessonExercise(Str(ex, "tipo"), Str(ex, "enunciado"), Str(ex, "gabarito"), Editor(ex["editor"] as JsonObject)),
+            Questions(o["quiz"]), Str(o, "observacoes"), Strings(o["diagramas"]),
+            o["video"] is JsonObject v && (Str(v, "url").Length > 0) ? new LessonVideo(Str(v, "titulo"), Str(v, "url")) : null,
+            Strings(o["resumo"]), Str(o, "abertura"));
     }
 
     public static FinalTest? ReadFinal(string json, out string error)
@@ -32,6 +34,47 @@ public static class AcademyReader
         int pass = o["nota_minima_percentual"] is JsonValue v && v.TryGetValue(out double d) ? (int)Math.Round(d) : 70;
         bool skip = o["pode_pular"] is JsonValue s && s.TryGetValue(out bool b) && b;
         return new FinalTest(Str(o, "id"), Str(o, "modulo"), Str(o, "status"), pass, skip, Questions(o["questoes"]));
+    }
+
+    private static ExerciseEditor? Editor(JsonObject? e)
+    {
+        if (e is null)
+        {
+            return null;
+        }
+
+        List<ExerciseCheck> checks = [];
+        if (e["checagens"] is JsonArray array)
+        {
+            foreach (JsonNode? n in array)
+            {
+                if (n is JsonObject c)
+                {
+                    checks.Add(new ExerciseCheck(Str(c, "tipo"), Str(c, "texto"), Num(c, "x"), Num(c, "y"), Num(c, "z"), Str(c, "dica")));
+                }
+            }
+        }
+
+        return new ExerciseEditor(Str(e, "prefixo"), Str(e, "inicial"), checks, Str(e, "solucao"));
+    }
+
+    private static double? Num(JsonObject o, string key) => o[key] is JsonValue v && v.TryGetValue(out double d) ? d : null;
+
+    private static List<string> Strings(JsonNode? node)
+    {
+        List<string> list = [];
+        if (node is JsonArray array)
+        {
+            foreach (JsonNode? n in array)
+            {
+                if (n is JsonValue v && v.TryGetValue(out string? s) && !string.IsNullOrEmpty(s))
+                {
+                    list.Add(s);
+                }
+            }
+        }
+
+        return list;
     }
 
     private static bool TryObject(string json, out JsonObject? obj, out string error)

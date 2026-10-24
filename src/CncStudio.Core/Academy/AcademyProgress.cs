@@ -7,8 +7,44 @@ public sealed class AcademyProgress
 {
     private readonly HashSet<string> _done = [];
     private readonly Dictionary<string, int> _best = [];
+    private readonly SortedSet<string> _days = new(StringComparer.Ordinal);
 
     public IReadOnlyCollection<string> CompletedLessons => _done;
+
+    /// <summary>Dias (aaaa-mm-dd) em que a pessoa estudou.</summary>
+    public IReadOnlyCollection<string> StudyDays => _days;
+
+    /// <summary>Registra o dia de estudo (a tela manda a data do aparelho; texto fora do formato é ignorado).</summary>
+    public void RecordStudyDay(string? day)
+    {
+        if (DateOnly.TryParseExact(day, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out _))
+        {
+            _days.Add(day!);
+        }
+    }
+
+    /// <summary>Dias seguidos estudando, contando até <paramref name="today"/> (ou até ontem, se hoje ainda não estudou).</summary>
+    public int Streak(string? today)
+    {
+        if (!DateOnly.TryParseExact(today, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateOnly day))
+        {
+            return 0;
+        }
+
+        if (!_days.Contains(day.ToString("yyyy-MM-dd")))
+        {
+            day = day.AddDays(-1);
+        }
+
+        int count = 0;
+        while (_days.Contains(day.ToString("yyyy-MM-dd")))
+        {
+            count++;
+            day = day.AddDays(-1);
+        }
+
+        return count;
+    }
 
     public bool IsDone(string lessonId) => _done.Contains(lessonId);
 
@@ -39,7 +75,13 @@ public sealed class AcademyProgress
             done.Add(JsonValue.Create(id));
         }
 
-        return new JsonObject { ["done"] = done, ["scores"] = scores }.ToJsonString();
+        var days = new JsonArray();
+        foreach (string d in _days)
+        {
+            days.Add(JsonValue.Create(d));
+        }
+
+        return new JsonObject { ["done"] = done, ["scores"] = scores, ["days"] = days }.ToJsonString();
     }
 
     /// <summary>Lê o progresso salvo; texto vazio ou quebrado vira progresso vazio.</summary>
@@ -63,6 +105,14 @@ public sealed class AcademyProgress
                         {
                             progress._done.Add(id);
                         }
+                    }
+                }
+
+                if (o["days"] is JsonArray days)
+                {
+                    foreach (JsonNode? n in days)
+                    {
+                        progress.RecordStudyDay(n is JsonValue v && v.TryGetValue(out string? d) ? d : null);
                     }
                 }
 

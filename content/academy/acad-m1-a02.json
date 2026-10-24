@@ -7,14 +7,30 @@
   "status": "rascunho",
   "objetivo": "Reconhecer eixos lineares, sentidos de deslocamento e a diferença entre posição e movimento.",
   "pre_requisito": "acad-m1-a01",
-  "texto": "Para entender um programa CNC é necessário localizar os eixos da máquina. Em muitas fresadoras de três eixos, X e Y descrevem movimentos no plano da mesa e Z descreve o deslocamento associado à direção do eixo-árvore. O sentido positivo é definido pelo sistema de coordenadas da máquina, não pela posição de quem olha a tela. O referencial deve ser conferido no equipamento e na documentação. Máquinas de torno costumam trabalhar principalmente com X e Z, mas não se deve transportar automaticamente a interpretação da fresadora para o torno.\n\nCoordenadas são números que descrevem posições em relação a uma origem. Se uma instrução contém X20.0, ela indica uma coordenada de X conforme o modo ativo, as unidades e a origem selecionada. Isso não significa, isoladamente, que a máquina vai avançar vinte milímetros. A posição anterior e o sistema de coordenadas importam. Para exercícios introdutórios, adotaremos milímetros e posicionamento absoluto, declarados explicitamente nos exemplos. A forma de selecionar esses modos pode variar conforme o comando.\n\nHá diferença entre movimento rápido e avanço de trabalho. Em uma referência Fanuc de fresamento, G00 indica posicionamento rápido e G01 indica interpolação linear com avanço programado. O caminho e a velocidade efetiva devem ser avaliados na máquina e no simulador. Nunca se deve supor que uma movimentação rápida está livre de obstáculos. Grampos, morsas, ferramenta, porta-ferramenta e peça ocupam espaço tridimensional.\n\nAo ler um bloco, procure primeiro o modo de movimento e depois os endereços de eixo. Um bloco com X e Y pode deslocar os dois eixos conforme a interpretação do controle. A ausência de um eixo no bloco geralmente significa que ele não recebeu nova coordenada naquele bloco, mas estados modais anteriores continuam relevantes. Por isso, linhas isoladas podem enganar. Leia também o contexto que antecede a linha.\n\nErro comum no chão de fábrica: confundir direção positiva de um eixo com o sentido visual do movimento da mesa. Dependendo da máquina, a peça se move em relação à ferramenta e a percepção visual pode ser inversa à do sistema de coordenadas. Use as referências do comando e uma simulação para validar. Neste módulo, a meta é interpretar deslocamentos simples sem entrar ainda em interpolação circular, compensações ou ciclos de usinagem.\n\nExemplo guiado: partindo de X10 Y10, em G90, a ordem X40 Y10 leva ao ponto (40,10), ou seja, desloca X em 30 mm e não em 40 mm. Se o bloco seguinte trouxer Y30, o destino passa a ser (40,30). Para treinar Z sem corte, considere Z20 como altura didatica acima do topo Z0 e G01 Z15 F120 como descida controlada de 5 mm, ainda acima do bruto. Verifique se o percurso está livre.",
+  "texto": "Para entender um programa CNC é necessário localizar os eixos da máquina. Em muitas fresadoras de três eixos, X e Y descrevem movimentos no plano da mesa e Z descreve o deslocamento associado à direção do eixo-árvore. O sentido positivo é definido pelo sistema de coordenadas da máquina, não pela posição de quem olha a tela. O referencial deve ser conferido no equipamento e na documentação. Máquinas de torno costumam trabalhar principalmente com X e Z, mas não se deve transportar automaticamente a interpretação da fresadora para o torno.\n\nCoordenadas são números que descrevem posições em relação a uma origem. Se uma instrução contém X20.0, ela indica uma coordenada de X conforme o modo ativo, as unidades e a origem selecionada. Isso não significa, isoladamente, que a máquina vai avançar vinte milímetros. A posição anterior e o sistema de coordenadas importam. Para exercícios introdutórios, adotaremos milímetros e posicionamento absoluto, declarados explicitamente nos exemplos. A forma de selecionar esses modos pode variar conforme o comando.\n\nHá diferença entre movimento rápido e avanço de trabalho. Em uma referência Fanuc de fresamento, G00 indica posicionamento rápido e G01 indica interpolação linear com avanço programado. O caminho e a velocidade efetiva devem ser avaliados na máquina e no simulador. Nunca se deve supor que uma movimentação rápida está livre de obstáculos. Grampos, morsas, ferramenta, porta-ferramenta e peça ocupam espaço tridimensional.\n\nAo ler um bloco, procure primeiro o modo de movimento e depois os endereços de eixo. Um bloco com X e Y pode deslocar os dois eixos conforme a interpretação do controle. A ausência de um eixo no bloco geralmente significa que ele não recebeu nova coordenada naquele bloco, mas estados modais anteriores continuam relevantes. Por isso, linhas isoladas podem enganar. Leia também o contexto que antecede a linha.\n\n[atenção] Erro comum no chão de fábrica: confundir direção positiva de um eixo com o sentido visual do movimento da mesa. Dependendo da máquina, a peça se move em relação à ferramenta e a percepção visual pode ser inversa à do sistema de coordenadas. Use as referências do comando e uma simulação para validar. Neste módulo, a meta é interpretar deslocamentos simples sem entrar ainda em interpolação circular, compensações ou ciclos de usinagem.\n\n[exemplo] **Suporte de alumínio, furos de fixação.** O primeiro furo fica a 10 mm de cada borda: X10 Y10. O segundo fica a 40 mm da borda esquerda na mesma linha. Em absoluto (G90), basta mandar X40 Y10 e a ferramenta vai para lá. Em incremental (G91), X40 mandaria andar mais 40 mm a partir de X10, chegando em X50 e furando fora do lugar. Se o operador trocar o modo sem querer, o furo sai deslocado. Para treinar Z sem corte, use Z20 como altura segura acima do topo Z0 e G01 Z15 F120 como descida controlada de 5 mm.",
   "erro_comum": "Descrito no texto da aula.",
   "programa": "samples/academy/acad-m1-a02.nc",
   "aviso": "Simule antes de rodar na máquina",
   "exercicio": {
     "tipo": "complete/corrija",
     "enunciado": "Corrija o destino do segundo bloco para X40.0 Y10.0 em modo absoluto: G00 X30.0 Y10.0",
-    "gabarito": "G00 X40.0 Y10.0"
+    "gabarito": "G00 X40.0 Y10.0",
+    "editor": {
+      "prefixo": "G21 G90 G17\nG00 X10.0 Y10.0",
+      "inicial": "G00 X30.0 Y10.0",
+      "solucao": "G00 X40.0 Y10.0",
+      "checagens": [
+        {
+          "tipo": "posicao_final",
+          "x": 40,
+          "y": 10,
+          "dica": "Em modo absoluto, X é a posição, não quanto andar."
+        },
+        {
+          "tipo": "sem_erros"
+        }
+      ]
+    }
   },
   "quiz": [
     {
@@ -70,5 +86,15 @@
       "dica": "Imagine uma morsa entre o ponto inicial e o ponto final."
     }
   ],
-  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica."
+  "observacoes": "Referência Fanuc didática. Compatibilidade com máquina específica: A definir: compatibilidade e ajustes da maquina fisica.",
+  "diagramas": [
+    "eixos",
+    "ponto-xy"
+  ],
+  "abertura": "Se o programa manda ir para X20, a máquina anda 20 milímetros?",
+  "resumo": [
+    "X, Y e Z localizam a ferramenta; o sentido positivo é o da máquina, não o de quem olha a tela.",
+    "G00 é movimento rápido (sem corte) e G01 é movimento com avanço de trabalho.",
+    "X20 não é \"andar 20\": depende do modo (absoluto ou incremental) e do ponto de partida."
+  ]
 }
