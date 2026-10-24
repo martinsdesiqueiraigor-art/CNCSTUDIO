@@ -10,11 +10,11 @@ const MODULES = [
   { id: 'academy', img: 'academy', name: 'Casillas Academy', text: 'Formação profissional', color: '#3ddc84', icon: '<path d="M2 9l10-5 10 5-10 5-10-5zM6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5M22 9v6" />' },
   { id: 'cam', img: 'cam', name: 'Casillas CAM', text: 'Do desenho ao programa 2,5D', color: '#4d8dff', soon: true, icon: '<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />' },
   { id: 'code', img: 'code', name: 'Casillas Code', text: 'Editor G-code e M-code', color: '#e36bf0', icon: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />' },
-  { id: 'biblioteca', img: 'biblioteca.svg', name: 'Casillas Biblioteca CNC', text: 'Banco de dados G-code', color: '#ee5a45', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
+  { id: 'biblioteca', img: 'biblioteca', name: 'Casillas Biblioteca CNC', text: 'Banco de dados G-code', color: '#ee5a45', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
   { id: 'macro', img: 'macro', name: 'Casillas Macro', text: 'Programação paramétrica e lógica', color: '#9b7bff', icon: '<path d="M4 4h16v16H4zM4 9h16M9 9v11" />' },
   { id: 'otimizador', img: 'otimizador.svg', name: 'Casillas Otimizador', text: 'Encontra repetições e simplifica o programa', color: '#ffb454', icon: '<path d="M13 2L4 14h7l-1 8 9-12h-7z" />' },
   { id: 'calculadoras', img: 'calculadoras.svg', name: 'Casillas Calculadoras', text: 'Cálculos técnicos de usinagem', color: '#ff9a4a', soon: true, icon: '<path d="M6 3h12v18H6zM8 7h8M9 11h2M13 11h2M9 15h2M13 15h2" />' },
-  { id: 'loja', img: 'ferramentas.svg', name: 'Casillas Loja', text: 'Loja de ferramentas', color: '#2fd0c8', soon: true, icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
+  { id: 'loja', img: 'loja', name: 'Casillas Loja', text: 'Loja de ferramentas', color: '#2fd0c8', soon: true, icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
 ];
 const DOCK = ['inicio', 'code', 'academy', 'macro', 'otimizador'];
 
