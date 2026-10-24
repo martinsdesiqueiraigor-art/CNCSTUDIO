@@ -1,3 +1,4 @@
+import './platform-ui.js'
 // Inicializa o runtime .NET (WebAssembly) e roda o Casillas Code
 import { dotnet } from './_framework/dotnet.js'
 

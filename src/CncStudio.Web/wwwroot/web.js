@@ -421,4 +421,11 @@ export function confirmBox(message, okText, danger) {
 
 export function editMachiningSetup(json) { return import('./setup-ui.js').then(m => m.openSetup(json)); }
 export function openGenerators(catalogJson, generate, lastJson) { return import('./generators-ui.js').then(m => m.openGenerators(catalogJson, generate, lastJson)); }
+/** Plataforma (platform-ui.js): avisa o .NET quando a pessoa escolhe Academy ou Macro; entrega o que ficou pendente. */
+export function onPlatform(callback) {
+    const p = (window.casillasPlatform = window.casillasPlatform || { handler: null, pending: [] });
+    p.handler = callback;
+    const waiting = p.pending.splice(0);
+    waiting.forEach(id => callback(id));
+}
 export function openAcademy(call) { return import('./academy-ui.js').then(m => m.openAcademy(call)); }

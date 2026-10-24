@@ -250,6 +250,14 @@ public partial class MainView : UserControl
         {
             // navegador sem suporte: salva só pelo temporizador
         }
+        try
+        {
+            WebInterop.OnPlatform(id => _ = OpenPlatformModuleAsync(id));
+        }
+        catch
+        {
+            // navegador sem suporte: a tela inicial continua, mas Academy e Macro abrem só pelo menu
+        }
         FitButton.Click += (_, _) => Fit3DOr2D();
         Wire3D();
         DialectCombo.SelectionChanged += (_, _) =>
