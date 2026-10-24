@@ -26,12 +26,14 @@ export function openAcademy(call) {
     };
     const badge = text => make('span', text, 'display:inline-block;background:#3b2f12;color:#f3c969;border:1px solid #7a6122;border-radius:999px;font-size:11px;font-weight:700;padding:2px 9px;margin-left:8px;vertical-align:middle');
 
-    const root = make('div', null, 'position:fixed;inset:0;z-index:10030;background:#0d1117;color:#e6edf3;overflow-y:auto;overscroll-behavior:contain;font:15px/1.5 system-ui,sans-serif;padding:14px 14px 70px;box-sizing:border-box');
+    const root = make('div', null, 'position:fixed;left:0;right:0;top:0;bottom:var(--dock-h,0px);z-index:10030;background:#0d1117;color:#e6edf3;overflow-y:auto;overscroll-behavior:contain;font:15px/1.5 system-ui,sans-serif;padding:14px 14px 70px;box-sizing:border-box');
     const wrap = make('div', null, 'max-width:680px;margin:0 auto');
     root.append(wrap);
     document.body.append(root);
 
-    const finish = value => { root.remove(); resolve(value); };
+    const onClose = () => finish(null);
+    const finish = value => { window.removeEventListener('casillas:close-overlays', onClose); root.remove(); window.dispatchEvent(new CustomEvent('casillas:module-closed', { detail: 'academy' })); resolve(value); };
+    window.addEventListener('casillas:close-overlays', onClose);
     const screen = (...nodes) => { if (navEl) { navEl.remove(); navEl = null; } wrap.replaceChildren(...nodes); root.scrollTop = 0; };
     const header = (title, onBack, isDraft) => {
       const bar = make('div', null, 'display:flex;align-items:center;gap:10px;margin-bottom:10px');
@@ -127,7 +129,7 @@ export function openAcademy(call) {
     };
     const available = cat => cat.tracks.flatMap(t => t.levels.map(l => ({ track: t.name, level: l.level, module: l.module }))).filter(x => x.module && !x.module.soon);
     const mkNav = () => {
-      const n = make('div', null, 'position:fixed;left:0;right:0;bottom:0;z-index:10031;background:#0d1117;border-top:1px solid #303d4b;display:flex;padding:6px 8px calc(6px + env(safe-area-inset-bottom))');
+      const n = make('div', null, 'position:fixed;left:0;right:0;bottom:var(--dock-h,0px);z-index:10031;background:#0d1117;border-top:1px solid #303d4b;display:flex;padding:6px 8px calc(6px + env(safe-area-inset-bottom))');
       TABS.forEach(([id, icon, label]) => {
         const b = make('button', null, `flex:1;min-height:52px;border:none;background:none;color:${id === currentTab ? '#ffb454' : '#9baab9'};font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer`);
         b.type = 'button';

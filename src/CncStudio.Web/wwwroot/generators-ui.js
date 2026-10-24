@@ -15,7 +15,7 @@ export function openGenerators(catalogJson, generate, lastJson) {
     const make = (tag, text, style) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (style) css(el, style); return el; };
     const inputStyle = 'min-width:0;width:100%;box-sizing:border-box;background:#161b22;color:white;border:1px solid #4a5665;border-radius:7px;min-height:44px;padding:8px;font-size:17px';
 
-    const root = make('div', null, 'position:fixed;inset:0;z-index:10030;background:#0d1117;color:#e6edf3;overflow-y:auto;overscroll-behavior:contain;font:15px system-ui,sans-serif;padding:14px 14px 60px;box-sizing:border-box');
+    const root = make('div', null, 'position:fixed;left:0;right:0;top:0;bottom:var(--dock-h,0px);z-index:10030;background:#0d1117;color:#e6edf3;overflow-y:auto;overscroll-behavior:contain;font:15px system-ui,sans-serif;padding:14px 14px 60px;box-sizing:border-box');
     const wrap = make('div', null, 'max-width:640px;margin:0 auto');
     const heading = make('h2', 'Geradores de programa', 'margin:0 0 4px');
     const sub = make('p', 'Preencha os campos: o programa é calculado na hora. Rascunho: confira tudo antes de usar na máquina.', 'color:#9baab9;font-size:13px;margin:0 0 12px');
@@ -111,7 +111,9 @@ export function openGenerators(catalogJson, generate, lastJson) {
     refreshModes();
     build();
 
-    const finish = value => { root.remove(); resolve(value); };
+    const onClose = () => finish(null);
+    const finish = value => { window.removeEventListener('casillas:close-overlays', onClose); root.remove(); window.dispatchEvent(new CustomEvent('casillas:module-closed', { detail: 'macro' })); resolve(value); };
+    window.addEventListener('casillas:close-overlays', onClose);
     cancel.addEventListener('click', () => finish(null));
     const done = view3d => {
       if (!lastText) return;
