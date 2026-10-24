@@ -372,6 +372,7 @@ public partial class MainView : UserControl
         Add("Comparar com outro programa…", () => { OpenCompare(); return Task.CompletedTask; });
         Add("Geradores de programa…", OpenGeneratorsAsync);
         Add("Academy (cursos)…", OpenAcademyAsync);
+        Add("Otimizador de programa…", OpenOptimizerAsync);
         Add("Estatísticas", () => { OpenStats(); return Task.CompletedTask; });
         Add("Folha de setup…", OpenSetupSheetAsync);
 

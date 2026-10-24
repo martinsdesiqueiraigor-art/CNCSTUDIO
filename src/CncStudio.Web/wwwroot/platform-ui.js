@@ -12,9 +12,10 @@ const MODULES = [
   { id: 'code', img: 'code', name: 'Casillas Code', text: 'Editor G-code e M-code', color: '#e36bf0', icon: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />' },
   { id: 'biblioteca', name: 'Casillas Biblioteca CNC', text: 'Banco de dados G-code', color: '#ee5a45', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
   { id: 'macro', img: 'macro', name: 'Casillas Macro', text: 'Programação paramétrica e lógica', color: '#9b7bff', icon: '<path d="M4 4h16v16H4zM4 9h16M9 9v11" />' },
+  { id: 'otimizador', name: 'Casillas Otimizador', text: 'Análise e otimização de programas', color: '#ffb454', icon: '<path d="M13 2L4 14h7l-1 8 9-12h-7z" />' },
   { id: 'ferramentas', name: 'Casillas Ferramentas', text: 'Gestão e seleção de ferramentas', color: '#2fd0c8', soon: true, icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
 ];
-const DOCK = ['inicio', 'code', 'academy', 'macro'];
+const DOCK = ['inicio', 'code', 'academy', 'macro', 'otimizador'];
 
 const state = (window.casillasPlatform = window.casillasPlatform || { handler: null, pending: [] });
 let current = 'inicio';
