@@ -10,10 +10,10 @@ const MODULES = [
   { id: 'academy', img: 'academy', name: 'Casillas Academy', text: 'Formação profissional', color: '#3ddc84', icon: '<path d="M2 9l10-5 10 5-10 5-10-5zM6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5M22 9v6" />' },
   { id: 'cam', img: 'cam', name: 'Casillas CAM', text: 'Do desenho ao programa 2,5D', color: '#4d8dff', soon: true, icon: '<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />' },
   { id: 'code', img: 'code', name: 'Casillas Code', text: 'Editor G-code e M-code', color: '#e36bf0', icon: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />' },
-  { id: 'biblioteca', name: 'Casillas Biblioteca CNC', text: 'Banco de dados G-code', color: '#ee5a45', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
+  { id: 'biblioteca', img: 'biblioteca.svg', name: 'Casillas Biblioteca CNC', text: 'Banco de dados G-code', color: '#ee5a45', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
   { id: 'macro', img: 'macro', name: 'Casillas Macro', text: 'Programação paramétrica e lógica', color: '#9b7bff', icon: '<path d="M4 4h16v16H4zM4 9h16M9 9v11" />' },
-  { id: 'otimizador', name: 'Casillas Otimizador', text: 'Análise e otimização de programas', color: '#ffb454', icon: '<path d="M13 2L4 14h7l-1 8 9-12h-7z" />' },
-  { id: 'ferramentas', name: 'Casillas Ferramentas', text: 'Gestão e seleção de ferramentas', color: '#2fd0c8', soon: true, icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
+  { id: 'otimizador', img: 'otimizador.svg', name: 'Casillas Otimizador', text: 'Análise e otimização de programas', color: '#ffb454', icon: '<path d="M13 2L4 14h7l-1 8 9-12h-7z" />' },
+  { id: 'ferramentas', img: 'ferramentas.svg', name: 'Casillas Ferramentas', text: 'Gestão e seleção de ferramentas', color: '#2fd0c8', soon: true, icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
 ];
 const DOCK = ['inicio', 'code', 'academy', 'macro', 'otimizador'];
 
@@ -67,51 +67,74 @@ export function openModule(id) {
 
 function hideHome() { if (homeEl) { homeEl.remove(); homeEl = null; } }
 
+// Situação da licença guardada pela conta (account.js): só para o aviso de período de teste
+function trialNotice() {
+  try {
+    const st = JSON.parse(localStorage.getItem('cc.license') || 'null');
+    if (!st) return null;
+    if (st.state === 'trial' && st.trial_ends_at) {
+      const days = Math.max(0, Math.ceil((Date.parse(st.trial_ends_at) - Date.now()) / 86400000));
+      return { text: days > 1 ? `Período de teste · ${days} dias restantes` : (days === 1 ? 'Período de teste · último dia' : 'Período de teste termina hoje'), warn: days <= 5 };
+    }
+    if (st.state === 'expired') return { text: 'Período de teste encerrado · comprar licença', warn: true };
+  } catch { /* sem armazenamento */ }
+  return null;
+}
+
+let homeStyle = null;
+function ensureHomeStyle() {
+  if (homeStyle) return;
+  homeStyle = document.createElement('style');
+  // a tela inicial cabe sem rolar: em telas baixas some a descrição e a linha de áreas
+  homeStyle.textContent = '@media (max-height:700px){.pl-sub,.pl-tag{display:none!important}}@media (max-height:600px){.pl-head img{display:none!important}}';
+  document.head.append(homeStyle);
+}
+
 function showHome() {
   hideHome();
-  const el = make('div', null, 'position:fixed;left:0;right:0;top:0;bottom:var(--dock-h);z-index:9500;background:#0d1117;color:#e6edf3;overflow-y:auto;overscroll-behavior:contain;font:15px/1.5 system-ui,-apple-system,Roboto,sans-serif;padding:calc(18px + env(safe-area-inset-top, 0px)) 14px 24px;box-sizing:border-box');
-  const wrap = make('div', null, 'max-width:720px;margin:0 auto');
+  ensureHomeStyle();
+  const wide = window.matchMedia('(min-width: 600px)').matches;
+  const cols = wide ? 3 : 2;
+  const rows = Math.ceil(MODULES.length / cols);
+  const el = make('div', null, 'position:fixed;left:0;right:0;top:0;bottom:var(--dock-h);z-index:9500;background:#0d1117;color:#e6edf3;overflow-y:auto;overscroll-behavior:contain;font:15px/1.4 system-ui,-apple-system,Roboto,sans-serif;padding:calc(8px + env(safe-area-inset-top, 0px)) 10px 8px;box-sizing:border-box;display:flex;flex-direction:column');
+  const wrap = make('div', null, 'max-width:760px;width:100%;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0');
 
-  const head = make('div', null, 'text-align:center;margin:6px 0 18px');
-  const logo = make('img', null, 'width:200px;height:200px;margin:-34px 0 -22px;object-fit:contain;-webkit-mask-image:radial-gradient(circle at center,#000 64%,transparent 78%);mask-image:radial-gradient(circle at center,#000 64%,transparent 78%)');
+  const head = make('div', null, 'text-align:center;flex:none;margin-bottom:6px');
+  head.className = 'pl-head';
+  const logo = make('img', null, 'width:92px;height:92px;margin:-14px 0 -22px;object-fit:contain;-webkit-mask-image:radial-gradient(circle at center,#000 64%,transparent 78%);mask-image:radial-gradient(circle at center,#000 64%,transparent 78%)');
   logo.src = './img/plataforma/topo.webp'; logo.alt = 'Casillas';
-  head.append(logo, make('h1', 'Plataforma Casillas', 'font-size:24px;margin:10px 0 2px;color:#f3d9a4'), make('div', 'Escolha o módulo', 'color:#9baab9;font-size:14px'));
-  wrap.append(head);
-  const mq = window.matchMedia('(min-width: 600px)');
-  el.style.setProperty('--cols', mq.matches ? '3' : '2');
-
-  const last = MODULES.find(m => m.id === store.get() && !m.soon);
-  if (last) {
-    const c = make('button', null, `width:100%;display:flex;align-items:center;gap:12px;text-align:left;min-height:64px;border:1px solid ${last.color};border-radius:12px;background:#131a22;color:#e6edf3;padding:10px 14px;margin-bottom:16px;cursor:pointer;font:inherit`);
-    c.type = 'button';
-    c.innerHTML = svg(last.icon, last.color, 28);
-    const t = make('div', null, 'flex:1');
-    t.append(make('div', 'Continuar de onde parou', 'font-size:12px;color:#9baab9'), make('strong', last.name));
-    c.append(t, make('span', '›', 'font-size:24px;color:' + last.color));
-    c.addEventListener('click', () => openModule(last.id));
-    wrap.append(c);
+  head.append(logo, make('h1', 'Plataforma Casillas', 'font-size:20px;line-height:1.2;margin:6px 0 0;color:#f3d9a4'));
+  const notice = trialNotice();
+  if (notice) {
+    head.append(make('div', notice.text, `display:inline-block;margin-top:4px;padding:2px 12px;border-radius:999px;font-size:12px;font-weight:700;color:${notice.warn ? '#ffd7a8' : '#b9d6ff'};background:${notice.warn ? 'rgba(240,136,62,.14)' : 'rgba(77,141,255,.14)'};border:1px solid ${notice.warn ? 'rgba(240,136,62,.45)' : 'rgba(77,141,255,.4)'}`));
   }
+  wrap.append(head);
 
-  const grid = make('div', null, 'display:grid;grid-template-columns:repeat(var(--cols,2),1fr);gap:12px');
+  const lastId = store.get();
+  const grid = make('div', null, `display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},minmax(0,1fr));gap:8px;flex:1;min-height:${rows * 92}px`);
   MODULES.forEach(m => {
-    const c = make('button', null, `position:relative;display:flex;flex-direction:column;gap:6px;text-align:left;min-height:230px;border:2px solid ${m.color};border-radius:16px;background:linear-gradient(160deg,${m.color}26,#0f151c 60%);box-shadow:0 0 14px ${m.color}55,inset 0 0 16px ${m.color}14;color:#e6edf3;padding:14px;cursor:pointer;font:inherit;${m.soon ? 'opacity:.7' : ''}`);
+    const c = make('button', null, `position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;min-height:0;min-width:0;border:2px solid ${m.color};border-radius:14px;background:linear-gradient(160deg,${m.color}26,#0f151c 62%);box-shadow:0 0 10px ${m.color}55,inset 0 0 12px ${m.color}14;color:#e6edf3;padding:6px 6px 8px;cursor:pointer;font:inherit;overflow:hidden;${m.soon ? 'opacity:.72' : ''}`);
     c.type = 'button';
-    const ic = make('div', null, `width:100%;height:136px;display:flex;align-items:center;justify-content:center;flex:none`);
+    const ic = make('div', null, 'flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center');
     if (m.img) {
-      const im = make('img', null, 'height:136px;width:136px;object-fit:contain;-webkit-mask-image:radial-gradient(circle at center,#000 56%,transparent 74%);mask-image:radial-gradient(circle at center,#000 56%,transparent 74%)');
-      im.src = './img/plataforma/' + m.img + '.webp'; im.alt = ''; im.loading = 'lazy';
+      const im = make('img', null, 'max-height:100%;max-width:100%;height:auto;width:auto;aspect-ratio:1;object-fit:contain' + (!m.img.endsWith('.svg') ? ';-webkit-mask-image:radial-gradient(circle at center,#000 58%,transparent 76%);mask-image:radial-gradient(circle at center,#000 58%,transparent 76%)' : ''));
+      im.src = './img/plataforma/' + (m.img.includes('.') ? m.img : m.img + '.webp'); im.alt = ''; im.loading = 'lazy';
       ic.append(im);
     } else {
-      ic.style.background = `radial-gradient(circle,${m.color}30,transparent 70%)`;
-      ic.innerHTML = svg(m.icon, m.color, 52);
+      ic.innerHTML = svg(m.icon, m.color, 40);
     }
-    c.append(ic, make('strong', m.name, `font-size:15px;line-height:1.25;color:${m.color}`), make('span', m.text, 'color:#9baab9;font-size:12.5px;line-height:1.35'));
-    if (m.soon) c.append(make('span', 'Em breve', 'position:absolute;top:10px;right:10px;font-size:11px;font-weight:700;color:#f3c969;background:#3b2f12;border:1px solid #7a6122;border-radius:999px;padding:1px 8px'));
+    const sub = make('span', m.text, 'color:#9baab9;font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden');
+    sub.className = 'pl-sub';
+    c.append(ic, make('strong', m.name, `font-size:13px;line-height:1.2;color:${m.color};flex:none`), sub);
+    if (m.soon) c.append(make('span', 'Em breve', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#f3c969;background:rgba(59,47,18,.9);border:1px solid #7a6122;border-radius:999px;padding:0 7px'));
+    else if (m.id === lastId) c.append(make('span', 'Último', 'position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;color:#0d1117;background:' + m.color + ';border-radius:999px;padding:0 7px'));
     c.addEventListener('click', () => openModule(m.id));
     grid.append(c);
   });
   wrap.append(grid);
-  wrap.append(make('div', 'Formação profissional • Gestão de usinagem • Banco de dados G-code • Análise e otimização • Editores avançados • Gestão de ativos', 'text-align:center;color:#c9a96a;font-size:11.5px;font-weight:700;letter-spacing:.3px;margin:18px 8px 0;line-height:1.6'));
+  const tag = make('div', 'Formação profissional • Gestão de usinagem • Banco de dados G-code • Análise e otimização • Editores avançados • Gestão de ativos', 'text-align:center;color:#c9a96a;font-size:10.5px;font-weight:700;letter-spacing:.2px;margin:8px 6px 0;line-height:1.4;flex:none');
+  tag.className = 'pl-tag';
+  wrap.append(tag);
   el.append(wrap);
   document.body.append(el);
   homeEl = el;

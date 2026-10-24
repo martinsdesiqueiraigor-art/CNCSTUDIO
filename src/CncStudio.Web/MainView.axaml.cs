@@ -370,9 +370,7 @@ public partial class MainView : UserControl
         Add("Novo programa (colar ou digitar)…", NewFromPasteAsync);
         menu.Items.Add(new Separator());
         Add("Comparar com outro programa…", () => { OpenCompare(); return Task.CompletedTask; });
-        Add("Geradores de programa…", OpenGeneratorsAsync);
-        Add("Academy (cursos)…", OpenAcademyAsync);
-        Add("Otimizador de programa…", OpenOptimizerAsync);
+        // Geradores (Macro), Academy e Otimizador abrem pela barra inferior da plataforma
         Add("Estatísticas", () => { OpenStats(); return Task.CompletedTask; });
         Add("Folha de setup…", OpenSetupSheetAsync);
 
