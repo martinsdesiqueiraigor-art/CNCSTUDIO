@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Casillas Code — editor e simulador CNC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1117" />
+  <link rel="icon" type="image/png" href="./icone.png" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/icone-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Casillas Code" />
+  <link rel="stylesheet" href="./app.css" />
+  <script type="module" src="./main.js"></script>
+  <script>
+    // Versão desta publicação (o CI troca o marcador pelo número, ex.: 1.0.150)
+    window.APP_VERSION = '1.0.132';
+
+    // App instalável e funcionamento offline (só em https ou localhost)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+    }
+
+    // Aviso de versão nova: compara a versão desta página com a publicada (version.txt).
+    // Confere ao abrir, ao voltar do segundo plano e a cada 30 min.
+    (function () {
+      function showBanner(newVersion) {
+        if (document.getElementById('update-banner')) return;
+        const b = document.createElement('button');
+        b.id = 'update-banner';
+        b.type = 'button';
+        b.textContent = 'Nova versão disponível (' + newVersion + ') — tocar para atualizar';
+        b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 8px);' +
+          'z-index:10000;max-width:92vw;padding:10px 16px;border:0;border-radius:10px;background:#f0883e;color:#0d1117;' +
+          'font:600 14px system-ui,-apple-system,Roboto,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.45);cursor:pointer';
+        b.addEventListener('click', async () => {
+          b.textContent = 'Atualizando…';
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (const r of regs) await r.update();
+            for (const k of await caches.keys()) await caches.delete(k);
+          } catch (e) { }
+          location.reload();
+        });
+        document.body.appendChild(b);
+      }
+      async function check() {
+        if (window.APP_VERSION.indexOf('__') === 0) return; // sem número (compilação local)
+        try {
+          const r = await fetch('./version.txt?t=' + Date.now(), { cache: 'no-store' });
+          if (!r.ok) return;
+          const v = (await r.text()).trim();
+          if (v && v !== window.APP_VERSION) showBanner(v);
+        } catch (e) { }
+      }
+      window.addEventListener('load', () => setTimeout(check, 3000));
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        check();
+        if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+      });
+      setInterval(check, 30 * 60 * 1000);
+    })();
+  </script>
+</head>
+<body>
+  <div id="out">
+    <div class="avalonia-splash">
+      <img src="./assinatura.svg" alt="Casillas Code" />
+      <div class="bar"></div>
+      <div>Carregando…</div>
+      <div id="splash-version" style="font-size:12px;opacity:.7"></div>
+      <script>
+        document.getElementById('splash-version').textContent =
+          window.APP_VERSION.indexOf('__') === 0 ? 'versão de desenvolvimento' : 'versão ' + window.APP_VERSION;
+      </script>
+    </div>
+  </div>
+</body>
+</html>
