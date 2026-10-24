@@ -58,7 +58,7 @@ public static class AcademyJson
         var levelNames = new JsonArray();
         foreach (string l in AcademyLibrary.Levels)
         {
-            levelNames.Add(l);
+            levelNames.Add(JsonValue.Create(l));
         }
 
         return new JsonObject { ["levels"] = levelNames, ["tracks"] = tracks }.ToJsonString();
@@ -202,7 +202,7 @@ public static class AcademyJson
             var options = new JsonArray();
             foreach (string o in q.Options)
             {
-                options.Add(o);
+                options.Add(JsonValue.Create(o));
             }
 
             array.Add(new JsonObject

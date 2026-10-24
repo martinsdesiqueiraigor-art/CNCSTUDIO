@@ -36,7 +36,7 @@ public sealed class AcademyProgress
         var done = new JsonArray();
         foreach (string id in _done.OrderBy(s => s, StringComparer.Ordinal))
         {
-            done.Add(id);
+            done.Add(JsonValue.Create(id));
         }
 
         return new JsonObject { ["done"] = done, ["scores"] = scores }.ToJsonString();
