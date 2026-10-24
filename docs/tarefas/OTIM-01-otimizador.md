@@ -28,4 +28,4 @@ Programa aberto no editor → Otimizador → escolhe a entrada decimal do contro
 - Acentuar as mensagens do núcleo; imagem do cartão (Igor gera).
 - Tela no desktop (Avalonia).
 - Testar com programas reais de CAM (anonimizados) e validar em controle real antes de qualquer promessa comercial.
-- Licença: módulo `otimizador` no PLAT-03.
+- Licença: módulo `otimizador` incluído no plano PLAT-03 (pacote, avulso, liberado no teste de 30 dias, travado depois com "Comprar licença"); o travamento em si vem com a PLAT-03.
