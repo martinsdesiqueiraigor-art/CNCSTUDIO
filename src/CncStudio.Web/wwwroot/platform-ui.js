@@ -13,7 +13,7 @@ const MODULES = [
   { id: 'biblioteca', img: 'ic-biblioteca', name: 'Casillas Biblioteca CNC', text: 'Banco de dados G-code', color: '#ee5a45', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
   { id: 'macro', img: 'ic-macro', name: 'Casillas Macro', text: 'Programação paramétrica e lógica', color: '#9b7bff', icon: '<path d="M4 4h16v16H4zM4 9h16M9 9v11" />' },
   { id: 'otimizador', img: 'ic-otimizador', name: 'Casillas Otimizador', text: 'Encontra repetições e simplifica o programa', color: '#ffb454', icon: '<path d="M13 2L4 14h7l-1 8 9-12h-7z" />' },
-  { id: 'calculadoras', img: 'ic-calculadoras', name: 'Casillas Calculadoras', text: 'Cálculos técnicos de usinagem', color: '#ff9a4a', soon: true, icon: '<path d="M6 3h12v18H6zM8 7h8M9 11h2M13 11h2M9 15h2M13 15h2" />' },
+  { id: 'calculadoras', img: 'ic-calculadoras', name: 'Casillas Calculadoras', text: 'Cálculos técnicos de usinagem', color: '#ff9a4a', url: 'https://martinsdesiqueiraigor-art.github.io/Casillas-landing/app/', icon: '<path d="M6 3h12v18H6zM8 7h8M9 11h2M13 11h2M9 15h2M13 15h2" />' },
   { id: 'loja', img: 'ic-loja', name: 'Casillas Loja', text: 'Loja de ferramentas', color: '#2fd0c8', soon: true, icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
 ];
 const DOCK = ['inicio', 'code', 'academy', 'macro', 'otimizador'];
@@ -51,6 +51,7 @@ function deliver(id) {
 /** Abre um módulo (ou o início). */
 export function openModule(id) {
   const mod = MODULES.find(m => m.id === id);
+  if (mod && mod.url) { window.open(mod.url, '_blank', 'noopener'); return; }
   if (mod && mod.soon) { toast(mod.name + ': em breve'); return; }
   if (id === 'inicio') {
     closeOverlays();
