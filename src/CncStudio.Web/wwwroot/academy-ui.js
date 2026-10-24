@@ -762,9 +762,21 @@ export function openAcademy(call) {
         parts.push(c);
       }
       parts.push(make('h3', 'Quiz da aula', 'margin:16px 0 8px'));
+      const foot = make('div', null, 'display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 24px');
+      const fresh = ask('catalog', {}).tracks.flatMap(t => t.levels).map(x => x.module).find(x => x && x.id === mod.id) || mod;
+      const idx = fresh.lessons.findIndex(x => x.id === l.id);
+      const next = idx >= 0 && idx + 1 < fresh.lessons.length ? fresh.lessons[idx + 1] : null;
+      const nextLabel = next ? 'Próxima aula ›' : (fresh.hasFinal ? 'Teste final ›' : null);
+      const goNext = () => next ? lessonScreen(next.id, fresh) : finalScreen(fresh);
+      const drawFoot = passed => {
+        foot.replaceChildren(btn('‹ Voltar ao módulo', '#30363d', () => moduleScreen(mod)));
+        if (nextLabel) foot.append(btn(nextLabel, passed ? '#1f6f43' : '#2d4a63', goNext));
+      };
+      drawFoot(false);
       parts.push(quizBlock(l.quizId, l.quiz, 70, r => {
-        if (r.passed) wrap.append(hint('Aula concluída! Volte ao módulo para seguir.'));
+        if (r.passed) { drawFoot(true); }
       }));
+      parts.push(foot);
       screen(...parts);
     };
 
@@ -773,7 +785,9 @@ export function openAcademy(call) {
       const t = ask('final', { module: mod.id, seed: Math.floor(Math.random() * 1e6) });
       if (!t.ok) { screen(header('Teste final', () => moduleScreen(mod)), hint('Teste não encontrado.')); return; }
       const intro = hint(`Nota mínima: ${t.passPercent}%. ${t.canSkip ? 'Quem já conhece o assunto pode fazer este teste direto, sem passar pelas aulas.' : ''}`);
-      screen(header('Teste final: ' + mod.title, () => moduleScreen(mod), t.draft), intro, quizBlock(t.quizId, t.quiz, t.passPercent, () => {}));
+      const foot = make('div', null, 'display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 24px');
+      foot.append(btn('‹ Voltar ao módulo', '#30363d', () => moduleScreen(mod)), btn('Refazer teste', '#2d4a63', () => finalScreen(mod)));
+      screen(header('Teste final: ' + mod.title, () => moduleScreen(mod), t.draft), intro, quizBlock(t.quizId, t.quiz, t.passPercent, () => {}), foot);
     };
 
     home();
