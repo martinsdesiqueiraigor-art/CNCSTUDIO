@@ -6,8 +6,8 @@
 //   cc.device  — identificador deste aparelho (sorteado uma vez)
 //   cc.license — última situação confirmada pelo servidor (vale 7 dias sem internet)
 
-const SUPABASE_URL = 'https://jdjlcekavnwuiiaoevvd.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_Rr3IWTffW7E8eENbKSOjkQ_WBGMnL9Z'; // chave pública (pode ficar no app)
+const SUPABASE_URL = 'https://maayjshlsxvxtrgjpcep.supabase.co'; // projeto "Casillas": conta única da plataforma
+const SUPABASE_KEY = 'sb_publishable_1p4-6-tNmiBhz0edN-UQDQ_sbwJwABo'; // chave pública (pode ficar no app)
 const OFFLINE_DAYS = 7;
 const SUPPORT_EMAIL = 'casillas.usinagem.br@gmail.com';
 
@@ -126,6 +126,47 @@ async function consumeLinkFromEmail() {
 
 // ───────────── Situação da conta ─────────────
 
+/** Converte a resposta da plataforma para o formato que o app já usa (módulo Code) e guarda todos os módulos. */
+function fromPlatform(raw) {
+    const mods = raw.modules || {};
+    const out = {
+        modules: mods,
+        trial_ends_at: raw.trial && raw.trial.ends_at,
+        max_devices: raw.devices && raw.devices.limit,
+        devices_used: raw.devices && raw.devices.used,
+    };
+    return { ...out, ...codeView(mods.code, out.trial_ends_at) };
+}
+
+function codeView(m, trialEnds) {
+    if (!m) return { state: 'expired' };
+    if (m.state === 'VALID') return { state: 'licensed', kind: m.valid_until ? 'subscription' : 'perpetual', expires_at: m.valid_until, updates_until: m.updates_until };
+    if (m.state === 'TRIAL') return { state: 'trial', trial_ends_at: m.valid_until || trialEnds };
+    if (m.state === 'DEVICE_LIMIT') return { state: 'device_limit' };
+    return { state: 'expired' };
+}
+
+/** Sem internet: reavalia as datas guardadas (teste e assinaturas vencem mesmo offline). */
+function recompute(cached) {
+    const now = Date.now();
+    const mods = {};
+    for (const [slug, m] of Object.entries(cached.modules || {})) {
+        let st = m.state;
+        if ((st === 'TRIAL' || st === 'VALID') && m.valid_until && Date.parse(m.valid_until) < now) st = 'EXPIRED';
+        mods[slug] = { ...m, state: st, has_access: st === 'TRIAL' || st === 'VALID' };
+    }
+    return { ...cached, modules: mods, ...codeView(mods.code, cached.trial_ends_at) };
+}
+
+/** Estado de um módulo da plataforma na última situação conhecida: VALID | TRIAL | EXPIRED | DEVICE_LIMIT | null (sem conta). */
+export function moduleState(slug) {
+    const c = load('cc.license');
+    if (!c || !c.modules) return null;
+    const m = recompute(c).modules[slug];
+    return m ? m.state : null;
+}
+
+
 /**
  * Situação da conta neste aparelho (JSON):
  * { signedIn, email, state, kind, expires_at, updates_until, trial_ends_at, max_devices, devices_used,
@@ -140,10 +181,11 @@ export async function accountCheck() {
     const base = { signedIn: true, email: s.email, recovery: recoveryPending };
     try {
         if (s.offline) throw new NetworkError('sem conexão');
-        const status = await call('/rest/v1/rpc/license_status', {
+        const raw = await call('/rest/v1/rpc/platform_access_v1', {
             token: s.access_token,
-            body: { p_device_id: deviceId(), p_label: deviceLabel(), p_platform: 'web' },
+            body: { p_device_id: deviceId() },
         });
+        const status = fromPlatform(raw);
         save('cc.license', { ...status, checked_at: Date.now(), email: s.email });
         return JSON.stringify({ ...base, ...status, offline: false });
     } catch (e) {
@@ -154,11 +196,7 @@ export async function accountCheck() {
         // Sem internet: vale a última situação confirmada, por até 7 dias
         const cached = load('cc.license');
         if (cached && Date.now() - cached.checked_at < OFFLINE_DAYS * 86400000) {
-            let state = cached.state;
-            const now = Date.now();
-            if (state === 'trial' && Date.parse(cached.trial_ends_at) < now) state = 'expired';
-            if (state === 'licensed' && cached.expires_at && Date.parse(cached.expires_at) < now) state = 'expired';
-            return JSON.stringify({ ...base, ...cached, state, offline: true });
+            return JSON.stringify({ ...base, ...recompute(cached), offline: true });
         }
         return JSON.stringify({ ...base, state: 'expired', offline: true });
     }
@@ -290,9 +328,9 @@ export function accountLogin(reason) {
         const pass2 = field(box, 'Repita a senha', 'password', 'new-password');
         const message = note(box);
         const main = button(box, 'Entrar', 'primary');
-        const swap = button(box, 'Criar conta (14 dias grátis)', 'normal');
+        const swap = button(box, 'Criar conta (30 dias grátis)', 'normal');
         const forgot = button(box, 'Esqueci a senha', 'link');
-        const guest = button(box, 'Usar sem conta (sem salvar nem exportar)', 'link');
+        const guest = button(box, 'Usar sem conta (sem simular, salvar nem exportar)', 'link');
         const consent = legalLinks(box, 'Ao criar a conta, você concorda com os ');
         let mode = 'login';
 
@@ -308,7 +346,7 @@ export function accountLogin(reason) {
             pass.input.autocomplete = m === 'signup' ? 'new-password' : 'current-password';
             title.textContent = m === 'login' ? 'Entrar' : m === 'signup' ? 'Criar conta' : 'Recuperar senha';
             main.textContent = m === 'login' ? 'Entrar' : m === 'signup' ? 'Criar conta' : 'Enviar link por e-mail';
-            swap.textContent = m === 'login' ? 'Criar conta (14 dias grátis)' : 'Já tenho conta — entrar';
+            swap.textContent = m === 'login' ? 'Criar conta (30 dias grátis)' : 'Já tenho conta — entrar';
             forgot.style.display = m === 'login' ? 'block' : 'none';
             consent.firstChild.textContent = m === 'signup' ? 'Ao criar a conta, você concorda com os ' : 'Veja os ';
         }
@@ -435,8 +473,8 @@ export function accountPanel(json) {
         if (!s.signedIn) {
             const t = document.createElement('div');
             t.style.cssText = `font-size:14px;color:${COLORS.soft};text-align:center;line-height:1.45`;
-            t.textContent = 'Sem conta o app abre, edita e simula, mas não salva nem exporta. ' +
-                'Crie uma conta para testar tudo por 14 dias.';
+            t.textContent = 'Sem conta o app abre e edita, mas não simula, salva nem exporta. ' +
+                'Crie uma conta para testar todos os módulos por 30 dias.';
             box.appendChild(t);
             button(box, 'Entrar ou criar conta', 'primary').addEventListener('click', () => close('login'));
             button(box, 'Fechar', 'normal').addEventListener('click', () => close('close'));
@@ -454,7 +492,7 @@ export function accountPanel(json) {
         info.textContent =
             s.state === 'device_limit' ? 'Esta conta já está em uso no número máximo de aparelhos. Toque em "Sair da conta" em um deles para liberar a vaga.'
           : s.state === 'device_revoked' ? 'Este aparelho foi bloqueado para esta conta. Fale com o suporte: ' + SUPPORT_EMAIL
-          : s.state === 'expired' ? 'O período de teste terminou: o app continua abrindo, editando e simulando, mas salvar e exportar precisam de licença.'
+          : s.state === 'expired' ? 'O período de teste terminou: o app continua abrindo e editando, mas simular, salvar e exportar precisam de licença.'
           : 'Sair da conta libera a vaga deste aparelho para usar em outro.';
         box.appendChild(info);
 
@@ -463,6 +501,34 @@ export function accountPanel(json) {
         support.textContent = 'Suporte e licenças: ' + SUPPORT_EMAIL;
         support.style.cssText = `font-size:13px;color:#58a6ff;text-align:center;word-break:break-all`;
         box.appendChild(support);
+
+
+        // Ativar um código de licença (módulo ou pacote completo)
+        const code = field(box, 'Tem um código de licença?', 'text', 'off');
+        code.input.placeholder = 'XXXX-XXXX-XXXX-XXXX';
+        code.input.style.textTransform = 'uppercase';
+        const msg = note(box);
+        const go = button(box, 'Ativar código', 'normal');
+        go.addEventListener('click', async () => {
+            const value = code.input.value.trim();
+            if (!value) { msg.show('Digite o código recebido na compra.', 'err'); return; }
+            go.disabled = true;
+            try {
+                const fresh = await session();
+                if (!fresh || fresh.offline) throw new NetworkError('sem conexão');
+                const r = await call('/rest/v1/rpc/platform_activate_v1', {
+                    token: fresh.access_token, body: { p_license_code: value, p_device_id: deviceId() } });
+                const texts = {
+                    ACTIVATION_DENIED: 'Código não encontrado ou já usado. Confira os caracteres.',
+                    INVALID_REQUEST: 'Código em formato inválido.',
+                    ALREADY_ACTIVE: 'Você já tem licença vitalícia deste módulo.',
+                };
+                if (r.result === 'SUCCESS') { msg.show('Código ativado! Atualizando…', 'ok'); setTimeout(() => close('refresh'), 900); return; }
+                if (r.result === 'RATE_LIMITED') msg.show('Muitas tentativas. Tente de novo em ' + Math.ceil((r.retry_after_seconds || 60) / 60) + ' min.', 'err');
+                else msg.show(texts[r.result] || 'Não foi possível ativar o código.', 'err');
+            } catch (e) { msg.show(translate(e), 'err'); }
+            go.disabled = false;
+        });
 
         button(box, 'Sair da conta', 'danger').addEventListener('click', () => close('signout'));
         legalLinks(box, 'Veja os ');
@@ -477,7 +543,7 @@ export async function accountSignOut() {
         try {
             const fresh = await session();
             if (fresh && !fresh.offline) {
-                await call('/rest/v1/rpc/release_device', { token: fresh.access_token, body: { p_device_id: deviceId() } });
+                await call('/rest/v1/rpc/platform_release_device_v1', { token: fresh.access_token, body: { p_device_id: deviceId() } });
                 await call('/auth/v1/logout', { token: fresh.access_token }).catch(() => { });
             }
         } catch { }
