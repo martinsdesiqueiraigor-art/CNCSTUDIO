@@ -131,7 +131,7 @@ public class TextEngravingTests
     [Fact]
     public void JsonBridgeAcceptsTextAndReportsNoMacro()
     {
-        string ok = GeneratorsJson.Generate("text", """{"TX":"Oi","X":0,"Y":0,"H":10,"L":100,"E":20,"A":0,"N":0,"W":0,"Z":-0.3,"Q":0.3,"R":60,"F":200,"S":8000,"T":1}""", "macro");
+        string ok = GeneratorsJson.Generate("text", """{"TX":"Oi","X":0,"Y":0,"H":10,"L":100,"E":20,"A":0,"N":0,"K":0,"M":0,"W":0,"Z":-0.3,"Q":0.3,"R":60,"F":200,"S":8000,"T":1}""", "macro");
         var node = System.Text.Json.Nodes.JsonNode.Parse(ok)!;
         Assert.True((bool)node["ok"]!, ok);
         Assert.DoesNotContain("G65", (string)node["program"]!);
@@ -139,5 +139,35 @@ public class TextEngravingTests
         var entry = catalog.Single(e => (string)e!["id"]! == "text")!;
         Assert.False((bool)entry["macro"]!);
         Assert.Equal("TX", (string)entry["texts"]![0]!["id"]!);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void ArcTextStaysOnTheRing(int side)
+    {
+        double radius = 50, h = 8;
+        var moves = Cuts("CASILLAS 2026", ("X", 10), ("Y", 20), ("K", radius), ("M", side), ("H", h), ("N", 1), ("A", side == 0 ? 90 : 270));
+        var dist = moves.Select(m => Math.Sqrt(Math.Pow(m.End.X - 10, 2) + Math.Pow(m.End.Y - 20, 2))).ToList();
+        double lo = side == 0 ? radius : radius - h, hi = side == 0 ? radius + h : radius;
+        Assert.All(dist, d => Assert.InRange(d, lo - 0.05, hi + 0.05));
+        // meio do texto fica na direção pedida (em cima ou embaixo)
+        double midX = (moves.Min(m => m.End.X) + moves.Max(m => m.End.X)) / 2;
+        Assert.InRange(midX, 10 - 8, 10 + 8);
+        Assert.True(side == 0 ? moves.Max(m => m.End.Y) > 20 + radius : moves.Min(m => m.End.Y) < 20 - radius + h);
+    }
+
+    [Fact]
+    public void ArcTextCentersOnTheGivenAngle()
+    {
+        var moves = Cuts("OOOOO", ("K", 40), ("A", 0), ("N", 1));
+        Assert.InRange((moves.Min(m => m.End.Y) + moves.Max(m => m.End.Y)) / 2, -3, 3);
+        Assert.True(moves.Min(m => m.End.X) > 30);
+    }
+
+    [Fact]
+    public void ArcInsideNeedsHeightBelowRadius()
+    {
+        Assert.Contains(Make("A", ("K", 5), ("M", 1), ("H", 10)).Errors, e => e.Contains("menor que o raio"));
     }
 }

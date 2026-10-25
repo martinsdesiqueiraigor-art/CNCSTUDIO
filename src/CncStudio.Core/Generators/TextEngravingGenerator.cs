@@ -20,6 +20,8 @@ public sealed class TextEngravingGenerator : ProgramGenerator
         new("E", "Espaço entre letras", "% da altura", 20, 0, 300),
         new("A", "Ângulo", "graus", 0, -360, 360, Hint: "0 = texto ao longo de X; anti-horário."),
         new("N", "Alinhamento", "0, 1 ou 2", 0, 0, 2, IsInteger: true, Hint: "0 = começa no ponto; 1 = centralizado no ponto; 2 = termina no ponto."),
+        new("K", "Raio do arco", "mm", 0, 0, 9999, Hint: "0 = texto reto. Com raio, o texto segue um círculo e Ponto X/Y é o CENTRO do círculo; o ângulo passa a ser a direção do meio do texto (90 = em cima, 270 = embaixo)."),
+        new("M", "Lado do arco", "0 ou 1", 0, 0, 1, IsInteger: true, Hint: "0 = por fora (letras para fora, lido no sentido horário); 1 = por dentro (letras para dentro, lido no anti-horário; use 270 para ler na base)."),
         new("W", "Z inicial (topo do bruto)", "mm", 0, -500, 40, Hint: "Onde o bruto começa; a ferramenta desce daqui."),
         new("Z", "Profundidade", "mm", -0.3, -50, 50, Hint: "Negativa (abaixo do topo). Gravação costuma ser rasa."),
         new("Q", "Passe em Z", "mm", 0.3, 0.01, 50, Hint: "Se a profundidade for maior, faz mais passes, indo e voltando no traço."),
@@ -51,6 +53,11 @@ public sealed class TextEngravingGenerator : ProgramGenerator
         if (v["Z"] >= v["W"])
         {
             yield return "Profundidade: precisa ficar abaixo do Z inicial.";
+        }
+
+        if (v["K"] > 0 && (int)Math.Round(v["M"]) == 1 && v["H"] >= v["K"])
+        {
+            yield return "Altura das letras: por dentro do arco, precisa ser menor que o raio.";
         }
     }
 
@@ -98,6 +105,8 @@ public sealed class TextEngravingGenerator : ProgramGenerator
         }
 
         double total = u - gap;
+        double radius = v["K"];
+        bool inside = (int)Math.Round(v["M"]) == 1;
         double start = (int)Math.Round(v["N"]) switch { 1 => -total / 2, 2 => -total, _ => 0 };
 
         double depth = v["W"] - v["Z"];
@@ -121,7 +130,18 @@ public sealed class TextEngravingGenerator : ProgramGenerator
             }
         }
 
-        (double X, double Y) At(double uu, double vv) => Rotate(v["X"], v["Y"], start + uu, vv, v["A"]);
+        (double X, double Y) At(double uu, double vv)
+        {
+            if (radius <= 0)
+            {
+                return Rotate(v["X"], v["Y"], start + uu, vv, v["A"]);
+            }
+
+            double s = (start + uu) / radius; // ângulo percorrido (rad) a partir do meio do texto
+            double theta = v["A"] * Math.PI / 180 + (inside ? s : -s);
+            double r = inside ? radius - vv : radius + vv;
+            return (v["X"] + r * Math.Cos(theta), v["Y"] + r * Math.Sin(theta));
+        }
 
         foreach ((StrokeFont.Glyph glyph, double gu) in placed)
         {
@@ -131,6 +151,11 @@ public sealed class TextEngravingGenerator : ProgramGenerator
                 if (pts.Count == 0)
                 {
                     continue;
+                }
+
+                if (radius > 0)
+                {
+                    pts = Densify(pts, radius * 0.02);
                 }
 
                 var path = pts.Select(p => At(gu + p.X, p.Y)).ToList();
@@ -167,5 +192,22 @@ public sealed class TextEngravingGenerator : ProgramGenerator
         Footer(sb);
         sb.Append("%\n");
         return sb.ToString();
+    }
+
+    /// <summary>Divide os trechos retos em passos curtos (no arco, uma reta vira curva).</summary>
+    private static List<(double X, double Y)> Densify(IReadOnlyList<(double X, double Y)> pts, double maxStep)
+    {
+        List<(double X, double Y)> result = [pts[0]];
+        for (int i = 1; i < pts.Count; i++)
+        {
+            double dx = pts[i].X - pts[i - 1].X, dy = pts[i].Y - pts[i - 1].Y;
+            int n = Math.Max(1, (int)Math.Ceiling(Math.Abs(dx) / maxStep));
+            for (int k = 1; k <= n; k++)
+            {
+                result.Add((pts[i - 1].X + dx * k / n, pts[i - 1].Y + dy * k / n));
+            }
+        }
+
+        return result;
     }
 }
