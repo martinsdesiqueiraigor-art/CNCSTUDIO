@@ -1,6 +1,6 @@
 // Casillas Code: geradores de programa (formulário em HTML, igual ao editor de setup).
 // O cálculo e a validação são do Core (C#): esta tela só mostra o formulário e pede o programa a cada mudança.
-// catalogJson: [{id,title,description,params:[{id,label,unit,def,min,max,integer,hint}]}]
+// catalogJson: [{id,title,description,params:[{...}], texts:[{id,label,def,max,hint}], macro:bool}]
 // generate(id, valuesJson, mode) -> JSON {ok, program, errors[]}; mode = "plain" | "macro"
 // Resolve com JSON {id, mode, text, view3d} ou null se cancelar.
 export function openGenerators(catalogJson, generate, lastJson) {
@@ -58,6 +58,7 @@ export function openGenerators(catalogJson, generate, lastJson) {
 
     let current = catalog[0];
     let inputs = {};
+    let textInputs = {};
     let timer = 0;
     let lastText = '';
 
@@ -67,12 +68,13 @@ export function openGenerators(catalogJson, generate, lastJson) {
         const raw = inputs[p.id].value.replace(',', '.').trim();
         v[p.id] = raw === '' || isNaN(Number(raw)) ? null : Number(raw);
       }
+      for (const t of current.texts || []) v[t.id] = textInputs[t.id].value;
       return v;
     };
 
     const update = () => {
       let result;
-      try { result = JSON.parse(generate(current.id, JSON.stringify(values()), mode)); }
+      try { result = JSON.parse(generate(current.id, JSON.stringify(values()), current.macro === false ? 'plain' : mode)); }
       catch (e) { result = { ok: false, program: '', errors: ['Não foi possível gerar: ' + e] }; }
       lastText = result.ok ? result.program : '';
       errors.textContent = result.ok ? '' : result.errors.join('\n');
@@ -84,8 +86,26 @@ export function openGenerators(catalogJson, generate, lastJson) {
     const build = () => {
       form.replaceChildren();
       inputs = {};
+      textInputs = {};
+      const hasMacro = current.macro !== false;
+      modes.style.display = modeHelp.style.display = hasMacro ? '' : 'none';
       desc.textContent = current.description;
       const saved = (last.values && last.values[current.id]) || {};
+      for (const t of current.texts || []) {
+        const row = make('label', null, 'display:flex;flex-direction:column;gap:6px;margin-bottom:4px');
+        row.append(make('span', t.label));
+        const input = make('input', null, inputStyle);
+        input.type = 'text';
+        input.maxLength = t.max;
+        input.value = String(saved[t.id] ?? t.def);
+        input.autocomplete = 'off';
+        input.autocapitalize = 'characters';
+        input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(update, 120); });
+        textInputs[t.id] = input;
+        row.append(input);
+        form.append(row);
+        if (t.hint) form.append(make('div', t.hint, 'color:#8b9aa9;font-size:12px;margin:-4px 0 4px'));
+      }
       for (const p of current.params) {
         const row = make('label', null, 'display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,1fr);align-items:center;gap:12px;min-height:46px');
         const text = make('span', p.label + (p.unit ? ' (' + p.unit + ')' : ''));
@@ -117,7 +137,7 @@ export function openGenerators(catalogJson, generate, lastJson) {
     cancel.addEventListener('click', () => finish(null));
     const done = view3d => {
       if (!lastText) return;
-      finish(JSON.stringify({ id: current.id, mode, text: lastText, view3d, values: values() }));
+      finish(JSON.stringify({ id: current.id, mode: current.macro === false ? 'plain' : mode, text: lastText, view3d, values: values() }));
     };
     openBtn.addEventListener('click', () => done(false));
     open3d.addEventListener('click', () => done(true));

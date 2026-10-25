@@ -24,6 +24,14 @@ public enum GeneratorOutput
 /// <param name="Hint">Ajuda curta sob o campo.</param>
 public sealed record GeneratorParameter(string Id, string Label, string Unit, double Default, double Min, double Max, bool IsInteger = false, string Hint = "");
 
+/// <summary>Um campo de texto do formulário (ex.: a frase a gravar).</summary>
+/// <param name="Id">Identificador estável.</param>
+/// <param name="Label">Texto do campo, em português.</param>
+/// <param name="Default">Valor inicial.</param>
+/// <param name="MaxLength">Máximo de caracteres.</param>
+/// <param name="Hint">Ajuda curta sob o campo.</param>
+public sealed record GeneratorTextParameter(string Id, string Label, string Default, int MaxLength, string Hint = "");
+
 /// <summary>Resultado de gerar: o texto do programa ou a lista de problemas dos valores informados.</summary>
 public sealed record GeneratorResult(string Program, IReadOnlyList<string> Errors)
 {
@@ -44,6 +52,12 @@ public abstract class ProgramGenerator
     public abstract string Description { get; }
 
     public abstract IReadOnlyList<GeneratorParameter> Parameters { get; }
+
+    /// <summary>Campos de texto do formulário (a maioria dos geradores não tem).</summary>
+    public virtual IReadOnlyList<GeneratorTextParameter> TextParameters => [];
+
+    /// <summary>Se o gerador também sabe escrever a chamada G65 com a macro (senão a tela só oferece o programa pronto).</summary>
+    public virtual bool SupportsMacro => true;
 
     /// <summary>Valores iniciais do formulário.</summary>
     public IReadOnlyDictionary<string, double> Defaults => Parameters.ToDictionary(p => p.Id, p => p.Default);
@@ -77,12 +91,28 @@ public abstract class ProgramGenerator
         return errors;
     }
 
-    public GeneratorResult Generate(IReadOnlyDictionary<string, double> values, GeneratorOutput output)
+    public GeneratorResult Generate(IReadOnlyDictionary<string, double> values, GeneratorOutput output) =>
+        Generate(values, TextParameters.ToDictionary(t => t.Id, t => t.Default), output);
+
+    /// <summary>Gera com os campos numéricos e os de texto.</summary>
+    public GeneratorResult Generate(IReadOnlyDictionary<string, double> values, IReadOnlyDictionary<string, string> texts, GeneratorOutput output)
     {
         values = WithDefaultTop(values);
-        IReadOnlyList<string> errors = Validate(values);
-        return errors.Count > 0 ? new GeneratorResult("", errors) : new GeneratorResult(Build(values, output), []);
+        List<string> errors = [.. Validate(values)];
+        if (errors.Count == 0)
+        {
+            errors.AddRange(ValidateTexts(values, texts));
+        }
+
+        return errors.Count > 0 ? new GeneratorResult("", errors) : new GeneratorResult(BuildWithTexts(values, texts, output), []);
     }
+
+    /// <summary>Confere os campos de texto (só os geradores que têm texto usam).</summary>
+    protected virtual IEnumerable<string> ValidateTexts(IReadOnlyDictionary<string, double> values, IReadOnlyDictionary<string, string> texts) => [];
+
+    /// <summary>Escreve o programa com os textos; por padrão ignora os textos.</summary>
+    protected virtual string BuildWithTexts(IReadOnlyDictionary<string, double> values, IReadOnlyDictionary<string, string> texts, GeneratorOutput output) =>
+        Build(values, output);
 
     /// <summary>Valores salvos antes do Z inicial existir não trazem o "W": vale o padrão (topo em Z0).</summary>
     private IReadOnlyDictionary<string, double> WithDefaultTop(IReadOnlyDictionary<string, double> values)

@@ -30,7 +30,7 @@ public class GeneratorTests
     public void CatalogListsAllGenerators()
     {
         Assert.Equal(
-            ["bhc", "grid", "pocket", "circpocket", "slot", "facing", "helixhole", "threadmill"],
+            ["bhc", "grid", "pocket", "circpocket", "slot", "facing", "helixhole", "threadmill", "text"],
             Generators.Generators.All.Select(g => g.Id));
         Assert.NotNull(Generators.Generators.ById("bhc"));
         Assert.Null(Generators.Generators.ById("nao-existe"));
@@ -154,7 +154,7 @@ public class GeneratorsJsonTests
     public void CatalogListsGeneratorsWithTheirFields()
     {
         var catalog = System.Text.Json.Nodes.JsonNode.Parse(GeneratorsJson.Catalog())!.AsArray();
-        Assert.Equal(8, catalog.Count);
+        Assert.Equal(9, catalog.Count);
         Assert.Equal("bhc", (string?)catalog[0]!["id"]);
         Assert.Contains(catalog[0]!["params"]!.AsArray(), p => (string?)p!["id"] == "N" && (bool)p["integer"]!);
     }
