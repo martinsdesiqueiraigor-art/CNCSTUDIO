@@ -25,6 +25,10 @@ function save(key, value) {
 }
 
 function deviceId() {
+    // Prévias de teste (<ramo>.casillas-code.pages.dev) são um endereço novo a cada ramo: dividem um só aparelho,
+    // para não gastar as vagas da conta.
+    const h = location.hostname;
+    if (h.endsWith('.casillas-code.pages.dev')) return 'previa-web';
     let id = load('cc.device');
     if (!id) {
         id = (crypto.randomUUID ? crypto.randomUUID() : 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
