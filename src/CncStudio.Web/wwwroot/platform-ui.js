@@ -60,7 +60,10 @@ function buyDialog(mod) {
   const box = make('div', null, `width:100%;max-width:380px;background:#161b22;color:#e6edf3;border:2px solid ${mod.color};border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;text-align:center;box-shadow:0 0 24px ${mod.color}55`);
   box.append(make('div', '🔒', 'font-size:34px'));
   box.append(make('strong', mod.name, `font-size:18px;color:${mod.color}`));
-  box.append(make('div', 'Seu período de teste terminou. Este módulo precisa de licença para continuar.', 'color:#9baab9;font-size:14px'));
+  const limit = moduleState(mod.id) === 'DEVICE_LIMIT';
+  box.append(make('div', limit
+    ? 'Sua conta já está em 2 aparelhos. Libere um deles em Conta (ou peça ao suporte) para usar aqui.'
+    : 'Seu período de teste terminou. Este módulo precisa de licença para continuar.', 'color:#9baab9;font-size:14px'));
   const btn = (text, kind) => make('button', text, 'min-height:44px;border-radius:10px;font:600 15px system-ui;cursor:pointer;' + (kind === 'buy' ? `background:${mod.color};color:#0d1117;border:0` : 'background:transparent;color:#e6edf3;border:1px solid #30363d'));
   const buy = btn('Comprar licença', 'buy'); buy.type = 'button';
   buy.addEventListener('click', () => window.open(BUY_URL, '_blank', 'noopener'));

@@ -9,7 +9,9 @@ namespace CncStudio.Core.Tests;
 /// <summary>Furação em grade, faceamento, rasgo, bolsão circular, furo helicoidal e rosca helicoidal.</summary>
 public class MoreGeneratorsTests
 {
-    public static IEnumerable<object[]> Ids() => Generators.Generators.All.Select(g => new object[] { g.Id });
+    public static IEnumerable<object[]> Ids() => Generators.Generators.All.Where(g => g.SupportsMacro).Select(g => new object[] { g.Id });
+
+    public static IEnumerable<object[]> AllIds() => Generators.Generators.All.Select(g => new object[] { g.Id });
 
     private static IReadOnlyDictionary<string, double> With(ProgramGenerator g, params (string Id, double Value)[] changes)
     {
@@ -115,7 +117,7 @@ public class MoreGeneratorsTests
     }
 
     [Theory]
-    [MemberData(nameof(Ids))]
+    [MemberData(nameof(AllIds))]
     public void EveryDefaultProgramReachesTheRequestedDepth(string id)
     {
         ProgramGenerator g = Generators.Generators.All.Single(x => x.Id == id);
