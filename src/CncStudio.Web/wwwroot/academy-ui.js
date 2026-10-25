@@ -2,6 +2,11 @@
 // call(comando, argsJson) -> JSON. Comandos: catalog | lesson | final | grade | done.
 // O progresso fica no aparelho (localStorage, opcional). Resolve com JSON {name, text, view3d} ou null.
 const PROGRESS_KEY = 'cc.academy.progress';
+import { moduleState } from './account.js';
+import { ensureAccess } from './platform-ui.js';
+
+// O módulo 1 fica aberto para todos (com ou sem conta); os demais exigem teste ativo ou licença
+const OPEN_MODULES = new Set(['acad-m1']);
 const CHANNEL_URL = 'https://www.youtube.com/@casillasusinagembr';
 
 export function openAcademy(call) {
@@ -197,13 +202,13 @@ export function openAcademy(call) {
           (complete ? 'background:#1f6f43;color:white;border:2px solid #6fd39b' : isCurrent ? `background:${lc};border:3px solid #fff;box-shadow:0 0 0 4px ${lc}55` : ok ? `background:#0d1117;border:3px solid ${lc}` : 'background:#0d1117;border:3px dashed #4a5665'));
         const c = card(`margin-bottom:0;border-left:6px solid ${lc};` + (ok ? 'cursor:pointer;background:#131a22' : 'opacity:.55'));
         const head = make('div', null, 'display:flex;justify-content:space-between;gap:8px;align-items:baseline');
-        head.append(make('strong', l.level + (m && m.badge ? '  🏅' : ''), `font-size:16px;color:${lc}`), make('span', ok ? `${nDone}/${m.lessons.length} aulas` : 'Em breve', 'color:#9baab9;font-size:13px'));
+        head.append(make('strong', l.level + (m && m.badge ? '  🏅' : ''), `font-size:16px;color:${lc}`), make('span', ok ? (!OPEN_MODULES.has(m.id) && moduleState('academy') === 'EXPIRED' ? '🔒 Licença · ' : '') + `${nDone}/${m.lessons.length} aulas` : 'Em breve', 'color:#9baab9;font-size:13px'));
         c.append(head);
         if (m) c.append(make('div', m.title, 'color:#c9d6e2;font-size:14px;margin-top:2px'));
         if (ok) {
           c.append(bar(100 * nDone / m.lessons.length, lc));
           if (m.draft) c.append(make('div', 'Conteúdo em rascunho: ainda não revisado.', 'color:#f3c969;font-size:12px;margin-top:6px'));
-          c.addEventListener('click', () => moduleScreen(m));
+          c.addEventListener('click', async () => { if (OPEN_MODULES.has(m.id) || await ensureAccess('academy')) moduleScreen(m); });
         }
         node.append(dot, c);
         list.append(node);

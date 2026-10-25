@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
 <meta name="theme-color" content="#0d1117" />
-<title>Painel de ativação · Casillas Code</title>
+<title>Painel de ativação · Plataforma Casillas</title>
 <style>
   :root {
     --bg: #0d1117; --card: #161b22; --field: #0d1117; --line: #30363d; --text: #e6edf3; --soft: #8b949e;
@@ -60,13 +60,12 @@
 </head>
 <body>
 <header>
-  <img src="./assinatura.svg" alt="Casillas Code" />
+  <img src="./assinatura.svg" alt="Casillas" />
   <span class="muted">Painel de ativação</span>
   <div class="who" id="who"></div>
 </header>
 
 <main>
-  <!-- Entrar -->
   <section class="card" id="login">
     <h2>Entrar como administrador</h2>
     <div class="list">
@@ -77,357 +76,217 @@
     </div>
   </section>
 
-  <!-- Painel -->
   <section id="panel" class="hidden" style="display:flex;flex-direction:column;gap:14px">
+    <div class="card"><div class="stats" id="stats"></div></div>
+
     <div class="card">
-      <div class="stats" id="stats"></div>
+      <h2>Gerar códigos de licença</h2>
+      <div class="grid">
+        <label>Produto
+          <select id="g-prod">
+            <option value="pacote-completo">Pacote completo (todos os módulos)</option>
+            <option value="code">Casillas Code</option>
+            <option value="academy">Casillas Academy</option>
+            <option value="macro">Casillas Macro</option>
+            <option value="otimizador">Casillas Otimizador</option>
+            <option value="casillas">Casillas Calculadoras</option>
+          </select>
+        </label>
+        <label>Tipo
+          <select id="g-kind"><option value="sub">Assinatura (dias de validade)</option><option value="perp">Vitalícia (só Academy e Calculadoras)</option></select>
+        </label>
+        <label id="g-days-l">Dias de validade
+          <select id="g-days"><option>30</option><option>90</option><option>180</option><option selected>365</option><option value="730">730</option></select>
+        </label>
+        <label id="g-upd-l" class="hidden">Meses de atualização
+          <input id="g-upd" type="number" min="1" max="120" value="12" />
+        </label>
+        <label>Quantidade <input id="g-qty" type="number" min="1" max="100" value="1" /></label>
+      </div>
+      <label style="margin-top:10px">Anotação (cliente, forma de pagamento…) <input id="g-note" maxlength="120" /></label>
+      <div class="msg" id="g-msg" style="margin-top:10px"></div>
+      <div class="row" style="margin-top:10px"><button class="primary" id="g-go">Gerar</button></div>
+      <div id="g-out" class="list" style="margin-top:10px"></div>
+      <div class="muted" id="g-hint"></div>
     </div>
 
     <div class="card">
+      <h2>Clientes</h2>
       <div class="row">
-        <label>Procurar cliente (e-mail ou nome) <input id="q" type="search" placeholder="ex.: joao@" /></label>
+        <label>Procurar por e-mail <input id="q" type="search" placeholder="ex.: joao@" /></label>
         <label style="flex:0 0 150px">Mostrar
-          <select id="filter">
-            <option value="all">Todos</option>
-            <option value="trial">Em teste</option>
-            <option value="licensed">Com licença</option>
-            <option value="expired">Teste encerrado</option>
-          </select>
+          <select id="filter"><option value="all">Todos</option><option value="trial">Em teste</option><option value="licensed">Com licença</option><option value="expired">Teste encerrado</option></select>
         </label>
         <button id="reload">Atualizar</button>
       </div>
       <div class="msg" id="p-msg" style="margin-top:10px"></div>
+      <div id="customers" class="list" style="margin-top:10px"></div>
     </div>
 
-    <div id="customers" style="display:flex;flex-direction:column;gap:12px"></div>
+    <div class="card">
+      <h2>Licenças</h2>
+      <div class="muted">Os códigos aparecem só na hora de gerar. Aqui ficam o estado e a anotação.</div>
+      <div id="licenses" class="list" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card"><div class="row"><button class="danger" id="logout">Sair</button></div></div>
   </section>
 </main>
 
 <script>
 'use strict';
-const SUPABASE_URL = 'https://jdjlcekavnwuiiaoevvd.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_Rr3IWTffW7E8eENbKSOjkQ_WBGMnL9Z';
+const SUPABASE_URL = 'https://maayjshlsxvxtrgjpcep.supabase.co'; // projeto "Casillas": conta única da plataforma
+const SUPABASE_KEY = 'sb_publishable_1p4-6-tNmiBhz0edN-UQDQ_sbwJwABo';
 const $ = id => document.getElementById(id);
-let session = null;   // { access_token, refresh_token, expires_at, email, user_id }
+const PRODUCT_NAMES = { 'pacote-completo': 'Pacote completo', code: 'Code', academy: 'Academy', macro: 'Macro', otimizador: 'Otimizador', casillas: 'Calculadoras', cam: 'CAM', biblioteca: 'Biblioteca', plataforma: 'Teste' };
+let session = null;
 let customers = [];
 
-// ───────── API ─────────
-async function call(path, { method = 'GET', body, prefer } = {}) {
+async function call(path, { method = 'GET', body } = {}) {
   if (session && session.expires_at - 60 < Date.now() / 1000) await refresh();
   const headers = { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' };
   if (session) headers.Authorization = 'Bearer ' + session.access_token;
-  if (prefer) headers.Prefer = prefer;
   const r = await fetch(SUPABASE_URL + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   const text = await r.text();
   let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-  if (!r.ok) throw new Error((data && (data.msg || data.message || data.error_description || data.error)) || 'erro ' + r.status);
+  if (!r.ok) { const e = new Error((data && (data.msg || data.message || data.error_description || data.error)) || 'erro ' + r.status); e.code = data && data.code; throw e; }
   return data;
 }
+const rpc = (name, args) => call('/rest/v1/rpc/' + name, { method: 'POST', body: args || {} });
 
 function keep(data, email) {
-  session = {
-    access_token: data.access_token, refresh_token: data.refresh_token,
-    expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
-    email: email || (data.user && data.user.email), user_id: (data.user && data.user.id) || (session && session.user_id),
-  };
-  sessionStorage.setItem('cc.admin', JSON.stringify(session)); // só nesta aba: fechou, saiu
+  session = { access_token: data.access_token, refresh_token: data.refresh_token,
+    expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600), email: email || (data.user && data.user.email) };
+  sessionStorage.setItem('cc.admin2', JSON.stringify(session)); // só nesta aba: fechou, saiu
 }
-
 async function refresh() {
-  const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
-    method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: session.refresh_token }),
-  });
+  const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', { method: 'POST',
+    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: session.refresh_token }) });
   if (!r.ok) { logout(); throw new Error('Sessão expirada: entre de novo.'); }
   keep(await r.json(), session.email);
 }
+function logout() { sessionStorage.removeItem('cc.admin2'); session = null; location.reload(); }
 
-function logout() {
-  sessionStorage.removeItem('cc.admin');
-  session = null;
-  location.reload();
-}
-
-// ───────── Utilidades ─────────
 const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
 const fmtDateTime = iso => iso ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
-const money = cents => cents == null ? '' : (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const addMonths = (base, months) => { const d = new Date(base); d.setMonth(d.getMonth() + months); return d.toISOString(); };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
 function show(el, text, ok) { el.textContent = text; el.className = 'msg ' + (text ? (ok ? 'ok' : 'bad') : ''); }
 
-function activeLicense(c) {
-  const now = Date.now();
-  return (c.licenses || [])
-    .filter(l => l.status === 'active' && Date.parse(l.starts_at) <= now && (!l.expires_at || Date.parse(l.expires_at) > now))
-    .sort((a, b) => (b.kind === 'perpetual') - (a.kind === 'perpetual') || Date.parse(b.expires_at || 0) - Date.parse(a.expires_at || 0))[0];
-}
-
 function stateOf(c) {
-  const lic = activeLicense(c);
-  if (lic) return { key: 'licensed', label: lic.kind === 'perpetual' ? 'Vitalícia' : 'Assinatura até ' + fmtDate(lic.expires_at), cls: 'b-ok' };
-  if (Date.parse(c.trial_ends_at) > Date.now()) {
-    const d = Math.ceil((Date.parse(c.trial_ends_at) - Date.now()) / 86400000);
+  const now = Date.now();
+  const active = (c.entitlements || []).filter(e => e.status === 'ACTIVE' && (!e.valid_until || Date.parse(e.valid_until) > now));
+  if (active.length) return { key: 'licensed', label: 'Com licença (' + active.map(e => PRODUCT_NAMES[e.product] || e.product).join(', ') + ')', cls: 'b-ok' };
+  if (c.trial && Date.parse(c.trial.ends_at) > now) {
+    const d = Math.ceil((Date.parse(c.trial.ends_at) - now) / 86400000);
     return { key: 'trial', label: 'Teste: ' + d + (d === 1 ? ' dia' : ' dias'), cls: 'b-trial' };
   }
-  return { key: 'expired', label: 'Teste encerrado', cls: 'b-bad' };
+  return { key: 'expired', label: c.trial ? 'Teste encerrado' : 'Sem teste iniciado', cls: 'b-bad' };
 }
 
-// ───────── Entrar ─────────
 async function login() {
   const email = $('l-email').value.trim().toLowerCase(), pass = $('l-pass').value;
-  show($('l-msg'), '');
-  $('l-go').disabled = true;
+  show($('l-msg'), ''); $('l-go').disabled = true;
   try {
-    const data = await call('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password: pass } });
-    keep(data, email);
+    keep(await call('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password: pass } }), email);
     await enter();
-  } catch (e) {
-    show($('l-msg'), /invalid login/i.test(e.message) ? 'E-mail ou senha incorretos.' : e.message);
-  } finally { $('l-go').disabled = false; }
+  } catch (e) { show($('l-msg'), /invalid login/i.test(e.message) ? 'E-mail ou senha incorretos.' : e.message); }
+  finally { $('l-go').disabled = false; }
 }
 
 async function enter() {
-  // Só quem está na tabela de administradores enxerga a própria linha
-  const me = await call('/rest/v1/admins?select=user_id&user_id=eq.' + encodeURIComponent(session.user_id || ''));
-  if (!me || me.length === 0) {
-    sessionStorage.removeItem('cc.admin'); session = null;
-    show($('l-msg'), 'Esta conta não é de administrador.');
+  try { customers = await rpc('platform_admin_overview_v1'); }
+  catch (e) {
+    sessionStorage.removeItem('cc.admin2'); session = null;
+    show($('l-msg'), e.code === '42501' || /negado/i.test(e.message) ? 'Esta conta não é de administrador.' : e.message);
     return;
   }
-  $('login').classList.add('hidden');
-  $('panel').classList.remove('hidden');
-  $('who').innerHTML = esc(session.email) + '<br><a href="#" id="out" style="color:var(--blue)">sair</a>';
-  $('out').addEventListener('click', e => { e.preventDefault(); logout(); });
-  await load();
-}
-
-// ───────── Clientes ─────────
-async function load() {
-  show($('p-msg'), '');
-  try {
-    customers = await call('/rest/v1/profiles?select=*,licenses(*),devices(*)&order=created_at.desc&limit=500');
-    render();
-  } catch (e) { show($('p-msg'), 'Não foi possível carregar: ' + e.message); }
+  $('login').classList.add('hidden'); $('panel').classList.remove('hidden');
+  $('who').textContent = session.email;
+  render(); loadLicenses();
 }
 
 function render() {
+  const counts = { all: customers.length, trial: 0, licensed: 0, expired: 0 };
+  customers.forEach(c => { counts[stateOf(c).key]++; });
+  $('stats').innerHTML = [['Contas', counts.all], ['Em teste', counts.trial], ['Com licença', counts.licensed], ['Encerrados', counts.expired]]
+    .map(([l, n]) => '<div class="stat"><b>' + n + '</b><span>' + l + '</span></div>').join('');
   const q = $('q').value.trim().toLowerCase(), f = $('filter').value;
-  const counts = { total: customers.length, trial: 0, licensed: 0, expired: 0 };
-  for (const c of customers) counts[stateOf(c).key]++;
-  $('stats').innerHTML =
-    `<div class="stat"><b>${counts.total}</b><span>contas</span></div>` +
-    `<div class="stat"><b>${counts.trial}</b><span>em teste</span></div>` +
-    `<div class="stat"><b>${counts.licensed}</b><span>com licença</span></div>` +
-    `<div class="stat"><b>${counts.expired}</b><span>teste encerrado</span></div>`;
-
-  const list = customers.filter(c =>
-    (!q || (c.email || '').toLowerCase().includes(q) || (c.full_name || '').toLowerCase().includes(q)) &&
-    (f === 'all' || stateOf(c).key === f));
-
+  const list = customers.filter(c => (!q || (c.email || '').toLowerCase().includes(q)) && (f === 'all' || stateOf(c).key === f));
   const box = $('customers');
-  box.innerHTML = list.length ? '' : '<div class="card muted">Nenhum cliente encontrado.</div>';
-  for (const c of list) box.appendChild(customerCard(c));
+  if (!list.length) { box.innerHTML = '<div class="muted">Nenhuma conta encontrada.</div>'; return; }
+  box.innerHTML = list.map(c => {
+    const st = stateOf(c);
+    const ents = (c.entitlements || []).map(e => '<div>' + esc(PRODUCT_NAMES[e.product] || e.product) + ' · ' + esc(e.status) + ' · ' +
+      (e.valid_until ? 'até ' + fmtDate(e.valid_until) : 'vitalícia' + (e.updates_until ? ' (atualizações até ' + fmtDate(e.updates_until) + ')' : '')) + '</div>').join('');
+    const devs = (c.devices || []).map(d => '<div class="item"><span class="grow">' + esc(d.label || d.platform) + ' · ' + esc(String(d.device_id).slice(0, 8)) +
+      ' · visto ' + fmtDateTime(d.last_seen) + (d.revoked ? ' · <b>liberado</b>' : '') + '</span>' +
+      (d.revoked ? '' : '<button class="small danger" data-rel="' + esc(c.user_id) + '|' + esc(d.device_id) + '">Liberar aparelho</button>') + '</div>').join('');
+    return '<div class="card customer"><div class="top"><div><div class="email">' + esc(c.email) + '</div><div class="muted">Criada em ' + fmtDate(c.created_at) +
+      ' · último acesso ' + fmtDateTime(c.last_sign_in) + '</div></div><span class="badge ' + st.cls + '">' + esc(st.label) + '</span></div>' +
+      (ents ? '<div class="muted">' + ents + '</div>' : '') + (devs ? '<details><summary>Aparelhos (' + c.devices.filter(d => !d.revoked).length + ' de 2)</summary><div class="list">' + devs + '</div></details>' : '') + '</div>';
+  }).join('');
+  box.querySelectorAll('[data-rel]').forEach(b => b.addEventListener('click', async () => {
+    const [u, d] = b.dataset.rel.split('|'); b.disabled = true;
+    try { await rpc('platform_admin_release_device_v1', { p_user_id: u, p_device_id: d }); await reload(); } catch (e) { show($('p-msg'), e.message); }
+  }));
 }
 
-function customerCard(c) {
-  const st = stateOf(c);
-  const el = document.createElement('div');
-  el.className = 'card customer';
-  const lic = activeLicense(c);
-  const maxDevices = lic ? lic.max_devices : 2;
-  const devices = (c.devices || []).sort((a, b) => Date.parse(b.last_seen) - Date.parse(a.last_seen));
-  const licenses = (c.licenses || []).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
-
-  el.innerHTML = `
-    <div class="top">
-      <div>
-        <div class="email">${esc(c.email)}</div>
-        <div class="muted">${c.full_name ? esc(c.full_name) + ' · ' : ''}conta criada em ${fmtDate(c.created_at)} · teste até ${fmtDate(c.trial_ends_at)}</div>
-      </div>
-      <span class="badge ${st.cls}">${esc(st.label)}</span>
-    </div>
-
-    <details ${lic ? '' : 'open'}>
-      <summary>Ativar licença</summary>
-      <div class="grid" style="margin-top:10px">
-        <label>Tipo
-          <select data-f="kind">
-            <option value="perpetual" selected>Vitalícia</option>
-            <option value="subscription">Assinatura</option>
-          </select>
-        </label>
-        <label data-for="subscription" class="hidden">Duração
-          <select data-f="months">
-            <option value="1">1 mês</option><option value="3">3 meses</option><option value="6">6 meses</option>
-            <option value="12" selected>1 ano</option><option value="24">2 anos</option>
-          </select>
-        </label>
-        <label data-for="perpetual">Atualizações
-          <select data-f="updates">
-            <option value="all" selected>todas (sem prazo)</option><option value="12">por 1 ano</option><option value="24">por 2 anos</option>
-          </select>
-        </label>
-        <label>Aparelhos <input data-f="devices" type="number" min="1" max="20" value="2" inputmode="numeric" /></label>
-        <label>Valor recebido (R$) <input data-f="amount" type="text" inputmode="decimal" placeholder="ex.: 29,90" /></label>
-        <label>Referência do Pix <input data-f="ref" type="text" placeholder="id do comprovante" /></label>
-      </div>
-      <label style="margin-top:10px">Observação <textarea data-f="notes" placeholder="ex.: pagou pelo WhatsApp em 12/10"></textarea></label>
-      <div class="row" style="margin-top:10px">
-        <button class="primary" data-a="activate">Ativar</button>
-      </div>
-    </details>
-
-    <div>
-      <div class="muted" style="margin-bottom:6px">Licenças</div>
-      <div class="list">${licenses.length ? licenses.map(licenseRow).join('') : '<div class="muted">Nenhuma ainda.</div>'}</div>
-    </div>
-
-    <div>
-      <div class="muted" style="margin-bottom:6px">Aparelhos (${devices.filter(d => !d.revoked).length} de ${maxDevices})</div>
-      <div class="list">${devices.length ? devices.map(deviceRow).join('') : '<div class="muted">Nenhum ainda.</div>'}</div>
-    </div>
-
-    <div class="row">
-      <button class="small" data-a="trial7">Estender teste +7 dias</button>
-      <button class="small" data-a="copy">Copiar mensagem para o WhatsApp</button>
-    </div>
-    <div class="msg" data-msg></div>`;
-
-  const msg = el.querySelector('[data-msg]');
-  const kind = el.querySelector('[data-f=kind]');
-  kind.addEventListener('change', () => {
-    el.querySelector('[data-for=subscription]').classList.toggle('hidden', kind.value !== 'subscription');
-    el.querySelector('[data-for=perpetual]').classList.toggle('hidden', kind.value !== 'perpetual');
-  });
-
-  el.addEventListener('click', async ev => {
-    const b = ev.target.closest('button[data-a]');
-    if (!b) return;
-    b.disabled = true;
-    try {
-      const done = await action(b.dataset.a, b.dataset.id, c, el);
-      if (done) { show(msg, done, true); await load(); }
-    } catch (e) {
-      show(msg, 'Não deu certo: ' + e.message, false);
-    } finally { b.disabled = false; }
-  });
-  return el;
+async function loadLicenses() {
+  try {
+    const ls = await rpc('platform_admin_licenses_v1');
+    const names = { AVAILABLE: ['Disponível', 'b-trial'], ACTIVE: ['Ativa', 'b-ok'], REVOKED: ['Revogada', 'b-bad'] };
+    $('licenses').innerHTML = ls.length ? ls.map(l => '<div class="item"><span class="grow"><b>' + esc(PRODUCT_NAMES[l.product] || l.product) + '</b> · ' +
+      (l.valid_days ? l.valid_days + ' dias' : 'vitalícia' + (l.updates_months ? ' + ' + l.updates_months + ' meses de atualização' : '')) +
+      (l.note ? ' · ' + esc(l.note) : '') + '<br><span class="muted">criada ' + fmtDate(l.created_at) + (l.activated_by_email ? ' · ativada por ' + esc(l.activated_by_email) + ' em ' + fmtDate(l.activated_at) : '') + '</span></span>' +
+      '<span class="badge ' + names[l.status][1] + '">' + names[l.status][0] + '</span>' +
+      (l.status === 'REVOKED' ? '' : '<button class="small danger" data-rev="' + esc(l.id) + '">' + (l.status === 'AVAILABLE' ? 'Cancelar código' : 'Revogar') + '</button>') + '</div>').join('')
+      : '<div class="muted">Nenhuma licença gerada ainda.</div>';
+    $('licenses').querySelectorAll('[data-rev]').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm(b.textContent + '? Isso não pode ser desfeito.')) return;
+      b.disabled = true;
+      try { await rpc('platform_admin_revoke_license_v1', { p_license_id: b.dataset.rev }); await reload(); } catch (e) { show($('p-msg'), e.message); }
+    }));
+  } catch (e) { $('licenses').innerHTML = '<div class="msg bad">' + esc(e.message) + '</div>'; }
 }
 
-function licenseRow(l) {
-  const now = Date.now();
-  const valid = l.status === 'active' && (!l.expires_at || Date.parse(l.expires_at) > now);
-  const badge = l.status === 'revoked' ? '<span class="badge b-bad">revogada</span>'
-    : valid ? '<span class="badge b-ok">ativa</span>' : '<span class="badge b-off">vencida</span>';
-  const what = l.kind === 'perpetual'
-    ? 'Vitalícia' + (l.updates_until ? ' · atualizações até ' + fmtDate(l.updates_until) : '')
-    : 'Assinatura até ' + fmtDate(l.expires_at);
-  const extra = [money(l.amount_cents), l.payment_ref ? 'Pix ' + esc(l.payment_ref) : '', l.max_devices + ' aparelhos', 'criada ' + fmtDate(l.created_at)]
-    .filter(Boolean).join(' · ');
-  return `<div class="item">
-    <div class="grow">${badge} ${esc(what)}<div class="muted">${extra}${l.notes ? '<br>' + esc(l.notes) : ''}</div></div>
-    ${l.kind === 'subscription' && l.status === 'active' ? `<button class="small" data-a="renew" data-id="${l.id}">Renovar +1 ano</button>` : ''}
-    <button class="small" data-a="devplus" data-id="${l.id}">+1 aparelho</button>
-    ${l.status === 'active'
-      ? `<button class="small danger" data-a="revoke" data-id="${l.id}">Revogar</button>`
-      : `<button class="small" data-a="restore" data-id="${l.id}">Reativar</button>`}
-  </div>`;
+async function reload() { customers = await rpc('platform_admin_overview_v1'); render(); loadLicenses(); }
+
+function syncKind() {
+  const perp = $('g-kind').value === 'perp';
+  $('g-days-l').classList.toggle('hidden', perp); $('g-upd-l').classList.toggle('hidden', !perp);
 }
 
-function deviceRow(d) {
-  return `<div class="item">
-    <div class="grow">${d.revoked ? '<span class="badge b-bad">bloqueado</span> ' : ''}${esc(d.label || 'Aparelho')} · ${d.platform}
-      <div class="muted">último uso ${fmtDateTime(d.last_seen)} · desde ${fmtDate(d.first_seen)}</div></div>
-    ${d.revoked
-      ? `<button class="small" data-a="unblock" data-id="${d.id}">Desbloquear</button>`
-      : `<button class="small danger" data-a="block" data-id="${d.id}">Bloquear</button>`}
-    <button class="small" data-a="remove" data-id="${d.id}">Liberar vaga</button>
-  </div>`;
+async function generate() {
+  show($('g-msg'), ''); $('g-out').innerHTML = ''; $('g-go').disabled = true;
+  const perp = $('g-kind').value === 'perp';
+  try {
+    const r = await rpc('platform_admin_create_licenses_v1', {
+      p_product_slug: $('g-prod').value, p_count: parseInt($('g-qty').value, 10) || 1,
+      p_valid_days: perp ? null : parseInt($('g-days').value, 10),
+      p_updates_months: perp ? parseInt($('g-upd').value, 10) || null : null,
+      p_note: $('g-note').value.trim() || null });
+    $('g-out').innerHTML = r.codes.map(c => '<div class="item"><code class="grow" style="font-size:17px;letter-spacing:1px">' + esc(c) + '</code><button class="small" data-copy="' + esc(c) + '">Copiar</button></div>').join('');
+    $('g-out').querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => { navigator.clipboard.writeText(b.dataset.copy).then(() => { b.textContent = 'Copiado'; }); }));
+    $('g-hint').textContent = 'Guarde agora: os códigos não aparecem de novo. O cliente digita em Arquivos › Conta › "Tem um código de licença?".';
+    show($('g-msg'), r.count + (r.count === 1 ? ' código gerado.' : ' códigos gerados.'), true);
+    loadLicenses();
+  } catch (e) { show($('g-msg'), e.message); }
+  finally { $('g-go').disabled = false; }
 }
 
-async function action(name, id, c, el) {
-  const lic = id && (c.licenses || []).find(l => l.id === id);
-  const f = k => el.querySelector('[data-f=' + k + ']').value;
-  switch (name) {
-    case 'activate': {
-      const kind = f('kind');
-      const amountText = f('amount').trim().replace(/\./g, '').replace(',', '.');
-      const amount = amountText ? Math.round(parseFloat(amountText) * 100) : null;
-      if (amountText && !(amount >= 0)) throw new Error('valor inválido');
-      const devices = Math.max(1, Math.min(20, parseInt(f('devices'), 10) || 2));
-      const now = new Date().toISOString();
-      // Assinatura nova começa quando a atual terminar (renovação antecipada não perde dias)
-      const current = activeLicense(c);
-      const start = kind === 'subscription' && current && current.kind === 'subscription' ? current.expires_at : now;
-      const body = {
-        user_id: c.id, kind, max_devices: devices, amount_cents: amount,
-        payment_ref: f('ref').trim() || null, notes: f('notes').trim() || null, created_by: session.user_id,
-        starts_at: now,
-        expires_at: kind === 'subscription' ? addMonths(start, parseInt(f('months'), 10)) : null,
-        updates_until: kind === 'perpetual' && f('updates') !== 'all' ? addMonths(now, parseInt(f('updates'), 10)) : null,
-      };
-      if (!confirm(`Ativar ${kind === 'perpetual' ? 'licença VITALÍCIA' : 'assinatura até ' + fmtDate(body.expires_at)} para ${c.email}?`)) return null;
-      await call('/rest/v1/licenses', { method: 'POST', body, prefer: 'return=minimal' });
-      return 'Licença ativada. O cliente vê na próxima vez que abrir o app.';
-    }
-    case 'renew': {
-      const base = Date.parse(lic.expires_at) > Date.now() ? lic.expires_at : new Date().toISOString();
-      const until = addMonths(base, 12);
-      if (!confirm('Renovar até ' + fmtDate(until) + '?')) return null;
-      await call('/rest/v1/licenses?id=eq.' + id, { method: 'PATCH', body: { expires_at: until }, prefer: 'return=minimal' });
-      return 'Renovada até ' + fmtDate(until) + '.';
-    }
-    case 'devplus':
-      await call('/rest/v1/licenses?id=eq.' + id, { method: 'PATCH', body: { max_devices: Math.min(20, lic.max_devices + 1) }, prefer: 'return=minimal' });
-      return 'Limite de aparelhos: ' + Math.min(20, lic.max_devices + 1) + '.';
-    case 'revoke':
-      if (!confirm('Revogar esta licença? O cliente volta às restrições na próxima abertura.')) return null;
-      await call('/rest/v1/licenses?id=eq.' + id, { method: 'PATCH', body: { status: 'revoked' }, prefer: 'return=minimal' });
-      return 'Licença revogada.';
-    case 'restore':
-      await call('/rest/v1/licenses?id=eq.' + id, { method: 'PATCH', body: { status: 'active' }, prefer: 'return=minimal' });
-      return 'Licença reativada.';
-    case 'block':
-      if (!confirm('Bloquear este aparelho para esta conta?')) return null;
-      await call('/rest/v1/devices?id=eq.' + id, { method: 'PATCH', body: { revoked: true }, prefer: 'return=minimal' });
-      return 'Aparelho bloqueado.';
-    case 'unblock':
-      await call('/rest/v1/devices?id=eq.' + id, { method: 'PATCH', body: { revoked: false }, prefer: 'return=minimal' });
-      return 'Aparelho desbloqueado.';
-    case 'remove':
-      if (!confirm('Liberar a vaga deste aparelho? (ele entra de novo se houver vaga)')) return null;
-      await call('/rest/v1/devices?id=eq.' + id, { method: 'DELETE', prefer: 'return=minimal' });
-      return 'Vaga liberada.';
-    case 'trial7': {
-      const base = Math.max(Date.parse(c.trial_ends_at), Date.now());
-      const until = new Date(base + 7 * 86400000).toISOString();
-      await call('/rest/v1/profiles?id=eq.' + c.id, { method: 'PATCH', body: { trial_ends_at: until }, prefer: 'return=minimal' });
-      return 'Teste estendido até ' + fmtDate(until) + '.';
-    }
-    case 'copy': {
-      const l = activeLicense(c);
-      const text = l
-        ? `Olá! Sua licença do Casillas Code está ativa (${l.kind === 'perpetual' ? 'vitalícia' : 'assinatura até ' + fmtDate(l.expires_at)}), ` +
-          `para até ${l.max_devices} aparelhos. Abra o app (https://casillas-code.pages.dev) e entre com ${c.email}. Obrigado pela compra!`
-        : `Olá! Recebemos seu contato sobre o Casillas Code. Assim que o Pix for confirmado, ativo a licença no e-mail ${c.email}.`;
-      try { await navigator.clipboard.writeText(text); } catch { prompt('Copie a mensagem:', text); return null; }
-      return 'Mensagem copiada: cole no WhatsApp do cliente.';
-    }
-  }
-  return null;
-}
-
-// ───────── Início ─────────
 $('l-go').addEventListener('click', login);
 $('l-pass').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
-$('q').addEventListener('input', render);
-$('filter').addEventListener('change', render);
-$('reload').addEventListener('click', load);
-
-try { session = JSON.parse(sessionStorage.getItem('cc.admin') || 'null'); } catch { session = null; }
-if (session) enter().catch(() => logout());
+$('logout').addEventListener('click', logout);
+$('reload').addEventListener('click', () => reload().catch(e => show($('p-msg'), e.message)));
+$('q').addEventListener('input', render); $('filter').addEventListener('change', render);
+$('g-kind').addEventListener('change', syncKind); $('g-go').addEventListener('click', generate);
+$('g-prod').addEventListener('change', () => {
+  const ok = ['academy', 'casillas'].includes($('g-prod').value);
+  $('g-kind').querySelector('option[value=perp]').disabled = !ok;
+  if (!ok) { $('g-kind').value = 'sub'; syncKind(); }
+});
+$('g-prod').dispatchEvent(new Event('change'));
+try { const saved = JSON.parse(sessionStorage.getItem('cc.admin2') || 'null'); if (saved) { session = saved; enter().catch(() => {}); } } catch { /* sem sessão */ }
 </script>
 </body>
 </html>

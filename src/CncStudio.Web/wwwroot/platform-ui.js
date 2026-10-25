@@ -82,6 +82,8 @@ function buyDialog(mod) {
 }
 
 /** Confere conta e licença do módulo. Resolve true se pode abrir. */
+export function ensureAccess(id) { return allowed(MODULES.find(m => m.id === id)); }
+
 async function allowed(mod) {
   let st = moduleState(mod.id);
   if (st === 'VALID' || st === 'TRIAL') { accountCheck().catch(() => {}); return true; } // confere de novo em segundo plano
