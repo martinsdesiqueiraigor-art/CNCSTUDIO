@@ -1072,6 +1072,9 @@ public partial class MainView : UserControl
         var renumber = new Button { Content = "Renumerar", Classes = { "bar", "primary" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
         var remove = new Button { Content = "Remover numeração", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
         var undo = new Button { Content = "Desfazer", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var insertSpaces = new Button { Content = "Espaçar código (N10 G01 X10)", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var removeSpaces = new Button { Content = "Juntar código (N10G01X10)", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var uppercase = new Button { Content = "Letras maiúsculas", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
 
         Grid Row(string label, Control control)
         {
@@ -1091,7 +1094,6 @@ public partial class MainView : UserControl
         panel.Children.Add(renumber);
         panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
         panel.Children.Add(remove);
-        panel.Children.Add(undo);
         panel.Children.Add(new TextBlock
         {
             Text = "P/Q do G70–G73, GOTO e M99 P acompanham a nova numeração.",
@@ -1100,6 +1102,21 @@ public partial class MainView : UserControl
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = 260,
         });
+        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
+        panel.Children.Add(new TextBlock { Text = "Formatar o programa", FontWeight = FontWeight.Bold });
+        panel.Children.Add(insertSpaces);
+        panel.Children.Add(removeSpaces);
+        panel.Children.Add(uppercase);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Comentários e textos ficam como estão. Dá para desfazer.",
+            FontSize = 12,
+            Opacity = 0.7,
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 260,
+        });
+        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
+        panel.Children.Add(undo);
 
         var flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
         flyout.Opened += (_, _) => undo.IsEnabled = Editor.CanUndo;
@@ -1121,6 +1138,21 @@ public partial class MainView : UserControl
         {
             flyout.Hide();
             ApplyRenumber(new RenumberOptions(Mode: RenumberMode.Remove));
+        };
+        insertSpaces.Click += (_, _) =>
+        {
+            flyout.Hide();
+            ApplyTextTool(text => NcTextTools.InsertSpaces(text, CurrentDialect), "Código espaçado", "O código já está espaçado.");
+        };
+        removeSpaces.Click += (_, _) =>
+        {
+            flyout.Hide();
+            ApplyTextTool(text => NcTextTools.RemoveSpaces(text, CurrentDialect), "Espaços removidos", "Não há espaços para remover.");
+        };
+        uppercase.Click += (_, _) =>
+        {
+            flyout.Hide();
+            ApplyTextTool(text => NcTextTools.ToUpperOutsideComments(text, CurrentDialect), "Convertido para maiúsculas", "O programa já está em maiúsculas.");
         };
         undo.Click += (_, _) =>
         {
@@ -1169,6 +1201,26 @@ public partial class MainView : UserControl
             _ when references > 0 => $"Renumerado de N{options.Start} em {options.Increment}; {references} referência(s) atualizada(s)",
             _ => $"Renumerado de N{options.Start} em {options.Increment}",
         };
+        _analysisTimer.Stop();
+        Analyze(keepView: true);
+    }
+
+    /// <summary>Aplica uma transformação de texto ao programa inteiro, como uma única ação desfazível.</summary>
+    private void ApplyTextTool(Func<string, string> transform, string doneMessage, string unchangedMessage)
+    {
+        StopSimulation();
+        string before = Editor.Text;
+        string after = transform(before);
+        if (after == before)
+        {
+            SetStatus(unchangedMessage);
+            return;
+        }
+
+        int line = Editor.TextArea.Caret.Line;
+        Editor.Document.Replace(0, Editor.Document.TextLength, after); // uma ação só no "Desfazer"
+        GoToLine(Math.Min(line, Editor.Document.LineCount));
+        _statusNote = doneMessage;
         _analysisTimer.Stop();
         Analyze(keepView: true);
     }
