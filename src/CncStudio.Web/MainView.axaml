@@ -142,18 +142,19 @@
 
     <!-- Barra superior: marca + ações -->
     <Border Grid.Row="0" Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource BrandOrange}" BorderThickness="0,0,0,2">
-      <!-- Marca | versão e situação da conta (encolhe e quebra em 2 linhas) | ações.
-           Celular em pé: as ações descem para uma segunda linha (ver ApplyHeaderLayout) -->
-      <Grid x:Name="HeaderGrid" Margin="12,10" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+      <!-- Marca (com versão e situação da conta embaixo) | ações, sempre na mesma linha (ver ApplyHeaderLayout) -->
+      <Grid x:Name="HeaderGrid" Margin="12,10" ColumnDefinitions="*,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Image Source="/Assets/simbolo.png" Height="30" />
-          <TextBlock x:Name="BrandText" VerticalAlignment="Center" FontSize="19" FontWeight="Bold">
-            <Run Text="Casillas" /><Run Text=" Code" Foreground="{DynamicResource BrandBlue}" />
-          </TextBlock>
+          <Image x:Name="BrandSymbol" Source="/Assets/simbolo.png" Height="30" VerticalAlignment="Center" />
+          <StackPanel VerticalAlignment="Center" Spacing="0">
+            <TextBlock x:Name="BrandText" FontSize="19" FontWeight="Bold">
+              <Run Text="Casillas" /><Run Text=" Code" Foreground="{DynamicResource BrandBlue}" />
+            </TextBlock>
+            <!-- versão e situação da conta ficam embaixo do nome -->
+            <TextBlock x:Name="VersionText" FontSize="10" Opacity="0.65" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
         </StackPanel>
-        <TextBlock x:Name="VersionText" Grid.Column="1" VerticalAlignment="Center" FontSize="11" Opacity="0.65" Margin="10,0,6,0"
-                   TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
-        <StackPanel x:Name="HeaderActions" Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <StackPanel x:Name="HeaderActions" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
           <!-- Celular deitado: alternar Código/Gráfico aqui em cima, para sobrar altura -->
           <StackPanel x:Name="HeaderPages" Orientation="Horizontal" IsVisible="False" Margin="0,0,6,0">
             <ToggleButton x:Name="HeaderCodeButton" Classes="page" Content="Código" IsChecked="True" CornerRadius="6,0,0,6" />
