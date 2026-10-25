@@ -6,7 +6,7 @@ namespace CncStudio.Core.Generators;
 /// <summary>Ponte em JSON entre os geradores e a tela em HTML da web (catálogo, geração e validação).</summary>
 public static class GeneratorsJson
 {
-    /// <summary>Catálogo para montar o formulário: [{id,title,description,params:[{id,label,unit,def,min,max,integer,hint}]}].</summary>
+    /// <summary>Catálogo para montar o formulário: [{id,title,description,macro,params:[{id,label,unit,def,min,max,integer,hint}],texts:[{id,label,def,max,hint}]}].</summary>
     public static string Catalog()
     {
         var array = new JsonArray();
@@ -22,7 +22,13 @@ public static class GeneratorsJson
                 });
             }
 
-            array.Add(new JsonObject { ["id"] = g.Id, ["title"] = g.Title, ["description"] = g.Description, ["params"] = parameters });
+            var texts = new JsonArray();
+            foreach (GeneratorTextParameter t in g.TextParameters)
+            {
+                texts.Add(new JsonObject { ["id"] = t.Id, ["label"] = t.Label, ["def"] = t.Default, ["max"] = t.MaxLength, ["hint"] = t.Hint });
+            }
+
+            array.Add(new JsonObject { ["id"] = g.Id, ["title"] = g.Title, ["description"] = g.Description, ["params"] = parameters, ["texts"] = texts, ["macro"] = g.SupportsMacro });
         }
 
         return array.ToJsonString();
@@ -41,12 +47,19 @@ public static class GeneratorsJson
         }
 
         Dictionary<string, double> values = [];
+        Dictionary<string, string> texts = [];
         try
         {
             if (JsonNode.Parse(valuesJson) is JsonObject obj)
             {
                 foreach ((string key, JsonNode? node) in obj)
                 {
+                    if (node is JsonValue sv && sv.TryGetValue(out string? str))
+                    {
+                        texts[key] = str ?? "";
+                        continue;
+                    }
+
                     values[key] = node is JsonValue v && v.TryGetValue(out double d) ? d : double.NaN;
                 }
             }
@@ -56,7 +69,7 @@ public static class GeneratorsJson
             return Result(false, "", ["Valores inválidos."]);
         }
 
-        GeneratorResult result = generator.Generate(values, mode == "macro" ? GeneratorOutput.MacroCall : GeneratorOutput.Plain);
+        GeneratorResult result = generator.Generate(values, texts, mode == "macro" && generator.SupportsMacro ? GeneratorOutput.MacroCall : GeneratorOutput.Plain);
         return Result(result.Ok, result.Program, result.Errors);
     }
 
