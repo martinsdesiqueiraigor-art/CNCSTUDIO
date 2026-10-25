@@ -67,7 +67,8 @@ public partial class MainView : UserControl
         Editor.TextArea.TextView.LineTransformers.Add(_colorizer);
         Editor.TextArea.TextView.BackgroundRenderers.Add(_lineMotion);
         Editor.TextArea.TextView.BackgroundRenderers.Add(_diagnosticMarks);
-        ProblemsButton.Click += (_, _) => GoToNextProblem();
+        BuildProblemsCard();
+        ProblemsButton.Click += (_, _) => OpenProblemsCard();
         Editor.Options.HighlightCurrentLine = true;
         Editor.TextChanged += (_, _) =>
         {
@@ -353,6 +354,7 @@ public partial class MainView : UserControl
     private void FillExamplesMenu()
     {
         var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
+        Hide3DWhileOpen(menu);
         ExamplesButton.Flyout = menu;
         void Add(string header, Func<Task> action)
         {
@@ -1101,6 +1103,7 @@ public partial class MainView : UserControl
 
         var flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
         flyout.Opened += (_, _) => undo.IsEnabled = Editor.CanUndo;
+        Hide3DWhileOpen(flyout);
         ToolsButton.Flyout = flyout;
 
         renumber.Click += (_, _) =>
@@ -1466,25 +1469,69 @@ public partial class MainView : UserControl
         Editor.TextArea.TextView.InvalidateLayer(KnownLayer.Selection);
     }
 
-    /// <summary>Vai para o próximo problema (erros primeiro, depois avisos) e mostra a mensagem no rodapé.</summary>
-    private void GoToNextProblem()
+    private readonly TextBlock _problemTitle = new() { FontWeight = FontWeight.Bold, FontSize = 15 };
+    private readonly TextBlock _problemMessage = new() { TextWrapping = TextWrapping.Wrap, FontSize = 14 };
+    private readonly TextBlock _problemAdvice = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13, Opacity = 0.85 };
+    private readonly TextBlock _problemLine = new() { TextWrapping = TextWrapping.Wrap, FontFamily = new FontFamily("avares://CncStudio.Web/Assets/Fonts#DejaVu Sans Mono"), FontSize = 12, Opacity = 0.75 };
+
+    private List<ParseDiagnostic> OrderedProblems() =>
+        _analysis is { } a
+            ? [.. a.Diagnostics.OrderByDescending(d => d.Severity == DiagnosticSeverity.Error).ThenBy(d => d.LineNumber)]
+            : [];
+
+    /// <summary>Cartão do botão "N avisos/erros": o que é, em qual linha e como corrigir, com Anterior e Próximo.</summary>
+    private void BuildProblemsCard()
     {
-        if (_analysis is not { } a || a.Diagnostics.Count == 0)
+        var previous = new Button { Content = "‹ Anterior", Classes = { "bar" }, MinWidth = 96 };
+        var next = new Button { Content = "Próximo ›", Classes = { "bar" }, MinWidth = 96 };
+        previous.Click += (_, _) => StepProblem(-1);
+        next.Click += (_, _) => StepProblem(1);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { previous, next } };
+        var panel = new StackPanel
         {
+            Spacing = 8,
+            MaxWidth = 340,
+            Children = { _problemTitle, _problemMessage, _problemLine, new TextBlock { Text = "Como corrigir", FontWeight = FontWeight.SemiBold, FontSize = 12, Opacity = 0.7 }, _problemAdvice, buttons },
+        };
+        var flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
+        ProblemsButton.Flyout = flyout;
+    }
+
+    /// <summary>Toque no botão: vai ao primeiro problema (ou ao seguinte se já estava em um) e mostra o cartão.</summary>
+    private void OpenProblemsCard() => StepProblem(1);
+
+    private void StepProblem(int direction)
+    {
+        List<ParseDiagnostic> ordered = OrderedProblems();
+        if (ordered.Count == 0)
+        {
+            ProblemsButton.Flyout?.Hide();
             return;
         }
 
-        List<ParseDiagnostic> ordered = a.Diagnostics
-            .OrderByDescending(d => d.Severity == DiagnosticSeverity.Error)
-            .ThenBy(d => d.LineNumber)
-            .ToList();
-        _problemIndex = (_problemIndex + 1) % ordered.Count;
+        _problemIndex = ((_problemIndex + direction) % ordered.Count + ordered.Count) % ordered.Count;
         ParseDiagnostic d = ordered[_problemIndex];
-
         ShowPage(graph: false);
         GoToLine(d.LineNumber);
         string kind = d.Severity == DiagnosticSeverity.Error ? "Erro" : "Aviso";
+        _problemTitle.Text = $"{kind} {_problemIndex + 1} de {ordered.Count} · linha {d.LineNumber}";
+        _problemTitle.Foreground = d.Severity == DiagnosticSeverity.Error ? Brushes.IndianRed : Brushes.Goldenrod;
+        _problemMessage.Text = d.Message;
+        _problemLine.Text = LineText(d.LineNumber);
+        _problemAdvice.Text = DiagnosticAdvice.For(d.Message, d.Severity);
         SetStatus($"{kind} {_problemIndex + 1}/{ordered.Count} · linha {d.LineNumber}: {d.Message}");
+    }
+
+    private string LineText(int lineNumber)
+    {
+        if (lineNumber < 1 || lineNumber > Editor.Document.LineCount)
+        {
+            return "";
+        }
+
+        var line = Editor.Document.GetLineByNumber(lineNumber);
+        string text = Editor.Document.GetText(line.Offset, line.Length).Trim();
+        return text.Length > 80 ? text[..80] + "…" : text;
     }
 
     // O navegador roda em modo invariante (sem "pt-BR"): vírgula decimal pela cultura invariante copiada
@@ -1609,6 +1656,16 @@ public partial class MainView : UserControl
     private Button SpeedDownButton = new() { Content = "−", MinWidth = 44, MinHeight = 44 };
     private Button SpeedUpButton = new() { Content = "+", MinWidth = 44, MinHeight = 44 };
 
+    /// <summary>
+    /// O 3D é um elemento do navegador e fica por cima de tudo que o Avalonia desenha: sem isso o menu aparece cortado.
+    /// Enquanto um menu está aberto o 3D some; ao fechar, volta.
+    /// </summary>
+    private void Hide3DWhileOpen(Avalonia.Controls.Primitives.FlyoutBase flyout)
+    {
+        flyout.Opened += (_, _) => Scene3DSlot.IsVisible = false;
+        flyout.Closed += (_, _) => Scene3DSlot.IsVisible = _view3D;
+    }
+
     private void BuildSpeedFlyout()
     {
         ToolTip.SetTip(SpeedSlider, "Velocidade (passos por segundo)");
@@ -1714,22 +1771,27 @@ public partial class MainView : UserControl
     }
 
     /// <summary>
-    /// Cabeçalho: no celular em pé, marca "Casillas Code" e situação na 1ª linha e os botões na 2ª
-    /// (sobra altura); deitado, uma linha só e compacta; no PC, tudo numa linha.
+    /// Cabeçalho: uma linha só. Marca com a versão embaixo à esquerda e as ações à direita; celular em pé usa
+    /// botões mais justos para caber; deitado, só o símbolo (e a versão) para sobrar altura.
     /// </summary>
     private void ApplyHeaderLayout()
     {
         bool narrow = _narrow == true;
         bool compact = _compact == true;
-        bool twoRows = narrow && !compact;
+        bool phonePortrait = narrow && !compact;
 
-        Grid.SetRow(HeaderActions, twoRows ? 1 : 0);
-        Grid.SetColumn(HeaderActions, twoRows ? 0 : 2);
-        Grid.SetColumnSpan(HeaderActions, twoRows ? 3 : 1);
-        HeaderActions.HorizontalAlignment = twoRows ? HorizontalAlignment.Right : HorizontalAlignment.Stretch;
-        HeaderActions.Margin = twoRows ? new Thickness(0, 10, 0, 0) : new Thickness(0);
+        HeaderActions.HorizontalAlignment = HorizontalAlignment.Right;
+        HeaderActions.Spacing = phonePortrait ? 4 : 6;
+        BrandText.FontSize = phonePortrait ? 16 : 19;
+        BrandSymbol.Height = phonePortrait ? 26 : 30;
+        VersionText.FontSize = phonePortrait ? 9.5 : 11;
+        double buttonWidth = phonePortrait ? 38 : 44;
+        OpenButton.MinWidth = buttonWidth;
+        ExamplesButton.MinWidth = buttonWidth;
+        OpenButton.Padding = ExamplesButton.Padding = phonePortrait ? new Thickness(6, 6) : new Thickness(12, 6);
+        DialectCombo.MinWidth = phonePortrait ? 0 : 100;
         BrandText.IsVisible = !(narrow && compact); // deitado no celular: só o símbolo
-        HeaderGrid.Margin = compact ? new Thickness(10, 5) : new Thickness(12, 10);
+        HeaderGrid.Margin = compact ? new Thickness(10, 5) : phonePortrait ? new Thickness(10, 6) : new Thickness(12, 10);
     }
 
     private void ShowPage(bool graph)

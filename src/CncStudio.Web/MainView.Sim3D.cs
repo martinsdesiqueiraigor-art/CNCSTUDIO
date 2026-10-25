@@ -241,7 +241,9 @@ public partial class MainView
             list.Children.Add(item);
         }
 
-        RapidsButton.Flyout = new Flyout { Content = new ScrollViewer { Content = list, MaxHeight = 360 } };
+        var rapids = new Flyout { Content = new ScrollViewer { Content = list, MaxHeight = 360 } };
+        Hide3DWhileOpen(rapids);
+        RapidsButton.Flyout = rapids;
     }
 
     /// <summary>Leva o editor à linha do G00 e a simulação ao passo em que ele acontece.</summary>
