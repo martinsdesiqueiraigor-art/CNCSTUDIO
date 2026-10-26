@@ -104,6 +104,9 @@ internal static partial class WebInterop
     [return: JSMarshalAs<JSType.String>]
     public static partial string? StorageGet([JSMarshalAs<JSType.String>] string key);
 
+    [JSImport("setAccent", Module)]
+    public static partial void SetAccent([JSMarshalAs<JSType.String>] string color);
+
     [JSImport("storageSet", Module)]
     public static partial void StorageSet([JSMarshalAs<JSType.String>] string key, [JSMarshalAs<JSType.String>] string value);
 
