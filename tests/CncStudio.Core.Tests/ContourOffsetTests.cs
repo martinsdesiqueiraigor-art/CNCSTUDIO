@@ -145,3 +145,38 @@ public class ContourOffsetTests
         Assert.False(rounded.OffsetOutside(-4).Ok);
     }
 }
+
+public class ToolpathViewTests
+{
+    [Fact]
+    public void BoundsDoContorno()
+    {
+        (double minX, double minY, double maxX, double maxY) = Contour.Rectangle(2, 3, 20, 10).BoundsXY();
+        Assert.Equal((2, 3, 22, 13), (minX, minY, maxX, maxY));
+        (double cx0, double cy0, double cx1, double cy1) = Contour.Circle(new Point2(0, 0), 5).BoundsXY();
+        Assert.Equal(-5, cx0, 2);
+        Assert.Equal(5, cx1, 2);
+        Assert.Equal(-5, cy0, 2);
+        Assert.Equal(5, cy1, 2);
+    }
+
+    [Fact]
+    public void PrevisaoMostraSoOCorteECortaNoRapido()
+    {
+        var tool = new CamTool(1, 10, 3000, 500, 200);
+        var lv = new CamLevels(50, 2, 0, -3, 3);
+        CamOperation op = CamOperations.Contour(Contour.Rectangle(0, 0, 40, 20), tool, lv, new ContourParams(ContourSide.Outside)).Operation!;
+        List<List<Point2>> lines = ToolpathView.CuttingPolylines(op);
+        Assert.NotEmpty(lines);
+        // nenhum ponto cortante entra no retângulo
+        Assert.All(lines.SelectMany(l => l), p => Assert.False(p.X > 0.01 && p.X < 39.99 && p.Y > 0.01 && p.Y < 19.99));
+    }
+
+    [Fact]
+    public void PrevisaoDeFuracaoMarcaCadaFuro()
+    {
+        var tool = new CamTool(1, 6, 3000, 500, 200);
+        CamOperation op = CamOperations.Drilling(tool, 50, [new(10, 10), new(30, 10)], DrillCycleKind.Drill, 0, -5, 2).Operation!;
+        Assert.Equal(4, ToolpathView.CuttingPolylines(op).Count);
+    }
+}

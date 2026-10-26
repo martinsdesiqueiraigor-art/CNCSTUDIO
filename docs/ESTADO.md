@@ -74,3 +74,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `Core/Cam/CamPost.Generate(operações, PostOptions)`: cabeçalho, troca de ferramenta (T/M6, G43 H no Fanuc, D no Siemens), S/M3, refrigerante, G54, movimentos com avanço modal, arcos e hélices (I/J), G41/G42 (Fanuc `D`, Siemens sem D), furação G81/G82/G83/G73 (Fanuc) e CYCLE81/82/83 com MCALL (Siemens), fim com M30.
 - Cada programa passa pelo `MachineExecutor`: o percurso simulado é igual ao gerado (movimento a movimento) e a compensação G41 desloca para o lado certo.
 - 17 testes novos; total 818 passando. `DrillCycle` ganhou `SafeZ`. Próximo: entrega 5 (tela do CAM no desktop).
+
+## CAM-01 entrega 5 — tela do CAM no desktop (ajuste-cam-tela)
+- Módulo **CAM** ativo na barra lateral: abrir DXF ou desenhar retângulo/círculo, lista de contornos, ferramenta e alturas, operação (contorno fora/dentro/sobre a linha, bolsão, faceamento, furação pelos círculos), lista de operações, comando Fanuc/Siemens, prévia 2D com o percurso, "Gerar programa" e "Abrir no editor (simular no Code)".
+- Testado em Xvfb: retângulo + círculo → contorno por fora → programa abre no Code com 0 erros (2 avisos de G28, que o simulador não desenha).
+- Core: `Contour.BoundsXY`, `ToolpathView.CuttingPolylines` (+3 testes; total 821). Só desktop; na web o CAM continua "em breve".
+- Falta: testar com um DXF real de máquina, ilhas no bolsão, banco de ferramentas, torno e 3D (entrega 6).
