@@ -109,11 +109,11 @@ public partial class MainView : UserControl
         _simTimer = new DispatcherTimer();
         _simTimer.Tick += (_, _) => SimTick();
         // Sem licença nem teste, a simulação (reproduzir e passo a passo) fica travada
-        SimStartButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(0); } };
-        SimBackButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(Math.Min(_step, _stepEnds.Length) - 1); } };
-        SimStepButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(_step >= _stepEnds.Length ? 1 : _step + 1); } };
-        SimEndButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(_stepEnds.Length); } };
-        SimPlayButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { TogglePlay(); } };
+        SimStartButton.Click += async (_, _) => await SimCommandAsync("start", 0);
+        SimBackButton.Click += async (_, _) => await SimCommandAsync("back", 0);
+        SimStepButton.Click += async (_, _) => await SimCommandAsync("step", 0);
+        SimEndButton.Click += async (_, _) => await SimCommandAsync("end", 0);
+        SimPlayButton.Click += async (_, _) => await SimCommandAsync("play", 0);
         BuildSpeedFlyout();
         SpeedSlider.PropertyChanged += (_, e) =>
         {
@@ -1605,6 +1605,7 @@ public partial class MainView : UserControl
         SimSlider.Maximum = Math.Max(1, _stepEnds.Length);
         SimSlider.Value = Math.Min(_step, SimSlider.Maximum);
         _syncingSlider = false;
+        RefreshFloatingBar();
     }
 
     /// <summary>
@@ -1658,6 +1659,57 @@ public partial class MainView : UserControl
         SimPositionText.Text += Progress3D();
     }
 
+    /// <summary>
+    /// Comandos da simulação, iguais para os botões do rodapé e para a barra flutuante do 3D.
+    /// Sem licença nem teste, reproduzir e passo a passo ficam travados.
+    /// </summary>
+    private async Task SimCommandAsync(string command, double value)
+    {
+        switch (command)
+        {
+            case "slower" or "faster":
+                ChangeSpeed(command == "faster");
+                return;
+            case "cycle": // barra compacta: um toque troca a velocidade; no máximo volta à mais lenta
+                if (SpeedSlider.Value >= SpeedPresets[^1]) { SpeedSlider.Value = SpeedPresets[0]; } else { ChangeSpeed(true); }
+                return;
+            case "seek":
+                StopSimulation();
+                SetStep((int)Math.Round(value));
+                return;
+        }
+
+        if (!await EnsureSimAccessAsync())
+        {
+            return;
+        }
+
+        switch (command)
+        {
+            case "start": StopSimulation(); SetStep(0); break;
+            case "back": StopSimulation(); SetStep(Math.Min(_step, _stepEnds.Length) - 1); break;
+            case "step": StopSimulation(); SetStep(_step >= _stepEnds.Length ? 1 : _step + 1); break;
+            case "end": StopSimulation(); SetStep(_stepEnds.Length); break;
+            case "play": TogglePlay(); break;
+        }
+    }
+
+    private static readonly int[] SpeedPresets = [1, 2, 5, 10, 20, 50];
+
+    /// <summary>Barra flutuante: troca para a velocidade pronta seguinte (mais rápida ou mais devagar).</summary>
+    private void ChangeSpeed(bool faster)
+    {
+        int current = (int)Math.Round(SpeedSlider.Value);
+        int next = faster
+            ? SpeedPresets.FirstOrDefault(p => p > current, SpeedPresets[^1])
+            : SpeedPresets.LastOrDefault(p => p < current, SpeedPresets[0]);
+        SpeedSlider.Value = next;
+    }
+
+    /// <summary>Manda o estado da simulação para a barra flutuante do 3D.</summary>
+    private void RefreshFloatingBar() =>
+        _scene3DView?.UpdateSimBar(_simTimer?.IsEnabled == true, _step, _stepEnds.Length, $"{(int)Math.Round(SpeedSlider.Value)}/s");
+
     private void TogglePlay()
     {
         if (_simTimer.IsEnabled)
@@ -1679,6 +1731,7 @@ public partial class MainView : UserControl
         _simTimer.Start();
         StartAnimation();
         SimPlayIcon.Data = PauseIcon;
+        RefreshFloatingBar();
     }
 
     private void StopSimulation()
@@ -1686,6 +1739,7 @@ public partial class MainView : UserControl
         bool wasPlaying = _simTimer.IsEnabled;
         _simTimer.Stop();
         SimPlayIcon.Data = PlayIcon;
+        RefreshFloatingBar();
         if (wasPlaying)
         {
             StopAnimation(); // pausou no meio do passo: 2D e 3D voltam ao fim do último passo inteiro
@@ -1744,6 +1798,7 @@ public partial class MainView : UserControl
         SpeedText.Text = $"{speed}/s";
         SpeedButton.Content = $"{speed}/s";
         _simTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / Math.Max(1, speed));
+        RefreshFloatingBar();
     }
 
     private void SetMillView(MillView view)
