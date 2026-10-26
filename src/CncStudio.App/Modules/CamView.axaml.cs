@@ -32,12 +32,42 @@ public partial class CamView : UserControl
     private string _baseName = "CAM";
 
     /// <summary>Abre o seletor de arquivo DXF e devolve nome e texto (null se cancelou).</summary>
-    public Func<Task<(string Name, string Text)?>>? PickDxf { get; set; }
+    public Func<Task<(string Name, string Text)?>>? PickDxf
+    {
+        get => _pickDxf;
+        set
+        {
+            _pickDxf = value;
+            LathePanel.PickDxf = value;
+        }
+    }
+
+    private Func<Task<(string Name, string Text)?>>? _pickDxf;
 
     /// <summary>Abre um texto numa aba nova do editor (texto, nome sugerido).</summary>
-    public Action<string, string>? OpenInEditor { get; set; }
+    public Action<string, string>? OpenInEditor
+    {
+        get => _openInEditor;
+        set
+        {
+            _openInEditor = value;
+            LathePanel.OpenInEditor = value;
+        }
+    }
 
-    public Func<string, Task>? CopyText { get; set; }
+    private Action<string, string>? _openInEditor;
+
+    public Func<string, Task>? CopyText
+    {
+        get => _copyText;
+        set
+        {
+            _copyText = value;
+            LathePanel.CopyText = value;
+        }
+    }
+
+    private Func<string, Task>? _copyText;
 
     /// <summary>Tabela de ferramentas do Code (a mesma do simulador); o CAM lê e grava nela.</summary>
     public Func<List<ToolEntry>>? ToolsSource { get; set; }
@@ -107,7 +137,17 @@ public partial class CamView : UserControl
                 await CopyText(_program);
             }
         };
+        MillTab.Click += (_, _) => ShowMachine(lathe: false);
+        LatheTab.Click += (_, _) => ShowMachine(lathe: true);
         RefreshPreview();
+    }
+
+    private void ShowMachine(bool lathe)
+    {
+        MillTab.IsChecked = !lathe;
+        LatheTab.IsChecked = lathe;
+        MillPanel.IsVisible = !lathe;
+        LathePanel.IsVisible = lathe;
     }
 
     // ---------------------------------------------------------------- formulário
