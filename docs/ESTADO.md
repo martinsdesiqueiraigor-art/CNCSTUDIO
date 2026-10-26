@@ -105,3 +105,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Movimentos simples (Fanuc e Siemens iguais; o simulador não executa CYCLE93, por isso não usamos). Z da ferramenta = aresta de maior Z.
 - Tela: "Canal externo" e "Canal interno". Testes simulam e conferem fundo, paredes e cobertura.
 - Limites: só canal reto (sem chanfro/raio, sem canal de face).
+
+## CAM-01 · entrega 6e — perfil com rebaixo (mergulho)
+- `Turning` aceita perfil cujo raio vai e volta (canal/rebaixo); Z segue obrigatoriamente rumo à placa. Antes recusava.
+- Fanuc: G71 tipo II (1º bloco do perfil com X e Z); Siemens: CYCLE95 (o simulador mergulha no rebaixo nos dois).
+- Com rebaixo o sobremetal em Z vai a zero (senão corta a parede do rebaixo a mais) e aparece aviso. Teste simula e confere que nada entra na peça.
+- Limites: sem checar ângulo de folga da pastilha; para canal retangular simples use "Canal" (6d).

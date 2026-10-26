@@ -188,7 +188,13 @@ public static class LathePost
             Point2 p0 = c.Profile.Start;
             if (fanuc)
             {
-                if (approachBlock)
+                if (approachBlock && c.HasUndercut)
+                {
+                    // G71 tipo II: o 1º bloco leva X e Z; o avanço do acabamento vem no primeiro corte
+                    blocks.Add($"G00 X{N(2 * p0.Y)} Z{N(p0.X)}");
+                    blocks.Add($"G01 Z{N(p0.X)} F{N(c.FinishFeed)}");
+                }
+                else if (approachBlock)
                 {
                     blocks.Add($"G00 X{N(2 * p0.Y)}");
                     blocks.Add($"G01 Z{N(p0.X)} F{N(c.FinishFeed)}");

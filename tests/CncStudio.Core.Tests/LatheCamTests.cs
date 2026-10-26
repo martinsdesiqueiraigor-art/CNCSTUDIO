@@ -232,20 +232,77 @@ public class LatheCamTests
         }
     }
 
+    private static LatheProfile Grooved()
+    {
+        // chanfro, Ø20, canal Ø14 entre Z-10 e Z-20 (rebaixo), Ø20, ombro para Ø28
+        var chain = new List<Segment2>
+        {
+            Segment2.Line(new Point2(0, 8), new Point2(-2, 10)),
+            Segment2.Line(new Point2(-2, 10), new Point2(-10, 10)),
+            Segment2.Line(new Point2(-10, 10), new Point2(-10, 7)),
+            Segment2.Line(new Point2(-10, 7), new Point2(-20, 7)),
+            Segment2.Line(new Point2(-20, 7), new Point2(-20, 10)),
+            Segment2.Line(new Point2(-20, 10), new Point2(-30, 10)),
+            Segment2.Line(new Point2(-30, 10), new Point2(-30, 14)),
+            Segment2.Line(new Point2(-30, 14), new Point2(-40, 14)),
+        };
+        return LatheProfile.From(chain, out _)!;
+    }
+
+    [Theory]
+    [InlineData(CamDialect.Fanuc)]
+    [InlineData(CamDialect.Siemens)]
+    public void PerfilComRebaixoMergulhaNoCanalSemInvadirAPeca(CamDialect dialect)
+    {
+        LatheResult r = LatheOperations.Turning(Grooved(), Tool, 50, 40, new TurningParams(30));
+        Assert.True(r.Ok, r.Error);
+        Assert.Contains(r.Operation!.Warnings, w => w.Contains("rebaixo"));
+        string text = LathePost.Generate([r.Operation!], new LathePostOptions(dialect));
+        ToolPath path = Simulate(text, dialect);
+        AssertNoErrors(path, text);
+        List<Point2> profile = ProfilePoints(Grooved());
+
+        // nenhum ponto do caminho (corte ou rápido) fica dentro da peça
+        foreach (Move m in path.Moves.Skip(1)) // o 1º movimento sai da origem da máquina (fora do programa)
+        {
+            for (int k = 0; k <= 20; k++)
+            {
+                var pt = m.PointAt(k / 20.0);
+                if (pt.Z < -1e-6 && pt.Z >= -40)
+                {
+                    Assert.True(pt.X >= RadiusAt(profile, pt.Z, max: false) - 1e-6, $"X{pt.X:0.###} Z{pt.Z:0.###} dentro da peça (linha {m.LineNumber} {(m.IsRapid ? "rápido" : "corte")} {m.Start.X:0.###},{m.Start.Z:0.###} -> {m.End.X:0.###},{m.End.Z:0.###})\n{text}");
+                }
+            }
+        }
+
+        // desbasta dentro do canal e o acabamento chega ao fundo (raio 7)
+        var cuts = path.Moves.Where(m => !m.IsRapid).ToList();
+        var inGroove = cuts.Where(m => Math.Max(m.Start.Z, m.End.Z) <= -10 + 1e-6 && Math.Min(m.Start.Z, m.End.Z) >= -20 - 1e-6).ToList();
+        Assert.NotEmpty(inGroove);
+        Assert.Equal(7, inGroove.Min(m => Math.Min(m.Start.X, m.End.X)), 3);
+        Assert.Contains(inGroove, m => m.Start.X < 8 && m.End.X < 8 && Math.Abs(m.Start.Z - m.End.Z) > 5); // desbaste ao longo do fundo
+    }
+
     [Fact]
-    public void PerfilComRebaixoExternoERecusado()
+    public void PostFanucDoRebaixoUsaPrimeiroBlocoComXeZ()
+    {
+        LatheResult r = LatheOperations.Turning(Grooved(), Tool, 50, 40, new TurningParams(30));
+        string text = LathePost.Generate([r.Operation!], new LathePostOptions(CamDialect.Fanuc));
+        Assert.Matches(@"N\d+ G00 X16\. Z0\.", text);
+    }
+
+    [Fact]
+    public void PerfilQueVoltaEmZContinuaRecusado()
     {
         var chain = new List<Segment2>
         {
             Segment2.Line(new Point2(0, 10), new Point2(-10, 10)),
-            Segment2.Line(new Point2(-10, 10), new Point2(-10, 6)), // canal: o raio diminui
-            Segment2.Line(new Point2(-10, 6), new Point2(-14, 6)),
-            Segment2.Line(new Point2(-14, 6), new Point2(-14, 10)),
-            Segment2.Line(new Point2(-14, 10), new Point2(-30, 10)),
+            Segment2.Line(new Point2(-10, 10), new Point2(-5, 12)),
         };
+        // a cadeia é orientada (Z diminui no total) mas volta no meio
+        chain.Add(Segment2.Line(new Point2(-5, 12), new Point2(-30, 12)));
         LatheResult r = LatheOperations.Turning(LatheProfile.From(chain, out _)!, Tool, 50, 40, new TurningParams(30));
         Assert.False(r.Ok);
-        Assert.Contains("rebaixo", r.Error);
     }
 
     [Fact]
