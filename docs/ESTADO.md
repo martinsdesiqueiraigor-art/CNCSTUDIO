@@ -69,3 +69,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `Core/Cam`: `CamOperations.Facing`, `.Contour` (fora/dentro/sobre a linha, concordante ou convencional, sobremetal, entrada/saída em arco, compensação G41/G42 ou percurso já deslocado), `.Pocket` (anéis concêntricos, rampa helicoidal, acabamento), `.Drilling` (G81/G82/G83/G73, ordem do furo mais próximo, furos a partir de círculos do DXF).
 - Saída neutra (`ToolMove`, `DrillCycle`); o G-code sai na entrega 4 (pós Fanuc/Siemens), onde cada programa passa também pelo `MachineExecutor`.
 - Limites: bolsão sem ilhas; contorno por dentro desce na vertical (avisa). 22 testes novos; total 801 passando.
+
+## CAM-01 entrega 4 — pós-processador Fanuc e Siemens (ajuste-cam-pos)
+- `Core/Cam/CamPost.Generate(operações, PostOptions)`: cabeçalho, troca de ferramenta (T/M6, G43 H no Fanuc, D no Siemens), S/M3, refrigerante, G54, movimentos com avanço modal, arcos e hélices (I/J), G41/G42 (Fanuc `D`, Siemens sem D), furação G81/G82/G83/G73 (Fanuc) e CYCLE81/82/83 com MCALL (Siemens), fim com M30.
+- Cada programa passa pelo `MachineExecutor`: o percurso simulado é igual ao gerado (movimento a movimento) e a compensação G41 desloca para o lado certo.
+- 17 testes novos; total 818 passando. `DrillCycle` ganhou `SafeZ`. Próximo: entrega 5 (tela do CAM no desktop).

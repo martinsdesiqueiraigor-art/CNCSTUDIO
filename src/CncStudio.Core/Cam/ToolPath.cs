@@ -77,7 +77,7 @@ public sealed record CamLevels(double SafeZ, double ClearanceZ, double TopZ, dou
 public enum DrillCycleKind { Drill, Dwell, Peck, ChipBreak }
 
 /// <summary>Furação em ciclo fixo (G81 simples, G82 com tempo, G83 com bicada, G73 quebra-cavaco); o pós-processador escolhe o código.</summary>
-public sealed record DrillCycle(DrillCycleKind Kind, IReadOnlyList<Point2> Points, double TopZ, double BottomZ, double RetractZ, double Peck, double DwellSeconds, double Feed);
+public sealed record DrillCycle(DrillCycleKind Kind, IReadOnlyList<Point2> Points, double TopZ, double BottomZ, double RetractZ, double SafeZ, double Peck, double DwellSeconds, double Feed);
 
 /// <summary>Furo achado no desenho: centro e diâmetro.</summary>
 public readonly record struct DrillHole(Point2 Center, double Diameter);
