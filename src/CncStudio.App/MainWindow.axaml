@@ -65,7 +65,6 @@
 
     <Grid Grid.Column="1">
     <modules:HomeView x:Name="Home" ZIndex="10" IsVisible="False" Background="{DynamicResource PanelBackground}" />
-    <modules:StoreView x:Name="Store" ZIndex="10" IsVisible="False" Background="{DynamicResource PanelBackground}" />
     <modules:MacroView x:Name="Macro" ZIndex="10" IsVisible="False" Background="{DynamicResource PanelBackground}" />
     <modules:OptimizerView x:Name="Optimizer" ZIndex="10" IsVisible="False" Background="{DynamicResource PanelBackground}" />
   <Grid x:Name="CodeRoot" RowDefinitions="Auto,*,Auto">

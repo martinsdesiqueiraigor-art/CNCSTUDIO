@@ -17,7 +17,15 @@
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
       </ItemsControl>
-      <TextBlock Text="A Academy (cursos) fica só na versão web. Os módulos que ainda não estão aqui chegam ao desktop aos poucos."
+      <TextBlock Text="Na versão web (abre no navegador, precisa de internet)" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8,0,0" />
+      <ItemsControl x:Name="WebCards">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel HorizontalAlignment="Center" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+      </ItemsControl>
+      <TextBlock Text="O desktop é voltado para quem programa e opera a máquina. Academy, Loja e Calculadoras ficam na web."
                  FontSize="12" Opacity="0.6" TextWrapping="Wrap" TextAlignment="Center" />
     </StackPanel>
   </ScrollViewer>

@@ -20,6 +20,23 @@ public partial class MainWindow
             AddRailButton(module.Id, ShortName(module.Name), module.Available ? module.Description : module.Name + ": em breve no desktop (já existe na versão web)", module.Available);
         }
 
+        ModuleRail.Children.Add(new Border { Height = 1, Margin = new Thickness(4, 8), Background = Brushes.Gray, Opacity = 0.4 });
+        foreach (WebModule web in PlatformModules.Web)
+        {
+            var link = new Button
+            {
+                Content = new TextBlock { Text = (web.Id == "calculadoras" ? "Calc." : ShortName(web.Name)) + " ↗", FontSize = 10, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center },
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                MinHeight = 40,
+                Padding = new Thickness(2, 4),
+            };
+            link.Classes.Add("tool");
+            ToolTip.SetTip(link, web.Name + ": abre no navegador (precisa de internet)");
+            link.Click += (_, _) => PlatformModules.OpenWeb(web.Url);
+            ModuleRail.Children.Add(link);
+        }
+
         Home.ModuleChosen += module => ShowModule(module.Id);
         Optimizer.GetProgram = () => (Editor.Text, _active.DisplayName);
         Optimizer.OpenInEditor = (text, name) =>
@@ -79,7 +96,6 @@ public partial class MainWindow
         Home.IsVisible = id == "inicio";
         Optimizer.IsVisible = id == "otimizador";
         Macro.IsVisible = id == "macro";
-        Store.IsVisible = id == "loja";
         if (id == "otimizador")
         {
             Optimizer.Refresh();

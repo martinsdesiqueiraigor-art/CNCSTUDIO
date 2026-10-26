@@ -43,8 +43,4 @@
     <None Include="..\..\samples\**\*.*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Catálogo da Loja: uma fonte só, a mesma da versão web -->
-    <EmbeddedResource Include="..\CncStudio.Web\wwwroot\loja\catalogo.json" LogicalName="loja.catalogo.json" />
-  </ItemGroup>
 </Project>

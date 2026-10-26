@@ -22,7 +22,7 @@ Telas **nativas em Avalonia**, um módulo por vez, no mesmo programa. Sem navega
 | 3 | Macro (geradores) | Core pronto (`Core/Generators`); formulário + prévia 3D |
 | 4 | Conta e licença no desktop (PLAT-03) | Trava para vender; termos e página de vendas são do Igor; exige análise de risco |
 | 5 | ~~Academy~~ | **Decidido (Igor, 26/10): só na versão web.** Não entra no desktop |
-| 6 | Loja | ✅ feita (catálogo único com a web; pedido pelo WhatsApp) |
+| 6 | Loja | Só na web: no desktop é botão que abre o navegador (Igor, 26/10) |
 | — | **CAM** | Entra como módulo novo da barra (ver `CAM-01-plano.md`), a partir da etapa 1 |
 
 ## Regras
