@@ -17,7 +17,7 @@ public readonly record struct ToolMove(MoveKind Kind, double X, double Y, double
 }
 
 /// <summary>Ferramenta de fresa usada numa operação.</summary>
-public sealed record CamTool(int Number, double Diameter, double SpindleRpm, double FeedXY, double FeedZ)
+public sealed record CamTool(int Number, double Diameter, double SpindleRpm, double FeedXY, double FeedZ, string Name = "")
 {
     public double Radius => Diameter / 2;
 

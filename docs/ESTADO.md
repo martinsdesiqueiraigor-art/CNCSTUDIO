@@ -80,3 +80,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Testado em Xvfb: retângulo + círculo → contorno por fora → programa abre no Code com 0 erros (2 avisos de G28, que o simulador não desenha).
 - Core: `Contour.BoundsXY`, `ToolpathView.CuttingPolylines` (+3 testes; total 821). Só desktop; na web o CAM continua "em breve".
 - Falta: testar com um DXF real de máquina, ilhas no bolsão, banco de ferramentas, torno e 3D (entrega 6).
+
+## CAM-01 entrega 6a — banco de ferramentas (ajuste-cam-ferramentas)
+- Banco = a **mesma tabela de ferramentas do Code** (`AppSettings.Tools`, em config.json): `ToolEntry` ganhou rotação e avanços. Uma fonte só: o simulador do Code usa o diâmetro cadastrado.
+- Tela do CAM: escolher ferramenta do banco (preenche T, Ø, rpm, avanços e nome), salvar no banco, excluir. "Abrir no editor" cadastra no banco as ferramentas que faltam.
+- Pós: nome da ferramenta no comentário da troca; mesma ferramenta com rotação diferente emite novo S; `CamPost.Check` avisa T repetido com diâmetros diferentes (e a tela avisa se o diâmetro difere do banco).
+- 4 testes novos; total 825. Próximo: 6b torno.
