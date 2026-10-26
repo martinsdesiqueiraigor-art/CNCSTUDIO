@@ -54,3 +54,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **Desktop voltado ao operador** (`ajuste-desktop-links-web`): Academy, Loja e Calculadoras viram botões que abrem a web (endereços em `Modules/PlatformModules.cs`); Loja nativa removida. Desktop fica com Code, Otimizador, Macro e CAM.
 
 - **Desktop visual** (`ajuste-desktop-visual`): Início no estilo da web (logo com máscara, cartões com ilustração e cor por produto; as imagens são as mesmas da web, ligadas por `AvaloniaResource Link`), barra lateral com ícones coloridos e destaque na cor do produto, marca "Casillas Code" no cabeçalho, CMYK completo (editor, código, abas e painéis).
+
+## CAM-01 entrega 1 — geometria 2D e offset (ajuste-cam-geometria)
+- `Core/Cam`: `Point2`, `Segment2` (reta/arco), `Contour` (área com sinal, sentido, perímetro, retângulo/círculo/polígono, `Reversed`).
+- `Contour.OffsetOutside(d)` / `OffsetLeft(d)`: desloca por fora/dentro, com arco nos cantos externos e encontro nos internos; devolve erro se não cabe ou se cruza.
+- 13 testes novos (`ContourOffsetTests`); total 769 passando. Próximo: entrega 2 (importar DXF).
