@@ -27,6 +27,18 @@ public partial class MainWindow
             LoadText(text, null, name);
             ShowModule("code");
         };
+        Macro.OpenInEditor = (text, name) =>
+        {
+            LoadText(text, null, name);
+            ShowModule("code");
+        };
+        Macro.CopyText = async text =>
+        {
+            if (Clipboard is { } clipboard)
+            {
+                await clipboard.SetTextAsync(text);
+            }
+        };
         Optimizer.CopyText = async text =>
         {
             if (Clipboard is { } clipboard)
@@ -66,6 +78,7 @@ public partial class MainWindow
         _currentModule = id;
         Home.IsVisible = id == "inicio";
         Optimizer.IsVisible = id == "otimizador";
+        Macro.IsVisible = id == "macro";
         if (id == "otimizador")
         {
             Optimizer.Refresh();
