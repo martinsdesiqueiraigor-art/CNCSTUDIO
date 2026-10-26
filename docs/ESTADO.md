@@ -48,3 +48,5 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **Desktop, etapa 2** (`ajuste-desktop-otimizador`): módulo Otimizador nativo (analisar, propostas, abrir proposta/revisão no editor, copiar anonimizada), usando `Core/Optimizer`.
 
 - **Desktop, etapa 3** (`ajuste-desktop-macro`): módulo Macro nativo (9 geradores, programa pronto ou G65 + macro, abrir no editor para simular), usando `Core/Generators`.
+
+- **Desktop, etapas 5 e 6**: Academy fica só na web (decisão do Igor, 26/10). Loja nativa no desktop (catálogo `loja/catalogo.json` compartilhado com a web, pedido pelo WhatsApp). Falta a etapa 4 (conta e licença).
