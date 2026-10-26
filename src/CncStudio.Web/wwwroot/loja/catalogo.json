@@ -1,0 +1,21 @@
+{
+  "aviso": "Loja em teste: catálogo de demonstração, sem pagamento no app. O pedido sai pelo WhatsApp e o preço é combinado na conversa.",
+  "itens": [
+    {
+      "id": "apalpador-3d",
+      "nome": "Apalpador 3D (touch probe)",
+      "categoria": "Medição",
+      "resumo": "Para achar o zero da peça e medir na máquina.",
+      "descricao": "Apalpador 3D para fresadora CNC. Modelo, fabricante, haste, repetibilidade, tipo de sinal e compatibilidade com o controle ainda estão A definir. Confirme com o Igor antes de comprar.",
+      "specs": [
+        ["Modelo", "A definir"],
+        ["Haste / ponta", "A definir"],
+        ["Repetibilidade", "A definir"],
+        ["Sinal (cabo / rádio / infravermelho)", "A definir"],
+        ["Compatível com", "A definir (confirmar o controle da sua máquina)"],
+        ["Prazo de entrega", "A definir (importado)"]
+      ],
+      "preco": "Sob consulta"
+    }
+  ]
+}
