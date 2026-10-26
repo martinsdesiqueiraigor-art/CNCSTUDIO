@@ -109,7 +109,10 @@ public partial class MainView
                 ShowRapids = _showRapids3D,
                 ShowPath = _showPath3D,
             };
+            // Barra da simulação flutuante dentro do 3D: os comandos voltam por aqui
+            _scene3DView.SimBarCommand = (command, value) => _ = SimCommandAsync(command, value);
             Scene3DSlot.Children.Add(_scene3DView);
+            RefreshFloatingBar();
             _frame3D = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             _frame3D.Tick += (_, _) => Frame3D();
         }
@@ -179,6 +182,19 @@ public partial class MainView
         Backplot.IsVisible = !only3D;
         PlotsSplitter.IsVisible = side;
         Scene3DSlot.IsVisible = _view3D;
+
+        // 3D sozinho: os controles da simulação flutuam dentro do 3D e saem do rodapé.
+        // (G00 que encostaram no material continua no rodapé.) Com 2D ao lado, vale a barra do rodapé.
+        bool floating = only3D && _view3D && _scene3DView is not null;
+        if (_scene3DView is not null)
+        {
+            _scene3DView.SimBarVisible = floating;
+        }
+
+        foreach (Control control in new Control[] { SimStartButton, SimBackButton, SimPlayButton, SimStepButton, SimEndButton, SimProgress, SpeedButton })
+        {
+            control.IsVisible = !floating;
+        }
         UpdateTimeChip();
     }
 
