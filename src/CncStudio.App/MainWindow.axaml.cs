@@ -137,6 +137,7 @@ public partial class MainWindow : Window
         CollapseEditorButton.Click += (_, _) => SetEditorCollapsed(!_editorCollapsed);
         ThemeButton.Click += (_, _) => ApplyTheme(_settings.Theme == "Light" ? "Dark" : "Light");
         ApplyTheme(_settings.Theme);
+        InitModules();
         RecentButton.Click += (_, _) => ShowRecentMenu();
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
         SiemensSampleButton.Click += (_, _) => LoadSample("EXEMPLO.mpf");
