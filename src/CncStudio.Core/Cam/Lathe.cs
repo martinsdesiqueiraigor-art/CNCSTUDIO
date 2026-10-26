@@ -27,7 +27,7 @@ public readonly record struct LatheMove(MoveKind Kind, double Z, double R, doubl
 
 /// <summary>
 /// Contorno de torno: trechos (reta/arco) em (Z, raio), do lado do bruto para o lado da placa (Z diminuindo).
-/// <see cref="Point2.X"/> = Z e <see cref="Point2.Y"/> = raio. Perfil de desbaste "tipo I": o raio só cresce (externo) ou só diminui (interno).
+/// <see cref="Point2.X"/> = Z e <see cref="Point2.Y"/> = raio. Z sempre rumo à placa; o raio pode ter rebaixos (tipo II).
 /// </summary>
 public sealed record LatheProfile(IReadOnlyList<Segment2> Segments)
 {
@@ -85,7 +85,11 @@ public sealed record LatheProfile(IReadOnlyList<Segment2> Segments)
 /// <summary>Ciclo de desbaste e acabamento de perfil (G71/G70 no Fanuc, CYCLE95 no Siemens). Tudo em mm; sobremetal por lado.</summary>
 public sealed record LatheCycle(
     LatheProfile Profile, bool Internal, bool Rough, bool Finish,
-    double StartZ, double StartR, double DepthOfCut, double Retract, double AllowanceR, double AllowanceZ, double RoughFeed, double FinishFeed);
+    double StartZ, double StartR, double DepthOfCut, double Retract, double AllowanceR, double AllowanceZ, double RoughFeed, double FinishFeed)
+{
+    /// <summary>Perfil com rebaixo (o raio vai e volta): o Fanuc exige o 1º bloco do perfil com X e Z (G71 tipo II).</summary>
+    public bool HasUndercut { get; init; }
+}
 
 /// <summary>Operação de torno: movimentos simples (faceamento, furação) ou um ciclo de perfil.</summary>
 public sealed record LatheOperation(string Name, LatheTool Tool, double SafeZ, double SafeR, IReadOnlyList<LatheMove> Moves, LatheCycle? Cycle, IReadOnlyList<string> Warnings)
@@ -175,9 +179,10 @@ public static class LatheOperations
             return Fail("O sobremetal não pode ser negativo.");
         }
 
-        // Tipo I: o raio só cresce (externo) ou só diminui (interno) ao se aproximar da placa
+        // Em Z o perfil precisa avançar sempre rumo à placa. O raio pode ir e voltar (rebaixo): G71 tipo II / CYCLE95 com rebaixo.
         var points = profile.Segments.SelectMany(s => s.Sample(0.01)).ToList();
         double sign = p.Internal ? -1 : 1;
+        bool undercut = false;
         for (int i = 1; i < points.Count; i++)
         {
             if (points[i].X > points[i - 1].X + 1e-6)
@@ -187,9 +192,7 @@ public static class LatheOperations
 
             if (sign * (points[i].Y - points[i - 1].Y) < -1e-6)
             {
-                return Fail(p.Internal
-                    ? "Perfil interno com rebaixo: o raio só pode diminuir em direção ao fundo (sem canal ou cantos para trás)."
-                    : "Perfil externo com rebaixo: o raio só pode aumentar em direção à placa (sem canal ou cantos para trás).");
+                undercut = true;
             }
         }
 
@@ -212,13 +215,23 @@ public static class LatheOperations
         }
 
         var warnings = new List<string>();
+        if (undercut)
+        {
+            warnings.Add("Perfil com rebaixo: o desbaste mergulha dentro do rebaixo (G71 tipo II no Fanuc, CYCLE95 no Siemens). Confira se a pastilha alcança o fundo e as paredes.");
+            if (p.AllowanceZ > 0)
+            {
+                // O sobremetal em Z desloca o perfil inteiro: as paredes que olham para a placa seriam cortadas a mais
+                warnings.Add("Sobremetal em Z zerado nesta operação: com rebaixo ele cortaria a parede do rebaixo a mais.");
+            }
+        }
+
         if (profile.Start.Y > 1e-9 && !p.Internal && profile.Start.Y > stockR)
         {
             warnings.Add("O início do perfil está fora do bruto.");
         }
 
         double startZ = profile.Start.X + p.Clearance;
-        var cycle = new LatheCycle(profile, p.Internal, p.Rough, p.Finish, startZ, startR, p.DepthOfCut, p.Retract, p.AllowanceR, p.AllowanceZ, p.RoughFeed, p.FinishFeed);
+        var cycle = new LatheCycle(profile, p.Internal, p.Rough, p.Finish, startZ, startR, p.DepthOfCut, p.Retract, p.AllowanceR, undercut ? 0 : p.AllowanceZ, p.RoughFeed, p.FinishFeed) { HasUndercut = undercut };
         string name = (p.Internal ? "Torneamento interno" : "Torneamento externo") + (p.Rough && p.Finish ? " (desbaste e acabamento)" : p.Rough ? " (desbaste)" : " (acabamento)");
         return new LatheResult(new LatheOperation(name, tool, safeZ, safeR, [], cycle, warnings), null);
     }
