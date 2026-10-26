@@ -16,7 +16,7 @@ const MODULES = [
   { id: 'macro', img: 'ic-macro', name: 'Casillas Macro', text: 'Programação paramétrica e lógica', color: '#9b7bff', icon: '<path d="M4 4h16v16H4zM4 9h16M9 9v11" />' },
   { id: 'otimizador', img: 'ic-otimizador', name: 'Casillas Otimizador', text: 'Encontra repetições e simplifica o programa', color: '#ffb454', icon: '<path d="M13 2L4 14h7l-1 8 9-12h-7z" />' },
   { id: 'calculadoras', img: 'ic-calculadoras', name: 'Casillas Calculadoras', text: 'Cálculos técnicos de usinagem', color: '#ff9a4a', url: 'https://martinsdesiqueiraigor-art.github.io/Casillas_app_2/', icon: '<path d="M6 3h12v18H6zM8 7h8M9 11h2M13 11h2M9 15h2M13 15h2" />' },
-  { id: 'loja', img: 'ic-loja', name: 'Casillas Loja', text: 'Loja de ferramentas', color: '#2fd0c8', soon: true, icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
+  { id: 'loja', img: 'ic-loja', name: 'Casillas Loja', text: 'Loja de ferramentas', color: '#2fd0c8', icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
 ];
 const DOCK = ['inicio', 'code', 'academy', 'macro', 'otimizador'];
 
@@ -121,9 +121,15 @@ function doOpen(id) {
     closeOverlays();
     current = id;
     store.set(id);
-    if (id !== 'code') deliver(id);
+    enter(id);
   }
   drawDock();
+}
+
+/** Entra no módulo: a Loja é desta página; Academy, Macro e Otimizador são entregues ao app. */
+function enter(id) {
+  if (id === 'loja') import('./store-ui.js').then(m => m.openStore());
+  else if (id !== 'code') deliver(id);
 }
 
 function hideHome() { if (homeEl) { homeEl.remove(); homeEl = null; } }
@@ -263,7 +269,7 @@ function init() {
   if (direct && !GATED.has(direct.id)) {
     current = direct.id;
     store.set(direct.id);
-    if (direct.id !== 'code') deliver(direct.id);
+    enter(direct.id);
   } else {
     showHome();
     if (direct) openModule(direct.id); // módulo com trava: confere a conta antes de abrir
