@@ -435,3 +435,85 @@ export function openAcademy(call) { return import('./academy-ui.js').then(m => m
 export function setAccent(color) {
     document.documentElement.style.setProperty('--cc-accent', color);
 }
+
+// ---- Tema CMYK para todos os módulos em HTML (Início, Macro, Academy, Otimizador, Ferramentas, rodapé) ----
+// As cores desses módulos estão escritas dentro de cada arquivo; em vez de reescrever todas, o tema
+// sobrepõe as cores conhecidas (estilos em linha e folhas de estilo) quando o CMYK está ligado.
+const CMYK_MAP = {
+    // fundos
+    '13,17,23': '#0b1418', '22,27,34': '#13242b', '19,26,34': '#10222a', '10,15,20': '#081013', '16,27,38': '#112a33',
+    '28,39,56': '#10303b',
+    // bordas
+    '48,54,61': '#24414c', '48,61,75': '#2a4a57', '74,86,101': '#3e6270',
+    // destaque laranja -> ciano
+    '240,136,62': '#00aeef', '255,180,84': '#4fc9f5', '180,91,31': '#0083b8', '255,215,168': '#bfeaff',
+    // azul -> magenta
+    '88,166,255': '#ec008c', '124,196,255': '#ff4db0',
+};
+const CMYK_PROPS = ['background', 'background-color', 'color', 'border-color', 'border-top-color', 'border-bottom-color', 'border-left-color', 'border-right-color', 'outline-color', 'caret-color', 'fill', 'stroke'];
+let cmykOn = false, cmykBusy = false, cmykWatch = null;
+
+function cmykKey(value) {
+    const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/.exec(value.trim());
+    return m ? m[1] + ',' + m[2] + ',' + m[3] : null;
+}
+
+function buildCmyk() {
+    if (cmykBusy) return;
+    cmykBusy = true;
+    try {
+        let el = document.getElementById('cc-cmyk');
+        if (!el) { el = document.createElement('style'); el.id = 'cc-cmyk'; document.head.appendChild(el); }
+        let css = '';
+        // estilos em linha: o navegador os escreve como "prop: rgb(r, g, b)"
+        for (const [key, to] of Object.entries(CMYK_MAP)) {
+            const rgb = 'rgb(' + key.split(',').join(', ') + ')';
+            css += `html[data-cc-cmyk] [style*="background: ${rgb}"],html[data-cc-cmyk] [style*="background-color: ${rgb}"]{background-color:${to}!important}`;
+            css += `html[data-cc-cmyk] :is([style^="color: ${rgb}"],[style*="; color: ${rgb}"]){color:${to}!important}`;
+            css += `html[data-cc-cmyk] :is([style*="solid ${rgb}"],[style*="border-color: ${rgb}"]){border-color:${to}!important}`;
+        }
+        // ícones SVG com a cor no atributo
+        css += 'html[data-cc-cmyk] [stroke="#ffb454"],html[data-cc-cmyk] [stroke="#f0883e"]{stroke:#4fc9f5!important}';
+        css += 'html[data-cc-cmyk] [fill="#ffb454"],html[data-cc-cmyk] [fill="#f0883e"]{fill:#4fc9f5!important}';
+        // folhas de estilo (classes)
+        for (const sheet of Array.from(document.styleSheets)) {
+            if (sheet.ownerNode === el) continue;
+            let rules;
+            try { rules = sheet.cssRules; } catch { continue; }
+            const walk = (list) => {
+                for (const r of Array.from(list)) {
+                    if (r.cssRules && !r.style) { walk(r.cssRules); continue; }
+                    if (!r.style || !r.selectorText) continue;
+                    let decl = '';
+                    for (const p of CMYK_PROPS) {
+                        const v = r.style.getPropertyValue(p);
+                        const k = v && cmykKey(v);
+                        if (k && CMYK_MAP[k]) decl += `${p === 'background' ? 'background-color' : p}:${CMYK_MAP[k]}!important;`;
+                    }
+                    if (decl) css += r.selectorText.split(',').map(s => 'html[data-cc-cmyk] ' + s.trim()).join(',') + '{' + decl + '}';
+                }
+            };
+            walk(rules);
+        }
+        el.textContent = css;
+    } finally { cmykBusy = false; }
+}
+
+export function setCmyk(on) {
+    cmykOn = !!on;
+    if (cmykOn) {
+        document.documentElement.setAttribute('data-cc-cmyk', '1');
+        buildCmyk();
+        if (!cmykWatch) {
+            // módulos criam suas folhas de estilo ao abrir: refaz a sobreposição quando aparecerem
+            cmykWatch = new MutationObserver((muts) => {
+                if (cmykBusy || !cmykOn) return;
+                if (muts.some(m => Array.from(m.addedNodes).some(n => n.nodeName === 'STYLE' && n.id !== 'cc-cmyk'))) buildCmyk();
+            });
+            cmykWatch.observe(document.head, { childList: true });
+            cmykWatch.observe(document.body, { childList: true, subtree: true });
+        }
+    } else {
+        document.documentElement.removeAttribute('data-cc-cmyk');
+    }
+}
