@@ -249,6 +249,14 @@ public partial class MainView : UserControl
         try
         {
             WebInterop.OnHidden(SaveState);
+            WebInterop.OnCmyk(on =>
+            {
+                ApplyCmyk(on);
+                if (_cmykBox is not null)
+                {
+                    _cmykBox.IsChecked = on;
+                }
+            });
         }
         catch
         {
@@ -807,6 +815,7 @@ public partial class MainView : UserControl
 
     /// <summary>Menu "Exibir": rápidos, percurso à frente na simulação e ferramenta.</summary>
     private bool _vibrate = true;
+    private CheckBox? _cmykBox;
 
     /// <summary>Tema claro ou escuro para o app inteiro: telas, editor e gráfico.</summary>
     private void ApplyTheme(bool light)
@@ -1046,11 +1055,12 @@ public partial class MainView : UserControl
             ApplyTheme(v);
             Store("cc.theme", v ? "light" : "dark");
         }));
-        panel.Children.Add(Option("Tema CMYK (ciano, magenta, amarelo)", Stored("cc.cmyk") == "1", v =>
+        _cmykBox = Option("Tema CMYK (ciano, magenta, amarelo)", Stored("cc.cmyk") == "1", v =>
         {
             ApplyCmyk(v);
             Store("cc.cmyk", v ? "1" : "0");
-        }));
+        });
+        panel.Children.Add(_cmykBox);
         _vibrate = Stored("cc.vibrate") != "0";
         panel.Children.Add(Option("Vibrar ao tocar nos botões", _vibrate, v =>
         {

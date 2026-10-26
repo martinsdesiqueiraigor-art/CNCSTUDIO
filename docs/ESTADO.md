@@ -34,3 +34,5 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **Tema CMYK (ramo `ajuste-tema-cmyk`)**: opção em Ver → "Tema CMYK" (ciano de destaque, magenta na marca, fundo azul-petróleo). Padrão continua o visual laranja. Cor dos elementos HTML via `--cc-accent`.
 
 - **CMYK em todos os módulos HTML** (ramo `ajuste-tema-cmyk-modulos`): o tema agora também recolore Início, Academy, Macro, Otimizador, Ferramentas e rodapé (sobreposição de cores em `web.js`). Cada cartão da Início mantém a cor própria do produto.
+
+- **Atalho de tema no rodapé** (ramo `ajuste-tema-atalho`): botão "Tema" no rodapé alterna padrão ↔ CMYK em qualquer módulo; sincroniza com a opção do menu Ver.

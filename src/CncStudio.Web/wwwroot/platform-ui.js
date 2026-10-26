@@ -234,6 +234,15 @@ function drawDock() {
     b.addEventListener('click', () => { if (id !== current || id === 'inicio') openModule(id); });
     dockEl.append(b);
   });
+  // Atalho do tema (padrão ↔ CMYK), disponível em qualquer módulo
+  const t = make('button', null, 'flex:none;width:58px;border:none;background:none;color:#9baab9;font:700 11.5px system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:0');
+  t.type = 'button';
+  t.setAttribute('aria-label', 'Trocar tema (padrão ou CMYK)');
+  const ti = make('span');
+  ti.innerHTML = svg('<circle cx="12" cy="12" r="9" /><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="#9baab9" />', '#9baab9', 22);
+  t.append(ti, make('span', 'Tema'));
+  t.addEventListener('click', () => window.dispatchEvent(new CustomEvent('casillas:cmyk-toggle')));
+  dockEl.append(t);
 }
 
 // O Academy/Macro fechou sozinho (a pessoa tocou em Fechar): o Code passa a ser o atual
