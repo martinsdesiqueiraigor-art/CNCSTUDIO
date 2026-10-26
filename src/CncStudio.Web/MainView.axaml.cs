@@ -108,11 +108,11 @@ public partial class MainView : UserControl
         _simTimer = new DispatcherTimer();
         _simTimer.Tick += (_, _) => SimTick();
         // Sem licença nem teste, a simulação (reproduzir e passo a passo) fica travada
-        SimStartButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(0); } };
-        SimBackButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(Math.Min(_step, _stepEnds.Length) - 1); } };
-        SimStepButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(_step >= _stepEnds.Length ? 1 : _step + 1); } };
-        SimEndButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { StopSimulation(); SetStep(_stepEnds.Length); } };
-        SimPlayButton.Click += async (_, _) => { if (await EnsureSimAccessAsync()) { TogglePlay(); } };
+        SimStartButton.Click += async (_, _) => await SimCommandAsync("start", 0);
+        SimBackButton.Click += async (_, _) => await SimCommandAsync("back", 0);
+        SimStepButton.Click += async (_, _) => await SimCommandAsync("step", 0);
+        SimEndButton.Click += async (_, _) => await SimCommandAsync("end", 0);
+        SimPlayButton.Click += async (_, _) => await SimCommandAsync("play", 0);
         BuildSpeedFlyout();
         SpeedSlider.PropertyChanged += (_, e) =>
         {
@@ -1072,6 +1072,9 @@ public partial class MainView : UserControl
         var renumber = new Button { Content = "Renumerar", Classes = { "bar", "primary" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
         var remove = new Button { Content = "Remover numeração", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
         var undo = new Button { Content = "Desfazer", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var insertSpaces = new Button { Content = "Espaçar código (N10 G01 X10)", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var removeSpaces = new Button { Content = "Juntar código (N10G01X10)", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var uppercase = new Button { Content = "Letras maiúsculas", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
 
         Grid Row(string label, Control control)
         {
@@ -1091,7 +1094,6 @@ public partial class MainView : UserControl
         panel.Children.Add(renumber);
         panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
         panel.Children.Add(remove);
-        panel.Children.Add(undo);
         panel.Children.Add(new TextBlock
         {
             Text = "P/Q do G70–G73, GOTO e M99 P acompanham a nova numeração.",
@@ -1100,6 +1102,21 @@ public partial class MainView : UserControl
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = 260,
         });
+        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
+        panel.Children.Add(new TextBlock { Text = "Formatar o programa", FontWeight = FontWeight.Bold });
+        panel.Children.Add(insertSpaces);
+        panel.Children.Add(removeSpaces);
+        panel.Children.Add(uppercase);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Comentários e textos ficam como estão. Dá para desfazer.",
+            FontSize = 12,
+            Opacity = 0.7,
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 260,
+        });
+        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
+        panel.Children.Add(undo);
 
         var flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
         flyout.Opened += (_, _) => undo.IsEnabled = Editor.CanUndo;
@@ -1121,6 +1138,21 @@ public partial class MainView : UserControl
         {
             flyout.Hide();
             ApplyRenumber(new RenumberOptions(Mode: RenumberMode.Remove));
+        };
+        insertSpaces.Click += (_, _) =>
+        {
+            flyout.Hide();
+            ApplyTextTool(text => NcTextTools.InsertSpaces(text, CurrentDialect), "Código espaçado", "O código já está espaçado.");
+        };
+        removeSpaces.Click += (_, _) =>
+        {
+            flyout.Hide();
+            ApplyTextTool(text => NcTextTools.RemoveSpaces(text, CurrentDialect), "Espaços removidos", "Não há espaços para remover.");
+        };
+        uppercase.Click += (_, _) =>
+        {
+            flyout.Hide();
+            ApplyTextTool(text => NcTextTools.ToUpperOutsideComments(text, CurrentDialect), "Convertido para maiúsculas", "O programa já está em maiúsculas.");
         };
         undo.Click += (_, _) =>
         {
@@ -1169,6 +1201,26 @@ public partial class MainView : UserControl
             _ when references > 0 => $"Renumerado de N{options.Start} em {options.Increment}; {references} referência(s) atualizada(s)",
             _ => $"Renumerado de N{options.Start} em {options.Increment}",
         };
+        _analysisTimer.Stop();
+        Analyze(keepView: true);
+    }
+
+    /// <summary>Aplica uma transformação de texto ao programa inteiro, como uma única ação desfazível.</summary>
+    private void ApplyTextTool(Func<string, string> transform, string doneMessage, string unchangedMessage)
+    {
+        StopSimulation();
+        string before = Editor.Text;
+        string after = transform(before);
+        if (after == before)
+        {
+            SetStatus(unchangedMessage);
+            return;
+        }
+
+        int line = Editor.TextArea.Caret.Line;
+        Editor.Document.Replace(0, Editor.Document.TextLength, after); // uma ação só no "Desfazer"
+        GoToLine(Math.Min(line, Editor.Document.LineCount));
+        _statusNote = doneMessage;
         _analysisTimer.Stop();
         Analyze(keepView: true);
     }
@@ -1552,6 +1604,7 @@ public partial class MainView : UserControl
         SimSlider.Maximum = Math.Max(1, _stepEnds.Length);
         SimSlider.Value = Math.Min(_step, SimSlider.Maximum);
         _syncingSlider = false;
+        RefreshFloatingBar();
     }
 
     /// <summary>
@@ -1605,6 +1658,57 @@ public partial class MainView : UserControl
         SimPositionText.Text += Progress3D();
     }
 
+    /// <summary>
+    /// Comandos da simulação, iguais para os botões do rodapé e para a barra flutuante do 3D.
+    /// Sem licença nem teste, reproduzir e passo a passo ficam travados.
+    /// </summary>
+    private async Task SimCommandAsync(string command, double value)
+    {
+        switch (command)
+        {
+            case "slower" or "faster":
+                ChangeSpeed(command == "faster");
+                return;
+            case "cycle": // barra compacta: um toque troca a velocidade; no máximo volta à mais lenta
+                if (SpeedSlider.Value >= SpeedPresets[^1]) { SpeedSlider.Value = SpeedPresets[0]; } else { ChangeSpeed(true); }
+                return;
+            case "seek":
+                StopSimulation();
+                SetStep((int)Math.Round(value));
+                return;
+        }
+
+        if (!await EnsureSimAccessAsync())
+        {
+            return;
+        }
+
+        switch (command)
+        {
+            case "start": StopSimulation(); SetStep(0); break;
+            case "back": StopSimulation(); SetStep(Math.Min(_step, _stepEnds.Length) - 1); break;
+            case "step": StopSimulation(); SetStep(_step >= _stepEnds.Length ? 1 : _step + 1); break;
+            case "end": StopSimulation(); SetStep(_stepEnds.Length); break;
+            case "play": TogglePlay(); break;
+        }
+    }
+
+    private static readonly int[] SpeedPresets = [1, 2, 5, 10, 20, 50];
+
+    /// <summary>Barra flutuante: troca para a velocidade pronta seguinte (mais rápida ou mais devagar).</summary>
+    private void ChangeSpeed(bool faster)
+    {
+        int current = (int)Math.Round(SpeedSlider.Value);
+        int next = faster
+            ? SpeedPresets.FirstOrDefault(p => p > current, SpeedPresets[^1])
+            : SpeedPresets.LastOrDefault(p => p < current, SpeedPresets[0]);
+        SpeedSlider.Value = next;
+    }
+
+    /// <summary>Manda o estado da simulação para a barra flutuante do 3D.</summary>
+    private void RefreshFloatingBar() =>
+        _scene3DView?.UpdateSimBar(_simTimer?.IsEnabled == true, _step, _stepEnds.Length, $"{(int)Math.Round(SpeedSlider.Value)}/s");
+
     private void TogglePlay()
     {
         if (_simTimer.IsEnabled)
@@ -1626,6 +1730,7 @@ public partial class MainView : UserControl
         _simTimer.Start();
         StartAnimation();
         SimPlayIcon.Data = PauseIcon;
+        RefreshFloatingBar();
     }
 
     private void StopSimulation()
@@ -1633,6 +1738,7 @@ public partial class MainView : UserControl
         bool wasPlaying = _simTimer.IsEnabled;
         _simTimer.Stop();
         SimPlayIcon.Data = PlayIcon;
+        RefreshFloatingBar();
         if (wasPlaying)
         {
             StopAnimation(); // pausou no meio do passo: 2D e 3D voltam ao fim do último passo inteiro
@@ -1691,6 +1797,7 @@ public partial class MainView : UserControl
         SpeedText.Text = $"{speed}/s";
         SpeedButton.Content = $"{speed}/s";
         _simTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / Math.Max(1, speed));
+        RefreshFloatingBar();
     }
 
     private void SetMillView(MillView view)
