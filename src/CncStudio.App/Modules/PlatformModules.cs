@@ -19,7 +19,7 @@ public static class PlatformModules
         new("code", "Casillas Code", "Editor G-code e M-code com simulação 3D", true, "#e36bf0"),
         new("otimizador", "Casillas Otimizador", "Encontra repetições e simplifica o programa", true, "#ffb454"),
         new("macro", "Casillas Macro", "Geradores de programa: furação, bolsões, rosca, texto", true, "#9b7bff"),
-        new("cam", "Casillas CAM", "Do desenho ao programa 2,5D", false, "#4d8dff"),
+        new("cam", "Casillas CAM", "Do desenho ao programa 2,5D: contorno, bolsão, faceamento e furação", true, "#4d8dff"),
     ];
 
     /// <summary>Endereço da plataforma na web. Troca só aqui quando o casillas.com.br ativar.</summary>

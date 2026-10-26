@@ -332,6 +332,13 @@ public sealed class Contour
         return [mid + (perp * h), mid - (perp * h)];
     }
 
+    /// <summary>Caixa do contorno no plano XY (pelos pontos amostrados).</summary>
+    public (double MinX, double MinY, double MaxX, double MaxY) BoundsXY()
+    {
+        List<Point2> points = Sample(0.005);
+        return (points.Min(p => p.X), points.Min(p => p.Y), points.Max(p => p.X), points.Max(p => p.Y));
+    }
+
     /// <summary>Ponto do contorno mais perto de <paramref name="p"/> e o índice do trecho onde está.</summary>
     public (int Index, Point2 Point) ClosestPoint(Point2 p)
     {

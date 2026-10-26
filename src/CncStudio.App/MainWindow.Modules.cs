@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using CncStudio.App.Modules;
 
 namespace CncStudio.App;
@@ -59,7 +60,29 @@ public partial class MainWindow
             LoadText(text, null, name);
             ShowModule("code");
         };
-        Optimizer.CopyText = Macro.CopyText = async text =>
+        Cam.OpenInEditor = (text, name) =>
+        {
+            LoadText(text, null, name);
+            ShowModule("code");
+        };
+        Cam.PickDxf = async () =>
+        {
+            IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Abrir desenho DXF",
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Desenho DXF") { Patterns = ["*.dxf", "*.DXF"] }],
+            });
+            if (files.Count == 0)
+            {
+                return null;
+            }
+
+            await using Stream stream = await files[0].OpenReadAsync();
+            using var reader = new StreamReader(stream);
+            return (files[0].Name, await reader.ReadToEndAsync());
+        };
+        Optimizer.CopyText = Macro.CopyText = Cam.CopyText = async text =>
         {
             if (Clipboard is { } clipboard)
             {
@@ -149,6 +172,7 @@ public partial class MainWindow
         Home.IsVisible = id == "inicio";
         Optimizer.IsVisible = id == "otimizador";
         Macro.IsVisible = id == "macro";
+        Cam.IsVisible = id == "cam";
         if (id == "otimizador")
         {
             Optimizer.Refresh();
