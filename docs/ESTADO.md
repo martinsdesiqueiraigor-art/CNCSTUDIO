@@ -86,3 +86,10 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Tela do CAM: escolher ferramenta do banco (preenche T, Ø, rpm, avanços e nome), salvar no banco, excluir. "Abrir no editor" cadastra no banco as ferramentas que faltam.
 - Pós: nome da ferramenta no comentário da troca; mesma ferramenta com rotação diferente emite novo S; `CamPost.Check` avisa T repetido com diâmetros diferentes (e a tela avisa se o diâmetro difere do banco).
 - 4 testes novos; total 825. Próximo: 6b torno.
+
+## CAM-01 entrega 6b — torno (ajuste-cam-torno)
+- `Core/Cam/Lathe.cs`: `LatheProfile` (trechos em Z × raio, orientado para a placa), `LatheOperations.Turning` (externo/interno, desbaste e/ou acabamento, perfil tipo I; recusa rebaixo, bruto menor que o perfil), `.Facing`, `.Drilling` (bicadas em movimentos simples).
+- `Core/Cam/LathePost.cs`: Fanuc (G71/G70, G96+G50, G99, T0101) e Siemens (CYCLE95 com contornos depois do M30, G96 LIMS, G95, DIAMON). Só acabamento sai como movimentos simples.
+- Conferido pelo simulador: o percurso nunca entra no perfil (externo) nem sai do furo (interno), o acabamento passa pelo perfil (inclusive arco) e chega ao fundo/centro. 17 testes novos; total 842.
+- Tela: no módulo CAM, aba **Torno** (perfil por DXF ou pontos "Z Ø", ferramenta, operações, prévia do programa simulado, gerar, abrir no editor).
+- Limites: sem rosca, canal, G72/G73 nem perfil com rebaixo (tipo II); sem integração com o banco de ferramentas do torno; sobremetal radial do Siemens (FALX) precisa ser conferido em controle real.
