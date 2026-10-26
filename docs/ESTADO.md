@@ -40,3 +40,5 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **ACAD-02** (`docs/tarefas/ACAD-02-modulos-2-a-4.md`): ficha dos módulos 2 a 4 da Academy pronta para o GPT (um PR por módulo). Aguarda o Igor entregar ao GPT.
 
 - **PLAT-06** (`docs/tarefas/PLAT-06-desktop-plataforma.md`): plano da plataforma no desktop (barra de módulos, Início, Tema, Otimizador, Macro, conta, Academy). CAM-01 atualizado: desktop primeiro. Nada codado.
+- **CAM-01** (`docs/tarefas/CAM-01-plano.md`): plano do Casillas CAM 2,5D escrito (6 entregas, 5 decisões do Igor). Nada codado.
+- **Casillas Loja (teste)** (ramo `ajuste-loja-teste`): módulo abre pelo cartão/#loja; catálogo em `wwwroot/loja/catalogo.json` (1 item: apalpador 3D, specs A definir, preço sob consulta); pedido pelo WhatsApp. Sem pagamento, sem preço no repositório.
