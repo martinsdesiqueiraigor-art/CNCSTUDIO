@@ -13,9 +13,10 @@ public sealed class ToolPath
 
     public ToolPath(IReadOnlyList<Move> moves, IReadOnlyList<ParseDiagnostic> diagnostics,
         IReadOnlyList<ProgramMessage>? messages = null, IReadOnlyList<ProgramDwell>? dwells = null,
-        MachineKind machine = MachineKind.Mill)
+        MachineKind machine = MachineKind.Mill, IReadOnlyList<MachineModal>? modals = null)
     {
         Machine = machine;
+        Modals = modals ?? [];
         Moves = moves;
         Diagnostics = diagnostics;
         Messages = messages ?? [];
@@ -42,6 +43,9 @@ public sealed class ToolPath
         CuttingBounds = cutting;
         Tools = tools.ToArray();
     }
+
+    /// <summary>Estados modais da máquina (cada <c>Move.ModalId</c> aponta para um); ver <c>ControlPanel</c>.</summary>
+    public IReadOnlyList<MachineModal> Modals { get; }
 
     /// <summary>Movimentos em ordem de execução.</summary>
     public IReadOnlyList<Move> Moves { get; }

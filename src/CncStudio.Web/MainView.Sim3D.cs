@@ -181,7 +181,7 @@ public partial class MainView
 
         Backplot.IsVisible = !only3D;
         PlotsSplitter.IsVisible = side;
-        Scene3DSlot.IsVisible = _view3D;
+        RefreshNativeLayers();
 
         // 3D sozinho: os controles da simulação flutuam dentro do 3D e saem do rodapé.
         // (G00 que encostaram no material continua no rodapé.) Com 2D ao lado, vale a barra do rodapé.

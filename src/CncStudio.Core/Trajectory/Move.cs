@@ -56,6 +56,9 @@ public readonly record struct Move
     /// <summary>Número da ferramenta ativa (0 = nenhuma definida).</summary>
     public int Tool { get; init; }
 
+    /// <summary>Posição na lista <c>ToolPath.Modals</c>: o estado modal da máquina neste movimento.</summary>
+    public int ModalId { get; init; }
+
     // Geometria do arco (só vale quando IsArc), em coordenadas do plano (u, v)
     public WorkPlane Plane { get; init; }
     public double CenterU { get; init; }

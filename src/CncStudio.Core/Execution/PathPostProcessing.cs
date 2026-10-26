@@ -104,7 +104,7 @@ internal static class PathPostProcessing
             }
             else
             {
-                inserted = new Move(R(t1), R(t2), MotionMode.Linear, a.LineNumber, a.Feed, a.Tool);
+                inserted = new Move(R(t1), R(t2), MotionMode.Linear, a.LineNumber, a.Feed, a.Tool) { ModalId = a.ModalId };
             }
 
             moves[i] = a with { End = R(t1) };
@@ -262,7 +262,7 @@ internal static class PathPostProcessing
             var elementStart = new Point3(element.Start.X, element.Start.Y, current.Z);
             if (DistanceXY(elementStart, current) > 1e-5)
             {
-                output.Add(new Move(current, elementStart, MotionMode.Linear, element.Source.LineNumber, element.Source.Feed, element.Source.Tool));
+                output.Add(new Move(current, elementStart, MotionMode.Linear, element.Source.LineNumber, element.Source.Feed, element.Source.Tool) { ModalId = element.Source.ModalId });
             }
 
             output.Add(BuildOffsetMove(element, elementStart));
@@ -349,7 +349,7 @@ internal static class PathPostProcessing
         }
 
         warn(next.Source.LineNumber, "Canto interno sem interseção com o raio da ferramenta (possível interferência).");
-        return [new Move(previous.End, next.Start, MotionMode.Linear, next.Source.LineNumber, next.Source.Feed, next.Source.Tool)];
+        return [new Move(previous.End, next.Start, MotionMode.Linear, next.Source.LineNumber, next.Source.Feed, next.Source.Tool) { ModalId = next.Source.ModalId }];
     }
 
     private static Move BuildOffsetMove(Element element, Point3 start)
@@ -392,6 +392,7 @@ internal static class PathPostProcessing
         return new Move(from, to, counterClockwise ? MotionMode.CounterClockwiseArc : MotionMode.ClockwiseArc,
             template.LineNumber, template.Feed, template.Tool)
         {
+            ModalId = template.ModalId,
             Plane = WorkPlane.XY,
             CenterU = cx,
             CenterV = cy,

@@ -37,6 +37,9 @@ public sealed partial class MachineExecutor
     private bool _incremental;
     private double _unitScale = 1;             // 25,4 em polegadas
     private Point3 _workOffset;                // G54–G59
+    private int _workOffsetCode = 54;          // 54–59 (0 = G500 no Siemens)
+    private readonly List<MachineModal> _modals = [];
+    private readonly Dictionary<MachineModal, int> _modalIds = [];
     private Point3 _frame;                     // TRANS/ATRANS (Siemens)
     private double _feed;
     private int _selectedTool;
@@ -112,7 +115,7 @@ public sealed partial class MachineExecutor
         FinishRun();
         PostProcess();
         _moves.TrimExcess();
-        return new ToolPath(_moves, _diagnostics, _messages, _dwells, _machine);
+        return new ToolPath(_moves, _diagnostics, _messages, _dwells, _machine, _modals);
     }
 
     internal Expressions.VariableStore Variables => _variables;
@@ -954,8 +957,24 @@ public sealed partial class MachineExecutor
             move = move with { Feed = move.Feed * SpindleRpm(move, move.LineNumber) };
         }
 
+        move = move with { ModalId = CurrentModalId() };
         _moves.Add(move);
         _tags.Add(new MoveTag { CompensationSide = _compensationSide, CompensationRadius = _compensationRadius });
+    }
+
+    /// <summary>Índice (em <c>_modals</c>) do estado modal de agora; só cria um novo quando algo mudou.</summary>
+    private int CurrentModalId()
+    {
+        var now = new MachineModal(_plane, _incremental, _unitScale != 1, _workOffsetCode, _compensationSide,
+            _feedPerRevolution, _constantSurfaceSpeed, _spindleSpeed, _drillCycle, Offset);
+        if (!_modalIds.TryGetValue(now, out int id))
+        {
+            id = _modals.Count;
+            _modals.Add(now);
+            _modalIds[now] = id;
+        }
+
+        return id;
     }
 
     private void SetCompensation(int line, sbyte side)
@@ -1000,6 +1019,7 @@ public sealed partial class MachineExecutor
 
     private void ChangeWorkOffset(int code)
     {
+        _workOffsetCode = code;
         _workOffset = code == 0 ? Point3.Origin : OffsetFor(code);
     }
 

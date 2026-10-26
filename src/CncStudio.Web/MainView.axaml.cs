@@ -104,6 +104,7 @@ public partial class MainView : UserControl
         EditButton.IsVisible = _touch;
         EditButton.Click += async (_, _) => await EditNativeAsync();
         BuildToolsMenu();
+        _ = InitControlPanelAsync();
         InitEditorKeyboard();
 
         _simTimer = new DispatcherTimer();
@@ -514,7 +515,7 @@ public partial class MainView : UserControl
     private void SetCompareVisible(bool visible)
     {
         CompareHost.IsVisible = visible;
-        Scene3DSlot.IsVisible = !visible && _view3D; // o 3D (elemento do navegador) ficaria por cima
+        RefreshNativeLayers(); // o 3D e o painel (elementos do navegador) ficariam por cima
         Dispatcher.UIThread.Post(() => CompareView.RefreshNative(), DispatcherPriority.Background);
     }
 
@@ -996,6 +997,7 @@ public partial class MainView : UserControl
             Backplot.ShowTool = v;
             SetTool3D(v);
         }));
+        panel.Children.Add(Option("Painel de controle (posição, G ativos)", Stored("cc.panel") != "0", SetPanelWanted));
         _sectionOption = Option("Meia seção (torno)", true, SetQuarterSection);
         panel.Children.Add(_sectionOption);
         panel.Children.Add(Option("Modo técnico (corte na cor de cada ferramenta)", Stored("cc.technical") == "1", SetTechnical3D));
@@ -1021,8 +1023,8 @@ public partial class MainView : UserControl
         var scroll = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         var flyout = new Flyout { Content = scroll, Placement = PlacementMode.BottomEdgeAlignedRight };
         flyout.Opening += (_, _) => scroll.MaxHeight = Math.Max(180, Bounds.Height - 90);
-        flyout.Opened += (_, _) => Scene3DSlot.IsVisible = false;
-        flyout.Closed += (_, _) => Scene3DSlot.IsVisible = _view3D;
+        flyout.Opened += (_, _) => SetNativeHidden(true);
+        flyout.Closed += (_, _) => SetNativeHidden(false);
         DisplayButton.Flyout = flyout;
     }
 
@@ -1614,6 +1616,7 @@ public partial class MainView : UserControl
     /// </summary>
     private void ShowSimPosition()
     {
+        RefreshControlPanel();
         SyncSlider();
         if (_stepEnds.Length == 0 || _analysis is not { } analysis)
         {
@@ -1769,8 +1772,8 @@ public partial class MainView : UserControl
     /// </summary>
     private void Hide3DWhileOpen(Avalonia.Controls.Primitives.FlyoutBase flyout)
     {
-        flyout.Opened += (_, _) => Scene3DSlot.IsVisible = false;
-        flyout.Closed += (_, _) => Scene3DSlot.IsVisible = _view3D;
+        flyout.Opened += (_, _) => SetNativeHidden(true);
+        flyout.Closed += (_, _) => SetNativeHidden(false);
     }
 
     private void BuildSpeedFlyout()
@@ -1785,8 +1788,8 @@ public partial class MainView : UserControl
         row.Children.Add(SpeedText);
         // O 3D (elemento do navegador) ficaria por cima do menu: some enquanto o menu está aberto
         var flyout = new Flyout { Content = row, Placement = PlacementMode.TopEdgeAlignedRight };
-        flyout.Opened += (_, _) => Scene3DSlot.IsVisible = false;
-        flyout.Closed += (_, _) => Scene3DSlot.IsVisible = _view3D;
+        flyout.Opened += (_, _) => SetNativeHidden(true);
+        flyout.Closed += (_, _) => SetNativeHidden(false);
         SpeedButton.Flyout = flyout;
     }
 
