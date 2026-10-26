@@ -355,4 +355,145 @@ public static class LatheOperations
         var op = new LatheOperation(p.Internal ? "Rosca interna" : "Rosca externa", tool with { Rpm = p.Rpm }, safeZ, safeR, [], null, warnings) { Thread = thread };
         return new LatheResult(op, null);
     }
+
+    /// <summary>
+    /// Canal radial retangular em movimentos simples (roda em qualquer controle). Z do canal vai de
+    /// <paramref name="zStart"/> (parede de maior Z) a <paramref name="zStart"/> − <paramref name="width"/>.
+    /// A ferramenta tem a largura <paramref name="toolWidth"/> e seu Z de programa é a aresta do lado de maior Z.
+    /// Desbaste em mergulhos com quebra-cavaco; acabamento (opcional) com sobremetal <paramref name="allowance"/> nas paredes e no fundo.
+    /// </summary>
+    public static LatheResult Grooving(LatheTool tool, double safeZ, double safeR, GroovingParams p)
+    {
+        string? error = tool.Validate();
+        if (error is not null)
+        {
+            return Fail(error);
+        }
+
+        if (p.SurfaceDiameter <= 0 || p.BottomDiameter <= 0 || p.ToolWidth <= 0 || p.Width <= 0 || p.Peck <= 0 || p.Feed <= 0 || p.Clearance <= 0 || p.Allowance < 0 || p.Retract <= 0)
+        {
+            return Fail("Diâmetros, larguras, mergulho, avanço e folga precisam ser maiores que zero.");
+        }
+
+        if (p.Internal ? p.BottomDiameter <= p.SurfaceDiameter : p.BottomDiameter >= p.SurfaceDiameter)
+        {
+            return Fail(p.Internal ? "O fundo do canal interno precisa ter diâmetro maior que o furo." : "O fundo do canal precisa ter diâmetro menor que o da superfície.");
+        }
+
+        if (p.Width < p.ToolWidth - 1e-6)
+        {
+            return Fail($"A ferramenta ({p.ToolWidth:0.##} mm) é mais larga que o canal ({p.Width:0.##} mm).");
+        }
+
+        double s = p.Internal ? -1 : 1;                    // sentido "para fora" do material no raio
+        double rTop = p.SurfaceDiameter / 2, rBottom = p.BottomDiameter / 2;
+        double clear = rTop + s * p.Clearance;
+        if (clear < 0.2)
+        {
+            return Fail("Furo pequeno demais para a folga de aproximação.");
+        }
+
+        double zUpper = p.ZStart;
+        double zLowerTool = p.ZStart - p.Width + p.ToolWidth;   // Z da ferramenta com a aresta na parede de menor Z
+        double span = zUpper - zLowerTool;                      // curso útil da ferramenta (0 = largura exata)
+        bool finish = p.Finish && p.Allowance > 0 && span > 1e-6;
+        double wall = finish ? Math.Min(p.Allowance, span / 2) : 0;
+        double bottomAllow = finish ? p.Allowance : 0;
+        double rRough = rBottom + s * bottomAllow;              // fundo do desbaste: para antes do fundo, deixando sobremetal
+        if (p.Internal ? rRough < rTop : rRough > rTop)
+        {
+            rRough = rTop;
+        }
+
+        var moves = new List<LatheMove>();
+        void Rapid(double z, double r) => moves.Add(new LatheMove(MoveKind.Rapid, z, r));
+        void Feed(double z, double r) => moves.Add(new LatheMove(MoveKind.Feed, z, r, p.Feed));
+
+        double firstZ = zUpper - wall, lastZ = zLowerTool + wall;
+        var positions = new List<double> { firstZ };
+        double step = Math.Max(0.1, p.ToolWidth * 0.8);
+        for (double z = firstZ - step; z > lastZ + 1e-6; z -= step)
+        {
+            positions.Add(z);
+        }
+
+        if (lastZ < firstZ - 1e-6)
+        {
+            positions.Add(lastZ);
+        }
+
+        // Entrada: externo sobe para o raio seguro e desce; interno entra pelo eixo
+        if (p.Internal)
+        {
+            Rapid(safeZ, clear);
+            Rapid(firstZ, clear);
+        }
+        else
+        {
+            Rapid(firstZ, safeR);
+            Rapid(firstZ, clear);
+        }
+
+        double depthTotal = Math.Abs(rRough - rTop);
+        foreach (double z in positions)
+        {
+            Rapid(z, clear);
+            double done = 0;
+            while (done < depthTotal - 1e-9)
+            {
+                double previous = done;
+                done = Math.Min(depthTotal, done + p.Peck);
+                if (previous > 0)
+                {
+                    Rapid(z, rTop - s * (previous - 0.2 > 0 ? previous - 0.2 : 0)); // volta perto do fundo anterior
+                }
+
+                Feed(z, rTop - s * done);
+                if (done < depthTotal - 1e-9)
+                {
+                    Rapid(z, rTop - s * Math.Max(0, done - p.Retract));              // quebra-cavaco
+                }
+            }
+
+            Rapid(z, clear);
+        }
+
+        if (finish)
+        {
+            // 1) parede de baixo: mergulha e se afasta para o lado já limpo
+            Rapid(zLowerTool, clear);
+            Feed(zLowerTool, rBottom);
+            Feed(zLowerTool + wall, rBottom);
+            Rapid(zLowerTool + wall, clear);
+            // 2) parede de cima: mergulha e arrasta pelo fundo até a parede de baixo
+            Rapid(zUpper, clear);
+            Feed(zUpper, rBottom);
+            Feed(zLowerTool, rBottom);
+            Rapid(zLowerTool, clear);
+        }
+
+        if (p.Internal)
+        {
+            Rapid(safeZ, clear);
+            Rapid(safeZ, safeR);
+        }
+        else
+        {
+            Rapid(moves[^1].Z, safeR);
+            Rapid(safeZ, safeR);
+        }
+
+        var warnings = new List<string>();
+        if (p.Internal)
+        {
+            warnings.Add("Canal interno: confira a entrada da barra no furo antes de rodar.");
+        }
+
+        return new LatheResult(new LatheOperation(p.Internal ? "Canal interno" : "Canal externo", tool, safeZ, safeR, moves, null, warnings), null);
+    }
 }
+
+/// <summary>Canal radial. Largura do canal e da ferramenta em mm; Z de início = parede de maior Z.</summary>
+public sealed record GroovingParams(
+    bool Internal, double SurfaceDiameter, double BottomDiameter, double ZStart, double Width, double ToolWidth,
+    double Peck = 2, double Feed = 0.08, double Retract = 0.5, double Allowance = 0.1, bool Finish = true, double Clearance = 2);
