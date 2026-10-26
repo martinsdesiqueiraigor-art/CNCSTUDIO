@@ -314,6 +314,11 @@ public partial class MainView : UserControl
         HeaderGraphButton.Click += (_, _) => ShowPage(graph: true);
 
         FillExamplesMenu();
+        if (Stored("cc.cmyk") == "1")
+        {
+            ApplyCmyk(true);
+        }
+
         if (Stored("cc.theme") == "light")
         {
             ApplyTheme(true);
@@ -819,6 +824,36 @@ public partial class MainView : UserControl
         }
         Editor.TextArea.TextView.Redraw();
     }
+    /// <summary>Tema opcional CMYK (ciano de destaque, fundo azul-petróleo); o visual atual continua o padrão.</summary>
+    private void ApplyCmyk(bool on)
+    {
+        if (Application.Current is not { } app)
+        {
+            return;
+        }
+
+        string accent = on ? "#00AEEF" : "#F0883E";
+        app.Resources["BrandOrange"] = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(accent));
+        if (app.Resources.ThemeDictionaries.TryGetValue(Avalonia.Styling.ThemeVariant.Dark, out var found) && found is Avalonia.Controls.ResourceDictionary dark)
+        {
+            void Set(string key, string color) => dark[key] = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(color));
+            Set("AppBackground", on ? "#0B1418" : "#0D1117");
+            Set("BarBackground", on ? "#13242B" : "#161B22");
+            Set("HeaderBackground", on ? "#10303B" : "#1C2738");
+            Set("SubtleBorder", on ? "#24414C" : "#30363D");
+            Set("BrandBlue", on ? "#EC008C" : "#58A6FF");
+            Set("HudBackground", on ? "#C80B1418" : "#C80D1117");
+        }
+
+        try
+        {
+            WebInterop.SetAccent(accent);
+        }
+        catch
+        {
+        }
+    }
+
     private readonly DispatcherTimer _saveTimer;
     private bool _restoring;
 
@@ -1009,6 +1044,11 @@ public partial class MainView : UserControl
         {
             ApplyTheme(v);
             Store("cc.theme", v ? "light" : "dark");
+        }));
+        panel.Children.Add(Option("Tema CMYK (ciano, magenta, amarelo)", Stored("cc.cmyk") == "1", v =>
+        {
+            ApplyCmyk(v);
+            Store("cc.cmyk", v ? "1" : "0");
         }));
         _vibrate = Stored("cc.vibrate") != "0";
         panel.Children.Add(Option("Vibrar ao tocar nos botões", _vibrate, v =>

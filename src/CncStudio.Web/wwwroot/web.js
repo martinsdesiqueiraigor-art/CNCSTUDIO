@@ -430,3 +430,8 @@ export function onPlatform(callback) {
 }
 export function openOptimizer(call, programText, programName) { return import('./optimizer-ui.js').then(m => m.openOptimizer(call, programText, programName)); }
 export function openAcademy(call) { return import('./academy-ui.js').then(m => m.openAcademy(call)); }
+
+/** Tema CMYK: cor de destaque dos elementos HTML (painel, barra de simulação). */
+export function setAccent(color) {
+    document.documentElement.style.setProperty('--cc-accent', color);
+}

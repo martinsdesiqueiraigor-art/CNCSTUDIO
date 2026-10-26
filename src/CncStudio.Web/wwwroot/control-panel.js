@@ -18,7 +18,7 @@ export function create() {
 
   const card = document.createElement('div');
   card.style.cssText = 'position:absolute;display:none;pointer-events:auto;box-sizing:border-box;min-width:150px;max-width:calc(100% - 12px);'
-    + 'background:rgba(13,17,23,.88);border:1px solid #f0883e;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.45);color:#e6edf3;'
+    + 'background:rgba(13,17,23,.88);border:1px solid var(--cc-accent,#f0883e);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.45);color:#e6edf3;'
     + 'font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;user-select:none;-webkit-user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent';
   // Os eventos do cartão não sobem (o Avalonia que envolve o div os capturaria)
   for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'click', 'wheel', 'dblclick', 'contextmenu'])
@@ -27,7 +27,7 @@ export function create() {
   const head = document.createElement('div');
   head.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 8px;cursor:grab;touch-action:none';
   const title = document.createElement('span');
-  title.style.cssText = 'flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;color:#f0883e';
+  title.style.cssText = 'flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;color:var(--cc-accent,#f0883e)';
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.style.cssText = 'flex:none;width:28px;height:28px;padding:0;border-radius:8px;border:1px solid #303d4b;background:#161b22;color:#e6edf3;cursor:pointer;display:flex;align-items:center;justify-content:center';
@@ -139,7 +139,7 @@ function render(v) {
   v.body.appendChild(row([['ABSOLUTA (' + d.unit + ')', dim + 'flex:1'], ['FALTA', dim + 'width:76px;text-align:right']], 'font-size:10px;margin-bottom:2px'));
   for (const a of d.axes) {
     v.body.appendChild(row([
-      [a.n, 'color:#f0883e;font-weight:700;width:14px'],
+      [a.n, 'color:var(--cc-accent,#f0883e);font-weight:700;width:14px'],
       [fmt(a.p), 'flex:1;text-align:right;font-size:15px;font-weight:700'],
       [fmt(a.d), 'width:76px;text-align:right;color:' + (Math.abs(a.d) < 0.0005 ? '#6b7a8a' : '#d4a017')],
     ]));
@@ -151,7 +151,7 @@ function render(v) {
   const spindle = d.spindle > 0 ? 'S' + fmt(d.spindle, 0) + (d.css ? ' m/min' : ' rpm') : 'S--';
   v.body.appendChild(row([[tool, 'color:#3b82f6;font-weight:700'], [feed, ''], [spindle, '']], 'flex-wrap:wrap'));
   v.body.appendChild(row([[d.g.join(' '), 'color:#2fa87c;white-space:normal']], 'margin-top:4px'));
-  v.body.appendChild(row([['ZERO DE PEÇA', dim + 'font-size:10px'], [d.wcs, 'color:#f0883e;font-weight:700']], 'margin-top:4px'));
+  v.body.appendChild(row([['ZERO DE PEÇA', dim + 'font-size:10px'], [d.wcs, 'color:var(--cc-accent,#f0883e);font-weight:700']], 'margin-top:4px'));
   place(v);
 }
 

@@ -370,7 +370,7 @@ function ensureSimBar(v) {
   const b = { edge: barEdge(), step: 0, max: 1, playing: false, handler: null };
   const el = document.createElement('div');
   el.style.cssText = 'position:absolute;z-index:5;display:none;box-sizing:border-box;align-items:center;gap:6px;padding:6px;border-radius:14px;'
-    + 'background:rgba(13,17,23,.86);border:1px solid #f0883e;box-shadow:0 2px 12px rgba(0,0,0,.45);color:#e6edf3;'
+    + 'background:rgba(13,17,23,.86);border:1px solid var(--cc-accent,#f0883e);box-shadow:0 2px 12px rgba(0,0,0,.45);color:#e6edf3;'
     + 'font:600 13px system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent';
   // O div do 3D fica dentro do Avalonia: os eventos da barra não podem subir
   for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'click', 'wheel', 'dblclick', 'contextmenu'])
@@ -422,7 +422,7 @@ function ensureSimBar(v) {
   b.start = button(BAR_ICONS.start, 'Voltar ao início', 'start');
   b.back = button(BAR_ICONS.back, 'Passo anterior', 'back');
   b.play = button(BAR_ICONS.play, 'Executar / pausar', 'play', 44);
-  b.play.style.borderColor = '#f0883e'; b.play.style.color = '#f0883e';
+  b.play.style.borderColor = 'var(--cc-accent,#f0883e)'; b.play.style.color = 'var(--cc-accent,#f0883e)';
   b.next = button(BAR_ICONS.step, 'Próximo passo', 'step');
   b.end = button(BAR_ICONS.end, 'Ir ao fim', 'end');
   b.all = [b.start, b.back, b.play, b.next, b.end];
@@ -435,8 +435,8 @@ function ensureSimBar(v) {
   // Barra de progresso própria (o controle do navegador não gira bem para a vertical)
   const slider = mk('div', 'position:relative;flex:1 1 170px;min-width:0;touch-action:none;cursor:pointer');
   const track = mk('div', 'position:absolute;border-radius:3px;background:#303d4b');
-  const fill = mk('div', 'position:absolute;border-radius:3px;background:#f0883e');
-  const thumb = mk('div', 'position:absolute;width:20px;height:20px;border-radius:50%;background:#f0883e;border:2px solid #0d1117;box-sizing:border-box');
+  const fill = mk('div', 'position:absolute;border-radius:3px;background:var(--cc-accent,#f0883e)');
+  const thumb = mk('div', 'position:absolute;width:20px;height:20px;border-radius:50%;background:var(--cc-accent,#f0883e);border:2px solid #0d1117;box-sizing:border-box');
   slider.append(track, fill, thumb);
   b.slider = { slider, track, fill, thumb };
   let lastSeek = -1;
