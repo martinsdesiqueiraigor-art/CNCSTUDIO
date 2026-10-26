@@ -212,3 +212,50 @@ public class CamPostTests
         static IEnumerable<string> path(string text) => text.Split('\n');
     }
 }
+
+public class CamPostToolTests
+{
+    private static readonly CamLevels Lv = new(50, 2, 0, -3, 3);
+
+    [Fact]
+    public void NomeDaFerramentaSaiNoComentario()
+    {
+        var tool = new CamTool(3, 10, 3000, 500, 200, "FRESA TOPO Z4");
+        CamOperation op = CamOperations.Facing(tool, Lv, 0, 0, 60, 40, 70).Operation!;
+        string fanuc = CamPost.Generate([op], new PostOptions(CamDialect.Fanuc));
+        string siemens = CamPost.Generate([op], new PostOptions(CamDialect.Siemens));
+        Assert.Contains("T3 M6 (FRESA TOPO Z4)", fanuc);
+        Assert.Contains("D3 ; FRESA TOPO Z4", siemens);
+    }
+
+    [Fact]
+    public void SemNomeUsaODiametro()
+    {
+        CamOperation op = CamOperations.Facing(new CamTool(1, 10, 3000, 500, 200), Lv, 0, 0, 60, 40, 70).Operation!;
+        Assert.Contains("T1 M6 (FRESA D10)", CamPost.Generate([op], new PostOptions(CamDialect.Fanuc)));
+    }
+
+    [Fact]
+    public void MesmoTComRotacaoDiferenteTrocaOS()
+    {
+        var a = new CamTool(1, 10, 3000, 500, 200);
+        var b = new CamTool(1, 10, 5000, 500, 200);
+        CamOperation o1 = CamOperations.Facing(a, Lv, 0, 0, 60, 40, 70).Operation!;
+        CamOperation o2 = CamOperations.Contour(Contour.Rectangle(0, 0, 40, 20), b, Lv, new ContourParams(ContourSide.Outside)).Operation!;
+        string program = CamPost.Generate([o1, o2], new PostOptions(CamDialect.Fanuc));
+        Assert.Contains("S3000 M3", program);
+        Assert.Contains("S5000", program);
+        Assert.Single(program.Split('\n'), l => l.StartsWith("T1 M6", StringComparison.Ordinal)); // não troca de ferramenta
+    }
+
+    [Fact]
+    public void MesmoTComDiametrosDiferentesAvisa()
+    {
+        CamOperation o1 = CamOperations.Facing(new CamTool(1, 10, 3000, 500, 200), Lv, 0, 0, 60, 40, 70).Operation!;
+        CamOperation o2 = CamOperations.Facing(new CamTool(1, 6, 3000, 500, 200), Lv, 0, 0, 60, 40, 70).Operation!;
+        IReadOnlyList<string> w = CamPost.Check([o1, o2]);
+        Assert.Single(w);
+        Assert.Contains("T1", w[0]);
+        Assert.Empty(CamPost.Check([o1, o1]));
+    }
+}

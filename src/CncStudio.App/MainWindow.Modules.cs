@@ -65,6 +65,8 @@ public partial class MainWindow
             LoadText(text, null, name);
             ShowModule("code");
         };
+        Cam.ToolsSource = () => _settings.Tools;
+        Cam.SaveTools = () => _settings.Save();
         Cam.PickDxf = async () =>
         {
             IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
@@ -173,6 +175,11 @@ public partial class MainWindow
         Optimizer.IsVisible = id == "otimizador";
         Macro.IsVisible = id == "macro";
         Cam.IsVisible = id == "cam";
+        if (id == "cam")
+        {
+            Cam.RefreshBank();
+        }
+
         if (id == "otimizador")
         {
             Optimizer.Refresh();

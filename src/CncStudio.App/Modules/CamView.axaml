@@ -18,6 +18,11 @@
           <TextBlock Text="Contornos do desenho" FontWeight="Bold" Margin="0,6,0,0" />
           <ListBox x:Name="ContourList" MaxHeight="150" MinHeight="48" />
           <TextBlock Text="Ferramenta e alturas" FontWeight="Bold" Margin="0,6,0,0" />
+          <ComboBox x:Name="BankCombo" HorizontalAlignment="Stretch" PlaceholderText="Ferramenta do banco…" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button x:Name="SaveToolButton" Content="Salvar no banco" Padding="10,5" />
+            <Button x:Name="DeleteToolButton" Content="Excluir do banco" Padding="10,5" />
+          </StackPanel>
           <StackPanel x:Name="CommonFields" Spacing="4" />
           <TextBlock Text="Operação" FontWeight="Bold" Margin="0,6,0,0" />
           <ComboBox x:Name="OpCombo" HorizontalAlignment="Stretch" />

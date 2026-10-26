@@ -29,11 +29,28 @@ public static class CamPost
         return writer.ToString();
     }
 
+    /// <summary>Avisos antes de gerar: o mesmo T com diâmetros diferentes (o corretor e o raio do controle seriam os mesmos).</summary>
+    public static IReadOnlyList<string> Check(IReadOnlyList<CamOperation> operations)
+    {
+        var warnings = new List<string>();
+        foreach (IGrouping<int, CamTool> group in operations.Select(o => o.Tool).GroupBy(t => t.Number))
+        {
+            double[] diameters = group.Select(t => Math.Round(t.Diameter, 3)).Distinct().ToArray();
+            if (diameters.Length > 1)
+            {
+                warnings.Add($"T{group.Key} aparece com diâmetros diferentes ({string.Join(" e ", diameters.Select(d => "Ø" + d.ToString("0.###", Inv)))}): use um número de ferramenta para cada uma.");
+            }
+        }
+
+        return warnings;
+    }
+
     private sealed class Writer(PostOptions o)
     {
         private readonly StringBuilder _sb = new();
         private readonly bool _fanuc = o.Dialect == CamDialect.Fanuc;
         private int _tool = -1;
+        private double _rpm;
         private MoveKind? _modal;
         private double _feed = double.NaN;
         private double _x = double.NaN, _y = double.NaN, _z = double.NaN;
@@ -96,6 +113,12 @@ public static class CamPost
         {
             if (tool.Number == _tool)
             {
+                if (Math.Abs(tool.SpindleRpm - _rpm) > 1e-9)
+                {
+                    Line($"S{(int)Math.Round(tool.SpindleRpm)}");
+                    _rpm = tool.SpindleRpm;
+                }
+
                 return;
             }
 
@@ -111,19 +134,21 @@ public static class CamPost
 
             Line(_fanuc ? "G91 G28 Z0" : "G0 G53 Z0");
             Line("G90");
+            string label = tool.Name.Length > 0 ? Clean(tool.Name) : $"FRESA D{N(tool.Diameter).TrimEnd('.')}";
             if (_fanuc)
             {
-                Line($"T{tool.Number} M6");
+                Line($"T{tool.Number} M6 ({label})");
             }
             else
             {
                 Line($"T{tool.Number}");
                 Line("M6");
-                Line($"D{tool.Number}");
+                Line($"D{tool.Number} ; {label}");
             }
 
             Line($"S{(int)Math.Round(tool.SpindleRpm)} M3");
             _tool = tool.Number;
+            _rpm = tool.SpindleRpm;
             _modal = null;
             _feed = double.NaN;
             _x = _y = _z = double.NaN;

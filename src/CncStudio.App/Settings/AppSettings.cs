@@ -19,6 +19,13 @@ public sealed class ToolEntry
 
     /// <summary>Largura do inserto do bedame (mm).</summary>
     public double InsertWidth { get; set; } = SetupTool.DefaultInsertWidth;
+
+    /// <summary>Dados de corte guardados pelo Casillas CAM (0 = não informado): rotação (rpm) e avanços (mm/min).</summary>
+    public double SpindleRpm { get; set; }
+
+    public double FeedXY { get; set; }
+
+    public double FeedZ { get; set; }
 }
 
 /// <summary>

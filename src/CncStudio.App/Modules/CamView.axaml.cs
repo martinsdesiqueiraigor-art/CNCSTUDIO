@@ -3,7 +3,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
+using CncStudio.Core.Setup;
 
 namespace CncStudio.App.Modules;
 
@@ -23,6 +25,7 @@ public partial class CamView : UserControl
     private readonly Dictionary<string, TextBox> _common = [];
     private readonly Dictionary<string, TextBox> _fields = [];
     private readonly Dictionary<string, TextBox> _shape = [];
+    private readonly TextBox _toolName = new() { MinHeight = 26, Width = 160, Watermark = "ex.: Fresa topo Z4" };
     private CheckBox? _climb, _comp;
     private ComboBox? _cycle;
     private string _program = "";
@@ -36,9 +39,21 @@ public partial class CamView : UserControl
 
     public Func<string, Task>? CopyText { get; set; }
 
+    /// <summary>Tabela de ferramentas do Code (a mesma do simulador); o CAM lê e grava nela.</summary>
+    public Func<List<ToolEntry>>? ToolsSource { get; set; }
+
+    private List<ToolEntry>? Tools => ToolsSource?.Invoke();
+
+    /// <summary>Grava as configurações (depois de mudar o banco de ferramentas).</summary>
+    public Action? SaveTools { get; set; }
+
     public CamView()
     {
         InitializeComponent();
+        var nameRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        nameRow.Children.Add(new TextBlock { Text = "Nome", Width = 170, VerticalAlignment = VerticalAlignment.Center });
+        nameRow.Children.Add(_toolName);
+        CommonFields.Children.Add(nameRow);
         AddCommon("T", "Ferramenta (T)", 1, "");
         AddCommon("D", "Diâmetro", 10, "mm");
         AddCommon("S", "Rotação", 3000, "rpm");
@@ -60,6 +75,10 @@ public partial class CamView : UserControl
 
         OpCombo.SelectionChanged += (_, _) => BuildOpFields();
         OpCombo.SelectedIndex = 0;
+        BankCombo.SelectionChanged += (_, _) => UseBankTool();
+        SaveToolButton.Click += (_, _) => SaveToBank();
+        DeleteToolButton.Click += (_, _) => DeleteFromBank();
+        AttachedToVisualTree += (_, _) => RefreshBank();
         OpenDxfButton.Click += async (_, _) => await OpenDxf();
         AddOpButton.Click += (_, _) => AddOperation();
         RemoveOpButton.Click += (_, _) =>
@@ -77,6 +96,7 @@ public partial class CamView : UserControl
         {
             if (_program.Length > 0)
             {
+                EnsureToolsInBank();
                 OpenInEditor?.Invoke(_program, _baseName + ".nc");
             }
         };
@@ -269,6 +289,133 @@ public partial class CamView : UserControl
         PreviewHint.IsVisible = _contours.Count == 0;
     }
 
+
+    // ---------------------------------------------------------------- banco de ferramentas
+
+    private static bool IsMillTool(ToolEntry e) =>
+        !(Enum.TryParse(e.Kind, out ToolKind kind) && new SetupTool { Kind = kind }.IsLathe);
+
+    private IEnumerable<ToolEntry> BankTools() => (Tools ?? []).Where(IsMillTool).OrderBy(t => t.Number);
+
+    public void RefreshBank()
+    {
+        BankCombo.Items.Clear();
+        foreach (ToolEntry t in BankTools())
+        {
+            string name = t.Description.Length > 0 ? t.Description : "Fresa";
+            BankCombo.Items.Add(new ComboBoxItem { Content = $"T{t.Number} · {name} Ø{t.Diameter.ToString("0.##", CultureInfo.GetCultureInfo("pt-BR"))}", Tag = t });
+        }
+    }
+
+    private static string Fmt(double v) => v.ToString("0.###", CultureInfo.GetCultureInfo("pt-BR"));
+
+    private void UseBankTool()
+    {
+        if (BankCombo.SelectedItem is not ComboBoxItem { Tag: ToolEntry t })
+        {
+            return;
+        }
+
+        _toolName.Text = t.Description;
+        _common["T"].Text = t.Number.ToString(CultureInfo.InvariantCulture);
+        _common["D"].Text = Fmt(t.Diameter);
+        if (t.SpindleRpm > 0)
+        {
+            _common["S"].Text = Fmt(t.SpindleRpm);
+        }
+
+        if (t.FeedXY > 0)
+        {
+            _common["F"].Text = Fmt(t.FeedXY);
+        }
+
+        if (t.FeedZ > 0)
+        {
+            _common["FZ"].Text = Fmt(t.FeedZ);
+        }
+    }
+
+    private void SaveToBank()
+    {
+        double number = C("T"), diameter = C("D");
+        if (Tools is null || double.IsNaN(number) || number < 1 || number > 9999 || number != Math.Floor(number) || double.IsNaN(diameter) || diameter <= 0)
+        {
+            Errors.Text = "• Para salvar no banco: T inteiro de 1 a 9999 e diâmetro maior que zero.";
+            return;
+        }
+
+        Errors.Text = "";
+        ToolEntry? entry = Tools.FirstOrDefault(t => t.Number == (int)number);
+        if (entry is null)
+        {
+            entry = new ToolEntry { Number = (int)number };
+            Tools.Add(entry);
+        }
+
+        entry.Diameter = diameter;
+        entry.Description = (_toolName.Text ?? "").Trim();
+        entry.SpindleRpm = Math.Max(0, C("S"));
+        entry.FeedXY = Math.Max(0, C("F"));
+        entry.FeedZ = Math.Max(0, C("FZ"));
+        SaveTools?.Invoke();
+        RefreshBank();
+    }
+
+    private void DeleteFromBank()
+    {
+        double number = C("T");
+        if (Tools is null || Tools.RemoveAll(t => t.Number == (int)number && IsMillTool(t)) == 0)
+        {
+            Errors.Text = "• Essa ferramenta não está no banco.";
+            return;
+        }
+
+        Errors.Text = "";
+        SaveTools?.Invoke();
+        RefreshBank();
+    }
+
+    /// <summary>Ferramentas usadas no programa que ainda não estão no banco entram nele (o simulador do Code usa o diâmetro do banco).</summary>
+    private void EnsureToolsInBank()
+    {
+        if (Tools is null)
+        {
+            return;
+        }
+
+        bool changed = false;
+        foreach (CamTool t in _ops.Select(o => o.Tool).GroupBy(t => t.Number).Select(g => g.First()))
+        {
+            if (Tools.All(e => e.Number != t.Number))
+            {
+                Tools.Add(new ToolEntry { Number = t.Number, Diameter = t.Diameter, Description = t.Name, SpindleRpm = t.SpindleRpm, FeedXY = t.FeedXY, FeedZ = t.FeedZ });
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            SaveTools?.Invoke();
+            RefreshBank();
+        }
+    }
+
+    private string WarningText()
+    {
+        var lines = _ops.SelectMany(o => o.Warnings).ToList();
+        lines.AddRange(CamPost.Check(_ops));
+        foreach (CamTool t in _ops.Select(o => o.Tool).GroupBy(t => t.Number).Select(g => g.First()))
+        {
+            ToolEntry? bank = Tools?.FirstOrDefault(e => e.Number == t.Number);
+            if (bank is not null && Math.Abs(bank.Diameter - t.Diameter) > 1e-6)
+            {
+                lines.Add($"T{t.Number} no banco do Code tem Ø{Fmt(bank.Diameter)}, mas o CAM usou Ø{Fmt(t.Diameter)}: o simulador do Code usa o do banco.");
+            }
+        }
+
+        return string.Join("\n", lines.Distinct().Select(w => "⚠ " + w));
+    }
+
     // ---------------------------------------------------------------- operações
 
     private void AddOperation()
@@ -281,7 +428,7 @@ public partial class CamView : UserControl
             return;
         }
 
-        var tool = new CamTool((int)C("T"), C("D"), C("S"), C("F"), C("FZ"));
+        var tool = new CamTool((int)C("T"), C("D"), C("S"), C("F"), C("FZ"), (_toolName.Text ?? "").Trim());
         var levels = new CamLevels(C("SAFE"), C("CLR"), C("TOP"), C("BOT"), C("Q"));
         int kind = OpCombo.SelectedIndex;
         Contour? selected = ContourList.SelectedIndex >= 0 && ContourList.SelectedIndex < _contours.Count ? _contours[ContourList.SelectedIndex] : null;
@@ -346,7 +493,7 @@ public partial class CamView : UserControl
         for (int i = 0; i < _ops.Count; i++)
         {
             CamOperation op = _ops[i];
-            OpList.Items.Add(new ListBoxItem { Content = $"{i + 1} · {op.Name} — T{op.Tool.Number} Ø{op.Tool.Diameter.ToString("0.##", CultureInfo.GetCultureInfo("pt-BR"))}" });
+            OpList.Items.Add(new ListBoxItem { Content = $"{i + 1} · {op.Name} — T{op.Tool.Number} Ø{op.Tool.Diameter.ToString("0.##", CultureInfo.GetCultureInfo("pt-BR"))}{(op.Tool.Name.Length > 0 ? " " + op.Tool.Name : "")}" });
         }
 
         if (_ops.Count > 0)
@@ -357,7 +504,7 @@ public partial class CamView : UserControl
         _program = "";
         Output.Text = "";
         OpenButton.IsEnabled = CopyButton.IsEnabled = false;
-        Warnings.Text = string.Join("\n", _ops.SelectMany(o => o.Warnings).Distinct().Select(w => "⚠ " + w));
+        Warnings.Text = WarningText();
         RefreshPreview();
     }
 
