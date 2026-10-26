@@ -79,6 +79,7 @@ public partial class MainWindow
         Home.IsVisible = id == "inicio";
         Optimizer.IsVisible = id == "otimizador";
         Macro.IsVisible = id == "macro";
+        Store.IsVisible = id == "loja";
         if (id == "otimizador")
         {
             Optimizer.Refresh();

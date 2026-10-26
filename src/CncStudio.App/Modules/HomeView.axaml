@@ -17,7 +17,7 @@
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
       </ItemsControl>
-      <TextBlock Text="No desktop, os módulos chegam um a um. Os que ainda não estão aqui funcionam na versão web."
+      <TextBlock Text="A Academy (cursos) fica só na versão web. Os módulos que ainda não estão aqui chegam ao desktop aos poucos."
                  FontSize="12" Opacity="0.6" TextWrapping="Wrap" TextAlignment="Center" />
     </StackPanel>
   </ScrollViewer>

@@ -12,6 +12,6 @@ public static class PlatformModules
         new("otimizador", "Casillas Otimizador", "Acha repetições em programas de CAM e propõe laços Macro B só para simulador.", true),
         new("macro", "Casillas Macro", "Geradores de programa: furação, bolsões, rosca, texto. Simule no Code.", true),
         new("cam", "Casillas CAM", "Do desenho ao programa 2,5D.", false),
-        new("academy", "Casillas Academy", "Cursos de programação CNC.", false),
+        new("loja", "Casillas Loja", "Ferramentas e insumos, pedido pelo WhatsApp (em teste).", true),
     ];
 }
