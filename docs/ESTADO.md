@@ -64,3 +64,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `Core/Cam/DxfImporter.Parse(texto)`: LINE, ARC, CIRCLE, LWPOLYLINE e POLYLINE (com bulge); junta retas/arcos soltos em contornos fechados (pontas a 0,001 mm, inverte o que precisar).
 - Devolve contornos fechados, cadeias abertas e avisos (SPLINE/ELLIPSE/texto ignorados). Só DXF em texto.
 - 11 testes novos; total 780 passando. Próximo: entrega 3 (operações: faceamento, contorno, bolsão, furação).
+
+## CAM-01 entrega 3 — operações (ajuste-cam-operacoes)
+- `Core/Cam`: `CamOperations.Facing`, `.Contour` (fora/dentro/sobre a linha, concordante ou convencional, sobremetal, entrada/saída em arco, compensação G41/G42 ou percurso já deslocado), `.Pocket` (anéis concêntricos, rampa helicoidal, acabamento), `.Drilling` (G81/G82/G83/G73, ordem do furo mais próximo, furos a partir de círculos do DXF).
+- Saída neutra (`ToolMove`, `DrillCycle`); o G-code sai na entrega 4 (pós Fanuc/Siemens), onde cada programa passa também pelo `MachineExecutor`.
+- Limites: bolsão sem ilhas; contorno por dentro desce na vertical (avisa). 22 testes novos; total 801 passando.
