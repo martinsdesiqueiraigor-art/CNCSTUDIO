@@ -178,7 +178,7 @@ public partial class MainView
 
         Backplot.IsVisible = !only3D;
         PlotsSplitter.IsVisible = side;
-        Scene3DSlot.IsVisible = _view3D;
+        RefreshNativeLayers();
         UpdateTimeChip();
     }
 
