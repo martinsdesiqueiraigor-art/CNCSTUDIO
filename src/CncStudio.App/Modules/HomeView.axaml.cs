@@ -19,6 +19,11 @@ public partial class HomeView : UserControl
         {
             Cards.Items.Add(BuildCard(module));
         }
+
+        foreach (WebModule web in PlatformModules.Web)
+        {
+            WebCards.Items.Add(BuildWebCard(web));
+        }
     }
 
     private Control BuildCard(PlatformModule module)
@@ -49,6 +54,26 @@ public partial class HomeView : UserControl
             IsEnabled = module.Available,
         };
         button.Click += (_, _) => ModuleChosen?.Invoke(module);
+        return button;
+    }
+
+    private Control BuildWebCard(WebModule web)
+    {
+        var stack = new StackPanel { Spacing = 6 };
+        stack.Children.Add(new TextBlock { Text = web.Name, FontWeight = FontWeight.SemiBold, FontSize = 16, TextWrapping = TextWrapping.Wrap });
+        stack.Children.Add(new TextBlock { Text = web.Description, FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap });
+        stack.Children.Add(new TextBlock { Text = "Abrir na web ↗", FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Brushes.MediumTurquoise });
+        var button = new Button
+        {
+            Content = stack,
+            Width = 250,
+            MinHeight = 110,
+            Margin = new Thickness(8),
+            Padding = new Thickness(14),
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            VerticalContentAlignment = VerticalAlignment.Top,
+        };
+        button.Click += (_, _) => PlatformModules.OpenWeb(web.Url);
         return button;
     }
 }
