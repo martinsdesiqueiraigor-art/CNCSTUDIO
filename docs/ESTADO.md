@@ -59,3 +59,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `Core/Cam`: `Point2`, `Segment2` (reta/arco), `Contour` (área com sinal, sentido, perímetro, retângulo/círculo/polígono, `Reversed`).
 - `Contour.OffsetOutside(d)` / `OffsetLeft(d)`: desloca por fora/dentro, com arco nos cantos externos e encontro nos internos; devolve erro se não cabe ou se cruza.
 - 13 testes novos (`ContourOffsetTests`); total 769 passando. Próximo: entrega 2 (importar DXF).
+
+## CAM-01 entrega 2 — importar DXF (ajuste-cam-dxf)
+- `Core/Cam/DxfImporter.Parse(texto)`: LINE, ARC, CIRCLE, LWPOLYLINE e POLYLINE (com bulge); junta retas/arcos soltos em contornos fechados (pontas a 0,001 mm, inverte o que precisar).
+- Devolve contornos fechados, cadeias abertas e avisos (SPLINE/ELLIPSE/texto ignorados). Só DXF em texto.
+- 11 testes novos; total 780 passando. Próximo: entrega 3 (operações: faceamento, contorno, bolsão, furação).
