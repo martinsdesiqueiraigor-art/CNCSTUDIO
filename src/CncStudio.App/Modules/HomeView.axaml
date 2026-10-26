@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CncStudio.App.Modules.HomeView">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="32,28" Spacing="18" MaxWidth="900" HorizontalAlignment="Center">
+      <StackPanel Orientation="Horizontal" Spacing="14" HorizontalAlignment="Center">
+        <Image Source="/Assets/simbolo.png" Height="56" />
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="Plataforma Casillas" FontSize="26" FontWeight="Bold" />
+          <TextBlock Text="Editar, simular e programar usinagem CNC em português" Opacity="0.7" />
+        </StackPanel>
+      </StackPanel>
+      <ItemsControl x:Name="Cards">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel HorizontalAlignment="Center" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+      </ItemsControl>
+      <TextBlock Text="No desktop, os módulos chegam um a um. Os que ainda não estão aqui funcionam na versão web."
+                 FontSize="12" Opacity="0.6" TextWrapping="Wrap" TextAlignment="Center" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

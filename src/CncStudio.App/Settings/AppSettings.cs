@@ -77,6 +77,9 @@ public sealed class AppSettings
     /// <summary>Tema da interface: "Dark" ou "Light".</summary>
     public string Theme { get; set; } = "Dark";
 
+    /// <summary>Tema opcional CMYK (ciano de destaque, fundo azul-petróleo); vale só no tema escuro.</summary>
+    public bool Cmyk { get; set; }
+
     /// <summary>Arquivos abertos recentemente (o mais recente primeiro).</summary>
     public List<string> RecentFiles { get; set; } = [];
 
