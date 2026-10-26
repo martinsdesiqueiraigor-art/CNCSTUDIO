@@ -52,3 +52,5 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **Desktop, etapas 5 e 6**: Academy fica só na web (decisão do Igor, 26/10). Loja nativa no desktop (catálogo `loja/catalogo.json` compartilhado com a web, pedido pelo WhatsApp). Falta a etapa 4 (conta e licença).
 
 - **Desktop voltado ao operador** (`ajuste-desktop-links-web`): Academy, Loja e Calculadoras viram botões que abrem a web (endereços em `Modules/PlatformModules.cs`); Loja nativa removida. Desktop fica com Code, Otimizador, Macro e CAM.
+
+- **Desktop visual** (`ajuste-desktop-visual`): Início no estilo da web (logo com máscara, cartões com ilustração e cor por produto; as imagens são as mesmas da web, ligadas por `AvaloniaResource Link`), barra lateral com ícones coloridos e destaque na cor do produto, marca "Casillas Code" no cabeçalho, CMYK completo (editor, código, abas e painéis).

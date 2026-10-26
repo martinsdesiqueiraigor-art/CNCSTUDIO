@@ -32,6 +32,8 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <!-- Ilustrações da plataforma: as mesmas da versão web (uma fonte só) -->
+    <AvaloniaResource Include="..\CncStudio.Web\wwwroot\img\plataforma\*.webp" Link="Assets\plataforma\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

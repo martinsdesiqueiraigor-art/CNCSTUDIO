@@ -51,13 +51,47 @@ public sealed class GCodeColorizer : DocumentColorizingTransformer
         Label: Brush("#167A6C"),
         Expression: Brush("#001080"));
 
+    // Tema CMYK (escuro): ciano nos movimentos, magenta nos M, amarelo nas ferramentas
+    private static readonly Palette CmykColors = new(
+        Motion: Brush("#00AEEF"),
+        OtherG: Brush("#4FC9F5"),
+        M: Brush("#FF4DB0"),
+        Axis: Brush("#FFE066"),
+        Arc: Brush("#FF8AD0"),
+        FeedSpeed: Brush("#B8F0FF"),
+        Tool: Brush("#FFD400"),
+        BlockNumber: Brush("#6B8793"),
+        Comment: Brush("#6C9C95"),
+        Keyword: Brush("#FF4DB0"),
+        Program: Brush("#FFD400"),
+        Unknown: Brush("#FF5C5C"),
+        Label: Brush("#4FE0D0"),
+        Expression: Brush("#9FDFFF"));
+
     private Palette _palette = Dark;
+    private bool _light;
+    private bool _cmyk;
+
+    /// <summary>Usa a paleta CMYK (só vale no tema escuro). Depois de mudar, chame TextView.Redraw().</summary>
+    public bool Cmyk
+    {
+        get => _cmyk;
+        set
+        {
+            _cmyk = value;
+            _palette = _light ? Light : _cmyk ? CmykColors : Dark;
+        }
+    }
 
     /// <summary>Usa a paleta do tema claro. Depois de mudar, chame TextView.Redraw().</summary>
     public bool LightTheme
     {
-        get => _palette == Light;
-        set => _palette = value ? Light : Dark;
+        get => _light;
+        set
+        {
+            _light = value;
+            _palette = _light ? Light : _cmyk ? CmykColors : Dark;
+        }
     }
 
     private readonly List<Token> _tokens = [];

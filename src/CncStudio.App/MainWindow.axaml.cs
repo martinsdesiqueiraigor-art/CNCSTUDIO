@@ -535,6 +535,7 @@ public partial class MainWindow : Window
         Editor.TextArea.TextView.Redraw();
         ThemeButton.Content = light ? "☾" : "☀";
         ToolTip.SetTip(ThemeButton, light ? "Mudar para o tema escuro" : "Mudar para o tema claro");
+        ApplyCmyk(_settings.Cmyk); // o CMYK só vale no tema escuro: reaplica ao trocar
     }
 
     // ───────────────────────── Arquivos recentes ─────────────────────────
