@@ -517,3 +517,13 @@ export function setCmyk(on) {
         document.documentElement.removeAttribute('data-cc-cmyk');
     }
 }
+
+/** Atalho do tema no rodapé (platform-ui.js): alterna o CMYK em qualquer módulo e avisa o .NET. */
+let cmykHandler = null;
+export function onCmyk(callback) { cmykHandler = callback; }
+window.addEventListener('casillas:cmyk-toggle', () => {
+    const on = storageGet('cc.cmyk') !== '1';
+    storageSet('cc.cmyk', on ? '1' : '0');
+    setCmyk(on);
+    if (cmykHandler) cmykHandler(on);
+});

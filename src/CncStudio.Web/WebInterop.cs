@@ -124,6 +124,10 @@ internal static partial class WebInterop
     [JSImport("onPlatform", Module)]
     public static partial void OnPlatform([JSMarshalAs<JSType.Function<JSType.String>>] Action<string> callback);
 
+    /// <summary>Atalho de tema no rodapé: avisa quando a pessoa liga ou desliga o CMYK.</summary>
+    [JSImport("onCmyk", Module)]
+    public static partial void OnCmyk([JSMarshalAs<JSType.Function<JSType.Boolean>>] Action<bool> callback);
+
     /// <summary>Editor nativo em tela cheia; texto novo ou null se cancelar.</summary>
     [JSImport("editText", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
