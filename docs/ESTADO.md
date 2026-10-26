@@ -44,3 +44,5 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **Casillas Loja (teste)** (ramo `ajuste-loja-teste`): módulo abre pelo cartão/#loja; catálogo em `wwwroot/loja/catalogo.json` (1 item: apalpador 3D, specs A definir, preço sob consulta); pedido pelo WhatsApp. Sem pagamento, sem preço no repositório.
 
 - **Desktop, etapa 1 do PLAT-06** (ramo `ajuste-desktop-barra-modulos`): barra lateral de módulos (Início, Code, Otimizador, Macro, CAM, Academy; os 4 últimos "em breve"), tela Início e botão Tema CMYK (salvo nas configurações). O Code não mudou: o Início só o cobre.
+
+- **Desktop, etapa 2** (`ajuste-desktop-otimizador`): módulo Otimizador nativo (analisar, propostas, abrir proposta/revisão no editor, copiar anonimizada), usando `Core/Optimizer`.
