@@ -38,3 +38,5 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **Atalho de tema no rodapé** (ramo `ajuste-tema-atalho`): botão "Tema" no rodapé alterna padrão ↔ CMYK em qualquer módulo; sincroniza com a opção do menu Ver.
 
 - **ACAD-02** (`docs/tarefas/ACAD-02-modulos-2-a-4.md`): ficha dos módulos 2 a 4 da Academy pronta para o GPT (um PR por módulo). Aguarda o Igor entregar ao GPT.
+
+- **PLAT-06** (`docs/tarefas/PLAT-06-desktop-plataforma.md`): plano da plataforma no desktop (barra de módulos, Início, Tema, Otimizador, Macro, conta, Academy). CAM-01 atualizado: desktop primeiro. Nada codado.
