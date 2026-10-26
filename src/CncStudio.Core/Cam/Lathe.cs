@@ -88,7 +88,41 @@ public sealed record LatheCycle(
     double StartZ, double StartR, double DepthOfCut, double Retract, double AllowanceR, double AllowanceZ, double RoughFeed, double FinishFeed);
 
 /// <summary>Operação de torno: movimentos simples (faceamento, furação) ou um ciclo de perfil.</summary>
-public sealed record LatheOperation(string Name, LatheTool Tool, double SafeZ, double SafeR, IReadOnlyList<LatheMove> Moves, LatheCycle? Cycle, IReadOnlyList<string> Warnings);
+public sealed record LatheOperation(string Name, LatheTool Tool, double SafeZ, double SafeR, IReadOnlyList<LatheMove> Moves, LatheCycle? Cycle, IReadOnlyList<string> Warnings)
+{
+    /// <summary>Rosca (G76 no Fanuc, CYCLE97 no Siemens). Preenchido só nas operações de rosca.</summary>
+    public LatheThread? Thread { get; init; }
+}
+
+/// <summary>
+/// Rosca longitudinal. Z de <see cref="StartZ"/> (lado da entrada, maior Z) a <see cref="EndZ"/>; o ciclo ainda corre
+/// <see cref="Approach"/> antes e <see cref="Overrun"/> depois. Diâmetro nominal = crista (externa) ou raiz (interna).
+/// </summary>
+public sealed record LatheThread(
+    bool Internal, double MajorDiameter, double Pitch, double StartZ, double EndZ, double Approach, double Overrun,
+    double Height, double FirstDepth, double MinDepth, int FinishPasses, double Allowance, double Clearance, double Rpm)
+{
+    /// <summary>Raio da crista (externa: nominal; interna: furo).</summary>
+    public double CrestRadius => Internal ? MajorDiameter / 2 - Height : MajorDiameter / 2;
+
+    /// <summary>Raio da raiz (externa: nominal − altura; interna: nominal).</summary>
+    public double RootRadius => Internal ? MajorDiameter / 2 : MajorDiameter / 2 - Height;
+
+    /// <summary>Raio do ponto de partida do ciclo, fora do material.</summary>
+    public double StartRadius => Internal ? CrestRadius - Clearance : CrestRadius + Clearance;
+
+    /// <summary>Profundidades de cada passe a partir da crista (as mesmas do G76 do simulador).</summary>
+    public IReadOnlyList<double> Depths() => Execution.MachineExecutor.ThreadDepths(Height, FirstDepth, MinDepth, Allowance, FinishPasses);
+}
+
+/// <summary>
+/// Parâmetros da rosca. Altura em zero = padrão ISO (0,6134·passo externa; 0,5413·passo interna).
+/// Rpm fixo (rosca não se faz em velocidade de corte constante).
+/// </summary>
+public sealed record ThreadingParams(
+    bool Internal, double MajorDiameter, double Pitch, double StartZ, double EndZ, double Rpm = 600,
+    double Height = 0, double FirstDepth = 0, double MinDepth = 0.05, int FinishPasses = 2, double Allowance = 0.05,
+    double Approach = 0, double Overrun = 0, double Clearance = 2);
 
 public sealed record LatheResult(LatheOperation? Operation, string? Error)
 {
@@ -270,5 +304,55 @@ public static class LatheOperations
 
         moves.Add(new LatheMove(MoveKind.Rapid, safeZ, safeR));
         return new LatheResult(new LatheOperation("Furação axial", tool, safeZ, safeR, moves, null, []), null);
+    }
+
+    /// <summary>Rosca ISO longitudinal (passo em mm), externa ou interna, em vários passes. Roda em G76 (Fanuc) ou CYCLE97 (Siemens).</summary>
+    public static LatheResult Threading(LatheTool tool, double safeZ, double safeR, ThreadingParams p)
+    {
+        string? error = tool.Validate();
+        if (error is not null)
+        {
+            return Fail(error);
+        }
+
+        if (p.Pitch <= 0 || p.MajorDiameter <= 0)
+        {
+            return Fail("Passo e diâmetro da rosca precisam ser maiores que zero.");
+        }
+
+        if (p.StartZ <= p.EndZ)
+        {
+            return Fail("A rosca começa no Z maior e termina no menor (fim abaixo do início).");
+        }
+
+        if (p.Rpm <= 0 || p.FinishPasses < 1 || p.Allowance < 0 || p.MinDepth <= 0 || p.Clearance <= 0)
+        {
+            return Fail("Rotação, passes de acabamento, sobremetal, incremento mínimo e folga precisam ser válidos.");
+        }
+
+        double height = p.Height > 0 ? p.Height : (p.Internal ? 0.5413 : 0.6134) * p.Pitch;
+        double first = p.FirstDepth > 0 ? p.FirstDepth : Math.Max(0.05, height * 0.35);
+        double approach = p.Approach > 0 ? p.Approach : 2 * p.Pitch;
+        double overrun = p.Overrun > 0 ? p.Overrun : p.Pitch;
+        if (height >= p.MajorDiameter / 2 || first > height)
+        {
+            return Fail("Altura do filete ou 1º passe maior que a rosca permite.");
+        }
+
+        var thread = new LatheThread(p.Internal, p.MajorDiameter, p.Pitch, p.StartZ, p.EndZ, approach, overrun,
+            height, first, p.MinDepth, p.FinishPasses, p.Allowance, p.Clearance, p.Rpm);
+        if (thread.StartRadius < 0.5)
+        {
+            return Fail("Furo pequeno demais para a folga de entrada da rosca.");
+        }
+
+        var warnings = new List<string>();
+        if (p.Pitch > 0 && p.Rpm * p.Pitch > 3000)
+        {
+            warnings.Add("Avanço de rosca alto (rpm × passo): confira o limite da máquina.");
+        }
+
+        var op = new LatheOperation(p.Internal ? "Rosca interna" : "Rosca externa", tool with { Rpm = p.Rpm }, safeZ, safeR, [], null, warnings) { Thread = thread };
+        return new LatheResult(op, null);
     }
 }
