@@ -848,6 +848,7 @@ public partial class MainView : UserControl
         try
         {
             WebInterop.SetAccent(accent);
+            WebInterop.SetCmyk(on);
         }
         catch
         {

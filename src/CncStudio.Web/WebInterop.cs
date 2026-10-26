@@ -104,6 +104,9 @@ internal static partial class WebInterop
     [return: JSMarshalAs<JSType.String>]
     public static partial string? StorageGet([JSMarshalAs<JSType.String>] string key);
 
+    [JSImport("setCmyk", Module)]
+    public static partial void SetCmyk([JSMarshalAs<JSType.Boolean>] bool on);
+
     [JSImport("setAccent", Module)]
     public static partial void SetAccent([JSMarshalAs<JSType.String>] string color);
 
