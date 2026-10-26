@@ -1,12 +1,12 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 
 namespace CncStudio.App.Modules;
 
-/// <summary>Tela inicial da plataforma no desktop: um cartão por módulo, disponível ou "em breve".</summary>
+/// <summary>Tela inicial da plataforma no desktop, no mesmo estilo da web: cartões com ilustração e cor por produto.</summary>
 public partial class HomeView : UserControl
 {
     /// <summary>Avisa qual módulo disponível a pessoa escolheu.</summary>
@@ -15,65 +15,72 @@ public partial class HomeView : UserControl
     public HomeView()
     {
         InitializeComponent();
+        Logo.Source = PlatformModules.Logo();
+        // Borda suave em volta da logo, como na web (máscara radial)
+        Logo.OpacityMask = new RadialGradientBrush
+        {
+            GradientStops = [new GradientStop(Colors.Black, 0.64), new GradientStop(Colors.Transparent, 0.78)],
+        };
         foreach (PlatformModule module in PlatformModules.All)
         {
-            Cards.Items.Add(BuildCard(module));
+            Cards.Items.Add(Card(module.Id, module.Name, module.Description, module.Color, module.Available ? "" : "Em breve", module.Available, () => ModuleChosen?.Invoke(module)));
         }
 
         foreach (WebModule web in PlatformModules.Web)
         {
-            WebCards.Items.Add(BuildWebCard(web));
+            bool soon = web.Url.Length == 0;
+            WebCards.Items.Add(Card(web.Id, web.Name, web.Description, web.Color, soon ? "Em breve" : "↗ web", !soon, () => PlatformModules.OpenWeb(web.Url)));
         }
     }
 
-    private Control BuildCard(PlatformModule module)
+    private static Control Card(string id, string name, string text, string color, string badge, bool enabled, Action click)
     {
-        var title = new TextBlock { Text = module.Name, FontWeight = FontWeight.SemiBold, FontSize = 16, TextWrapping = TextWrapping.Wrap };
-        var text = new TextBlock { Text = module.Description, FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap };
-        var status = new TextBlock
-        {
-            Text = module.Available ? "Disponível" : "Em breve no desktop",
-            FontSize = 11,
-            FontWeight = FontWeight.SemiBold,
-            Foreground = module.Available ? Brushes.MediumSeaGreen : Brushes.Goldenrod,
-        };
+        var art = new Image { Source = PlatformModules.Art(id), Width = 84, Height = 84, HorizontalAlignment = HorizontalAlignment.Center };
+        var title = new TextBlock { Text = name.Replace("Casillas ", "Casillas\n"), FontWeight = FontWeight.Bold, FontSize = 14, TextAlignment = TextAlignment.Center, Foreground = PlatformModules.Brush(color), TextWrapping = TextWrapping.Wrap };
+        var sub = new TextBlock { Text = text, FontSize = 11, Opacity = 0.7, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap };
         var stack = new StackPanel { Spacing = 6 };
+        stack.Children.Add(art);
         stack.Children.Add(title);
-        stack.Children.Add(text);
-        stack.Children.Add(status);
+        stack.Children.Add(sub);
 
-        var button = new Button
+        var grid = new Grid();
+        grid.Children.Add(stack);
+        if (badge.Length > 0)
         {
-            Content = stack,
-            Width = 250,
-            MinHeight = 110,
-            Margin = new Thickness(8),
-            Padding = new Thickness(14),
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            VerticalContentAlignment = VerticalAlignment.Top,
-            IsEnabled = module.Available,
-        };
-        button.Click += (_, _) => ModuleChosen?.Invoke(module);
-        return button;
-    }
+            grid.Children.Add(new Border
+            {
+                Background = PlatformModules.Brush("#3B2F12"),
+                BorderBrush = PlatformModules.Brush("#7A6122"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(7, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Child = new TextBlock { Text = badge, FontSize = 10, FontWeight = FontWeight.Bold, Foreground = PlatformModules.Brush("#F3C969") },
+            });
+        }
 
-    private Control BuildWebCard(WebModule web)
-    {
-        var stack = new StackPanel { Spacing = 6 };
-        stack.Children.Add(new TextBlock { Text = web.Name, FontWeight = FontWeight.SemiBold, FontSize = 16, TextWrapping = TextWrapping.Wrap });
-        stack.Children.Add(new TextBlock { Text = web.Description, FontSize = 12, Opacity = 0.75, TextWrapping = TextWrapping.Wrap });
-        stack.Children.Add(new TextBlock { Text = "Abrir na web ↗", FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Brushes.MediumTurquoise });
-        var button = new Button
+        var card = new Border
         {
-            Content = stack,
-            Width = 250,
-            MinHeight = 110,
+            Width = 190,
+            MinHeight = 190,
             Margin = new Thickness(8),
-            Padding = new Thickness(14),
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            VerticalContentAlignment = VerticalAlignment.Top,
+            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(16),
+            BorderThickness = new Thickness(2),
+            BorderBrush = PlatformModules.Brush(color),
+            Background = PlatformModules.Brush("#131a22"),
+            Opacity = enabled ? 1 : 0.6,
+            Cursor = enabled ? new Cursor(StandardCursorType.Hand) : Cursor.Default,
+            Child = grid,
         };
-        button.Click += (_, _) => PlatformModules.OpenWeb(web.Url);
-        return button;
+        if (enabled)
+        {
+            card.PointerEntered += (_, _) => card.Background = PlatformModules.Brush(color, 0x26);
+            card.PointerExited += (_, _) => card.Background = PlatformModules.Brush("#131a22");
+            card.PointerPressed += (_, _) => click();
+        }
+
+        return card;
     }
 }

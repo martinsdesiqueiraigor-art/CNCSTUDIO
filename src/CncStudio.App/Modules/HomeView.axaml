@@ -2,14 +2,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CncStudio.App.Modules.HomeView">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="32,28" Spacing="18" MaxWidth="900" HorizontalAlignment="Center">
-      <StackPanel Orientation="Horizontal" Spacing="14" HorizontalAlignment="Center">
-        <Image Source="/Assets/simbolo.png" Height="56" />
-        <StackPanel VerticalAlignment="Center">
-          <TextBlock Text="Plataforma Casillas" FontSize="26" FontWeight="Bold" />
-          <TextBlock Text="Editar, simular e programar usinagem CNC em português" Opacity="0.7" />
-        </StackPanel>
-      </StackPanel>
+    <StackPanel Margin="32,16,32,28" Spacing="10" MaxWidth="1000" HorizontalAlignment="Center">
+      <Image x:Name="Logo" Width="190" Height="190" HorizontalAlignment="Center" Margin="0,0,0,-14" />
+      <TextBlock Text="Plataforma Casillas" FontSize="26" FontWeight="Bold" Foreground="#F3D9A4" HorizontalAlignment="Center" />
+      <TextBlock Text="Editar, simular e programar usinagem CNC em português" Opacity="0.7" HorizontalAlignment="Center" Margin="0,0,0,8" />
+      <TextBlock Text="No desktop" FontSize="14" FontWeight="SemiBold" Opacity="0.8" HorizontalAlignment="Center" />
       <ItemsControl x:Name="Cards">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
@@ -17,7 +14,7 @@
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
       </ItemsControl>
-      <TextBlock Text="Na versão web (abre no navegador, precisa de internet)" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8,0,0" />
+      <TextBlock Text="Na versão web (abre no navegador, precisa de internet)" FontSize="14" FontWeight="SemiBold" Opacity="0.8" HorizontalAlignment="Center" Margin="0,10,0,0" />
       <ItemsControl x:Name="WebCards">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
@@ -25,8 +22,8 @@
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
       </ItemsControl>
-      <TextBlock Text="O desktop é voltado para quem programa e opera a máquina. Academy, Loja e Calculadoras ficam na web."
-                 FontSize="12" Opacity="0.6" TextWrapping="Wrap" TextAlignment="Center" />
+      <TextBlock Text="Formação profissional • Gestão de usinagem • Análise e otimização • Editores avançados"
+                 FontSize="12" Foreground="#C9A96A" TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,0" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>

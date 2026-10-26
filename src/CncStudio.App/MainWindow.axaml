@@ -74,6 +74,9 @@
       <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
         <StackPanel Orientation="Horizontal" Spacing="2" Margin="6,0" VerticalAlignment="Center">
           <Image Source="/Assets/simbolo.png" Height="20" Margin="0,0,6,0" ToolTip.Tip="Casillas Code" />
+          <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" FontWeight="Bold" FontSize="14">
+            <Run Text="Casillas" /><Run Text=" Code" Foreground="#58A6FF" />
+          </TextBlock>
 
           <Button x:Name="NewButton" Classes="tool" ToolTip.Tip="Novo: programa novo em outra aba (Ctrl+N)"><PathIcon Data="{StaticResource IconNew}" /></Button>
           <Button x:Name="OpenButton" Classes="tool" ToolTip.Tip="Abrir programa (Ctrl+O)"><PathIcon Data="{StaticResource IconOpen}" /></Button>
