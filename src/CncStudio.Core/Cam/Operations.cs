@@ -408,7 +408,7 @@ public static class CamOperations
             return Fail("Nenhum furo para fazer.");
         }
 
-        var cycle = new DrillCycle(kind, ordered, topZ, bottomZ, retractZ, peck, dwellSeconds, tool.FeedZ);
+        var cycle = new DrillCycle(kind, ordered, topZ, bottomZ, retractZ, safeZ, peck, dwellSeconds, tool.FeedZ);
         return new OperationResult(new CamOperation("Furação", tool, [], cycle, []), null);
     }
 }
