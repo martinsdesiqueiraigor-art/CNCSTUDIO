@@ -1,6 +1,6 @@
 # CAM-01: Casillas CAM 2,5D — plano (rascunho para aprovação do Igor)
 
-**Status:** plano. Nada codado. Só começa depois do OK do Igor nas **decisões** abaixo.
+**Status:** plano. Nada codado. Desktop primeiro (decidido em 26/10); depende da etapa 1 do `PLAT-06`. Só começa depois do OK do Igor nas **decisões** abaixo.
 
 ## Objetivo
 Do desenho ao programa: o usuário traz um contorno 2D (DXF ou desenhado), escolhe operações (faceamento, contorno, bolsão, furação), e o Casillas CAM gera o G-code Fanuc ou Siemens de fresa, já mostrado no simulador do Code. Referência de mercado: MacroMill CNC (inspirar, não copiar).
@@ -19,13 +19,13 @@ Do desenho ao programa: o usuário traz um contorno 2D (DXF ou desenhado), escol
 | 2 | Importar DXF | LINE, ARC, CIRCLE, LWPOLYLINE, POLYLINE; unir segmentos soltos em contorno; unidade | DXFs de exemplo (feitos à mão) |
 | 3 | Operações | Faceamento, **contorno** (fora/dentro, passes em Z, entrada/saída em arco), **bolsão** (por offsets), **furação** (G81/G83/G73, ordenar furos) | Gera, simula, confere limites e profundidade |
 | 4 | Pós-processador | Fanuc e Siemens fresa: cabeçalho, ferramenta, G54, refrigerante, fim; compensação por G41/G42 **ou** coordenadas já deslocadas | Comparar com o dialeto do Code |
-| 5 | Tela do CAM (web e desktop) | Abrir DXF, lista de operações, parâmetros, prévia 2D/3D, "Gerar programa" abre no editor | Prévia no celular/PC |
+| 5 | Tela do CAM (**desktop**) | Abrir DXF, lista de operações, parâmetros, prévia 2D/3D, "Gerar programa" abre no editor | Prévia: .exe em Actions → Artifacts |
 | 6 | Depois | Torno (G71/G70 a partir do perfil), 3D, banco de ferramentas | A definir |
 
 ## Decisões que preciso do Igor
 1. **Entrada:** só DXF no começo, ou também desenhar na tela (retângulo, círculo, linha)? *Sugestão: DXF + formas básicas paramétricas.*
 2. **Compensação:** programa com G41/G42 (raio no controle) ou coordenadas já deslocadas pelo CAM? *Sugestão: oferecer as duas; padrão G41/G42.*
-3. **Onde roda primeiro:** desktop (plano mestre) ou web? *Sugestão: Core compartilhado; tela primeiro na web (prévia pelo GitHub), desktop em seguida.*
+3. ~~Onde roda primeiro~~ **Decidido (Igor, 26/10): desktop.** Público são programadores; o cálculo pesado roda melhor no desktop. A web fica, no máximo, com visualizador leve depois. A tela do CAM entra como módulo da barra do desktop (ver `PLAT-06-desktop-plataforma.md`, etapa 1).
 4. **Primeira máquina de teste:** qual controle e quais ferramentas reais para validar? (A definir.)
 5. **Curso de CAM:** escrito junto, módulo a módulo, com o GPT (formato da Academy). Escopo e ordem: A definir.
 
