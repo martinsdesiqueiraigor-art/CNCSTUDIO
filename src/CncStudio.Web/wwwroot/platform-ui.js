@@ -147,35 +147,49 @@ function ensureHomeStyle() {
   if (homeStyle) return;
   homeStyle = document.createElement('style');
   // a tela inicial cabe sem rolar: em telas baixas some a descrição e a linha de áreas
-  homeStyle.textContent = '@media (max-height:700px){.pl-sub,.pl-tag{display:none!important}}@media (max-height:600px){.pl-head img{display:none!important}}';
+  homeStyle.textContent = [
+    // celular em pé: logo grande, 3 colunas de cartões compactos (a última linha fica centralizada)
+    '.pl-grid{display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:8px;flex:1;min-height:0}',
+    '.pl-card{flex:0 0 calc((100% - 16px)/3);aspect-ratio:1/1.06;max-height:calc((100% - 8px)/2)}',
+    '.pl-logo{width:clamp(120px,24vh,190px)!important;height:clamp(120px,24vh,190px)!important}',
+    '.pl-sub{display:none!important}',
+    '@media (max-height:620px){.pl-tag{display:none!important}}',
+    // celular deitado / tela larga: logo e título à esquerda, 4 colunas × 2 linhas à direita (sem cartão sozinho)
+    '@media (min-width:600px){.pl-wrap{flex-direction:row!important;align-items:center;gap:14px;max-width:980px!important}',
+    '.pl-left{flex:0 0 26%;display:flex;flex-direction:column;justify-content:center}',
+    '.pl-right{flex:1;display:flex;flex-direction:column;min-width:0;height:100%}',
+    '.pl-card{flex:0 0 calc((100% - 24px)/4);aspect-ratio:auto;max-height:calc((100% - 8px)/2);height:calc((100% - 8px)/2)}',
+    '.pl-logo{width:clamp(90px,34vh,170px)!important;height:clamp(90px,34vh,170px)!important}}',
+    '@media (min-width:600px) and (min-height:700px){.pl-sub{display:-webkit-box!important}}',
+  ].join('');
   document.head.append(homeStyle);
 }
 
 function showHome() {
   hideHome();
   ensureHomeStyle();
-  const wide = window.matchMedia('(min-width: 600px)').matches;
-  const cols = wide ? 3 : 2;
-  const rows = Math.ceil(MODULES.length / cols);
   const el = make('div', null, 'position:fixed;left:0;right:0;top:0;bottom:var(--dock-h);z-index:9500;background:#0d1117;color:#e6edf3;overflow-y:auto;overscroll-behavior:contain;font:15px/1.4 system-ui,-apple-system,Roboto,sans-serif;padding:calc(8px + env(safe-area-inset-top, 0px)) 10px 8px;box-sizing:border-box;display:flex;flex-direction:column');
   const wrap = make('div', null, 'max-width:760px;width:100%;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0');
+  wrap.className = 'pl-wrap';
 
   const head = make('div', null, 'text-align:center;flex:none;margin-bottom:6px');
   head.className = 'pl-head';
-  const logo = make('img', null, 'width:92px;height:92px;margin:-14px 0 -22px;object-fit:contain;-webkit-mask-image:radial-gradient(circle at center,#000 64%,transparent 78%);mask-image:radial-gradient(circle at center,#000 64%,transparent 78%)');
-  logo.src = './img/plataforma/topo.webp'; logo.alt = 'Casillas';
+  const logo = make('img', null, 'width:150px;height:150px;margin:-10px auto -18px;display:block;object-fit:contain;-webkit-mask-image:radial-gradient(circle at center,#000 64%,transparent 78%);mask-image:radial-gradient(circle at center,#000 64%,transparent 78%)');
+  logo.className = 'pl-logo'; logo.src = './img/plataforma/topo.webp'; logo.alt = 'Casillas';
   head.append(logo, make('h1', 'Plataforma Casillas', 'font-size:20px;line-height:1.2;margin:6px 0 0;color:#f3d9a4'));
   const notice = trialNotice();
   if (notice) {
     head.append(make('div', notice.text, `display:inline-block;margin-top:4px;padding:2px 12px;border-radius:999px;font-size:12px;font-weight:700;color:${notice.warn ? '#ffd7a8' : '#b9d6ff'};background:${notice.warn ? 'rgba(240,136,62,.14)' : 'rgba(77,141,255,.14)'};border:1px solid ${notice.warn ? 'rgba(240,136,62,.45)' : 'rgba(77,141,255,.4)'}`));
   }
-  wrap.append(head);
+  const left = make('div', null, ''); left.className = 'pl-left'; left.append(head);
+  const right = make('div', null, 'display:flex;flex-direction:column;flex:1;min-height:0'); right.className = 'pl-right';
+  wrap.append(left, right);
 
   const lastId = store.get();
-  const grid = make('div', null, `display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},minmax(0,1fr));gap:8px;flex:1;min-height:${rows * 92}px`);
+  const grid = make('div', null, ''); grid.className = 'pl-grid';
   MODULES.forEach(m => {
-    const c = make('button', null, `position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;min-height:0;min-width:0;border:2px solid ${m.color};border-radius:14px;background:linear-gradient(160deg,${m.color}26,#0f151c 62%);box-shadow:0 0 10px ${m.color}55,inset 0 0 12px ${m.color}14;color:#e6edf3;padding:6px 6px 8px;cursor:pointer;font:inherit;overflow:hidden;${m.soon ? 'opacity:.72' : ''}`);
-    c.type = 'button';
+    const c = make('button', null, `position:relative;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;min-height:0;min-width:0;border:2px solid ${m.color};border-radius:14px;background:linear-gradient(160deg,${m.color}26,#0f151c 62%);box-shadow:0 0 10px ${m.color}55,inset 0 0 12px ${m.color}14;color:#e6edf3;padding:6px 6px 8px;cursor:pointer;font:inherit;overflow:hidden;${m.soon ? 'opacity:.72' : ''}`);
+    c.type = 'button'; c.className = 'pl-card';
     const ic = make('div', null, 'flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center');
     if (m.img) {
       const im = make('img', null, 'max-height:100%;max-width:100%;height:auto;width:auto;aspect-ratio:1;object-fit:contain' + (!m.img.endsWith('.svg') && !m.img.startsWith('ic-') ? ';-webkit-mask-image:radial-gradient(circle at center,#000 58%,transparent 76%);mask-image:radial-gradient(circle at center,#000 58%,transparent 76%)' : ''));
@@ -186,17 +200,17 @@ function showHome() {
     }
     const sub = make('span', m.text, 'color:#9baab9;font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden');
     sub.className = 'pl-sub';
-    c.append(ic, make('strong', m.name, `font-size:13px;line-height:1.2;color:${m.color};flex:none`), sub);
+    c.append(ic, make('strong', m.name, `font-size:12.5px;line-height:1.15;color:${m.color};flex:none`), sub);
     if (m.soon) c.append(make('span', 'Em breve', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#f3c969;background:rgba(59,47,18,.9);border:1px solid #7a6122;border-radius:999px;padding:0 7px'));
     else if (GATED.has(m.id) && moduleState(m.id) === 'EXPIRED') c.append(make('span', '🔒 Licença', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#ffd7a8;background:rgba(80,40,10,.92);border:1px solid #a05a1d;border-radius:999px;padding:0 7px'));
     else if (m.id === lastId) c.append(make('span', 'Último', 'position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;color:#0d1117;background:' + m.color + ';border-radius:999px;padding:0 7px'));
     c.addEventListener('click', () => openModule(m.id));
     grid.append(c);
   });
-  wrap.append(grid);
+  right.append(grid);
   const tag = make('div', 'Formação profissional • Gestão de usinagem • Banco de dados G-code • Análise e otimização • Editores avançados • Gestão de ativos', 'text-align:center;color:#c9a96a;font-size:10.5px;font-weight:700;letter-spacing:.2px;margin:8px 6px 0;line-height:1.4;flex:none');
   tag.className = 'pl-tag';
-  wrap.append(tag);
+  right.append(tag);
   el.append(wrap);
   document.body.append(el);
   homeEl = el;
@@ -230,7 +244,8 @@ window.addEventListener('casillas:module-closed', e => {
 function init() {
   document.documentElement.style.setProperty('--dock-h', DOCK_H);
   const style = document.createElement('style');
-  style.textContent = '#out{height:calc(100vh - var(--dock-h))!important;height:calc(100dvh - var(--dock-h))!important}';
+  // #out relativo e cortado: o canvas do Avalonia é absoluto e, sem isso, ocupa a tela toda e a barra inferior cobre o rodapé do app
+  style.textContent = '#out{position:relative!important;overflow:hidden!important;height:calc(100vh - var(--dock-h))!important;height:calc(100dvh - var(--dock-h))!important}';
   document.head.append(style);
 
   // Link direto: #academy, #macro ou #code abre o módulo; sem marca, mostra a tela inicial

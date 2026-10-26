@@ -58,6 +58,16 @@ internal static partial class Scene3DInterop
 
     [JSImport("dispose", Module)]
     public static partial void Dispose(JSObject host);
+
+    [JSImport("onSimBar", Module)]
+    public static partial void OnSimBar(JSObject host,
+        [JSMarshalAs<JSType.Function<JSType.String, JSType.Number>>] Action<string, double> handler);
+
+    [JSImport("setSimBar", Module)]
+    public static partial void SetSimBar(JSObject host, bool playing, int step, int max, string speedText);
+
+    [JSImport("setSimBarVisible", Module)]
+    public static partial void SetSimBarVisible(JSObject host, bool visible);
 }
 
 /// <summary>
@@ -79,6 +89,56 @@ internal sealed class Scene3DView : NativeControlHost
     private bool _fitPending = true;
     private float _sentOpacity = 1f;
 
+    // Barra da simulação flutuante (HTML dentro do div do 3D): comandos que voltam e último estado enviado
+    private Action<string, double>? _barHandler;
+    private (bool Playing, int Step, int Max, string Speed) _barState = (false, 0, 1, "5/s");
+    private bool _barVisible;
+
+    /// <summary>Recebe os comandos da barra flutuante: start, back, play, step, end, seek (valor = passo), slower, faster.</summary>
+    public Action<string, double>? SimBarCommand
+    {
+        get => _barHandler;
+        set
+        {
+            _barHandler = value;
+            PushBar();
+        }
+    }
+
+    /// <summary>Mostra a barra flutuante (só quando o 3D ocupa a área toda).</summary>
+    public bool SimBarVisible
+    {
+        get => _barVisible;
+        set
+        {
+            _barVisible = value;
+            PushBar();
+        }
+    }
+
+    /// <summary>Atualiza o estado da barra: reproduzindo, passo atual, total de passos e velocidade.</summary>
+    public void UpdateSimBar(bool playing, int step, int max, string speed)
+    {
+        _barState = (playing, step, max, speed);
+        PushBar();
+    }
+
+    private void PushBar()
+    {
+        if (_host is not { } host)
+        {
+            return;
+        }
+
+        if (_barHandler is { } handler)
+        {
+            Scene3DInterop.OnSimBar(host, handler);
+        }
+
+        Scene3DInterop.SetSimBar(host, _barState.Playing, _barState.Step, _barState.Max, _barState.Speed);
+        Scene3DInterop.SetSimBarVisible(host, _barVisible);
+    }
+
     /// <summary>True depois que o div do three.js foi criado (o motor já foi carregado).</summary>
     public bool IsReady => _host is not null;
 
@@ -91,6 +151,7 @@ internal sealed class Scene3DView : NativeControlHost
         _placed.Clear();
         _sentLines.Clear();
         Sync();
+        PushBar();
         return new JSObjectControlHandle(_host);
     }
 
