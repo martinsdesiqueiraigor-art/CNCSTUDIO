@@ -20,6 +20,7 @@ public static class LathePost
         var sb = new StringBuilder();
         var contours = new StringBuilder(); // Siemens: contornos depois do M30
         int tool = -1;
+        string lastSpindle = "";
         int cycleCount = 0;
         double lastSafeZ = 0, lastSafeR = 0;
 
@@ -58,6 +59,7 @@ public static class LathePost
         foreach (LatheOperation op in operations)
         {
             Line(Comment(op.Name));
+            string spindle = op.Tool.Rpm > 0 ? $"RPM{(int)Math.Round(op.Tool.Rpm)}" : "CSS";
             if (op.Tool.Number != tool)
             {
                 if (tool >= 0)
@@ -73,32 +75,28 @@ public static class LathePost
                 Line(Rapid(op.SafeZ, op.SafeR));
                 string label = op.Tool.Name.Length > 0 ? Clean(op.Tool.Name) : $"FERRAMENTA {op.Tool.Number}";
                 Line(fanuc ? $"T{op.Tool.Number:00}{op.Tool.Number:00} ({label})" : $"T{op.Tool.Number} D1 ; {label}");
-                int max = (int)Math.Round(op.Tool.MaxRpm);
-                if (op.Tool.Rpm > 0)
-                {
-                    Line($"G97 S{(int)Math.Round(op.Tool.Rpm)} M3");
-                }
-                else if (fanuc)
-                {
-                    Line($"G50 S{max}");
-                    Line($"G96 S{(int)Math.Round(op.Tool.SurfaceSpeed)} M3");
-                }
-                else
-                {
-                    Line($"G96 S{(int)Math.Round(op.Tool.SurfaceSpeed)} M3 LIMS={max}");
-                }
-
+                Spindle(op);
                 if (o.Coolant)
                 {
                     Line("M8");
                 }
 
                 tool = op.Tool.Number;
+                lastSpindle = spindle;
+            }
+            else if (spindle != lastSpindle)
+            {
+                Spindle(op);
+                lastSpindle = spindle;
             }
 
             lastSafeZ = op.SafeZ;
             lastSafeR = op.SafeR;
-            if (op.Cycle is { } cycle)
+            if (op.Thread is { } thread)
+            {
+                Thread(op, thread);
+            }
+            else if (op.Cycle is { } cycle)
             {
                 cycleCount++;
                 Cycle(op, cycle, cycleCount);
@@ -127,6 +125,45 @@ public static class LathePost
         }
 
         return sb.ToString();
+
+        void Spindle(LatheOperation op)
+        {
+            int max = (int)Math.Round(op.Tool.MaxRpm);
+            if (op.Tool.Rpm > 0)
+            {
+                Line($"G97 S{(int)Math.Round(op.Tool.Rpm)} M3");
+            }
+            else if (fanuc)
+            {
+                Line($"G50 S{max}");
+                Line($"G96 S{(int)Math.Round(op.Tool.SurfaceSpeed)} M3");
+            }
+            else
+            {
+                Line($"G96 S{(int)Math.Round(op.Tool.SurfaceSpeed)} M3 LIMS={max}");
+            }
+        }
+
+        void Thread(LatheOperation op, LatheThread t)
+        {
+            double zIn = t.StartZ + t.Approach, zOut = t.EndZ - t.Overrun;
+            Line(Rapid(zIn, t.StartRadius));
+            if (fanuc)
+            {
+                string Mic(double v) => Math.Round(v * 1000).ToString("0", Inv);
+                Line($"G76 P{t.FinishPasses:00}0060 Q{Mic(t.MinDepth)} R{N(t.Allowance)}");
+                Line($"G76 X{N(2 * t.RootRadius)} Z{N(zOut)} P{Mic(t.Height)} Q{Mic(t.FirstDepth)} F{N(t.Pitch)}");
+            }
+            else
+            {
+                // Passes de desbaste = profundidades antes do sobremetal e do acabamento
+                int rough = Math.Max(1, t.Depths().Count - t.FinishPasses - (t.Allowance > 0 ? 1 : 0));
+                int idle = t.Allowance > 0 ? t.FinishPasses - 1 : t.FinishPasses;
+                Line($"CYCLE97({N(t.Pitch)},,{N(t.StartZ)},{N(t.EndZ)},{N(2 * t.CrestRadius)},{N(2 * t.CrestRadius)},{N(t.Approach)},{N(t.Overrun)},{N(t.Height)},{N(t.Allowance)},29,0,{rough},{Math.Max(0, idle)},{(t.Internal ? 4 : 3)},1,{N(t.Clearance)})");
+            }
+
+            Line(Rapid(op.SafeZ, op.SafeR));
+        }
 
         void Moves(LatheOperation op)
         {

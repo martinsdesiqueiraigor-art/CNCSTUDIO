@@ -93,3 +93,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Conferido pelo simulador: o percurso nunca entra no perfil (externo) nem sai do furo (interno), o acabamento passa pelo perfil (inclusive arco) e chega ao fundo/centro. 17 testes novos; total 842.
 - Tela: no módulo CAM, aba **Torno** (perfil por DXF ou pontos "Z Ø", ferramenta, operações, prévia do programa simulado, gerar, abrir no editor).
 - Limites: sem rosca, canal, G72/G73 nem perfil com rebaixo (tipo II); sem integração com o banco de ferramentas do torno; sobremetal radial do Siemens (FALX) precisa ser conferido em controle real.
+
+## CAM-01 · entrega 6c — rosca no torno
+- `LatheOperations.Threading` (externa/interna, passo ISO, altura 0,6134·P / 0,5413·P, passes √ + acabamento) e `LatheThread` no Core.
+- Pós: Fanuc `G76` (dois blocos, P/Q em mícrons, `G97` giro fixo) e Siemens `CYCLE97`; volta ao `G96` na operação seguinte.
+- Tela do torno: "Rosca externa" e "Rosca interna". Testes simulam os dois dialetos (raiz, crista, Z de entrada/saída).
+- Limites: só rosca reta, 1 entrada, flanco 60°; não testado em máquina real.

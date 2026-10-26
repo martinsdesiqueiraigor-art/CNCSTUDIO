@@ -16,7 +16,7 @@ namespace CncStudio.App.Modules;
 /// </summary>
 public partial class LatheCamView : UserControl
 {
-    private static readonly string[] OpNames = ["Torneamento externo", "Torneamento interno", "Faceamento", "Furação axial"];
+    private static readonly string[] OpNames = ["Torneamento externo", "Torneamento interno", "Faceamento", "Furação axial", "Rosca externa", "Rosca interna"];
     private static readonly CultureInfo Br = CultureInfo.GetCultureInfo("pt-BR");
 
     private readonly List<LatheOperation> _ops = [];
@@ -123,6 +123,18 @@ public partial class LatheCamView : UserControl
                 AddRow(OpFields, _fields, "ZF", "Z da face pronta", 0, "mm");
                 AddRow(OpFields, _fields, "DOC", "Passe em Z", 1, "mm");
                 AddRow(OpFields, _fields, "F", "Avanço", 0.15, "mm/rot");
+                break;
+            case 4:
+            case 5:
+                bool inner = OpCombo.SelectedIndex == 5;
+                AddRow(OpFields, _fields, "DM", inner ? "Ø nominal (raiz)" : "Ø nominal (crista)", inner ? 16 : 20, "mm");
+                AddRow(OpFields, _fields, "PIT", "Passo", 1.5, "mm");
+                AddRow(OpFields, _fields, "ZS", "Z do início", 0, "mm");
+                AddRow(OpFields, _fields, "ZE", "Z do fim", -18, "mm");
+                AddRow(OpFields, _fields, "TRPM", "Rotação (fixa)", 600, "rpm");
+                AddRow(OpFields, _fields, "TH", "Altura do filete (0 = ISO)", 0, "mm");
+                AddRow(OpFields, _fields, "FIN", "Passes de acabamento", 2, "");
+                AddRow(OpFields, _fields, "AL", "Sobremetal de acabamento", 0.05, "mm");
                 break;
             default:
                 AddRow(OpFields, _fields, "ZT", "Z da face", 0, "mm");
@@ -266,6 +278,11 @@ public partial class LatheCamView : UserControl
         else if (kind == 2)
         {
             result = LatheOperations.Facing(tool, safeZ, safeR, F("STOCK"), F("ZS"), F("ZF"), F("DOC"), F("F"), F("INNER"), clearance);
+        }
+        else if (kind >= 4)
+        {
+            result = LatheOperations.Threading(tool, safeZ, safeR,
+                new ThreadingParams(kind == 5, F("DM"), F("PIT"), F("ZS"), F("ZE"), F("TRPM"), F("TH"), 0, 0.05, (int)F("FIN"), F("AL"), 0, 0, clearance));
         }
         else
         {
