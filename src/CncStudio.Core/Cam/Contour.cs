@@ -332,6 +332,116 @@ public sealed class Contour
         return [mid + (perp * h), mid - (perp * h)];
     }
 
+    /// <summary>Ponto do contorno mais perto de <paramref name="p"/> e o índice do trecho onde está.</summary>
+    public (int Index, Point2 Point) ClosestPoint(Point2 p)
+    {
+        int bestIndex = 0;
+        Point2 best = Segments[0].Start;
+        double bestDist = double.MaxValue;
+        for (int i = 0; i < Segments.Count; i++)
+        {
+            Point2 q = ClosestOnSegment(Segments[i], p);
+            double d = q.DistanceTo(p);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = q;
+                bestIndex = i;
+            }
+        }
+
+        return (bestIndex, best);
+    }
+
+    private static Point2 ClosestOnSegment(Segment2 s, Point2 p)
+    {
+        if (!s.IsArc)
+        {
+            Point2 d = s.End - s.Start;
+            double len2 = d.Dot(d);
+            double t = len2 < 1e-18 ? 0 : Math.Clamp((p - s.Start).Dot(d) / len2, 0, 1);
+            return s.Start + (d * t);
+        }
+
+        Point2 radial = p - s.Center;
+        if (radial.Length > 1e-12)
+        {
+            double a0 = Math.Atan2(s.Start.Y - s.Center.Y, s.Start.X - s.Center.X);
+            double a = Math.Atan2(radial.Y, radial.X);
+            double delta = s.Ccw ? a - a0 : a0 - a;
+            while (delta < 0)
+            {
+                delta += 2 * Math.PI;
+            }
+
+            while (delta >= 2 * Math.PI)
+            {
+                delta -= 2 * Math.PI;
+            }
+
+            if (delta <= Math.Abs(s.Sweep))
+            {
+                return s.Center + (radial.Normalized() * s.Radius);
+            }
+        }
+
+        return p.DistanceTo(s.Start) <= p.DistanceTo(s.End) ? s.Start : s.End;
+    }
+
+    /// <summary>Ponto do meio do trecho mais longo (onde entra e sai a ferramenta, longe de cantos).</summary>
+    public Point2 MidpointOfLongest()
+    {
+        Segment2 best = Segments[0];
+        foreach (Segment2 s in Segments)
+        {
+            if (s.Length > best.Length)
+            {
+                best = s;
+            }
+        }
+
+        if (!best.IsArc)
+        {
+            return (best.Start + best.End) * 0.5;
+        }
+
+        double a0 = Math.Atan2(best.Start.Y - best.Center.Y, best.Start.X - best.Center.X);
+        double a = a0 + (best.Sweep / 2);
+        return new Point2(best.Center.X + (best.Radius * Math.Cos(a)), best.Center.Y + (best.Radius * Math.Sin(a)));
+    }
+
+    /// <summary>Mesmo contorno, começando (e terminando) no ponto do contorno mais perto de <paramref name="p"/>.</summary>
+    public Contour StartingAt(Point2 p)
+    {
+        (int index, Point2 q) = ClosestPoint(p);
+        var list = new List<Segment2>();
+        Segment2 s = Segments[index];
+        bool atStart = q.DistanceTo(s.Start) < 1e-7;
+        bool atEnd = q.DistanceTo(s.End) < 1e-7 && !atStart;
+        int n = Segments.Count;
+        if (atStart || atEnd)
+        {
+            int first = atEnd ? (index + 1) % n : index;
+            for (int i = 0; i < n; i++)
+            {
+                list.Add(Segments[(first + i) % n]);
+            }
+
+            return new Contour(list);
+        }
+
+        Segment2 head = s.IsArc ? Segment2.Arc(q, s.End, s.Center, s.Ccw) : Segment2.Line(q, s.End);
+        Segment2 tail = s.IsArc ? Segment2.Arc(s.Start, q, s.Center, s.Ccw) : Segment2.Line(s.Start, q);
+        list.Add(head);
+        for (int i = 1; i < n; i++)
+        {
+            list.Add(Segments[(index + i) % n]);
+        }
+
+        list.Add(tail);
+        return new Contour(list);
+    }
+
     /// <summary>Verdadeiro se algum trecho cruza outro que não é vizinho dele.</summary>
     public bool SelfIntersects()
     {
