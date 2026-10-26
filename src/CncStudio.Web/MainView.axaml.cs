@@ -104,6 +104,7 @@ public partial class MainView : UserControl
         EditButton.IsVisible = _touch;
         EditButton.Click += async (_, _) => await EditNativeAsync();
         BuildToolsMenu();
+        InitEditorKeyboard();
 
         _simTimer = new DispatcherTimer();
         _simTimer.Tick += (_, _) => SimTick();
@@ -1760,6 +1761,7 @@ public partial class MainView : UserControl
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         base.OnSizeChanged(e);
+        UpdateKeyboardSize();
         ApplyCompact(e.NewSize.Height < CompactHeight);
         bool narrow = e.NewSize.Width < NarrowWidth;
         if (narrow == _narrow)

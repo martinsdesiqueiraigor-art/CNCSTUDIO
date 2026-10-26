@@ -181,7 +181,7 @@
     <!-- Área principal: editor e backplot -->
     <Grid x:Name="Workspace" Grid.Row="2" ColumnDefinitions="*,6,*" Margin="0,6,0,0">
       <Border x:Name="EditorHost" Grid.Column="0" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,1,1">
-        <Grid RowDefinitions="Auto,*">
+        <Grid RowDefinitions="Auto,*,Auto">
           <DockPanel x:Name="EditorHeader" Grid.Row="0" Margin="10,4,6,4">
             <!-- Seta no topo do editor: recolhe o código e deixa o gráfico com a tela toda (só no PC) -->
             <Button x:Name="CollapseEditorButton" DockPanel.Dock="Left" Classes="icon" Margin="0,0,6,0" Background="Transparent" BorderThickness="0"
@@ -201,6 +201,28 @@
                          ShowLineNumbers="True" WordWrap="False"
                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                          Background="{DynamicResource AppBackground}" Foreground="{DynamicResource EditorForeground}" />
+
+          <!-- Balão do código: explica o G/M/endereço tocado (nome, o que faz, parâmetros) -->
+          <Border x:Name="CodeBalloon" Grid.Row="1" IsVisible="False" VerticalAlignment="Top" Margin="8,6,8,0" Padding="10,6,6,6" CornerRadius="10"
+                  Background="{DynamicResource HudBackground}" BorderBrush="{DynamicResource BrandOrange}" BorderThickness="1" MaxHeight="190">
+            <DockPanel LastChildFill="True">
+              <Button x:Name="CodeBalloonClose" DockPanel.Dock="Right" VerticalAlignment="Top" Padding="8,2" MinHeight="28" MinWidth="28"
+                      Classes="bar" Focusable="False" ToolTip.Tip="Fechar" AutomationProperties.Name="Fechar o balão">
+                <PathIcon Width="12" Height="12" Data="M6,4 L12,10 L18,4 L20,6 L14,12 L20,18 L18,20 L12,14 L6,20 L4,18 L10,12 L4,6 Z" />
+              </Button>
+              <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="CodeBalloonText" FontSize="12.5" TextWrapping="Wrap" />
+              </ScrollViewer>
+            </DockPanel>
+          </Border>
+
+          <!-- Celular: abre o teclado próprio do editor (letras do G-code e números) -->
+          <Button x:Name="KeyboardToggle" Grid.Row="1" IsVisible="False" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,10,8"
+                  Classes="bar primary" Content="Teclado" Padding="12,4" MinHeight="36" CornerRadius="18" Focusable="False"
+                  ToolTip.Tip="Teclado do código: letras do G-code e números" />
+
+          <web:EditorKeyboard x:Name="Keyboard" Grid.Row="2" IsVisible="False"
+                              Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" />
         </Grid>
       </Border>
       <GridSplitter x:Name="Splitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SubtleBorder}" />
