@@ -21,6 +21,19 @@ public partial class MainWindow
         }
 
         Home.ModuleChosen += module => ShowModule(module.Id);
+        Optimizer.GetProgram = () => (Editor.Text, _active.DisplayName);
+        Optimizer.OpenInEditor = (text, name) =>
+        {
+            LoadText(text, null, name);
+            ShowModule("code");
+        };
+        Optimizer.CopyText = async text =>
+        {
+            if (Clipboard is { } clipboard)
+            {
+                await clipboard.SetTextAsync(text);
+            }
+        };
         CmykButton.IsChecked = _settings.Cmyk;
         CmykButton.IsCheckedChanged += (_, _) => ApplyCmyk(CmykButton.IsChecked == true);
         ApplyCmyk(_settings.Cmyk);
@@ -52,6 +65,11 @@ public partial class MainWindow
     {
         _currentModule = id;
         Home.IsVisible = id == "inicio";
+        Optimizer.IsVisible = id == "otimizador";
+        if (id == "otimizador")
+        {
+            Optimizer.Refresh();
+        }
         foreach ((string key, ToggleButton button) in _railButtons)
         {
             button.IsChecked = key == id;

@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CncStudio.App.Modules.OptimizerView">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="28,22" Spacing="12" MaxWidth="900" HorizontalAlignment="Stretch">
+      <TextBlock Text="Casillas Otimizador" FontSize="24" FontWeight="Bold" />
+      <Border Background="#3A1818" BorderBrush="#7A2A2A" BorderThickness="1" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Somente para simulador. Não executar na máquina." FontWeight="Bold" Foreground="#FF9A83" />
+          <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#E6C8C0"
+                     Text="As propostas em Macro B são conferidas bloco a bloco contra o original, mas isso não é homologação de controle. O programa original nunca é alterado." />
+        </StackPanel>
+      </Border>
+
+      <Border Background="{DynamicResource CardBackground}" CornerRadius="8" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Programa a analisar" FontWeight="SemiBold" />
+          <TextBlock x:Name="ProgramLabel" Opacity="0.8" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Como o controle lê números sem ponto:" VerticalAlignment="Center" FontSize="12" />
+            <ComboBox x:Name="ProfileCombo" SelectedIndex="0" MinWidth="260">
+              <ComboBoxItem Content="Entrada decimal tipo calculadora (3401#0=1)" />
+              <ComboBoxItem Content="Convencional (3401#0=0)" />
+            </ComboBox>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button x:Name="AnalyzeButton" Content="Analisar programa" Padding="16,8" FontWeight="SemiBold" />
+            <Button x:Name="AnonymizeButton" Content="Copiar versão anonimizada" Padding="16,8" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <TextBlock x:Name="Message" TextWrapping="Wrap" />
+
+      <StackPanel x:Name="ResultPanel" Spacing="10" IsVisible="False">
+        <Border Background="{DynamicResource CardBackground}" CornerRadius="8" Padding="12">
+          <StackPanel Spacing="4">
+            <TextBlock x:Name="SummaryTitle" FontWeight="SemiBold" />
+            <TextBlock x:Name="SummaryText" TextWrapping="Wrap" FontSize="13" />
+          </StackPanel>
+        </Border>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="OpenProposalButton" Content="Abrir programa proposto no editor" Padding="16,8" FontWeight="SemiBold" />
+          <Button x:Name="OpenReportButton" Content="Abrir revisão (.txt) no editor" Padding="16,8" />
+        </StackPanel>
+        <TextBlock Text="Propostas" FontWeight="SemiBold" FontSize="16" />
+        <StackPanel x:Name="Proposals" Spacing="8" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
