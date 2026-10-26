@@ -3,19 +3,61 @@
   "itens": [
     {
       "id": "apalpador-3d",
-      "nome": "Apalpador 3D (touch probe)",
+      "nome": "Apalpador 3D (sonda de toque) com instalação",
       "categoria": "Medição",
-      "resumo": "Para achar o zero da peça e medir na máquina.",
-      "descricao": "Apalpador 3D para fresadora CNC. Modelo, fabricante, haste, repetibilidade, tipo de sinal e compatibilidade com o controle ainda estão A definir. Confirme com o Igor antes de comprar.",
+      "resumo": "Ache o zero da peça e meça na máquina, com instalação e configuração feitas pela Casillas.",
+      "descricao": "Sonda de toque 3D tipo gatilho (edge finder) para fresadora e centro de usinagem CNC. Haste de Ø10 mm para pinça ou porta-ferramenta, ponta com esfera de rubi Ø3 mm em haste de 36 mm, corpo em metal e bateria CR2032. Acompanha chave de montagem e cabo. Serve para achar o zero da peça (X, Y e Z), centralizar furos e bordas e conferir medidas sem tirar a peça da máquina, reduzindo tempo de preparação e erro de setup. Opcional: serviço de instalação e configuração (veja abaixo). Dados ainda não confirmados aparecem como A definir; confirme com o Igor antes de comprar.",
       "specs": [
-        ["Modelo", "A definir"],
-        ["Haste / ponta", "A definir"],
-        ["Repetibilidade", "A definir"],
-        ["Sinal (cabo / rádio / infravermelho)", "A definir"],
-        ["Compatível com", "A definir (confirmar o controle da sua máquina)"],
-        ["Prazo de entrega", "A definir (importado)"]
+        [
+          "Tipo",
+          "Sonda de toque 3D por gatilho (touch probe / edge finder)"
+        ],
+        [
+          "Haste de fixação",
+          "Ø10 mm, comprimento 25 mm"
+        ],
+        [
+          "Ponta (stylus)",
+          "Esfera Ø3 mm, haste de 36 mm, rosca M3 (troca de ponta)"
+        ],
+        [
+          "Corpo",
+          "Metal, cerca de 51 mm de altura (sem a ponta)"
+        ],
+        [
+          "Alimentação",
+          "Bateria CR2032 (3 V)"
+        ],
+        [
+          "Inclui",
+          "Sonda, ponta com esfera, chave e cabo"
+        ],
+        [
+          "Repetibilidade",
+          "A definir (conforme o fabricante)"
+        ],
+        [
+          "Sinal (cabo / rádio / infravermelho)",
+          "A definir (confirmar o modelo enviado)"
+        ],
+        [
+          "Compatível com",
+          "Fanuc e Siemens, fresa e centro de usinagem: confirmar o controle, o opcional de apalpador e a entrada de sinal da sua máquina"
+        ],
+        [
+          "Serviço de instalação",
+          "Opcional, sob consulta: fixação no porta-ferramenta, ligação do sinal ao controle, ajuste dos parâmetros, calibração da ponta (comprimento e raio) e ciclos de zero de peça (macros Casillas)"
+        ],
+        [
+          "Local do serviço",
+          "A definir (região e deslocamento sob consulta)"
+        ],
+        [
+          "Prazo de entrega",
+          "A definir (importado)"
+        ]
       ],
-      "preco": "Sob consulta"
+      "preco": "Sob consulta (produto e instalação)"
     }
   ]
 }
