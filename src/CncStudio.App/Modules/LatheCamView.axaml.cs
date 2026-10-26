@@ -16,7 +16,7 @@ namespace CncStudio.App.Modules;
 /// </summary>
 public partial class LatheCamView : UserControl
 {
-    private static readonly string[] OpNames = ["Torneamento externo", "Torneamento interno", "Faceamento", "Furação axial", "Rosca externa", "Rosca interna"];
+    private static readonly string[] OpNames = ["Torneamento externo", "Torneamento interno", "Faceamento", "Furação axial", "Rosca externa", "Rosca interna", "Canal externo", "Canal interno"];
     private static readonly CultureInfo Br = CultureInfo.GetCultureInfo("pt-BR");
 
     private readonly List<LatheOperation> _ops = [];
@@ -135,6 +135,18 @@ public partial class LatheCamView : UserControl
                 AddRow(OpFields, _fields, "TH", "Altura do filete (0 = ISO)", 0, "mm");
                 AddRow(OpFields, _fields, "FIN", "Passes de acabamento", 2, "");
                 AddRow(OpFields, _fields, "AL", "Sobremetal de acabamento", 0.05, "mm");
+                break;
+            case 6:
+            case 7:
+                bool inside = OpCombo.SelectedIndex == 7;
+                AddRow(OpFields, _fields, "GSD", inside ? "Ø do furo" : "Ø da superfície", inside ? 20 : 30, "mm");
+                AddRow(OpFields, _fields, "GBD", "Ø do fundo do canal", inside ? 26 : 22, "mm");
+                AddRow(OpFields, _fields, "GZ", "Z da parede de cima", -20, "mm");
+                AddRow(OpFields, _fields, "GW", "Largura do canal", 8, "mm");
+                AddRow(OpFields, _fields, "GTW", "Largura da ferramenta", 3, "mm");
+                AddRow(OpFields, _fields, "PECK", "Mergulho por passe", 2, "mm");
+                AddRow(OpFields, _fields, "AL", "Sobremetal de acabamento (0 = sem)", 0.1, "mm");
+                AddRow(OpFields, _fields, "F", "Avanço", 0.08, "mm/rot");
                 break;
             default:
                 AddRow(OpFields, _fields, "ZT", "Z da face", 0, "mm");
@@ -278,6 +290,11 @@ public partial class LatheCamView : UserControl
         else if (kind == 2)
         {
             result = LatheOperations.Facing(tool, safeZ, safeR, F("STOCK"), F("ZS"), F("ZF"), F("DOC"), F("F"), F("INNER"), clearance);
+        }
+        else if (kind >= 6)
+        {
+            result = LatheOperations.Grooving(tool, safeZ, safeR,
+                new GroovingParams(kind == 7, F("GSD"), F("GBD"), F("GZ"), F("GW"), F("GTW"), F("PECK"), F("F"), 0.5, F("AL"), F("AL") > 0, clearance));
         }
         else if (kind >= 4)
         {

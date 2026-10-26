@@ -99,3 +99,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Pós: Fanuc `G76` (dois blocos, P/Q em mícrons, `G97` giro fixo) e Siemens `CYCLE97`; volta ao `G96` na operação seguinte.
 - Tela do torno: "Rosca externa" e "Rosca interna". Testes simulam os dois dialetos (raiz, crista, Z de entrada/saída).
 - Limites: só rosca reta, 1 entrada, flanco 60°; não testado em máquina real.
+
+## CAM-01 · entrega 6d — canal no torno
+- `LatheOperations.Grooving` (canal radial externo/interno, retangular): mergulhos com quebra-cavaco, passo lateral de 80% da ferramenta, acabamento das duas paredes e do fundo com sobremetal.
+- Movimentos simples (Fanuc e Siemens iguais; o simulador não executa CYCLE93, por isso não usamos). Z da ferramenta = aresta de maior Z.
+- Tela: "Canal externo" e "Canal interno". Testes simulam e conferem fundo, paredes e cobertura.
+- Limites: só canal reto (sem chanfro/raio, sem canal de face).
