@@ -244,7 +244,8 @@ window.addEventListener('casillas:module-closed', e => {
 function init() {
   document.documentElement.style.setProperty('--dock-h', DOCK_H);
   const style = document.createElement('style');
-  style.textContent = '#out{height:calc(100vh - var(--dock-h))!important;height:calc(100dvh - var(--dock-h))!important}';
+  // #out relativo e cortado: o canvas do Avalonia é absoluto e, sem isso, ocupa a tela toda e a barra inferior cobre o rodapé do app
+  style.textContent = '#out{position:relative!important;overflow:hidden!important;height:calc(100vh - var(--dock-h))!important;height:calc(100dvh - var(--dock-h))!important}';
   document.head.append(style);
 
   // Link direto: #academy, #macro ou #code abre o módulo; sem marca, mostra a tela inicial
