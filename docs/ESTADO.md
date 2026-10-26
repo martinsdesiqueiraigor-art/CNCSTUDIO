@@ -46,3 +46,5 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **Desktop, etapa 1 do PLAT-06** (ramo `ajuste-desktop-barra-modulos`): barra lateral de módulos (Início, Code, Otimizador, Macro, CAM, Academy; os 4 últimos "em breve"), tela Início e botão Tema CMYK (salvo nas configurações). O Code não mudou: o Início só o cobre.
 
 - **Desktop, etapa 2** (`ajuste-desktop-otimizador`): módulo Otimizador nativo (analisar, propostas, abrir proposta/revisão no editor, copiar anonimizada), usando `Core/Optimizer`.
+
+- **Desktop, etapa 3** (`ajuste-desktop-macro`): módulo Macro nativo (9 geradores, programa pronto ou G65 + macro, abrir no editor para simular), usando `Core/Generators`.
