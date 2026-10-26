@@ -32,6 +32,24 @@ internal sealed class EditorKeyboard : Border
         ": ' \" < > _ $ @ & !",
     ];
 
+    // Letras mais usadas no G-code em destaque (mesma ideia das cores do editor): códigos G e M,
+    // eixos, avanço/rotação/ferramenta e centro/raio de arco. As demais ficam neutras.
+    private static readonly Dictionary<string, Color> Accents = new()
+    {
+        ["G"] = Color.Parse("#3b82f6"),
+        ["M"] = Color.Parse("#f0883e"),
+        ["X"] = Color.Parse("#2fa87c"),
+        ["Y"] = Color.Parse("#2fa87c"),
+        ["Z"] = Color.Parse("#2fa87c"),
+        ["F"] = Color.Parse("#d4a017"),
+        ["S"] = Color.Parse("#d4a017"),
+        ["T"] = Color.Parse("#d4a017"),
+        ["I"] = Color.Parse("#a371f7"),
+        ["J"] = Color.Parse("#a371f7"),
+        ["K"] = Color.Parse("#a371f7"),
+        ["R"] = Color.Parse("#a371f7"),
+    };
+
     private readonly StackPanel _letters = new() { Spacing = 3 };
     private readonly StackPanel _symbols = new() { Spacing = 3, IsVisible = false };
     private readonly Button _pageButton;
@@ -48,7 +66,7 @@ internal sealed class EditorKeyboard : Border
         // Página das letras (G M N O X Y Z...) e página dos números e símbolos; a de baixo é comum às duas
         foreach (string row in LetterRows)
         {
-            _letters.Children.Add(BuildRow(row));
+            _letters.Children.Add(BuildRow(row, colored: true));
         }
 
         foreach (string row in SymbolRows)
@@ -104,13 +122,13 @@ internal sealed class EditorKeyboard : Border
         }
     }
 
-    private Control BuildRow(string row)
+    private Control BuildRow(string row, bool colored = false)
     {
         string[] items = row.Split(' ');
         var grid = new UniformGrid { Rows = 1, Columns = items.Length };
         foreach (string item in items)
         {
-            grid.Children.Add(Make(item, item));
+            grid.Children.Add(Make(item, item, accent: colored && Accents.TryGetValue(item, out Color c) ? c : null));
         }
 
         return grid;
@@ -122,7 +140,7 @@ internal sealed class EditorKeyboard : Border
         grid.Children.Add(control);
     }
 
-    private Button Make(string label, string command, bool repeat = false, double fontSize = 16, string? icon = null)
+    private Button Make(string label, string command, bool repeat = false, double fontSize = 16, string? icon = null, Color? accent = null)
     {
         var button = new Button
         {
@@ -141,6 +159,14 @@ internal sealed class EditorKeyboard : Border
             VerticalContentAlignment = VerticalAlignment.Center,
             ClickMode = ClickMode.Press,
         };
+        if (accent is { } color)
+        {
+            // Fundo suave e letra na cor do grupo
+            button.Background = new SolidColorBrush(color, 0.2);
+            button.BorderBrush = new SolidColorBrush(color, 0.75);
+            button.Foreground = new SolidColorBrush(color);
+        }
+
         if (command == "hide")
         {
             ToolTip.SetTip(button, "Esconder o teclado");

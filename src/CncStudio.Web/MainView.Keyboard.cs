@@ -19,6 +19,17 @@ public partial class MainView
     private void InitEditorKeyboard()
     {
         KeyboardToggle.IsVisible = _touch;
+        BalloonToggle.IsVisible = _touch;
+        UpdateBalloonToggle();
+        BalloonToggle.Click += (_, _) =>
+        {
+            Store("cc.balloon", BalloonOn ? "0" : "1");
+            UpdateBalloonToggle();
+            if (!BalloonOn)
+            {
+                HideBalloon();
+            }
+        };
         KeyboardToggle.Click += (_, _) => SetKeyboardOpen(true);
         Keyboard.KeyPressed += (_, key) => OnEditorKey(key);
         CodeBalloonClose.Click += (_, _) => HideBalloon();
@@ -34,6 +45,15 @@ public partial class MainView
     }
 
     private bool KeyboardOpen => Keyboard.IsVisible;
+
+    /// <summary>Balão do código ligado (padrão) ou desligado pela pessoa; fica guardado no aparelho.</summary>
+    private bool BalloonOn => Stored("cc.balloon") != "0";
+
+    private void UpdateBalloonToggle()
+    {
+        BalloonToggle.Content = BalloonOn ? "Balão: sim" : "Balão: não";
+        BalloonToggle.Classes.Set("primary", BalloonOn);
+    }
 
     private void SetKeyboardOpen(bool open)
     {
@@ -134,6 +154,11 @@ public partial class MainView
     /// <summary>Explica o código no cursor. <paramref name="back"/> = 1 olha o caractere antes do cursor (acabou de digitar).</summary>
     private void ShowBalloonAtCaret(int back)
     {
+        if (!BalloonOn)
+        {
+            return;
+        }
+
         var caret = Editor.TextArea.Caret;
         if (caret.Line < 1 || caret.Line > Editor.Document.LineCount)
         {
