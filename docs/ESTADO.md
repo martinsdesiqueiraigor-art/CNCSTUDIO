@@ -36,3 +36,5 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **CMYK em todos os módulos HTML** (ramo `ajuste-tema-cmyk-modulos`): o tema agora também recolore Início, Academy, Macro, Otimizador, Ferramentas e rodapé (sobreposição de cores em `web.js`). Cada cartão da Início mantém a cor própria do produto.
 
 - **Atalho de tema no rodapé** (ramo `ajuste-tema-atalho`): botão "Tema" no rodapé alterna padrão ↔ CMYK em qualquer módulo; sincroniza com a opção do menu Ver.
+
+- **ACAD-02** (`docs/tarefas/ACAD-02-modulos-2-a-4.md`): ficha dos módulos 2 a 4 da Academy pronta para o GPT (um PR por módulo). Aguarda o Igor entregar ao GPT.
