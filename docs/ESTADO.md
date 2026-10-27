@@ -165,3 +165,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Não feito: castanhas/morsa acompanhando o eixo, vista 2D de frente para o eixo (proposta pendente).
 - **Voxels, acabamento:** a luz da malha usa a normal suavizada (gradiente da densidade numa janela 5×5×5; as faces planas do bruto seguem planas) e faces vizinhas iguais continuam fundidas. Voxel mais fino: PC até 320 por lado / 16 milhões; celular até 160 por lado / 2,5 milhões. Medido no PC (Release, texto no cilindro Ø50×60): simulação ≈ 0,2 s e malha ≈ 1,7 s; **tempo no celular (WASM) não medido**.
 - **Eixo automático do bruto:** `SetupAxis.Auto` segue o eixo rotativo da mesa do perfil de máquina: A → cilindro ao longo de X, centro no pivô (Y, Z); só B → ao longo de Y, centro no pivô (X, Z); sem perfil, X com os campos informados. `SetupStock.Resolved(frame)`, `RotaryPartFrame.HasA/HasB`. Seletor "Automático (eixo da máquina)" no setup da web; no desktop vale o perfil ativo. Na web, o eixo automático só acha o pivô quando há perfil (hoje o perfil vem do formulário do CAM).
+
+## Vista 2D de frente para o eixo (web)
+- `RotaryEndView` (Core): dados da vista olhando ao longo do eixo (A → plano YZ, B → XZ): contorno do bruto (círculo do cilindro do setup, com furo no tubo, ou caixa) girado pelo ângulo atual, marca do topo da peça, percurso executado na superfície (girado junto) e ferramenta parada. Uma fonte de dados para as duas cascas; testes em `RotaryEndViewTests`.
+- Web: botão "de frente para o eixo" no 2D, só aparece quando o programa gira a peça (hoje o giro vem do formulário do CAM). Conferido só pela geometria (gráfico dos dados); **o desenho na tela não foi visto a olho**.
+- Desktop: **ainda não**; a vista do desktop usa outra tela 2D (decisão do Igor).

@@ -128,6 +128,7 @@ public partial class MainView : UserControl
         IsoViewButton.Click += (_, _) => SetMillView(MillView.Iso);
         TopViewButton.Click += (_, _) => SetMillView(MillView.Top);
         FrontViewButton.Click += (_, _) => SetMillView(MillView.Front);
+        AxisViewButton.Click += (_, _) => SetMillView(MillView.Axis);
         SetupButton.Click += async (_, _) => await EditMachiningSetupAsync();
 
         OpenButton.Click += async (_, _) => await OpenFromDeviceAsync();
@@ -1355,6 +1356,7 @@ public partial class MainView : UserControl
         }
 
         StopSimulation();
+        UpdateAxisViewButton();
         Backplot.SetPath(_analysis.ToolPath, keepView);
         _lineMotion.Update(_analysis.ToolPath);
         _lineMotion.ExecutingLine = 0;
@@ -1862,9 +1864,13 @@ public partial class MainView : UserControl
         IsoViewButton.IsChecked = view == MillView.Iso;
         TopViewButton.IsChecked = view == MillView.Top;
         FrontViewButton.IsChecked = view == MillView.Front;
+        AxisViewButton.IsChecked = view == MillView.Axis;
         _millViewChoice = view;
         UpdateBackplotView();
-        SetSceneView(view switch { MillView.Top => SceneView.Top, MillView.Front => SceneView.Front, _ => SceneView.Isometric });
+        if (view != MillView.Axis)
+        {
+            SetSceneView(view switch { MillView.Top => SceneView.Top, MillView.Front => SceneView.Front, _ => SceneView.Isometric });
+        }
     }
 
     // ───────────────────────── Layout PC / celular ─────────────────────────

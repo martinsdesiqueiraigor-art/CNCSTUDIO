@@ -12,6 +12,7 @@
     <StreamGeometry x:Key="IconMenu">F1 M3,5 H21 V7 H3 Z M3,11 H21 V13 H3 Z M3,17 H21 V19 H3 Z</StreamGeometry>
     <StreamGeometry x:Key="IconViewIso">F0 M12,2 L21,7 V17 L12,22 L3,17 V7 Z M12,4.3 L5.3,8 L12,11.7 L18.7,8 Z</StreamGeometry>
     <StreamGeometry x:Key="IconViewTop">F0 M3,3 H21 V21 H3 Z M5,9 V19 H19 V9 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconViewAxis">F1 M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 Z M10.8,12 H13.2 V5.5 H10.8 Z</StreamGeometry>
     <StreamGeometry x:Key="IconViewFront">F0 M3,3 H21 V21 H3 Z M5,5 V15 H19 V5 Z</StreamGeometry>
     <StreamGeometry x:Key="IconFit">F0 M3,3 H9 V5 H5 V9 H3 Z M15,3 H21 V9 H19 V5 H15 Z M3,15 H5 V19 H9 V21 H3 Z M19,15 H21 V21 H15 V19 H19 Z</StreamGeometry>
     <StreamGeometry x:Key="IconSetup">F0 M12,2 L21,7 V17 L12,22 L3,17 V7 Z M12,4.3 L5.3,8 L12,11.7 L18.7,8 Z</StreamGeometry>
@@ -243,6 +244,7 @@
             <ToggleButton x:Name="IsoViewButton" Classes="view icon" IsChecked="True" ToolTip.Tip="Isométrica"><PathIcon Data="{StaticResource IconViewIso}" /></ToggleButton>
             <ToggleButton x:Name="TopViewButton" Classes="view icon" Margin="4,0,0,0" ToolTip.Tip="Vista de cima (XY)"><PathIcon Data="{StaticResource IconViewTop}" /></ToggleButton>
             <ToggleButton x:Name="FrontViewButton" Classes="view icon" Margin="4,0,0,0" ToolTip.Tip="Vista de frente (XZ)"><PathIcon Data="{StaticResource IconViewFront}" /></ToggleButton>
+            <ToggleButton x:Name="AxisViewButton" Classes="view icon" Margin="4,0,0,0" IsVisible="False" ToolTip.Tip="De frente para o eixo rotativo (a peça gira)"><PathIcon Data="{StaticResource IconViewAxis}" /></ToggleButton>
           </StackPanel>
           <Border x:Name="LatheLabel" Grid.Column="2" Classes="hud" Margin="6,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left">
             <TextBlock Text="Torno · plano ZX" FontSize="12" Opacity="0.85" />
