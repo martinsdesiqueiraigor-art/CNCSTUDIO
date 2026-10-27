@@ -565,7 +565,7 @@ public sealed partial class MachineExecutor
                 if (!_rotaryWarned)
                 {
                     _rotaryWarned = true;
-                    Warning(line, word, $"Eixo rotativo {word.Letter}: o ângulo aparece no painel e no 3D, mas o corte do material com a peça girada não é simulado (simulação de 3 eixos).");
+                    Warning(line, word, $"Eixo rotativo {word.Letter}: o ângulo aparece no painel e no 3D, o corte do material com a peça girada aparece só no programa de computador; na web a simulação é de 3 eixos e não corta nesses trechos.");
                 }
 
                 break;

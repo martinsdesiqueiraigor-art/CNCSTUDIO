@@ -151,3 +151,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Pós: no Siemens, `FGROUP(X,Y,Z,A)` antes e `FGROUP(X,Y,Z)` depois (o rotativo entra no avanço de trajetória). **O comportamento do F com rotativo no Fanuc 21i não foi confirmado**: rodar no ar, avanço baixo.
 - Telas: desktop (aba Fresa, "Texto enrolado no cilindro", usa o perfil ativo) e web (formulário do CAM). No 3D o bruto automático é uma caixa em volta da gravação (o cilindro redondo não é desenhado).
 - Não feito: gravar contorno/figura no cilindro, texto ao redor (em vez de ao longo do eixo), 3D simultâneo (X,Y,Z,A) de superfícies.
+
+## CAM-02 etapa 3d — eixo rotativo contínuo e corte da face girada (desktop)
+- Movimento só de A/B vira um movimento de comprimento zero e o ângulo é interpolado ao longo do trecho (usinar com o 4º eixo girando junto): a peça gira suave na simulação.
+- Material em voxels (`VoxelStock`, `VoxelSimulator`, `VoxelMesh`; bits, blocos de 16³, faces expostas em fileiras) quando o programa gira a peça (`SimulationFactory.NeedsVoxels`): a ferramenta é levada para a peça parada e corta em qualquer direção (perfis topo reto/esférica/toroidal/cone). Voltar/avançar por pontos de retorno; rápidos não cortam (sem aviso de colisão).
+- Só no desktop. A web continua em 3 eixos (não corta nesses trechos; o aviso do analisador diz isso). Bruto: o do setup (bloco) ou caixa em volta dos cortes; cilindro redondo não é desenhado.
+- Resolução: até 256 voxels no lado maior e 12 milhões no total (voxel ≥ 0,05 mm). Conferido a olho no desktop (face girada e gravação enrolada).

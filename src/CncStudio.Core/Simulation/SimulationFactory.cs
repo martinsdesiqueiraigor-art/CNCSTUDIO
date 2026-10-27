@@ -1,3 +1,4 @@
+using CncStudio.Core.Geometry;
 using CncStudio.Core.Scene;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Setup;
@@ -55,6 +56,34 @@ public static class SimulationFactory
     /// <summary>Fresa com eixo rotativo: movimentos com a peça girada (A/B ≠ 0) não cortam o mapa de alturas (3 eixos).</summary>
     public static Func<Move, bool> RotatedMoveSkipper(ToolPath path) =>
         move => move.ModalId >= 0 && move.ModalId < path.Modals.Count && path.Modals[move.ModalId].Rotary.IsRotated;
+
+    /// <summary>Fresa com eixo rotativo e o programa gira a peça (A/B ≠ 0 em algum ponto): o material é em voxels.</summary>
+    public static bool NeedsVoxels(ToolPath path) =>
+        path.Machine == MachineKind.Mill && path.PartFrame is not null && path.Modals.Any(m => m.Rotary.IsRotated);
+
+    /// <summary>
+    /// Bruto em voxels, na peça parada: o bruto dado (bloco) ou uma caixa que envolve os cortes, com folga da
+    /// maior ferramenta. O tamanho do voxel sai de <see cref="VoxelStock.ChooseVoxelSize"/>.
+    /// </summary>
+    public static VoxelStock VoxelStockFor(Stock? stock, ToolPath path, Func<int, ToolProfile> profileOf)
+    {
+        Bounds3 box;
+        if (stock is { Machine: MachineKind.Mill, IsValid: true })
+        {
+            box = stock.Bounds;
+        }
+        else
+        {
+            double largest = path.Tools.Count == 0 ? profileOf(0).Diameter : path.Tools.Max(tool => profileOf(tool).Diameter);
+            Bounds3 cut = path.CuttingBounds.IsEmpty ? path.Bounds : path.CuttingBounds;
+            double margin = (largest / 2) + 1;
+            box = cut.IsEmpty
+                ? Bounds3.Empty.Include(new Point3(-10, -10, -10)).Include(new Point3(10, 10, 0))
+                : Bounds3.Empty.Include(cut.Min - new Point3(margin, margin, margin)).Include(cut.Max + new Point3(margin, margin, margin));
+        }
+
+        return new VoxelStock(box, VoxelStock.ChooseVoxelSize(box));
+    }
 
     /// <summary>Barra do torno: a do bruto dado ou uma automática pela trajetória.</summary>
     public static TurningStock LatheStock(Stock? stock, ToolPath path) =>

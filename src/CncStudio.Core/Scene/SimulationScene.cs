@@ -82,7 +82,7 @@ public sealed class SimulationScene
     private readonly Func<int, ToolProfile> _profileOf;
     private readonly MachiningSetup? _setup;
     private readonly ToolPath _path;
-    private readonly HeightMapMesh? _mill;
+    private readonly IMaterialMesh? _mill;
     private readonly TurningStock? _turning;
     private readonly SceneObject _cutter;
     private readonly SceneObject _holder;
@@ -95,7 +95,7 @@ public sealed class SimulationScene
     private SceneLines? _current;
 
     private SimulationScene(ToolPath path, Func<int, ToolProfile> profileOf, MachiningSetup? setup, ScenePalette palette,
-        HeightMapMesh? mill, TurningStock? turning)
+        IMaterialMesh? mill, TurningStock? turning)
     {
         _path = path;
         _profileOf = profileOf;
@@ -118,6 +118,14 @@ public sealed class SimulationScene
         return new SimulationScene(path, profileOf, setup, palette, new HeightMapMesh(map, palette), null);
     }
 
+    /// <summary>Cena da fresa com eixo rotativo: material em voxels (corte em qualquer direção), fixações do setup e a trajetória.</summary>
+    public static SimulationScene ForVoxels(VoxelStock stock, ToolPath path, Func<int, ToolProfile> profileOf,
+        MachiningSetup? setup = null, ScenePalette? palette = null)
+    {
+        palette ??= ScenePalette.Realistic;
+        return new SimulationScene(path, profileOf, setup, palette, new VoxelMesh(stock, palette), null);
+    }
+
     /// <summary>
     /// Cena do torno: peça de revolução (com corte de 1/4 opcional), placa com castanhas e o inserto,
     /// com o eixo da peça deitado em X da cena (ver <see cref="SceneMeshes.LatheToWorld"/>).
@@ -137,7 +145,7 @@ public sealed class SimulationScene
     public IReadOnlyList<SceneLines> Lines => _lines;
 
     /// <summary>Material da fresa em blocos (null no torno).</summary>
-    public HeightMapMesh? MillMaterial => _mill;
+    public IMaterialMesh? MillMaterial => _mill;
 
     /// <summary>Câmera atual; a tela troca ao girar, aproximar ou escolher uma vista.</summary>
     public SceneCamera Camera { get; set; } = new(Point3.Origin, 100, 35, 30);
