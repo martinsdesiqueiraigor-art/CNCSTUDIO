@@ -121,3 +121,7 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `ToolMove` ganhou palavra rotativa opcional (`RotaryLetter`/`RotaryAngle`); `CamPost` escreve A/B/C em Fanuc e Siemens (só quando muda).
 - `RotaryIndexing.Place`: leva operação 2,5D (face para cima) para a face girada do eixo A ou B na mesa: translada pelo pivô, sobe à altura segura, gira, corta, recua. Respeita curso e sentido invertido; recusa cabeçote, modo nativo e furação em ciclo fixo.
 - Sem tela ainda (próximo passo). Nada testado em máquina: rodar no ar e conferir o sentido de A/B. 874 testes.
+
+## CAM-02 etapa 2b — tela da face girada
+- Aba Fresa do CAM: caixa "Face girada no 4º eixo" (eixo A/B, ângulo, distância centro→face); usa o perfil de máquina ativo e aplica `RotaryIndexing.Place` na operação ao adicionar. Mostra o erro do perfil (curso, cabeçote, modo função).
+- Não conferido em tela com GPU nem em máquina.
