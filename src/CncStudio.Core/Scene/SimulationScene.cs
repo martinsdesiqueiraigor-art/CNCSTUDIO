@@ -121,6 +121,19 @@ public sealed class SimulationScene
 
     public bool IsLathe => _turning is not null;
 
+    /// <summary>Fresa com eixo rotativo na mesa: o percurso é desenhado na peça parada (desfaz o giro de A/B). Null = coordenadas da máquina.</summary>
+    public RotaryPartFrame? PartFrame
+    {
+        get => _partFrame;
+        set
+        {
+            _partFrame = value;
+            SetRapidCollisions([]);
+        }
+    }
+
+    private RotaryPartFrame? _partFrame;
+
     public IReadOnlyList<SceneObject> Objects => _objects;
 
     public IReadOnlyList<SceneLines> Lines => _lines;
@@ -235,7 +248,7 @@ public sealed class SimulationScene
     /// Põe a ferramenta "tool" com a ponta em "tip" (no torno, (X = raio, Z) da ponta do inserto).
     /// Troca a malha só quando o número da ferramenta muda.
     /// </summary>
-    public void SetTool(int tool, Point3 tip)
+    public void SetTool(int tool, Point3 tip, int moveIndex = -1)
     {
         if (tool != _tool)
         {
@@ -256,6 +269,10 @@ public sealed class SimulationScene
         Point3 world = _turning is not null ? SceneMeshes.LatheToWorld(tip with { Y = 0 }) : tip;
         _cutter.Offset = world;
         _holder.Offset = world;
+        // Com a peça girada a ferramenta ficaria inclinada em relação à peça; esconde em vez de mostrar errado
+        bool rotated = PartFrame is not null && moveIndex >= 0 && moveIndex < _path.Moves.Count
+            && _path.Moves[moveIndex].ModalId is var id && id >= 0 && id < _path.Modals.Count && _path.Modals[id].Rotary.IsRotated;
+        _cutter.Visible = _holder.Visible = !rotated;
     }
 
     /// <summary>
@@ -275,7 +292,7 @@ public sealed class SimulationScene
     /// <summary>Refaz as linhas da trajetória com os G00 que encostaram no material destacados.</summary>
     public void SetRapidCollisions(IReadOnlyCollection<int> rapidMoves)
     {
-        (SceneLines feed, SceneLines rapid, SceneLines hit) = SceneLines.FromToolPath(_path, rapidMoves);
+        (SceneLines feed, SceneLines rapid, SceneLines hit) = SceneLines.FromToolPath(_path, rapidMoves, partFrame: PartFrame);
         if (_turning is not null)
         {
             // Torno: X do programa é o raio no plano da peça (Y = 0), girado para a cena

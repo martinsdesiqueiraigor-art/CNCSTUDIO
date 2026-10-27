@@ -1,3 +1,4 @@
+using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Trajectory;
 
@@ -63,7 +64,7 @@ public sealed class SceneLines
     /// ("rapidCollisions", na ordem da simulação). Arcos viram segmentos com a tolerância dada.
     /// </summary>
     public static (SceneLines Feed, SceneLines Rapid, SceneLines RapidInMaterial) FromToolPath(
-        ToolPath path, IReadOnlyCollection<int>? rapidCollisions = null, double tolerance = 0.01)
+        ToolPath path, IReadOnlyCollection<int>? rapidCollisions = null, double tolerance = 0.01, RotaryPartFrame? partFrame = null)
     {
         var feed = new SceneLines(SceneRole.FeedPath);
         var rapid = new SceneLines(SceneRole.RapidPath);
@@ -78,6 +79,14 @@ public sealed class SceneLines
             points.Clear();
             points.Add(move.Start);
             move.AppendPolyline(points, tolerance);
+            if (partFrame is not null && move.ModalId >= 0 && move.ModalId < path.Modals.Count && path.Modals[move.ModalId].Rotary.IsRotated)
+            {
+                MachineModal modal = path.Modals[move.ModalId];
+                for (int k = 0; k < points.Count; k++)
+                {
+                    points[k] = partFrame.ToPart(points[k], modal.Offset, modal.Rotary);
+                }
+            }
             for (int k = 0; k + 1 < points.Count; k++)
             {
                 target.Add(points[k], points[k + 1], i);

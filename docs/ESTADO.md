@@ -130,3 +130,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Executor da fresa lê A/B/C (antes: aviso "não simulado"); o ângulo vai no estado modal (`RotaryAngles`) e aparece como linhas A e B no painel de controle quando o programa usa giro.
 - O corte do material **não** é simulado com a peça girada (mapa de alturas é 3 eixos): movimentos com A/B ≠ 0 não retiram material; um aviso diz isso uma vez. O desenho do percurso continua em coordenadas de máquina.
 - Falta (não autorizado): girar o bruto/percurso na vista 3D e simular o corte na face girada.
+
+## CAM-02 etapa 2d — percurso na peça girada (3D)
+- `RotaryPartFrame` (Core/Scene): desfaz o giro de A/B (mesa) em cada ponto do percurso; o 3D do desktop desenha o percurso **na peça parada**, a partir do perfil de máquina ativo (pivô e sentido). Ferramenta fica escondida enquanto a peça está girada (ficaria inclinada).
+- O desktop passou a usar o mesmo filtro da fábrica: movimentos com A/B ≠ 0 não cortam o mapa de alturas.
+- Ainda não: cortar o material na face girada, ferramenta inclinada, C e cabeçote. Sentido do giro não conferido em máquina.
