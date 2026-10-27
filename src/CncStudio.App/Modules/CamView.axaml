@@ -39,6 +39,24 @@
           <TextBlock Text="Operação" FontWeight="Bold" Margin="0,6,0,0" />
           <ComboBox x:Name="OpCombo" HorizontalAlignment="Stretch" />
           <StackPanel x:Name="OpFields" Spacing="4" />
+          <CheckBox x:Name="RotaryCheck" Content="Face girada no 4º eixo (perfil da máquina)" Margin="0,6,0,0" />
+          <StackPanel x:Name="RotaryBox" Spacing="4" IsVisible="False">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Eixo" Width="170" VerticalAlignment="Center" />
+              <ComboBox x:Name="RotaryAxisCombo" SelectedIndex="0" Width="90"><ComboBoxItem Content="A" /><ComboBoxItem Content="B" /></ComboBox>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Ângulo da face" Width="170" VerticalAlignment="Center" />
+              <TextBox x:Name="RotaryAngleBox" Text="90" Width="90" MinHeight="26" />
+              <TextBlock Text="°" VerticalAlignment="Center" Opacity="0.7" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Do centro do eixo até a face (virada para cima)" Width="170" TextWrapping="Wrap" VerticalAlignment="Center" />
+              <TextBox x:Name="RotaryDistBox" Text="25" Width="90" MinHeight="26" />
+              <TextBlock Text="mm" VerticalAlignment="Center" Opacity="0.7" />
+            </StackPanel>
+            <TextBlock Text="Desenhe a face de cima (Z 0 na face). O CAM leva o percurso para a face girada. Rode primeiro no ar e confira o sentido de A/B." TextWrapping="Wrap" Opacity="0.7" FontSize="12" />
+          </StackPanel>
           <Button x:Name="AddOpButton" Content="Adicionar operação" Padding="14,8" FontWeight="SemiBold" HorizontalAlignment="Stretch" />
           <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="#FF9A83" />
         </StackPanel>

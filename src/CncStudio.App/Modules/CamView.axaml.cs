@@ -111,6 +111,7 @@ public partial class CamView : UserControl
         AttachedToVisualTree += (_, _) => RefreshBank();
         OpenDxfButton.Click += async (_, _) => await OpenDxf();
         AddOpButton.Click += (_, _) => AddOperation();
+        RotaryCheck.IsCheckedChanged += (_, _) => RotaryBox.IsVisible = RotaryCheck.IsChecked == true;
         RemoveOpButton.Click += (_, _) =>
         {
             if (OpList.SelectedIndex >= 0)
@@ -545,6 +546,25 @@ public partial class CamView : UserControl
         {
             Errors.Text = "• " + result.Error;
             return;
+        }
+
+        if (RotaryCheck.IsChecked == true)
+        {
+            MachineProfile? machine = MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
+            double angle = Parse(RotaryAngleBox), dist = Parse(RotaryDistBox);
+            if (machine is null || double.IsNaN(angle) || double.IsNaN(dist))
+            {
+                Errors.Text = "• Face girada: escolha o perfil da máquina (aba Máquina) e preencha ângulo e distância.";
+                return;
+            }
+
+            string letter = (RotaryAxisCombo.SelectedIndex == 1) ? "B" : "A";
+            result = RotaryIndexing.Place(result.Operation!, machine, letter, new IndexedFace(angle, dist));
+            if (!result.Ok)
+            {
+                Errors.Text = "• " + result.Error;
+                return;
+            }
         }
 
         _ops.Add(result.Operation!);
