@@ -269,7 +269,7 @@ public sealed class SimulationScene
         _holder.Offset = world;
         if (moveIndex >= 0 && _path.Moves.Count > 0)
         {
-            SetPartRotation(Math.Min(moveIndex, _path.Moves.Count - 1)); // programa terminado: vale a posição do último movimento
+            SetPartRotation(Math.Min(moveIndex, _path.Moves.Count - 1), tip); // programa terminado: vale a posição do último movimento
         }
     }
 
@@ -278,16 +278,24 @@ public sealed class SimulationScene
 
     public static readonly float[] IdentityMatrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
-    private void SetPartRotation(int moveIndex)
+    private void SetPartRotation(int moveIndex, Point3 tip)
     {
         float[] next = IdentityMatrix;
         if (PartFrame is { } frame)
         {
-            int id = _path.Moves[moveIndex].ModalId;
-            if (id >= 0 && id < _path.Modals.Count && _path.Modals[id].Rotary.IsRotated)
+            // Movimento com giro e deslocamento juntos: o ângulo acompanha a ponta ao longo do trecho
+            RotaryAngles end = _path.RotaryAt(moveIndex), start = _path.RotaryAtStart(moveIndex);
+            RotaryAngles now = end;
+            Move m = _path.Moves[moveIndex];
+            double length = m.Start.DistanceTo(m.End);
+            if (length > 1e-9 && (Math.Abs(end.A - start.A) > 1e-9 || Math.Abs(end.B - start.B) > 1e-9))
             {
-                MachineModal modal = _path.Modals[id];
-                next = [.. frame.ToMachineMatrix(modal.Offset, modal.Rotary).Select(v => (float)v)];
+                now = RotaryAngles.Lerp(start, end, Math.Clamp(m.Start.DistanceTo(tip) / length, 0, 1));
+            }
+
+            if (now.IsRotated)
+            {
+                next = [.. frame.ToMachineMatrix(_path.Modals[m.ModalId].Offset, now).Select(v => (float)v)];
             }
         }
 
@@ -351,12 +359,13 @@ public sealed class SimulationScene
             Move m = _path.Moves[move];
             var points = new List<Point3> { m.Start };
             m.AppendPolyline(points, 0.01);
-            if (PartFrame is { } frame && m.ModalId >= 0 && m.ModalId < _path.Modals.Count && _path.Modals[m.ModalId].Rotary.IsRotated)
+            RotaryAngles endAngles = _path.RotaryAt(move), startAngles = _path.RotaryAtStart(move);
+            if (PartFrame is { } frame && (endAngles.IsRotated || startAngles.IsRotated))
             {
-                MachineModal modal = _path.Modals[m.ModalId];
+                Point3 offset = _path.Modals[m.ModalId].Offset;
                 for (int k = 0; k < points.Count; k++)
                 {
-                    points[k] = frame.ToPart(points[k], modal.Offset, modal.Rotary);
+                    points[k] = frame.ToPart(points[k], offset, k == 0 ? startAngles : endAngles);
                 }
             }
 

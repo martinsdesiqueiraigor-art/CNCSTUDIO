@@ -26,9 +26,9 @@ public sealed class ToolPath
         var all = Bounds3.Empty;
         var cutting = Bounds3.Empty;
         var tools = new SortedSet<int>();
-        foreach (Move shown in moves)
+        for (int i = 0; i < moves.Count; i++)
         {
-            Move move = InPartFrame(shown);
+            Move move = InPartFrame(i, moves[i]);
             all = move.IncludeIn(all);
             if (!move.IsRapid)
             {
@@ -49,16 +49,29 @@ public sealed class ToolPath
     /// <summary>Giro da mesa a desfazer no desenho (null = coordenadas da máquina).</summary>
     public Scene.RotaryPartFrame? PartFrame { get; }
 
-    // Movimento com a peça girada: pontos e centro levados para a peça parada (só para limites; arcos viram a corda)
-    private Move InPartFrame(Move move)
+    /// <summary>Ângulos dos eixos rotativos ao fim do movimento (os do estado modal dele).</summary>
+    public RotaryAngles RotaryAt(int moveIndex) =>
+        moveIndex >= 0 && moveIndex < Moves.Count && Moves[moveIndex].ModalId is var id && id >= 0 && id < Modals.Count ? Modals[id].Rotary : default;
+
+    /// <summary>Ângulos no começo do movimento: os do fim do anterior (zero no primeiro).</summary>
+    public RotaryAngles RotaryAtStart(int moveIndex) => moveIndex > 0 ? RotaryAt(moveIndex - 1) : default;
+
+    // Movimento com a peça girada: pontos levados para a peça parada (só para limites; arcos viram a corda)
+    private Move InPartFrame(int index, Move move)
     {
-        if (PartFrame is null || move.ModalId < 0 || move.ModalId >= Modals.Count || !Modals[move.ModalId].Rotary.IsRotated)
+        if (PartFrame is null)
         {
             return move;
         }
 
-        MachineModal modal = Modals[move.ModalId];
-        return new Move(PartFrame.ToPart(move.Start, modal.Offset, modal.Rotary), PartFrame.ToPart(move.End, modal.Offset, modal.Rotary),
+        RotaryAngles end = RotaryAt(index), start = RotaryAtStart(index);
+        if (!end.IsRotated && !start.IsRotated)
+        {
+            return move;
+        }
+
+        Point3 offset = Modals[move.ModalId].Offset;
+        return new Move(PartFrame.ToPart(move.Start, offset, start), PartFrame.ToPart(move.End, offset, end),
             move.IsRapid ? MotionMode.Rapid : MotionMode.Linear, move.LineNumber, move.Feed, move.Tool);
     }
 

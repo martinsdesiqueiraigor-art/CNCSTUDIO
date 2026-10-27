@@ -467,6 +467,7 @@ public sealed partial class MachineExecutor
         public int? WorkOffsetCode { get; set; }
         public double? Feed { get; set; }
         public double? Spindle { get; set; }         // S (rotação; no Siemens G4, rotações de espera)
+        public bool Rotary { get; set; }             // palavra A/B/C no bloco (fresa)
         public bool Dwell { get; set; }              // G04
         public bool CycleDwell { get; set; }         // G82: espera no fundo do furo
         public bool? FeedPerRevolution { get; set; } // G95/G99 (true) — G94/G98 (false)
@@ -560,6 +561,7 @@ public sealed partial class MachineExecutor
                     'B' => _rotary with { B = word.Value },
                     _ => _rotary with { C = word.Value },
                 };
+                w.Rotary = true;
                 if (!_rotaryWarned)
                 {
                     _rotaryWarned = true;
@@ -738,6 +740,12 @@ public sealed partial class MachineExecutor
 
         if (!hasAxis && !(isArc && hasCenter))
         {
+            if (w.Rotary && !_lathe)
+            {
+                // Bloco só com eixo rotativo: a mesa gira parada. Vira um movimento de comprimento zero (um passo na simulação)
+                AddMove(new Move(_position, _position, isArc ? MotionMode.Linear : _motion, block.LineNumber, _feed, _activeTool));
+            }
+
             return;
         }
 

@@ -25,5 +25,8 @@ public sealed record MachineModal(
 public readonly record struct RotaryAngles(double A, double B, double C)
 {
     /// <summary>Algum eixo rotativo fora de zero: a peça (ou ferramenta) está girada em relação à posição de programação.</summary>
+    public static RotaryAngles Lerp(RotaryAngles a, RotaryAngles b, double t) =>
+        new(a.A + ((b.A - a.A) * t), a.B + ((b.B - a.B) * t), a.C + ((b.C - a.C) * t));
+
     public bool IsRotated => Math.Abs(A) > 1e-9 || Math.Abs(B) > 1e-9 || Math.Abs(C) > 1e-9;
 }

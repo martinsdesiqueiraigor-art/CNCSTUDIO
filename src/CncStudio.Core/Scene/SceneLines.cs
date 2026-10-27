@@ -79,12 +79,14 @@ public sealed class SceneLines
             points.Clear();
             points.Add(move.Start);
             move.AppendPolyline(points, tolerance);
-            if (partFrame is not null && move.ModalId >= 0 && move.ModalId < path.Modals.Count && path.Modals[move.ModalId].Rotary.IsRotated)
+            RotaryAngles endAngles = path.RotaryAt(i), startAngles = path.RotaryAtStart(i);
+            if (partFrame is not null && (endAngles.IsRotated || startAngles.IsRotated))
             {
-                MachineModal modal = path.Modals[move.ModalId];
+                Point3 offset = path.Modals[move.ModalId].Offset;
                 for (int k = 0; k < points.Count; k++)
                 {
-                    points[k] = partFrame.ToPart(points[k], modal.Offset, modal.Rotary);
+                    // o primeiro ponto tem o ângulo do começo; os outros, o do fim (giro e deslocamento juntos = reta no desenvolvimento)
+                    points[k] = partFrame.ToPart(points[k], offset, k == 0 ? startAngles : endAngles);
                 }
             }
             for (int k = 0; k + 1 < points.Count; k++)
