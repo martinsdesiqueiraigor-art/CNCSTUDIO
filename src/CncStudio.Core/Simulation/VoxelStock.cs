@@ -92,6 +92,41 @@ public sealed class VoxelStock
         return (_bits[i >> 6] & (1UL << (int)(i & 63))) != 0;
     }
 
+    /// <summary>
+    /// Cinco voxels seguidos em X (de x−2 a x+2) como bits (bit 0 = x−2). Fora da grade vale o voxel da borda
+    /// (assim as faces planas do bruto ficam planas na luz).
+    /// Serve ao alisamento da malha: ler uma fileira de uma vez é bem mais rápido que voxel a voxel.
+    /// </summary>
+    public int RowMask5(int x, int y, int z)
+    {
+        y = Math.Clamp(y, 0, Ny - 1);
+        z = Math.Clamp(z, 0, Nz - 1);
+        int x0 = x - 2;
+        if (x0 >= 0 && x0 + 4 < Nx)
+        {
+            long i = Index(x0, y, z);
+            int off = (int)(i & 63);
+            ulong w = _bits[i >> 6] >> off;
+            if (off > 59)
+            {
+                w |= _bits[(i >> 6) + 1] << (64 - off);
+            }
+
+            return (int)(w & 31);
+        }
+
+        int mask = 0;
+        for (int k = 0; k < 5; k++)
+        {
+            if (IsSolid(Math.Clamp(x0 + k, 0, Nx - 1), y, z))
+            {
+                mask |= 1 << k;
+            }
+        }
+
+        return mask;
+    }
+
     /// <summary>Tinha material no bruto inteiro (antes de qualquer corte)? Distingue parede cortada de face do bruto.</summary>
     public bool WasOriginallySolid(int x, int y, int z)
     {

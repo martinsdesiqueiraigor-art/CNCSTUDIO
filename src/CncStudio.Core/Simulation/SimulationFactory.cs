@@ -67,7 +67,7 @@ public static class SimulationFactory
 
     /// <summary>Voxels no lado maior e no total: PC e celular (mesma regra de <see cref="CellsFor"/>).</summary>
     public static (int PerSide, long Total) VoxelLimits(int maxCellsPerSide) =>
-        maxCellsPerSide >= DesktopCells ? (256, 12_000_000) : (96, 1_000_000);
+        maxCellsPerSide >= DesktopCells ? (320, 16_000_000) : (160, 2_500_000);
 
     /// <summary>
     /// Bruto em voxels, na peça parada: o do setup (bloco, ou cilindro/tubo no eixo escolhido), o bruto dado ou uma

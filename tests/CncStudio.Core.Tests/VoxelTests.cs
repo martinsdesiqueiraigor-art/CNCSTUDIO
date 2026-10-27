@@ -151,4 +151,36 @@ public class VoxelTests
         sim.RunToEnd();
         Assert.NotEmpty(scene.Refresh());
     }
+
+    [Fact]
+    public void LuzDoCilindroEhSuaveEFacesPlanasContinuamPlanas()
+    {
+        var round = new Setup.SetupStock { Kind = Setup.SetupStockKind.Round, Axis = Setup.SetupAxis.X, X = 0, Y = 0, Z = 0, Height = 20, Diameter = 20 };
+        var stock = new VoxelStock(round.Extent, 0.5, round.Contains);
+        ReadOnlySpan<float> n = new VoxelMesh(stock).Merged().Normals;
+        int oblique = 0;
+        for (int i = 0; i < n.Length; i += 3)
+        {
+            // normal da lateral num ângulo qualquer (nem em X, nem em Y, nem em Z)
+            if (Math.Abs(n[i + 1]) > 0.3 && Math.Abs(n[i + 2]) > 0.3)
+            {
+                oblique++;
+            }
+        }
+
+        Assert.True(oblique > 100);
+
+        // Caixa: as faces planas ficam com normal de eixo, sem arredondar o meio
+        ReadOnlySpan<float> flat = new VoxelMesh(Box(0.5)).Merged().Normals;
+        int axisAligned = 0;
+        for (int i = 0; i < flat.Length; i += 3)
+        {
+            if (Math.Abs(flat[i]) > 0.99 || Math.Abs(flat[i + 1]) > 0.99 || Math.Abs(flat[i + 2]) > 0.99)
+            {
+                axisAligned++;
+            }
+        }
+
+        Assert.True(axisAligned > (flat.Length / 3) * 0.95);
+    }
 }

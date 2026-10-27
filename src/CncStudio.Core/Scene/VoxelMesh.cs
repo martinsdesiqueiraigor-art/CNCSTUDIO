@@ -108,25 +108,34 @@ public sealed class VoxelMesh : IMaterialMesh
                 {
                     for (c[v] = lo[v]; c[v] < hi[v]; c[v]++)
                     {
+                        // Funde faces iguais vizinhas ao longo de u; cada voxel é avaliado uma vez só
                         c[u] = lo[u];
+                        Face? current = FaceAt(s, c, a, sign, stockColor, cutColor);
                         while (c[u] < hi[u])
                         {
-                            uint? color = FaceColor(s, c, a, sign, stockColor, cutColor);
-                            if (color is null)
+                            if (current is null)
                             {
                                 c[u]++;
+                                current = c[u] < hi[u] ? FaceAt(s, c, a, sign, stockColor, cutColor) : null;
                                 continue;
                             }
 
                             int start = c[u];
-                            while (c[u] + 1 < hi[u] && FaceColor(s, [.. WithU(c, u, c[u] + 1)], a, sign, stockColor, cutColor) == color)
+                            Face? next;
+                            while (true)
                             {
                                 c[u]++;
+                                next = c[u] < hi[u] ? FaceAt(s, c, a, sign, stockColor, cutColor) : null;
+                                if (next is not null && next == current)
+                                {
+                                    continue;
+                                }
+
+                                break;
                             }
 
-                            int end = c[u] + 1; // fileira de start até end (exclusivo)
-                            c[u] = end;
-                            EmitQuad(mesh, origin, h, a, u, v, sign, c[a], start, end, c[v], color.Value);
+                            EmitQuad(mesh, origin, h, a, u, v, sign, c[a], start, c[u], c[v], current.Value);
+                            current = next;
                         }
                     }
                 }
@@ -136,15 +145,14 @@ public sealed class VoxelMesh : IMaterialMesh
         return mesh;
     }
 
-    private static int[] WithU(int[] c, int u, int value)
-    {
-        int[] r = (int[])c.Clone();
-        r[u] = value;
-        return r;
-    }
+    // Face de um voxel: cor e normal usada só na luz (suavizada, em 1/16)
+    private readonly record struct Face(uint Color, int Qx, int Qy, int Qz);
 
-    // Face do voxel c virada para o eixo a (sinal): só existe se o voxel tem material e o vizinho não
-    private static uint? FaceColor(VoxelStock s, int[] c, int a, int sign, uint stockColor, uint cutColor)
+    private const double Quantum = 16;
+
+    // Face do voxel c virada para o eixo a (sinal): só existe se o voxel tem material e o vizinho não.
+    // A normal de luz é o gradiente da densidade ao redor (janela de 5³), o que alisa os degraus dos voxels
+    private static Face? FaceAt(VoxelStock s, int[] c, int a, int sign, uint stockColor, uint cutColor)
     {
         if (!s.IsSolid(c[0], c[1], c[2]))
         {
@@ -164,10 +172,40 @@ public sealed class VoxelMesh : IMaterialMesh
             return null;
         }
 
-        return s.WasOriginallySolid(nx, ny, nz) ? cutColor : stockColor;
+        uint color = s.WasOriginallySolid(nx, ny, nz) ? cutColor : stockColor;
+
+        // Gradiente da densidade numa janela 5×5×5 (fileiras de 5 voxels em X lidas de uma vez)
+        double gx = 0, gy = 0, gz = 0;
+        for (int dz = -2; dz <= 2; dz++)
+        {
+            for (int dy = -2; dy <= 2; dy++)
+            {
+                int bits = s.RowMask5(c[0], c[1] + dy, c[2] + dz);
+                if (bits == 0)
+                {
+                    continue;
+                }
+
+                int count = System.Numerics.BitOperations.PopCount((uint)bits);
+                gx -= ((bits >> 1) & 1) * -1 + ((bits >> 3) & 1) + (((bits >> 4) & 1) * 2) + (((bits >> 0) & 1) * -2);
+                gy -= dy * count;
+                gz -= dz * count;
+            }
+        }
+
+        double length = Math.Sqrt((gx * gx) + (gy * gy) + (gz * gz));
+        double along = a == 0 ? gx : a == 1 ? gy : gz;
+        double[] geometric = [0, 0, 0];
+        geometric[a] = sign;
+        if (length < 1e-9 || (along * sign) / length < 0.25)
+        {
+            return new Face(color, (int)(geometric[0] * Quantum), (int)(geometric[1] * Quantum), (int)(geometric[2] * Quantum));
+        }
+
+        return new Face(color, (int)Math.Round(gx / length * Quantum), (int)Math.Round(gy / length * Quantum), (int)Math.Round(gz / length * Quantum));
     }
 
-    private static void EmitQuad(SolidMesh mesh, double[] origin, double h, int a, int u, int v, int sign, int layer, int uStart, int uEnd, int vIndex, uint rgb)
+    private static void EmitQuad(SolidMesh mesh, double[] origin, double h, int a, int u, int v, int sign, int layer, int uStart, int uEnd, int vIndex, Face face)
     {
         double plane = origin[a] + ((sign > 0 ? layer + 1 : layer) * h);
         double u0 = origin[u] + (uStart * h), u1 = origin[u] + (uEnd * h);
@@ -183,6 +221,7 @@ public sealed class VoxelMesh : IMaterialMesh
 
         double[] nrm = new double[3];
         nrm[a] = sign;
-        mesh.AddQuad(P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1), new Point3(nrm[0], nrm[1], nrm[2]), rgb);
+        mesh.AddQuad(P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1), new Point3(nrm[0], nrm[1], nrm[2]), face.Color,
+            new Point3(face.Qx, face.Qy, face.Qz));
     }
 }
