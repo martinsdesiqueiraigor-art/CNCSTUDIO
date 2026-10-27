@@ -116,3 +116,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Core: `MachineProfile` (comando, até 2 eixos rotativos A/B/C na mesa ou no cabeçote, limites, pivô, sentido, modo de saída calculado ou função da máquina), `Validate`/`Warnings`, `Describe`, modelos prontos e JSON (`MachineProfileJson`). 10 testes.
 - Desktop: aba "Perfil 4/5 eixos" no CAM (lista, novo a partir de modelo, duplicar, excluir, salvar, "usar este perfil"); perfis em `config.json` (`MachineProfiles`, `ActiveMachineProfile`).
 - Ainda **não gera programa**: só guarda a máquina. Próximo: 4º eixo no modo calculado (Fanuc 21i, sem G68.2/TCP, 5 eixos simultâneos). Plano: `CAM-02-4-e-5-eixos.md` no Projeto.
+
+## CAM-02 etapa 2 — 4º eixo no modo calculado (Core)
+- `ToolMove` ganhou palavra rotativa opcional (`RotaryLetter`/`RotaryAngle`); `CamPost` escreve A/B/C em Fanuc e Siemens (só quando muda).
+- `RotaryIndexing.Place`: leva operação 2,5D (face para cima) para a face girada do eixo A ou B na mesa: translada pelo pivô, sobe à altura segura, gira, corta, recua. Respeita curso e sentido invertido; recusa cabeçote, modo nativo e furação em ciclo fixo.
+- Sem tela ainda (próximo passo). Nada testado em máquina: rodar no ar e conferir o sentido de A/B. 874 testes.
