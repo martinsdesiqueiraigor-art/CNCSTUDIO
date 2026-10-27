@@ -26,7 +26,7 @@ public static class CamQuickJson
                 var arr = new JsonArray();
                 foreach (string s in options)
                 {
-                    arr.Add(s);
+                    arr.Add(JsonValue.Create(s));
                 }
 
                 o["options"] = arr;
@@ -187,13 +187,13 @@ public static class CamQuickJson
         var e = new JsonArray();
         foreach (string s in errors)
         {
-            e.Add(s);
+            e.Add(JsonValue.Create(s));
         }
 
         var w = new JsonArray();
         foreach (string s in warnings)
         {
-            w.Add(s);
+            w.Add(JsonValue.Create(s));
         }
 
         return new JsonObject { ["ok"] = ok, ["program"] = program, ["errors"] = e, ["warnings"] = w }.ToJsonString();
