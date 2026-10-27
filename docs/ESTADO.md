@@ -135,3 +135,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `RotaryPartFrame` (Core/Scene): desfaz o giro de A/B (mesa) em cada ponto do percurso; o 3D do desktop desenha o percurso **na peça parada**, a partir do perfil de máquina ativo (pivô e sentido). Ferramenta fica escondida enquanto a peça está girada (ficaria inclinada).
 - O desktop passou a usar o mesmo filtro da fábrica: movimentos com A/B ≠ 0 não cortam o mapa de alturas.
 - Ainda não: cortar o material na face girada, ferramenta inclinada, C e cabeçote. Sentido do giro não conferido em máquina.
+
+## CAM-02 etapa 3 — CAM rápido na web (celular)
+- `CamQuickJson` (Core): retângulo ou círculo + contorno por fora/dentro/sobre a linha ou bolsão, Fanuc/Siemens, 4º eixo opcional (face girada). `cam-ui.js` + `MainView.Cam.cs`: formulário em HTML, abre no editor ou no 3D. Cartão "Casillas CAM" deixou de ser "em breve".
+- Sem DXF, sem torno e sem várias operações (use o desktop). **Sem trava de licença** (módulo `cam` não existe no banco): decisão do Igor antes de publicar o site oficial.
+- Conferir na prévia do ramo (celular): formulário, programa com A90, abrir no 3D.
