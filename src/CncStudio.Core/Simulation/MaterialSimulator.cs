@@ -16,6 +16,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
 {
     private readonly HeightMap _map;
     private readonly IReadOnlyList<Move> _moves;
+    private readonly Func<Move, bool>? _skipCut;
     private readonly Func<int, ToolProfile> _profileOf;
     private ToolProfile _profile = ToolProfile.Flat(10);
     private readonly double _arcTolerance;
@@ -42,8 +43,9 @@ public sealed class MaterialSimulator : IMaterialSimulation
     }
 
     /// <summary>Simulação com o perfil de cada ferramenta (número T → perfil).</summary>
-    public MaterialSimulator(HeightMap map, IReadOnlyList<Move> moves, Func<int, ToolProfile> profileOfTool)
+    public MaterialSimulator(HeightMap map, IReadOnlyList<Move> moves, Func<int, ToolProfile> profileOfTool, Func<Move, bool>? skipCut = null)
     {
+        _skipCut = skipCut;
         _map = map;
         _moves = moves;
         _profileOf = profileOfTool;
@@ -245,7 +247,7 @@ public sealed class MaterialSimulator : IMaterialSimulation
         bool pieceDone = _distanceInPiece >= length - 1e-9;
         Point3 to = pieceDone ? b : Point3.Lerp(a, b, _distanceInPiece / length);
 
-        bool removed = CutPiece(a, b, length, from, pieceDone ? length : _distanceInPiece);
+        bool removed = !(_skipCut?.Invoke(_moves[_moveIndex]) ?? false) && CutPiece(a, b, length, from, pieceDone ? length : _distanceInPiece);
         ToolPosition = to;
 
         // G00 que remove material = colisão (o bruto informado torna isso confiável)

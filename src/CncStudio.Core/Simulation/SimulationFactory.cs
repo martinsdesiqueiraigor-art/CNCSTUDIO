@@ -78,7 +78,7 @@ public static class SimulationFactory
             ApplyRoundShape(map, round);
         }
 
-        return new MaterialSimulationParts(new MaterialSimulator(map, path.Moves, profiles), map, null, stock) { Profiles = profiles };
+        return new MaterialSimulationParts(new MaterialSimulator(map, path.Moves, profiles, move => move.ModalId >= 0 && move.ModalId < path.Modals.Count && path.Modals[move.ModalId].Rotary.IsRotated), map, null, stock) { Profiles = profiles };
     }
 }
 

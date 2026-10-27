@@ -42,6 +42,8 @@ public sealed partial class MachineExecutor
     private readonly Dictionary<MachineModal, int> _modalIds = [];
     private Point3 _frame;                     // TRANS/ATRANS (Siemens)
     private double _feed;
+    private RotaryAngles _rotary;
+    private bool _rotaryWarned;
     private int _selectedTool;
     private int _activeTool;
     private double _spindleSpeed;                       // última rotação S (rpm), para G4 S no Siemens
@@ -551,6 +553,20 @@ public sealed partial class MachineExecutor
                 break;
             case 'A':
             case 'B':
+            case 'C' when !_lathe:
+                _rotary = word.Letter switch
+                {
+                    'A' => _rotary with { A = word.Value },
+                    'B' => _rotary with { B = word.Value },
+                    _ => _rotary with { C = word.Value },
+                };
+                if (!_rotaryWarned)
+                {
+                    _rotaryWarned = true;
+                    Warning(line, word, $"Eixo rotativo {word.Letter}: o ângulo aparece no painel e no 3D, mas o corte do material com a peça girada não é simulado (simulação de 3 eixos).");
+                }
+
+                break;
             case 'C':
             case 'U':
             case 'V':
@@ -966,7 +982,7 @@ public sealed partial class MachineExecutor
     private int CurrentModalId()
     {
         var now = new MachineModal(_plane, _incremental, _unitScale != 1, _workOffsetCode, _compensationSide,
-            _feedPerRevolution, _constantSurfaceSpeed, _spindleSpeed, _drillCycle, Offset);
+            _feedPerRevolution, _constantSurfaceSpeed, _spindleSpeed, _drillCycle, Offset, _rotary);
         if (!_modalIds.TryGetValue(now, out int id))
         {
             id = _modals.Count;

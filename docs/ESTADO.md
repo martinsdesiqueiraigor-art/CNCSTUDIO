@@ -125,3 +125,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## CAM-02 etapa 2b — tela da face girada
 - Aba Fresa do CAM: caixa "Face girada no 4º eixo" (eixo A/B, ângulo, distância centro→face); usa o perfil de máquina ativo e aplica `RotaryIndexing.Place` na operação ao adicionar. Mostra o erro do perfil (curso, cabeçote, modo função).
 - Não conferido em tela com GPU nem em máquina.
+
+## CAM-02 etapa 2c — simulador com eixo rotativo
+- Executor da fresa lê A/B/C (antes: aviso "não simulado"); o ângulo vai no estado modal (`RotaryAngles`) e aparece como linhas A e B no painel de controle quando o programa usa giro.
+- O corte do material **não** é simulado com a peça girada (mapa de alturas é 3 eixos): movimentos com A/B ≠ 0 não retiram material; um aviso diz isso uma vez. O desenho do percurso continua em coordenadas de máquina.
+- Falta (não autorizado): girar o bruto/percurso na vista 3D e simular o corte na face girada.

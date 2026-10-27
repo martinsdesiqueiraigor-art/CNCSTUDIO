@@ -99,6 +99,12 @@ public static class ControlPanel
         }
 
         axes.Add(new PanelAxis("Z", nowProgram.Z * scale, toGo.Z * scale));
+        if (!lathe && path.Modals.Any(m => m.Rotary.IsRotated))
+        {
+            RotaryAngles nextAngles = executedMoves < moves.Count ? ModalOf(path, moves[executedMoves]).Rotary : modal.Rotary;
+            axes.Add(new PanelAxis("A", modal.Rotary.A, nextAngles.A - modal.Rotary.A));
+            axes.Add(new PanelAxis("B", modal.Rotary.B, nextAngles.B - modal.Rotary.B));
+        }
 
         double? feed = reference.IsRapid || executedMoves == 0 ? null : reference.Feed * scale;
         return new ControlPanelState(axes, modal.Inches, reference.Tool, feed, modal.Spindle, modal.ConstantSurfaceSpeed,
