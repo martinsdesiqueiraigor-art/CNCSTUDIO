@@ -31,12 +31,7 @@ public static class RotaryIndexing
             return new OperationResult(null, "Nesta etapa só vale eixo A ou B na mesa (4º eixo). Cabeçote e 3+2 vêm na próxima etapa.");
         }
 
-        if (op.Drill is not null)
-        {
-            return new OperationResult(null, "Furação em ciclo fixo ainda não vai para face girada; use furação por movimentos.");
-        }
-
-        if (op.Moves.Count == 0)
+        if (op.Drill is null && op.Moves.Count == 0)
         {
             return new OperationResult(null, "A operação não tem movimentos.");
         }
@@ -51,6 +46,11 @@ public static class RotaryIndexing
         double dx = face.OffsetX + (aAxis ? 0 : axis.PivotX);
         double dy = face.OffsetY + (aAxis ? axis.PivotY : 0);
         double dz = axis.PivotZ + face.AxisToFace;
+        if (op.Drill is { } drill)
+        {
+            return PlaceDrill(op, drill, letter, face, machineAngle, dx, dy, dz, axis.PivotZ);
+        }
+
         double safe = Math.Max(axis.PivotZ + Math.Max(face.SafeRadius, face.AxisToFace + 10), op.Moves.Max(m => m.Z) + dz);
 
         var list = new List<ToolMove>(op.Moves.Count + 3);
@@ -67,6 +67,30 @@ public static class RotaryIndexing
 
         var warnings = new List<string>(op.Warnings) { $"Face girada a {face.Angle:0.###}° no eixo {letter}: confira o sentido do giro e rode primeiro no ar." };
         return new OperationResult(new CamOperation($"{op.Name} ({letter}{face.Angle:0.###})", op.Tool, list, null, warnings), null);
+    }
+
+    // Furos radiais: os ciclos fixos (G81/G82/G83/G73) valem como estão com a face virada para cima; só os valores se deslocam
+    // para a face girada e o eixo gira (na altura segura) antes do primeiro furo
+    private static OperationResult PlaceDrill(CamOperation op, DrillCycle drill, string letter, IndexedFace face, double machineAngle, double dx, double dy, double dz, double pivotZ)
+    {
+        double retract = drill.RetractZ + dz;
+        double safe = Math.Max(pivotZ + Math.Max(face.SafeRadius, face.AxisToFace + 10), Math.Max(retract, drill.SafeZ + dz));
+        var points = drill.Points.Select(p => new Point2(p.X + dx, p.Y + dy)).ToList();
+        var shifted = drill with
+        {
+            Points = points,
+            TopZ = drill.TopZ + dz,
+            BottomZ = drill.BottomZ + dz,
+            RetractZ = retract,
+            SafeZ = safe,
+            RotaryLetter = letter,
+            RotaryAngle = machineAngle,
+        };
+        var warnings = new List<string>(op.Warnings)
+        {
+            $"Furos na face girada a {face.Angle:0.###}° no eixo {letter}: confira o sentido do giro e o centro do eixo; rode primeiro no ar.",
+        };
+        return new OperationResult(new CamOperation($"{op.Name} ({letter}{face.Angle:0.###})", op.Tool, [], shifted, warnings), null);
     }
 
     private static ToolMove Shift(ToolMove m, double dx, double dy, double dz) =>

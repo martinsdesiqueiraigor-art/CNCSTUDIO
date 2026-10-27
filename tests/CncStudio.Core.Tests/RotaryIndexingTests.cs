@@ -70,4 +70,40 @@ public class RotaryIndexingTests
         ToolPath path = MachineExecutor.Execute(GCodeParser.Parse(text, d == CamDialect.Fanuc ? Dialect.Fanuc : Dialect.Siemens), new MachineSettings());
         Assert.True(path.Diagnostics.All(x => x.Severity != DiagnosticSeverity.Error), text);
     }
+
+    private static CamOperation Holes() =>
+        CamOperations.Drilling(Tool, 20, [new Point2(10, 5), new Point2(30, 5)], DrillCycleKind.Peck, 0, -5, 2, peck: 2).Operation!;
+
+    [Fact]
+    public void Furos_vao_para_a_face_com_o_ciclo_deslocado_e_o_giro()
+    {
+        OperationResult r = RotaryIndexing.Place(Holes(), Machine(), "A", new IndexedFace(90, AxisToFace: 25));
+        Assert.True(r.Ok, r.Error);
+        CncStudio.Core.Cam.DrillCycle d = r.Operation!.Drill!;
+        Assert.Equal("A", d.RotaryLetter);
+        Assert.Equal(90, d.RotaryAngle);
+        Assert.Equal(-50 + 25, d.TopZ);        // pivô + distância do eixo à face
+        Assert.Equal(-50 + 25 - 5, d.BottomZ);
+        Assert.Equal(105, d.Points[0].Y);       // pivô Y 100 + 5
+        Assert.True(d.SafeZ >= d.RetractZ);    // gira acima do cilindro
+    }
+
+    [Theory]
+    [InlineData(CamDialect.Fanuc)]
+    [InlineData(CamDialect.Siemens)]
+    public void Furos_na_face_giram_uma_vez_antes_do_ciclo_e_o_simulador_aceita(CamDialect d)
+    {
+        CamOperation op = RotaryIndexing.Place(Holes(), Machine(), "A", new IndexedFace(90, 25)).Operation!;
+        string text = CamPost.Generate([op], new PostOptions(d));
+        string[] lines = text.Split('\n');
+        int rotate = Array.FindIndex(lines, l => !l.StartsWith('(') && !l.StartsWith(';') && l.Contains("A90"));
+        int cycle = Array.FindIndex(lines, l => l.Contains(d == CamDialect.Fanuc ? "G83" : "CYCLE83"));
+        Assert.True(rotate >= 0 && cycle > rotate, text);
+        Assert.Single(lines, l => !l.StartsWith('(') && !l.StartsWith(';') && l.Contains("A90"));
+
+        ToolPath path = MachineExecutor.Execute(GCodeParser.Parse(text, d == CamDialect.Fanuc ? Dialect.Fanuc : Dialect.Siemens), new MachineSettings());
+        Assert.True(path.Diagnostics.All(x => x.Severity != DiagnosticSeverity.Error), text);
+        // A broca desce até o fundo do furo na face (pivô Z -50 + 25 - 5)
+        Assert.Contains(path.Moves, m => Math.Abs(m.End.Z - (-50 + 25 - 5)) < 1e-6);
+    }
 }

@@ -170,3 +170,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `RotaryEndView` (Core): dados da vista olhando ao longo do eixo (A → plano YZ, B → XZ): contorno do bruto (círculo do cilindro do setup, com furo no tubo, ou caixa) girado pelo ângulo atual, marca do topo da peça, percurso executado na superfície (girado junto) e ferramenta parada. Uma fonte de dados para as duas cascas; testes em `RotaryEndViewTests`.
 - Web: botão "de frente para o eixo" no 2D, só aparece quando o programa gira a peça (hoje o giro vem do formulário do CAM). Conferido só pela geometria (gráfico dos dados); **o desenho na tela não foi visto a olho**.
 - Desktop: **ainda não**; a vista do desktop usa outra tela 2D (decisão do Igor).
+
+## CAM-02 — furação na face girada (4º eixo)
+- `RotaryIndexing.Place` passa a aceitar furação em ciclo fixo (G81/G82/G83/G73; CYCLE81/82/83 no Siemens): desloca pontos e níveis Z para a face girada e o pós gira o eixo (`DrillCycle.RotaryLetter/RotaryAngle`) na altura segura, acima do cilindro, antes de descer ao primeiro furo. O ciclo fica como está: o furo sai radial porque a face gira para cima.
+- Desktop: já vale na tela do CAM (caixa "face girada" com a operação de furação). Web: o CAM web ainda não tem furação.
+- Limites: o eixo não volta a zero ao fim (como nas outras operações da face girada); confira sentido do giro e rode no ar; Siemens com rotativo e ciclo não confirmado em controle.
