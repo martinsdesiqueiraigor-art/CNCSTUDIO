@@ -66,4 +66,23 @@ public class CamQuickJsonTests
         Assert.Equal(-30, f.AZ);
         Assert.Null(CamQuickJson.PartFrameOf("lixo"));
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void TextoNoCilindroGeraAEXJuntosENosDoisComandos(int dialect)
+    {
+        JsonObject v = Defaults();
+        v["op"] = 4;
+        v["dialect"] = dialect;
+        v["PIVZ"] = -20;
+        v["TDIA"] = 40;
+        JsonObject r = Run(v);
+        Assert.True((bool)r["ok"]!, r.ToJsonString());
+        string program = (string)r["program"]!;
+        Assert.Matches(@"(?m)^(G1 )?X[-\d.]+ [^\n]*A[-\d.]+", program);
+        Assert.NotNull(CamQuickJson.PartFrameOf(v.ToJsonString()));
+        v["TX"] = "texto@";
+        Assert.False((bool)Run(v)["ok"]!);
+    }
 }

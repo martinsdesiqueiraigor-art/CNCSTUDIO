@@ -34,6 +34,10 @@ export function openCam(catalogJson, generate, lastJson) {
         input = make('select', null, inputStyle);
         f.options.forEach((o, i) => { const op = document.createElement('option'); op.value = String(i); op.textContent = o; input.append(op); });
         input.value = String(saved ?? f.def);
+      } else if (f.kind === 'text') {
+        input = make('input', null, inputStyle);
+        input.type = 'text'; input.autocomplete = 'off'; input.autocapitalize = 'characters'; input.maxLength = 60;
+        input.value = String(saved ?? f.def);
       } else if (f.kind === 'check') {
         input = make('input', null, 'width:26px;height:26px;justify-self:end');
         input.type = 'checkbox';
@@ -56,17 +60,24 @@ export function openCam(catalogJson, generate, lastJson) {
       const v = {};
       for (const { f, input } of Object.values(rows)) {
         if (f.kind === 'check') v[f.id] = input.checked;
+        else if (f.kind === 'text') v[f.id] = input.value;
         else if (f.kind === 'select') v[f.id] = Number(input.value);
         else { const raw = input.value.replace(',', '.').trim(); v[f.id] = raw === '' || isNaN(Number(raw)) ? null : Number(raw); }
       }
       return v;
     };
 
+    // Condição de aparecer: grupos separados por "|" (ou); em cada um, termos "id", "!id", "id=valor", "id!=valor" separados por "&" (e)
+    const atom = (t, v) => {
+      if (t.includes('!=')) { const [k, val] = t.split('!='); return String(v[k]) !== val; }
+      if (t.includes('=')) { const [k, val] = t.split('='); return String(v[k]) === val; }
+      if (t.startsWith('!')) return !v[t.slice(1)];
+      return !!v[t];
+    };
+    const shown = (when, v) => !when || when.split('|').some(g => g.split('&').every(t => atom(t, v)));
     const visibility = v => {
       for (const { f, row, hint } of Object.values(rows)) {
-        let on = true;
-        if (f.when) on = !!v[f.when];
-        if (on && f.show) { const [k, val] = f.show.split('='); on = String(v[k]) === val; }
+        const on = shown(f.when, v);
         row.style.display = on ? '' : 'none';
         if (hint) hint.style.display = on ? '' : 'none';
       }

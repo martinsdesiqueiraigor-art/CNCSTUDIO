@@ -10,17 +10,17 @@ namespace CncStudio.Core.Cam;
 public static class CamQuickJson
 {
     private static readonly string[] Shapes = ["Retângulo", "Círculo"];
-    private static readonly string[] Operations = ["Contorno por fora", "Contorno por dentro", "Contorno sobre a linha", "Bolsão"];
+    private static readonly string[] Operations = ["Contorno por fora", "Contorno por dentro", "Contorno sobre a linha", "Bolsão", "Texto enrolado no cilindro (4º eixo contínuo)"];
     private static readonly string[] Dialects = ["Fanuc", "Siemens"];
     private static readonly string[] Axes = ["A (gira em torno de X)", "B (gira em torno de Y)"];
 
-    /// <summary>Campos do formulário: [{id,group,label,unit,kind:"num"|"select"|"check",def,options,hint,when}]; "when" = id de uma caixa que precisa estar marcada.</summary>
+    /// <summary>Campos do formulário: [{id,group,label,unit,kind:"num"|"select"|"check"|"text",def,options,hint,when}]. "when": condição de aparecer: grupos separados por "|" (ou), cada um com termos "id", "!id", "id=valor" ou "id!=valor" separados por "&" (e).</summary>
     public static string Catalog()
     {
         var a = new JsonArray();
-        void Add(string group, string id, string label, string kind, JsonNode? def, string unit = "", string[]? options = null, string hint = "", string when = "", string show = "")
+        void Add(string group, string id, string label, string kind, JsonNode? def, string unit = "", string[]? options = null, string hint = "", string when = "")
         {
-            var o = new JsonObject { ["group"] = group, ["id"] = id, ["label"] = label, ["kind"] = kind, ["def"] = def, ["unit"] = unit, ["hint"] = hint, ["when"] = when, ["show"] = show };
+            var o = new JsonObject { ["group"] = group, ["id"] = id, ["label"] = label, ["kind"] = kind, ["def"] = def, ["unit"] = unit, ["hint"] = hint, ["when"] = when };
             if (options is not null)
             {
                 var arr = new JsonArray();
@@ -35,36 +35,45 @@ public static class CamQuickJson
             a.Add(o);
         }
 
-        Add("Peça e operação", "dialect", "Comando", "select", 0, options: Dialects);
-        Add("Peça e operação", "shape", "Forma", "select", 0, options: Shapes);
-        Add("Peça e operação", "op", "Operação", "select", 0, options: Operations);
-        Add("Peça e operação", "RX", "Retângulo: canto X", "num", 0, "mm", show: "shape=0");
-        Add("Peça e operação", "RY", "Retângulo: canto Y", "num", 0, "mm", show: "shape=0");
-        Add("Peça e operação", "RW", "Largura", "num", 60, "mm", show: "shape=0");
-        Add("Peça e operação", "RH", "Altura", "num", 40, "mm", show: "shape=0");
-        Add("Peça e operação", "CX", "Círculo: centro X", "num", 30, "mm", show: "shape=1");
-        Add("Peça e operação", "CY", "Círculo: centro Y", "num", 20, "mm", show: "shape=1");
-        Add("Peça e operação", "CD", "Diâmetro", "num", 30, "mm", show: "shape=1");
-        Add("Peça e operação", "STEP", "Bolsão: passo lateral", "num", 60, "% do diâmetro", show: "op=3");
-        Add("Ferramenta", "T", "Número da ferramenta (T)", "num", 1);
-        Add("Ferramenta", "D", "Diâmetro", "num", 10, "mm");
-        Add("Ferramenta", "S", "Rotação", "num", 3000, "rpm");
-        Add("Ferramenta", "F", "Avanço no plano", "num", 500, "mm/min");
-        Add("Ferramenta", "FZ", "Avanço de mergulho", "num", 200, "mm/min");
-        Add("Alturas (Z = 0 no topo)", "SAFE", "Altura segura", "num", 50, "mm");
-        Add("Alturas (Z = 0 no topo)", "CLR", "Aproximação", "num", 2, "mm");
-        Add("Alturas (Z = 0 no topo)", "TOP", "Topo", "num", 0, "mm");
-        Add("Alturas (Z = 0 no topo)", "BOT", "Fundo", "num", -6, "mm");
-        Add("Alturas (Z = 0 no topo)", "Q", "Passe em Z", "num", 3, "mm");
-        Add("4º eixo (mesa, modo calculado)", "ROT", "Face girada no 4º eixo", "check", false, hint: "Desenhe a face de cima (Z 0 na face). O CAM leva o percurso para a face girada. Rode primeiro no ar.");
-        Add("4º eixo (mesa, modo calculado)", "AXIS", "Eixo rotativo", "select", 0, options: Axes, when: "ROT");
-        Add("4º eixo (mesa, modo calculado)", "ANG", "Ângulo da face", "num", 90, "°", when: "ROT");
-        Add("4º eixo (mesa, modo calculado)", "DIST", "Do centro do eixo até a face (virada para cima)", "num", 25, "mm", when: "ROT");
-        Add("4º eixo (mesa, modo calculado)", "PIVH", "Centro do eixo na horizontal (A: Y, B: X; do zero da peça)", "num", 0, "mm", when: "ROT");
-        Add("4º eixo (mesa, modo calculado)", "PIVZ", "Centro do eixo em Z (do zero da peça)", "num", 0, "mm", when: "ROT");
-        Add("4º eixo (mesa, modo calculado)", "MINA", "Curso mínimo", "num", -360, "°", when: "ROT");
-        Add("4º eixo (mesa, modo calculado)", "MAXA", "Curso máximo", "num", 360, "°", when: "ROT");
-        Add("4º eixo (mesa, modo calculado)", "REV", "Sentido de giro invertido", "check", false, hint: "Marque se, no ar, a mesa girar ao contrário.", when: "ROT");
+        const string G1 = "Peça e operação", G2 = "Ferramenta", G3 = "Alturas (Z = 0 no topo)", G4 = "4º eixo (mesa, modo calculado)", G5 = "Texto no cilindro";
+        Add(G1, "dialect", "Comando", "select", 0, options: Dialects);
+        Add(G1, "op", "Operação", "select", 0, options: Operations);
+        Add(G1, "shape", "Forma", "select", 0, options: Shapes, when: "op!=4");
+        Add(G1, "RX", "Retângulo: canto X", "num", 0, "mm", when: "shape=0&op!=4");
+        Add(G1, "RY", "Retângulo: canto Y", "num", 0, "mm", when: "shape=0&op!=4");
+        Add(G1, "RW", "Largura", "num", 60, "mm", when: "shape=0&op!=4");
+        Add(G1, "RH", "Altura", "num", 40, "mm", when: "shape=0&op!=4");
+        Add(G1, "CX", "Círculo: centro X", "num", 30, "mm", when: "shape=1&op!=4");
+        Add(G1, "CY", "Círculo: centro Y", "num", 20, "mm", when: "shape=1&op!=4");
+        Add(G1, "CD", "Diâmetro", "num", 30, "mm", when: "shape=1&op!=4");
+        Add(G1, "STEP", "Bolsão: passo lateral", "num", 60, "% do diâmetro", when: "op=3");
+        Add(G5, "TX", "Texto", "text", "CASILLAS", hint: "Letras maiúsculas sem acento, números e . , : ! - _ = + / ( ).", when: "op=4");
+        Add(G5, "TH", "Altura das letras (ao redor)", "num", 6, "mm", when: "op=4");
+        Add(G5, "TDIA", "Diâmetro da peça", "num", 40, "mm", when: "op=4");
+        Add(G5, "TAX", "Início ao longo do eixo (X ou Y)", "num", 0, "mm", when: "op=4");
+        Add(G5, "TANG", "Ângulo inicial", "num", 0, "°", when: "op=4");
+        Add(G5, "TDEP", "Profundidade", "num", 0.3, "mm", when: "op=4");
+        Add(G5, "TPASS", "Passe em profundidade", "num", 0.15, "mm", when: "op=4");
+        Add(G5, "TCLR", "Folga acima da peça", "num", 3, "mm", when: "op=4", hint: "Ferramenta fina na vertical, sobre a linha de centro. O Z do centro do eixo (campo abaixo) é do zero da peça: com o zero no topo do cilindro, ele vale menos o raio.");
+        Add(G2, "T", "Número da ferramenta (T)", "num", 1);
+        Add(G2, "D", "Diâmetro", "num", 10, "mm");
+        Add(G2, "S", "Rotação", "num", 3000, "rpm");
+        Add(G2, "F", "Avanço no plano (na superfície, no cilindro)", "num", 500, "mm/min");
+        Add(G2, "FZ", "Avanço de mergulho", "num", 200, "mm/min");
+        Add(G3, "SAFE", "Altura segura", "num", 50, "mm", when: "op!=4");
+        Add(G3, "CLR", "Aproximação", "num", 2, "mm", when: "op!=4");
+        Add(G3, "TOP", "Topo", "num", 0, "mm", when: "op!=4");
+        Add(G3, "BOT", "Fundo", "num", -6, "mm", when: "op!=4");
+        Add(G3, "Q", "Passe em Z", "num", 3, "mm", when: "op!=4");
+        Add(G4, "ROT", "Face girada no 4º eixo", "check", false, hint: "Desenhe a face de cima (Z 0 na face). O CAM leva o percurso para a face girada. Rode primeiro no ar.", when: "op!=4");
+        Add(G4, "AXIS", "Eixo rotativo", "select", 0, options: Axes, when: "ROT&op!=4|op=4");
+        Add(G4, "ANG", "Ângulo da face", "num", 90, "°", when: "ROT&op!=4");
+        Add(G4, "DIST", "Do centro do eixo até a face (virada para cima)", "num", 25, "mm", when: "ROT&op!=4");
+        Add(G4, "PIVH", "Centro do eixo na horizontal (A: Y, B: X; do zero da peça)", "num", 0, "mm", when: "ROT&op!=4|op=4");
+        Add(G4, "PIVZ", "Centro do eixo em Z (do zero da peça)", "num", 0, "mm", when: "ROT&op!=4|op=4");
+        Add(G4, "MINA", "Curso mínimo", "num", -360, "°", when: "ROT&op!=4|op=4");
+        Add(G4, "MAXA", "Curso máximo", "num", 360, "°", when: "ROT&op!=4|op=4");
+        Add(G4, "REV", "Sentido de giro invertido", "check", false, hint: "Marque se, no ar, a mesa girar ao contrário.", when: "ROT&op!=4|op=4");
         return a.ToJsonString();
     }
 
@@ -82,7 +91,8 @@ public static class CamQuickJson
             bool Chk(string id) => v[id] is JsonValue n && n.TryGetValue(out bool b) && b;
             int Sel(string id) => v[id] is JsonValue n && n.TryGetValue(out double d) ? (int)d : 0;
 
-            string[] needed = ["T", "D", "S", "F", "FZ", "SAFE", "CLR", "TOP", "BOT", "Q"];
+            bool wrap = Sel("op") == 4;
+            string[] needed = wrap ? ["T", "D", "S", "F", "FZ"] : ["T", "D", "S", "F", "FZ", "SAFE", "CLR", "TOP", "BOT", "Q"];
             if (needed.Any(id => double.IsNaN(Num(id))))
             {
                 return Result(false, "", ["Há um campo da ferramenta ou das alturas vazio ou inválido."], []);
@@ -92,6 +102,11 @@ public static class CamQuickJson
             if (tool.Validate() is { } toolError)
             {
                 return Result(false, "", [toolError], []);
+            }
+
+            if (wrap)
+            {
+                return GenerateWrap(v, tool);
             }
 
             var levels = new CamLevels(Num("SAFE"), Num("CLR"), Num("TOP"), Num("BOT"), Num("Q"));
@@ -182,12 +197,83 @@ public static class CamQuickJson
         }
     }
 
+    private static string GenerateWrap(JsonObject v, CamTool tool)
+    {
+        double Num(string id) => v[id] is JsonValue n && n.TryGetValue(out double d) && double.IsFinite(d) ? d : double.NaN;
+        int Sel(string id) => v[id] is JsonValue n && n.TryGetValue(out double d) ? (int)d : 0;
+        bool Chk(string id) => v[id] is JsonValue n && n.TryGetValue(out bool b) && b;
+
+        double[] f = [Num("TH"), Num("TDIA"), Num("TAX"), Num("TANG"), Num("TDEP"), Num("TPASS"), Num("TCLR"), Num("PIVH"), Num("PIVZ"), Num("MINA"), Num("MAXA")];
+        if (f.Any(double.IsNaN))
+        {
+            return Result(false, "", ["Texto no cilindro ou 4º eixo: há um campo vazio ou inválido."], []);
+        }
+
+        string text = v["TX"] is JsonValue tv && tv.TryGetValue(out string? raw) ? raw ?? "" : "";
+        string normalized = Generators.StrokeFont.Normalize(text).Trim();
+        if (normalized.Length == 0)
+        {
+            return Result(false, "", ["Texto: digite o que será gravado."], []);
+        }
+
+        if (normalized.Length > 60)
+        {
+            return Result(false, "", ["Texto: no máximo 60 caracteres."], []);
+        }
+
+        var bad = normalized.Where(c => !Generators.StrokeFont.TryGet(c, out _)).Distinct().ToList();
+        if (bad.Count > 0)
+        {
+            return Result(false, "", ["Texto: não consigo desenhar " + string.Join(" ", bad.Select(c => $"\"{c}\"")) + ". Aceito: " + Generators.StrokeFont.Supported + "."], []);
+        }
+
+        if (f[0] <= 0)
+        {
+            return Result(false, "", ["Altura das letras precisa ser maior que zero."], []);
+        }
+
+        string letter = Sel("AXIS") == 1 ? "B" : "A";
+        var axis = new RotaryAxisConfig
+        {
+            Letter = letter,
+            Carrier = RotaryCarrier.Table,
+            MinAngle = f[9],
+            MaxAngle = f[10],
+            Reversed = Chk("REV"),
+            PivotY = letter == "A" ? f[7] : 0,
+            PivotX = letter == "B" ? f[7] : 0,
+            PivotZ = f[8],
+        };
+        CamDialect dialect = Sel("dialect") == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
+        var machine = new MachineProfile { Name = "Web", Controller = dialect, Axes = [axis] };
+        List<string> problems = machine.Validate();
+        if (problems.Count > 0)
+        {
+            return Result(false, "", problems, []);
+        }
+
+        var strokes = RotaryWrap.TextStrokes(normalized, f[0]);
+        var setup = new WrapSetup(f[1], f[2], f[3], f[4], f[5], f[6], Num("F"), Num("FZ"));
+        OperationResult result = RotaryWrap.Engrave("Texto no cilindro", tool, machine, letter, strokes, setup);
+        if (!result.Ok)
+        {
+            return Result(false, "", [result.Error ?? "Não foi possível gerar a gravação."], []);
+        }
+
+        CamOperation operation = result.Operation!;
+        string program = CamPost.Generate([operation], new PostOptions(dialect, ProgramName: "CASILLAS CAM"));
+        var warnings = operation.Warnings.ToList();
+        warnings.AddRange(CamPost.Check([operation]));
+        return Result(true, program, [], warnings);
+    }
+
     /// <summary>Linhas de giro do último formulário (para o 3D desfazer o giro): null se a face girada não estava marcada.</summary>
     public static Scene.RotaryPartFrame? PartFrameOf(string valuesJson)
     {
         try
         {
-            if (JsonNode.Parse(valuesJson) is not JsonObject v || !(v["ROT"] is JsonValue r && r.TryGetValue(out bool on) && on))
+            if (JsonNode.Parse(valuesJson) is not JsonObject v
+                || !((v["ROT"] is JsonValue r && r.TryGetValue(out bool on) && on) || (v["op"] is JsonValue o && o.TryGetValue(out double op) && (int)op == 4)))
             {
                 return null;
             }
