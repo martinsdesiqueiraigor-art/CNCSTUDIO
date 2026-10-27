@@ -249,8 +249,9 @@ public partial class GraphicsPanel : UserControl
             _turning = null;
             Func<int, ToolProfile> profileOf = ProfileOf ?? (tool => ToolProfile.Flat(diameterOf(tool)));
             _map = SimulationFactory.MillStock(Stock, _path, profileOf, SimulationFactory.DesktopCells);
-            _simulation = new MaterialSimulator(_map, _path.Moves, profileOf);
+            _simulation = new MaterialSimulator(_map, _path.Moves, profileOf, SimulationFactory.RotatedMoveSkipper(_path));
             _scene = SimulationScene.ForMill(_map, _path, profileOf, Setup);
+            _scene.PartFrame = PartFrameSource?.Invoke();
             _sceneCollisions = 0;
             _stockBounds = Bounds3.Empty
                 .Include(new Point3(_map.OriginX, _map.OriginY, _map.BottomZ))
@@ -624,6 +625,9 @@ public partial class GraphicsPanel : UserControl
         StatusText.Text = "3D pela placa de vídeo indisponível (" + message + "): usando o desenho por CPU.";
     }
 
+    /// <summary>Perfil de máquina ativo (mesa A/B): se houver, o percurso é desenhado na peça parada.</summary>
+    public Func<RotaryPartFrame?>? PartFrameSource { get; set; }
+
     /// <summary>Atualiza a cena 3D com a simulação (na fila de segundo plano, dona da cena) e tira a foto.</summary>
     private SceneSnapshot SceneOf(SimulationScene scene, IMaterialSimulation simulation, bool section, ScenePalette palette, bool transparent)
     {
@@ -631,7 +635,7 @@ public partial class GraphicsPanel : UserControl
         scene.TransparentMaterial = transparent;
         scene.Palette = palette;
         scene.Refresh();
-        scene.SetTool(simulation.CurrentTool, simulation.ToolPosition);
+        scene.SetTool(simulation.CurrentTool, simulation.ToolPosition, simulation.CurrentMoveIndex);
         scene.SetCurrentMove(simulation.CurrentMoveIndex);
         if (simulation.RapidCollisions.Count != _sceneCollisions)
         {

@@ -52,6 +52,10 @@ public static class SimulationFactory
         });
     }
 
+    /// <summary>Fresa com eixo rotativo: movimentos com a peça girada (A/B ≠ 0) não cortam o mapa de alturas (3 eixos).</summary>
+    public static Func<Move, bool> RotatedMoveSkipper(ToolPath path) =>
+        move => move.ModalId >= 0 && move.ModalId < path.Modals.Count && path.Modals[move.ModalId].Rotary.IsRotated;
+
     /// <summary>Barra do torno: a do bruto dado ou uma automática pela trajetória.</summary>
     public static TurningStock LatheStock(Stock? stock, ToolPath path) =>
         stock is { Machine: MachineKind.Lathe } bar ? TurningStock.CreateForStock(bar) : TurningStock.CreateForToolPath(path);
@@ -78,7 +82,7 @@ public static class SimulationFactory
             ApplyRoundShape(map, round);
         }
 
-        return new MaterialSimulationParts(new MaterialSimulator(map, path.Moves, profiles, move => move.ModalId >= 0 && move.ModalId < path.Modals.Count && path.Modals[move.ModalId].Rotary.IsRotated), map, null, stock) { Profiles = profiles };
+        return new MaterialSimulationParts(new MaterialSimulator(map, path.Moves, profiles, RotatedMoveSkipper(path)), map, null, stock) { Profiles = profiles };
     }
 }
 

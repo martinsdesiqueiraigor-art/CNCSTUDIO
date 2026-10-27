@@ -126,6 +126,7 @@ public partial class MainWindow : Window
         // Diâmetro efetivo com a mesma regra da compensação (setup → tabela → comentário "FRESA D10" → padrão)
         Graphics.DiameterOf = EffectiveDiameter;
         // Perfil de corte: o do setup do programa ativo; senão, topo reto com o diâmetro efetivo
+        Graphics.PartFrameSource = () => CncStudio.Core.Scene.RotaryPartFrame.From(_settings.MachineProfiles.FirstOrDefault(m => m.Name == _settings.ActiveMachineProfile));
         Graphics.ProfileOf = tool => SimulationFactory.MillProfiles(_active.Setup, EffectiveDiameter)(tool);
         Graphics.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
         Statistics.DiameterOf = EffectiveDiameter;
