@@ -89,3 +89,61 @@ public class SetupAxisTests
         Assert.True(phone > pc);
     }
 }
+
+public class SetupAxisAutoTests
+{
+    private static SetupStock Auto() => new() { Kind = SetupStockKind.Round, Axis = SetupAxis.Auto, X = -5, Y = 99, Z = 99, Height = 60, Diameter = 50 };
+
+    [Fact]
+    public void AutoComAAlinhaEmXNoPivo()
+    {
+        var frame = new RotaryPartFrame(AY: 3, AZ: -25, AReversed: false, BX: 0, BZ: 0, BReversed: false);
+        SetupStock r = Auto().Resolved(frame);
+        Assert.Equal(SetupAxis.X, r.Axis);
+        Assert.Equal((-5, 3, -25), (r.X, r.Y, r.Z));
+        Assert.Equal(-5, r.Extent.Min.X);
+        Assert.Equal(55, r.Extent.Max.X);
+        Assert.Equal(-50, r.Extent.Min.Z);
+    }
+
+    [Fact]
+    public void AutoSoComBAlinhaEmYNoPivo()
+    {
+        var frame = new RotaryPartFrame(AY: 0, AZ: 0, AReversed: false, BX: 7, BZ: -30, BReversed: false) { HasA = false };
+        SetupStock r = Auto().Resolved(frame);
+        Assert.Equal(SetupAxis.Y, r.Axis);
+        Assert.Equal((7, -30), (r.X, r.Z));
+        Assert.Equal(99, r.Y); // começo ao longo do eixo continua o informado
+    }
+
+    [Fact]
+    public void AutoSemMaquinaVaiParaXComOsCamposInformados()
+    {
+        SetupStock r = Auto().Resolved(null);
+        Assert.Equal(SetupAxis.X, r.Axis);
+        Assert.Equal((99, 99), (r.Y, r.Z));
+    }
+
+    [Fact]
+    public void PerfilComANaMesaMarcaTemAESemB()
+    {
+        var machine = new Cam.MachineProfile { Axes = [new Cam.RotaryAxisConfig { Letter = "A", Carrier = Cam.RotaryCarrier.Table, PivotY = 2, PivotZ = -25 }] };
+        RotaryPartFrame frame = RotaryPartFrame.From(machine)!;
+        Assert.True(frame.HasA);
+        Assert.False(frame.HasB);
+    }
+
+    [Fact]
+    public void ProgramaComPerfilAUsaVoxelsNoCilindroDoPivo()
+    {
+        const string text = "G21 G90 G54\nG00 X-10 Y0 Z30\nG00 Z-1\nG01 X70 F200\nG00 Z30";
+        var frame = new RotaryPartFrame(AY: 0, AZ: -25, AReversed: false, BX: 0, BZ: 0, BReversed: false);
+        ToolPath path = MachineExecutor.Execute(GCodeParser.Parse(text, Dialect.Fanuc), new MachineSettings { PartFrame = frame });
+        var setup = new MachiningSetup { Stock = new SetupStock { Kind = SetupStockKind.Round, Axis = SetupAxis.Auto, X = 0, Height = 60, Diameter = 50 } };
+        Assert.True(SimulationFactory.UsesVoxels(path, setup));
+        VoxelStock v = SimulationFactory.VoxelStockFor(null, path, _ => ToolProfile.Flat(6), setup);
+        Assert.Equal(-50, v.Bounds.Min.Z, 6); // centro em Z = -25 (pivô), raio 25
+        Assert.InRange(v.Bounds.Max.Z, 0, v.VoxelSize);
+        Assert.Equal(-25, v.Bounds.Min.Y, 6);
+    }
+}

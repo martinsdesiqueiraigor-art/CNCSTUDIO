@@ -13,7 +13,7 @@ export function openSetup(json) {
     // Cilindro deitado (Axis 1 = X, 2 = Y): o campo do eixo é o começo e os outros dois são o centro; aqui a origem é o centro da barra
     let axis = round0 ? Number(stock.Axis ?? 0) : 0;
     const origin = {
-      X: round0 ? +stock.X + (axis === 1 ? (+stock.Height) / 2 : 0) : +stock.X + (+stock.Width) / 2,
+      X: round0 ? +stock.X + (axis === 1 || axis === 3 ? (+stock.Height) / 2 : 0) : +stock.X + (+stock.Width) / 2,
       Y: round0 ? +stock.Y + (axis === 2 ? (+stock.Height) / 2 : 0) : +stock.Y + (+stock.Depth) / 2,
       Z: axis === 0 ? +stock.Z + (+stock.Height) : +stock.Z
     };
@@ -63,11 +63,12 @@ export function openSetup(json) {
     cancel.addEventListener('click',()=>close(null));
     function renderFields(){
       stockFields.replaceChildren();fixFields.replaceChildren();originFields.replaceChildren();
+      if(stockKind!==0&&axis===3){const hint=document.createElement('p');hint.textContent='Automático: o cilindro segue o eixo rotativo da mesa do perfil de máquina (A → ao longo de X, B → ao longo de Y), com o centro no pivô do perfil. Y e Z abaixo só valem se não houver perfil.';hint.style.cssText='color:#9baab9;font-size:12px;margin:0';originFields.append(hint);}
       const lying=stockKind!==0&&axis!==0;
       if(lying){field(originFields,'Centro do bruto X (mm)',origin,'X');field(originFields,'Centro do bruto Y (mm)',origin,'Y');field(originFields,'Centro do bruto Z (mm)',origin,'Z');}
       else{field(originFields,'Centro do bruto X (mm)',origin,'X');field(originFields,'Centro do bruto Y (mm)',origin,'Y');field(originFields,'Topo do bruto Z (mm)',origin,'Z');}
       if(stockKind===0){field(stockFields,'Comprimento X (mm)',stock,'Width',true);field(stockFields,'Largura Y (mm)',stock,'Depth',true);field(stockFields,'Espessura Z (mm)',stock,'Height',true);}
-      else {select(stockFields,'Eixo do cilindro',['Z (em pé)','X (deitado)','Y (deitado)'],axis,v=>{const was=axis;axis=v;stock.Axis=v;const r=(+stock.Diameter||0)/2;if(was===0&&v!==0)origin.Z-=r;else if(was!==0&&v===0)origin.Z+=r;});field(stockFields,'Diâmetro externo (mm)',stock,'Diameter',true);if(stockKind===2)field(stockFields,'Diâmetro interno (mm)',stock,'InnerDiameter',true);field(stockFields,stockKind===1&&axis===0?'Altura (mm)':'Comprimento (mm)',stock,'Height',true);}
+      else {select(stockFields,'Eixo do cilindro',['Z (em pé)','X (deitado)','Y (deitado)','Automático (eixo da máquina)'],axis,v=>{const was=axis;axis=v;stock.Axis=v;const r=(+stock.Diameter||0)/2;if(was===0&&v!==0)origin.Z-=r;else if(was!==0&&v===0)origin.Z+=r;});field(stockFields,'Diâmetro externo (mm)',stock,'Diameter',true);if(stockKind===2)field(stockFields,'Diâmetro interno (mm)',stock,'InnerDiameter',true);field(stockFields,stockKind===1&&axis===0?'Altura (mm)':'Comprimento (mm)',stock,'Height',true);}
       if(fixKind===1){for(const [l,k] of [['Comprimento da base (mm)','Width'],['Largura da base (mm)','Depth'],['Altura da base (mm)','Height'],['Abertura entre mordentes (mm)','JawOpening'],['Espessura dos mordentes (mm)','JawThickness'],['Rotação Z (graus)','Rotation']])field(fixFields,l,fixture,k,k!=='Rotation');}
       else if(fixKind===2){for(const [l,k] of [['Comprimento do apoio (mm)','Width'],['Largura do apoio (mm)','Depth'],['Altura do apoio (mm)','Height'],['Espessura do grampo (mm)','JawThickness'],['Rotação Z (graus)','Rotation']])field(fixFields,l,fixture,k,k!=='Rotation');}
       else if(fixKind===3){for(const [l,k] of [['Diâmetro do corpo (mm)','Width'],['Altura do corpo (mm)','Height'],['Abertura das castanhas (mm)','JawOpening'],['Largura da castanha (mm)','JawThickness'],['Rotação das castanhas (graus)','Rotation']])field(fixFields,l,fixture,k,k!=='Rotation');}
@@ -166,7 +167,7 @@ export function openSetup(json) {
       if(![origin.X,origin.Y,origin.Z].every(Number.isFinite)){error.textContent='Confira a posição do bruto.';return;}
       // Alinha bruto e fixação em XY pelo centro informado; o topo do bruto fica em Z informado.
       const lyingSave=stockKind!==0&&axis!==0;
-      stock.X=stockKind===0?origin.X-stock.Width/2:(lyingSave&&axis===1?origin.X-stock.Height/2:origin.X);
+      stock.X=stockKind===0?origin.X-stock.Width/2:(lyingSave&&(axis===1||axis===3)?origin.X-stock.Height/2:origin.X);
       stock.Y=stockKind===0?origin.Y-stock.Depth/2:(lyingSave&&axis===2?origin.Y-stock.Height/2:origin.Y);
       stock.Z=lyingSave?origin.Z:origin.Z-stock.Height;
       const stockBottom=lyingSave?origin.Z-stock.Diameter/2:stock.Z;

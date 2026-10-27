@@ -10,6 +10,12 @@ namespace CncStudio.Core.Scene;
 /// </summary>
 public sealed record RotaryPartFrame(double AY, double AZ, bool AReversed, double BX, double BZ, bool BReversed)
 {
+    /// <summary>A está na mesa (os pivôs de A valem).</summary>
+    public bool HasA { get; init; } = true;
+
+    /// <summary>B está na mesa (os pivôs de B valem).</summary>
+    public bool HasB { get; init; } = true;
+
     /// <summary>Monta a partir do perfil de máquina: pega A e B quando estão na mesa; null se não há nenhum (nada a desfazer).</summary>
     public static RotaryPartFrame? From(Cam.MachineProfile? machine)
     {
@@ -17,7 +23,11 @@ public sealed record RotaryPartFrame(double AY, double AZ, bool AReversed, doubl
         Cam.RotaryAxisConfig? b = machine?.Axes.FirstOrDefault(x => x is { Letter: "B", Carrier: Cam.RotaryCarrier.Table });
         return a is null && b is null
             ? null
-            : new RotaryPartFrame(a?.PivotY ?? 0, a?.PivotZ ?? 0, a?.Reversed ?? false, b?.PivotX ?? 0, b?.PivotZ ?? 0, b?.Reversed ?? false);
+            : new RotaryPartFrame(a?.PivotY ?? 0, a?.PivotZ ?? 0, a?.Reversed ?? false, b?.PivotX ?? 0, b?.PivotZ ?? 0, b?.Reversed ?? false)
+            {
+                HasA = a is not null,
+                HasB = b is not null,
+            };
     }
 
     /// <summary>

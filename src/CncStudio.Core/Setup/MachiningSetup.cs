@@ -111,6 +111,9 @@ public enum SetupAxis
     Z = 0,
     X = 1,
     Y = 2,
+
+    /// <summary>Segue o eixo rotativo da mesa do perfil de máquina ativo: A → X, B → Y, centro no pivô (ver <see cref="SetupStock.Resolved"/>).</summary>
+    Auto = 3,
 }
 
 /// <summary>
@@ -146,6 +149,40 @@ public sealed class SetupStock
     [JsonIgnore]
     public bool IsLying => IsRound && Axis != SetupAxis.Z;
 
+    /// <summary>
+    /// Com <see cref="SetupAxis.Auto"/>, o bruto concreto para a máquina: eixo A na mesa → cilindro ao longo de X com o centro
+    /// no pivô (Y, Z); só B na mesa → ao longo de Y, centro no pivô (X, Z). O começo ao longo do eixo e o comprimento
+    /// ficam como informados. Sem eixo rotativo na máquina vale o X com os campos como estão. Outros eixos voltam iguais.
+    /// </summary>
+    public SetupStock Resolved(Scene.RotaryPartFrame? frame)
+    {
+        if (Axis != SetupAxis.Auto)
+        {
+            return this;
+        }
+
+        SetupStock copy = (SetupStock)MemberwiseClone();
+        if (frame is { HasA: true })
+        {
+            copy.Axis = SetupAxis.X;
+            copy.Y = frame.AY;
+            copy.Z = frame.AZ;
+        }
+        else if (frame is { HasB: true })
+        {
+            copy.Axis = SetupAxis.Y;
+            copy.X = frame.BX;
+            copy.Z = frame.BZ;
+            copy.Y = Y;
+        }
+        else
+        {
+            copy.Axis = SetupAxis.X;
+        }
+
+        return copy;
+    }
+
     /// <summary>Caixa que envolve o bruto em coordenadas do programa (considera o eixo do cilindro).</summary>
     [JsonIgnore]
     public Bounds3 Extent
@@ -156,7 +193,7 @@ public sealed class SetupStock
             (double, double, double, double, double, double) b = Axis switch
             {
                 _ when !IsRound => (X, X + Width, Y, Y + Depth, Z, Top),
-                SetupAxis.X => (X, X + Height, Y - r, Y + r, Z - r, Z + r),
+                SetupAxis.X or SetupAxis.Auto => (X, X + Height, Y - r, Y + r, Z - r, Z + r),
                 SetupAxis.Y => (X - r, X + r, Y, Y + Height, Z - r, Z + r),
                 _ => (X - r, X + r, Y - r, Y + r, Z, Top),
             };
@@ -167,7 +204,7 @@ public sealed class SetupStock
     /// <summary>Distância do ponto ao eixo do cilindro (só redondo e tubo).</summary>
     public double RadialDistance(double x, double y, double z) => Axis switch
     {
-        SetupAxis.X => Math.Sqrt(((y - Y) * (y - Y)) + ((z - Z) * (z - Z))),
+        SetupAxis.X or SetupAxis.Auto => Math.Sqrt(((y - Y) * (y - Y)) + ((z - Z) * (z - Z))),
         SetupAxis.Y => Math.Sqrt(((x - X) * (x - X)) + ((z - Z) * (z - Z))),
         _ => Math.Sqrt(((x - X) * (x - X)) + ((y - Y) * (y - Y))),
     };

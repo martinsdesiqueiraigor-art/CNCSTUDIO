@@ -65,6 +65,9 @@ public static class SimulationFactory
     public static bool UsesVoxels(ToolPath path, MachiningSetup? setup) =>
         path.Machine == MachineKind.Mill && (NeedsVoxels(path) || (setup?.Stock is { IsLying: true } lying && lying.Validate() is null));
 
+    /// <summary>Bruto redondo do setup já resolvido para a máquina do programa (eixo automático → eixo do perfil).</summary>
+    public static SetupStock? ResolvedStock(MachiningSetup? setup, ToolPath path) => setup?.Stock?.Resolved(path.PartFrame);
+
     /// <summary>Voxels no lado maior e no total: PC e celular (mesma regra de <see cref="CellsFor"/>).</summary>
     public static (int PerSide, long Total) VoxelLimits(int maxCellsPerSide) =>
         maxCellsPerSide >= DesktopCells ? (320, 16_000_000) : (160, 2_500_000);
@@ -78,7 +81,7 @@ public static class SimulationFactory
     {
         Bounds3 box;
         Func<double, double, double, bool>? shape = null;
-        if (setup?.Stock is { IsRound: true } round && round.Validate() is null)
+        if (ResolvedStock(setup, path) is { IsRound: true } round && round.Validate() is null)
         {
             box = round.Extent;
             shape = round.Contains;
