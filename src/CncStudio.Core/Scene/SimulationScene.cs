@@ -1,3 +1,4 @@
+using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Rendering;
 using CncStudio.Core.Setup;
@@ -17,6 +18,13 @@ public sealed record SceneSnapshot(IReadOnlyList<SceneObjectState> Objects, IRea
 {
     /// <summary>Cena do torno (muda o ângulo da vista isométrica).</summary>
     public bool IsLathe { get; init; }
+
+    /// <summary>Gira a peça (material, fixações e percurso) para a posição atual da mesa; a ferramenta não gira. Identidade sem eixo rotativo.</summary>
+    public float[] PartMatrix { get; init; } = SimulationScene.IdentityMatrix;
+
+    /// <summary>Papéis que giram junto com a mesa.</summary>
+    public static bool RotatesWithTable(SceneRole role) => role is SceneRole.Material or SceneRole.Section or SceneRole.Fixture or SceneRole.FixtureJaw
+        or SceneRole.FeedPath or SceneRole.RapidPath or SceneRole.RapidInMaterial or SceneRole.CurrentPath;
 
     /// <summary>
     /// Opacidade do material e da face de corte: 1 = sólido (padrão); menor que 1 deixa ver a
@@ -121,18 +129,8 @@ public sealed class SimulationScene
 
     public bool IsLathe => _turning is not null;
 
-    /// <summary>Fresa com eixo rotativo na mesa: o percurso é desenhado na peça parada (desfaz o giro de A/B). Null = coordenadas da máquina.</summary>
-    public RotaryPartFrame? PartFrame
-    {
-        get => _partFrame;
-        set
-        {
-            _partFrame = value;
-            SetRapidCollisions([]);
-        }
-    }
-
-    private RotaryPartFrame? _partFrame;
+    /// <summary>Giro da mesa (A/B) desfeito no desenho do percurso; vem da trajetória. Null = coordenadas da máquina.</summary>
+    public RotaryPartFrame? PartFrame => _path.PartFrame;
 
     public IReadOnlyList<SceneObject> Objects => _objects;
 
@@ -269,10 +267,31 @@ public sealed class SimulationScene
         Point3 world = _turning is not null ? SceneMeshes.LatheToWorld(tip with { Y = 0 }) : tip;
         _cutter.Offset = world;
         _holder.Offset = world;
-        // Com a peça girada a ferramenta ficaria inclinada em relação à peça; esconde em vez de mostrar errado
-        bool rotated = PartFrame is not null && moveIndex >= 0 && moveIndex < _path.Moves.Count
-            && _path.Moves[moveIndex].ModalId is var id && id >= 0 && id < _path.Modals.Count && _path.Modals[id].Rotary.IsRotated;
-        _cutter.Visible = _holder.Visible = !rotated;
+        if (moveIndex >= 0 && _path.Moves.Count > 0)
+        {
+            SetPartRotation(Math.Min(moveIndex, _path.Moves.Count - 1)); // programa terminado: vale a posição do último movimento
+        }
+    }
+
+    /// <summary>Matriz 4x4 (colunas) que gira a peça e o percurso para a posição da mesa no movimento atual; identidade sem eixo rotativo.</summary>
+    public float[] PartMatrix { get; private set; } = IdentityMatrix;
+
+    public static readonly float[] IdentityMatrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
+    private void SetPartRotation(int moveIndex)
+    {
+        float[] next = IdentityMatrix;
+        if (PartFrame is { } frame)
+        {
+            int id = _path.Moves[moveIndex].ModalId;
+            if (id >= 0 && id < _path.Modals.Count && _path.Modals[id].Rotary.IsRotated)
+            {
+                MachineModal modal = _path.Modals[id];
+                next = [.. frame.ToMachineMatrix(modal.Offset, modal.Rotary).Select(v => (float)v)];
+            }
+        }
+
+        PartMatrix = next;
     }
 
     /// <summary>
@@ -286,6 +305,7 @@ public sealed class SimulationScene
         _palette)
     {
         IsLathe = IsLathe,
+        PartMatrix = PartMatrix,
         MaterialOpacity = TransparentMaterial ? TransparentOpacity : 1f,
     };
 
@@ -331,6 +351,15 @@ public sealed class SimulationScene
             Move m = _path.Moves[move];
             var points = new List<Point3> { m.Start };
             m.AppendPolyline(points, 0.01);
+            if (PartFrame is { } frame && m.ModalId >= 0 && m.ModalId < _path.Modals.Count && _path.Modals[m.ModalId].Rotary.IsRotated)
+            {
+                MachineModal modal = _path.Modals[m.ModalId];
+                for (int k = 0; k < points.Count; k++)
+                {
+                    points[k] = frame.ToPart(points[k], modal.Offset, modal.Rotary);
+                }
+            }
+
             for (int k = 0; k + 1 < points.Count; k++)
             {
                 Point3 a = points[k], b = points[k + 1];

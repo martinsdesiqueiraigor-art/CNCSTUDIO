@@ -117,7 +117,7 @@ public sealed partial class MachineExecutor
         FinishRun();
         PostProcess();
         _moves.TrimExcess();
-        return new ToolPath(_moves, _diagnostics, _messages, _dwells, _machine, _modals);
+        return new ToolPath(_moves, _diagnostics, _messages, _dwells, _machine, _modals, _settings.PartFrame);
     }
 
     internal Expressions.VariableStore Variables => _variables;

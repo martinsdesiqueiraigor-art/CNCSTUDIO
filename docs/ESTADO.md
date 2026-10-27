@@ -140,3 +140,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `CamQuickJson` (Core): retângulo ou círculo + contorno por fora/dentro/sobre a linha ou bolsão, Fanuc/Siemens, 4º eixo opcional (face girada). `cam-ui.js` + `MainView.Cam.cs`: formulário em HTML, abre no editor ou no 3D. Cartão "Casillas CAM" deixou de ser "em breve".
 - Sem DXF, sem torno e sem várias operações (use o desktop). **Sem trava de licença** (módulo `cam` não existe no banco): decisão do Igor antes de publicar o site oficial.
 - Conferir na prévia do ramo (celular): formulário, programa com A90, abrir no 3D.
+
+## CAM-02 etapa 3b — a peça gira na simulação (visual)
+- A trajetória carrega o giro da mesa (`MachineSettings.PartFrame` → `ToolPath.PartFrame`): limites e bruto automático são calculados na peça parada. Desktop: vem do perfil de máquina ativo (a análise refaz ao trocar o perfil). Web: do formulário do CAM.
+- `SimulationScene.PartMatrix` (A/B do movimento atual) gira material, fixações e percurso; a ferramenta fica parada e sempre visível. Desktop (OpenGL: matriz no modelo e nas linhas; normal rotacionada) e web (three.js, grupo da mesa). Conferido no desktop com GPU por software; **web não conferida a olho**.
+- Cada rotativo gira de uma vez no movimento seguinte (indexado). O corte do material na face girada continua não simulado.

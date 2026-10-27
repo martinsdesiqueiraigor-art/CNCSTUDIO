@@ -30,8 +30,13 @@ export function create() {
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 10000);
   camera.up.set(0, 0, 1);
 
+  // Grupo que gira junto com a mesa (material, fixações e percurso); a ferramenta fica fora dele
+  const part = new THREE.Group();
+  part.matrixAutoUpdate = false;
+  scene.add(part);
+
   const v = {
-    id, host, renderer, scene, camera, sun,
+    id, host, renderer, scene, camera, sun, part,
     objects: new Map(), lines: new Map(),
     orbit: { tx: 0, ty: 0, tz: 0, distance: 200, az: 35, el: 30 },
     materialOpacity: 1,
@@ -225,10 +230,22 @@ export function setMesh(host, id, role, positions, normals, colors, indices) {
   } else {
     const mesh = new THREE.Mesh(geometry, materialFor(role, v.materialOpacity));
     if (isMatter(role) && v.materialOpacity < 1) mesh.renderOrder = 5;
-    v.scene.add(mesh);
+    parentFor(v, role).add(mesh);
     entry = { mesh, role, edges: null };
     v.objects.set(id, entry);
   }
+  requestRender(v);
+}
+
+const PART_ROLES = new Set(['Material', 'Section', 'Fixture', 'FixtureJaw', 'FeedPath', 'RapidPath', 'RapidInMaterial', 'CurrentPath']);
+const parentFor = (v, role) => (PART_ROLES.has(role) ? v.part : v.scene);
+
+/** Posição da mesa: matriz 4x4 (16 floats, colunas) que gira a peça e o percurso; a ferramenta não gira. */
+export function setPartMatrix(host, bytes) {
+  const v = viewOf(host);
+  if (!v) return;
+  v.part.matrix.fromArray(toF32(bytes));
+  v.part.matrixWorldNeedsUpdate = true;
   requestRender(v);
 }
 
@@ -270,7 +287,7 @@ export function removeMesh(host, id) {
   const v = viewOf(host);
   const entry = v?.objects.get(id);
   if (!entry) return;
-  v.scene.remove(entry.mesh);
+  entry.mesh.parent?.remove(entry.mesh);
   entry.mesh.geometry.dispose();
   entry.mesh.material.dispose();
   entry.edges?.geometry.dispose();
@@ -293,7 +310,7 @@ export function setLines(host, role, positions, color, visible, onTop) {
   } else {
     line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color, depthTest: !onTop, transparent: onTop }));
     line.renderOrder = onTop ? 10 : 0;
-    v.scene.add(line);
+    parentFor(v, role).add(line);
     v.lines.set(role, line);
   }
   line.visible = visible;

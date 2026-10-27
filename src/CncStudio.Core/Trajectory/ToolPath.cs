@@ -13,8 +13,9 @@ public sealed class ToolPath
 
     public ToolPath(IReadOnlyList<Move> moves, IReadOnlyList<ParseDiagnostic> diagnostics,
         IReadOnlyList<ProgramMessage>? messages = null, IReadOnlyList<ProgramDwell>? dwells = null,
-        MachineKind machine = MachineKind.Mill, IReadOnlyList<MachineModal>? modals = null)
+        MachineKind machine = MachineKind.Mill, IReadOnlyList<MachineModal>? modals = null, Scene.RotaryPartFrame? partFrame = null)
     {
+        PartFrame = partFrame;
         Machine = machine;
         Modals = modals ?? [];
         Moves = moves;
@@ -25,8 +26,9 @@ public sealed class ToolPath
         var all = Bounds3.Empty;
         var cutting = Bounds3.Empty;
         var tools = new SortedSet<int>();
-        foreach (Move move in moves)
+        foreach (Move shown in moves)
         {
+            Move move = InPartFrame(shown);
             all = move.IncludeIn(all);
             if (!move.IsRapid)
             {
@@ -42,6 +44,22 @@ public sealed class ToolPath
         Bounds = all;
         CuttingBounds = cutting;
         Tools = tools.ToArray();
+    }
+
+    /// <summary>Giro da mesa a desfazer no desenho (null = coordenadas da máquina).</summary>
+    public Scene.RotaryPartFrame? PartFrame { get; }
+
+    // Movimento com a peça girada: pontos e centro levados para a peça parada (só para limites; arcos viram a corda)
+    private Move InPartFrame(Move move)
+    {
+        if (PartFrame is null || move.ModalId < 0 || move.ModalId >= Modals.Count || !Modals[move.ModalId].Rotary.IsRotated)
+        {
+            return move;
+        }
+
+        MachineModal modal = Modals[move.ModalId];
+        return new Move(PartFrame.ToPart(move.Start, modal.Offset, modal.Rotary), PartFrame.ToPart(move.End, modal.Offset, modal.Rotary),
+            move.IsRapid ? MotionMode.Rapid : MotionMode.Linear, move.LineNumber, move.Feed, move.Tool);
     }
 
     /// <summary>Estados modais da máquina (cada <c>Move.ModalId</c> aponta para um); ver <c>ControlPanel</c>.</summary>

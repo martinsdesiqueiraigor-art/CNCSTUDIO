@@ -316,7 +316,6 @@ public partial class MainView
             : SimulationScene.ForMill(_material.Map!, analysis.ToolPath, _material.Profiles, _machiningSetup, palette);
         _scene.QuarterSection = _quarterSection;
         _scene.TransparentMaterial = _transparent;
-        if (_scene.IsLathe == false) _scene.PartFrame = _camPartFrame;
         ApplyToolVisibility();
         _driver = new SimulationDriver(_material.Simulation) { Target = TargetMoves() };
         _scene3DView.SetScene(_scene);

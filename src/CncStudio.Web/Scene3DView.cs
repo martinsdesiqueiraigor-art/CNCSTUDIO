@@ -34,6 +34,9 @@ internal static partial class Scene3DInterop
     [JSImport("placeMesh", Module)]
     public static partial void PlaceMesh(JSObject host, string id, double x, double y, double z, bool visible);
 
+    [JSImport("setPartMatrix", Module)]
+    public static partial void SetPartMatrix(JSObject host, [JSMarshalAs<JSType.MemoryView>] Span<byte> matrix);
+
     [JSImport("removeMesh", Module)]
     public static partial void RemoveMesh(JSObject host, string id);
 
@@ -88,6 +91,7 @@ internal sealed class Scene3DView : NativeControlHost
     private bool _showPath;   // a trajetória inteira fica escondida por padrão: só o trecho atual aparece
     private bool _fitPending = true;
     private float _sentOpacity = 1f;
+    private float[]? _sentPart;
 
     // Barra da simulação flutuante (HTML dentro do div do 3D): comandos que voltam e último estado enviado
     private Action<string, double>? _barHandler;
@@ -146,6 +150,7 @@ internal sealed class Scene3DView : NativeControlHost
     {
         _host = Scene3DInterop.Create();
         _sentOpacity = 1f;
+        _sentPart = null;
         PushBackground(_host);
         _sent.Clear();
         _placed.Clear();
@@ -290,6 +295,13 @@ internal sealed class Scene3DView : NativeControlHost
                 Scene3DInterop.PlaceMesh(host, o.Id, o.Offset.X, o.Offset.Y, o.Offset.Z, visible);
                 _placed[o.Id] = (o.Offset, visible);
             }
+        }
+
+        // Posição da mesa (4º eixo): só vai ao navegador quando muda
+        if (_sentPart is null || !_sentPart.AsSpan().SequenceEqual(scene.PartMatrix))
+        {
+            _sentPart = [.. scene.PartMatrix];
+            Scene3DInterop.SetPartMatrix(host, MemoryMarshal.AsBytes(_sentPart.AsSpan()).ToArray());
         }
 
         // Material transparente (opção "Ver"): só vai ao navegador quando muda
