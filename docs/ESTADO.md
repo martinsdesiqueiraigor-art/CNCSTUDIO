@@ -145,3 +145,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - A trajetória carrega o giro da mesa (`MachineSettings.PartFrame` → `ToolPath.PartFrame`): limites e bruto automático são calculados na peça parada. Desktop: vem do perfil de máquina ativo (a análise refaz ao trocar o perfil). Web: do formulário do CAM.
 - `SimulationScene.PartMatrix` (A/B do movimento atual) gira material, fixações e percurso; a ferramenta fica parada e sempre visível. Desktop (OpenGL: matriz no modelo e nas linhas; normal rotacionada) e web (three.js, grupo da mesa). Conferido no desktop com GPU por software; **web não conferida a olho**.
 - Cada rotativo gira de uma vez no movimento seguinte (indexado). O corte do material na face girada continua não simulado.
+
+## CAM-02 etapa 3c — texto enrolado no cilindro (4º eixo contínuo)
+- `RotaryWrap` (Core): traços desenrolados (u ao longo do eixo, v ao redor) viram X (ou Y) e A (ou B) **juntos**, Z fixo na superfície menos a profundidade, ferramenta vertical sobre a linha de centro. Avanço corrigido por trecho: o controle trata graus como mm, então F sai ajustado para a superfície andar no avanço pedido. Checa o curso do eixo. Texto em fonte de traço único (`StrokeFont`).
+- Pós: no Siemens, `FGROUP(X,Y,Z,A)` antes e `FGROUP(X,Y,Z)` depois (o rotativo entra no avanço de trajetória). **O comportamento do F com rotativo no Fanuc 21i não foi confirmado**: rodar no ar, avanço baixo.
+- Telas: desktop (aba Fresa, "Texto enrolado no cilindro", usa o perfil ativo) e web (formulário do CAM). No 3D o bruto automático é uma caixa em volta da gravação (o cilindro redondo não é desenhado).
+- Não feito: gravar contorno/figura no cilindro, texto ao redor (em vez de ao longo do eixo), 3D simultâneo (X,Y,Z,A) de superfícies.
