@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using CncStudio.Core;
 using CncStudio.Core.Cam;
 
 namespace CncStudio.Core.Tests;
@@ -49,5 +50,20 @@ public class CamQuickJsonTests
         v["D"] = null;
         Assert.False((bool)Run(v)["ok"]!);
         Assert.False((bool)JsonNode.Parse(CamQuickJson.Generate("lixo"))!["ok"]!);
+    }
+
+    [Fact]
+    public void LinhaDeGiroSoExisteComFaceGiradaMarcada()
+    {
+        JsonObject v = Defaults();
+        Assert.Null(CamQuickJson.PartFrameOf(v.ToJsonString()));
+        v["ROT"] = true;
+        v["PIVH"] = 12;
+        v["PIVZ"] = -30;
+        CncStudio.Core.Scene.RotaryPartFrame? f = CamQuickJson.PartFrameOf(v.ToJsonString());
+        Assert.NotNull(f);
+        Assert.Equal(12, f!.AY);
+        Assert.Equal(-30, f.AZ);
+        Assert.Null(CamQuickJson.PartFrameOf("lixo"));
     }
 }

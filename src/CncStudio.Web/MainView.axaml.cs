@@ -1298,6 +1298,7 @@ public partial class MainView : UserControl
     private void LoadProgram(string fileName, string text, string? libraryPath = null)
     {
         _loading = true;
+        _camPartFrame = null;
         _fileName = fileName;
         _libraryPath = libraryPath;
         LoadMachiningSetup();

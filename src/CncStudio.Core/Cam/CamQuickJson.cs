@@ -182,6 +182,29 @@ public static class CamQuickJson
         }
     }
 
+    /// <summary>Linhas de giro do último formulário (para o 3D desfazer o giro): null se a face girada não estava marcada.</summary>
+    public static Scene.RotaryPartFrame? PartFrameOf(string valuesJson)
+    {
+        try
+        {
+            if (JsonNode.Parse(valuesJson) is not JsonObject v || !(v["ROT"] is JsonValue r && r.TryGetValue(out bool on) && on))
+            {
+                return null;
+            }
+
+            double Num(string id) => v[id] is JsonValue n && n.TryGetValue(out double d) && double.IsFinite(d) ? d : 0;
+            bool b = v["AXIS"] is JsonValue ax && ax.TryGetValue(out double axis) && (int)axis == 1;
+            bool rev = v["REV"] is JsonValue rv && rv.TryGetValue(out bool reversed) && reversed;
+            return b
+                ? new Scene.RotaryPartFrame(0, 0, false, Num("PIVH"), Num("PIVZ"), rev)
+                : new Scene.RotaryPartFrame(Num("PIVH"), Num("PIVZ"), rev, 0, 0, false);
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
     private static string Result(bool ok, string program, IEnumerable<string> errors, IEnumerable<string> warnings)
     {
         var e = new JsonArray();

@@ -8,6 +8,9 @@ public partial class MainView
     private const string CamKey = "cc.cam.last";
     private bool _openingCam;
 
+    /// <summary>Giro do 4º eixo do programa que veio do CAM (para o 3D desenhar o percurso na peça); apagado ao abrir outro programa.</summary>
+    private CncStudio.Core.Scene.RotaryPartFrame? _camPartFrame;
+
     /// <summary>CAM rápido: formulário em HTML, programa calculado pelo Core. O resultado entra no editor e, se pedido, abre no 3D.</summary>
     private async Task OpenCamAsync()
     {
@@ -24,6 +27,7 @@ public partial class MainView
 
             if (result["values"] is JsonNode values) Store(CamKey, values.ToJsonString());
             LoadProgram("CAM.nc", text.Replace("\r\n", "\n"));
+            _camPartFrame = result["values"] is JsonNode vals ? CamQuickJson.PartFrameOf(vals.ToJsonString()) : null;
             _dirty = true;
             UpdateTitle();
             SetStatus("Programa do CAM (rascunho): simule e rode no ar antes de usar na máquina.");
