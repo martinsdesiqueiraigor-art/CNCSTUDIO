@@ -300,6 +300,17 @@ public static class CamPost
             ChangeTool(tool, d.SafeZ);
             Point2 first = d.Points[0];
             LengthOffset(tool, first, d.SafeZ);
+            if (d.RotaryLetter is { } letter)
+            {
+                // Na altura segura (acima do cilindro), gira a face para cima antes de descer
+                double angle = Math.Round(d.RotaryAngle, 3);
+                if (!_rot.TryGetValue(letter, out double current) || Math.Abs(current - angle) > 1e-9)
+                {
+                    Line($"G0 {letter}{N(angle)}");
+                    _rot[letter] = angle;
+                }
+            }
+
             if (_fanuc)
             {
                 string cycle = d.Kind switch

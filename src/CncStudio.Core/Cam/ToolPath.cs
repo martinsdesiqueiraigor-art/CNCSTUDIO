@@ -83,7 +83,14 @@ public sealed record CamLevels(double SafeZ, double ClearanceZ, double TopZ, dou
 public enum DrillCycleKind { Drill, Dwell, Peck, ChipBreak }
 
 /// <summary>Furação em ciclo fixo (G81 simples, G82 com tempo, G83 com bicada, G73 quebra-cavaco); o pós-processador escolhe o código.</summary>
-public sealed record DrillCycle(DrillCycleKind Kind, IReadOnlyList<Point2> Points, double TopZ, double BottomZ, double RetractZ, double SafeZ, double Peck, double DwellSeconds, double Feed);
+public sealed record DrillCycle(DrillCycleKind Kind, IReadOnlyList<Point2> Points, double TopZ, double BottomZ, double RetractZ, double SafeZ, double Peck, double DwellSeconds, double Feed)
+{
+    /// <summary>Eixo rotativo (A ou B) a girar para o ângulo <see cref="RotaryAngle"/> antes dos furos (face girada). Null = sem giro.</summary>
+    public string? RotaryLetter { get; init; }
+
+    /// <summary>Ângulo do eixo rotativo na máquina, em graus.</summary>
+    public double RotaryAngle { get; init; }
+}
 
 /// <summary>Furo achado no desenho: centro e diâmetro.</summary>
 public readonly record struct DrillHole(Point2 Center, double Diameter);
