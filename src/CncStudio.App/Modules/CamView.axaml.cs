@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
+using CncStudio.Core.Generators;
 using CncStudio.Core.Setup;
 
 namespace CncStudio.App.Modules;
@@ -18,10 +19,13 @@ public partial class CamView : UserControl
     private static readonly string[] OpNames =
     [
         "Contorno por fora", "Contorno por dentro", "Contorno sobre a linha", "Bolsão", "Faceamento", "Furação (círculos do desenho)",
+        "Texto enrolado no cilindro (4º eixo contínuo)",
     ];
 
     private readonly List<Contour> _contours = [];
     private readonly List<CamOperation> _ops = [];
+    private TextBox? _wrapText;
+    private ComboBox? _wrapAxis;
     private readonly Dictionary<string, TextBox> _common = [];
     private readonly Dictionary<string, TextBox> _fields = [];
     private readonly Dictionary<string, TextBox> _shape = [];
@@ -228,6 +232,8 @@ public partial class CamView : UserControl
         _fields.Clear();
         _climb = _comp = null;
         _cycle = null;
+        _wrapText = null;
+        _wrapAxis = null;
         int kind = Math.Max(0, OpCombo.SelectedIndex);
         void Num(string id, string label, double value, string unit)
         {
@@ -254,6 +260,30 @@ public partial class CamView : UserControl
         else if (kind == 4)
         {
             Num("STEP", "Passo lateral", 70, "% do diâmetro");
+        }
+        else if (kind == 6)
+        {
+            _wrapText = new TextBox { Text = "CASILLAS", MinHeight = 26, MaxLength = 60 };
+            OpFields.Children.Add(new TextBlock { Text = "Texto (maiúsculas sem acento, números e . , : ! - _ = + / ( ))", TextWrapping = TextWrapping.Wrap });
+            OpFields.Children.Add(_wrapText);
+            _wrapAxis = new ComboBox { SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
+            _wrapAxis.Items.Add(new ComboBoxItem { Content = "Eixo A (gira em torno de X; texto ao longo de X)" });
+            _wrapAxis.Items.Add(new ComboBoxItem { Content = "Eixo B (gira em torno de Y; texto ao longo de Y)" });
+            OpFields.Children.Add(_wrapAxis);
+            Num("TH", "Altura das letras (ao redor)", 6, "mm");
+            Num("TDIA", "Diâmetro da peça", 40, "mm");
+            Num("TAX", "Início ao longo do eixo", 0, "mm");
+            Num("TANG", "Ângulo inicial", 0, "°");
+            Num("TDEP", "Profundidade", 0.3, "mm");
+            Num("TPASS", "Passe em profundidade", 0.15, "mm");
+            Num("TCLR", "Folga acima da peça", 3, "mm");
+            OpFields.Children.Add(new TextBlock
+            {
+                Text = "Usa o perfil de máquina ativo (eixo A ou B na mesa; pivô relativo ao zero da peça: com o zero no topo do cilindro, Z do centro = menos o raio). O avanço F é o da superfície. Ferramenta fina na vertical. Rode primeiro no ar.",
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.7,
+                FontSize = 12,
+            });
         }
         else
         {
@@ -506,7 +536,33 @@ public partial class CamView : UserControl
         int kind = OpCombo.SelectedIndex;
         Contour? selected = ContourList.SelectedIndex >= 0 && ContourList.SelectedIndex < _contours.Count ? _contours[ContourList.SelectedIndex] : null;
         OperationResult result;
-        if (kind == 5)
+        if (kind == 6)
+        {
+            MachineProfile? machine = MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
+            if (machine is null)
+            {
+                Errors.Text = "• Texto no cilindro: escolha e salve o perfil da máquina (aba Máquina) com o eixo A ou B na mesa.";
+                return;
+            }
+
+            string text = StrokeFont.Normalize(_wrapText?.Text ?? "").Trim();
+            if (text.Length == 0 || text.Any(c => !StrokeFont.TryGet(c, out _)))
+            {
+                Errors.Text = "• Texto vazio ou com caractere que a fonte não desenha. Aceito: " + StrokeFont.Supported + ".";
+                return;
+            }
+
+            if (F("TH") <= 0)
+            {
+                Errors.Text = "• A altura das letras precisa ser maior que zero.";
+                return;
+            }
+
+            string wrapLetter = _wrapAxis?.SelectedIndex == 1 ? "B" : "A";
+            result = RotaryWrap.Engrave("Texto no cilindro", tool, machine, wrapLetter, RotaryWrap.TextStrokes(text, F("TH")),
+                new WrapSetup(F("TDIA"), F("TAX"), F("TANG"), F("TDEP"), F("TPASS"), F("TCLR"), C("F"), C("FZ")));
+        }
+        else if (kind == 5)
         {
             IReadOnlyList<DrillHole> holes = CamOperations.HolesFromCircles(_contours);
             if (holes.Count == 0)
@@ -548,7 +604,7 @@ public partial class CamView : UserControl
             return;
         }
 
-        if (RotaryCheck.IsChecked == true)
+        if (RotaryCheck.IsChecked == true && kind != 6)
         {
             MachineProfile? machine = MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
             double angle = Parse(RotaryAngleBox), dist = Parse(RotaryDistBox);

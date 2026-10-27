@@ -182,6 +182,23 @@ public static class CamPost
 
             bool newTool = op.Tool.Number != _tool;
             ChangeTool(op.Tool, op.Moves.Count > 0 ? op.Moves[0].Z : 0);
+
+            // Eixo rotativo andando junto com X/Y/Z no avanço (gravação no cilindro): no Siemens o rotativo entra no avanço de trajetória
+            string? continuous = null;
+            for (int k = 1; k < op.Moves.Count && continuous is null; k++)
+            {
+                ToolMove prev = op.Moves[k - 1], cur = op.Moves[k];
+                if (!_fanuc && cur.Kind == MoveKind.Feed && cur.RotaryLetter is { } l && prev.RotaryLetter == l && Math.Abs(cur.RotaryAngle - prev.RotaryAngle) > 1e-9 && (cur.XY.DistanceTo(prev.XY) > 1e-9))
+                {
+                    continuous = l;
+                }
+            }
+
+            if (continuous is not null)
+            {
+                Line($"FGROUP(X,Y,Z,{continuous})");
+            }
+
             for (int i = 0; i < op.Moves.Count; i++)
             {
                 ToolMove m = op.Moves[i];
@@ -192,6 +209,11 @@ public static class CamPost
                 }
 
                 Move(m, op.Tool);
+            }
+
+            if (continuous is not null)
+            {
+                Line("FGROUP(X,Y,Z)");
             }
         }
 

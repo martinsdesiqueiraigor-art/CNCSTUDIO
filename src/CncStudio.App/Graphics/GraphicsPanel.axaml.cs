@@ -248,14 +248,26 @@ public partial class GraphicsPanel : UserControl
         {
             _turning = null;
             Func<int, ToolProfile> profileOf = ProfileOf ?? (tool => ToolProfile.Flat(diameterOf(tool)));
-            _map = SimulationFactory.MillStock(Stock, _path, profileOf, SimulationFactory.DesktopCells);
-            _simulation = new MaterialSimulator(_map, _path.Moves, profileOf, SimulationFactory.RotatedMoveSkipper(_path));
-            _scene = SimulationScene.ForMill(_map, _path, profileOf, Setup);
-            _scene.PartFrame = PartFrameSource?.Invoke();
+            if (SimulationFactory.UsesVoxels(_path, Setup))
+            {
+                // Eixo rotativo com a peça girada: material em voxels (o corte vem de lado ou inclinado)
+                _map = null;
+                VoxelStock voxels = SimulationFactory.VoxelStockFor(Stock, _path, profileOf, Setup);
+                _simulation = new VoxelSimulator(voxels, _path, profileOf);
+                _scene = SimulationScene.ForVoxels(voxels, _path, profileOf, Setup);
+                _stockBounds = voxels.Bounds;
+            }
+            else
+            {
+                _map = SimulationFactory.MillStock(Stock, _path, profileOf, SimulationFactory.DesktopCells);
+                _simulation = new MaterialSimulator(_map, _path.Moves, profileOf, SimulationFactory.RotatedMoveSkipper(_path));
+                _scene = SimulationScene.ForMill(_map, _path, profileOf, Setup);
+                _stockBounds = Bounds3.Empty
+                    .Include(new Point3(_map.OriginX, _map.OriginY, _map.BottomZ))
+                    .Include(new Point3(_map.OriginX + _map.Width, _map.OriginY + _map.Height, _map.TopZ));
+            }
+
             _sceneCollisions = 0;
-            _stockBounds = Bounds3.Empty
-                .Include(new Point3(_map.OriginX, _map.OriginY, _map.BottomZ))
-                .Include(new Point3(_map.OriginX + _map.Width, _map.OriginY + _map.Height, _map.TopZ));
         }
 
         _generation++;
@@ -625,8 +637,6 @@ public partial class GraphicsPanel : UserControl
         StatusText.Text = "3D pela placa de vídeo indisponível (" + message + "): usando o desenho por CPU.";
     }
 
-    /// <summary>Perfil de máquina ativo (mesa A/B): se houver, o percurso é desenhado na peça parada.</summary>
-    public Func<RotaryPartFrame?>? PartFrameSource { get; set; }
 
     /// <summary>Atualiza a cena 3D com a simulação (na fila de segundo plano, dona da cena) e tira a foto.</summary>
     private SceneSnapshot SceneOf(SimulationScene scene, IMaterialSimulation simulation, bool section, ScenePalette palette, bool transparent)

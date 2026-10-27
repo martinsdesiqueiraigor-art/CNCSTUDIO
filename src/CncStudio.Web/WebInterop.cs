@@ -195,6 +195,14 @@ internal static partial class WebInterop
         [JSMarshalAs<JSType.String>] string programText,
         [JSMarshalAs<JSType.String>] string programName);
 
+    /// <summary>CAM rápido (cam-ui.js): formulário em HTML; o programa vem do Core pelo callback (valores JSON) → JSON. Devolve JSON {text, view3d, values} ou null.</summary>
+    [JSImport("openCam", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string?> OpenCamAsync(
+        [JSMarshalAs<JSType.String>] string catalogJson,
+        [JSMarshalAs<JSType.Function<JSType.String, JSType.String>>] Func<string, string> generate,
+        [JSMarshalAs<JSType.String>] string lastJson);
+
     [JSImport("openAcademy", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
     public static partial Task<string?> OpenAcademyAsync(

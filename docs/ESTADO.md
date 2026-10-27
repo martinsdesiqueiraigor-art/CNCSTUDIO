@@ -135,3 +135,33 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `RotaryPartFrame` (Core/Scene): desfaz o giro de A/B (mesa) em cada ponto do percurso; o 3D do desktop desenha o percurso **na peça parada**, a partir do perfil de máquina ativo (pivô e sentido). Ferramenta fica escondida enquanto a peça está girada (ficaria inclinada).
 - O desktop passou a usar o mesmo filtro da fábrica: movimentos com A/B ≠ 0 não cortam o mapa de alturas.
 - Ainda não: cortar o material na face girada, ferramenta inclinada, C e cabeçote. Sentido do giro não conferido em máquina.
+
+## CAM-02 etapa 3 — CAM rápido na web (celular)
+- `CamQuickJson` (Core): retângulo ou círculo + contorno por fora/dentro/sobre a linha ou bolsão, Fanuc/Siemens, 4º eixo opcional (face girada). `cam-ui.js` + `MainView.Cam.cs`: formulário em HTML, abre no editor ou no 3D. Cartão "Casillas CAM" deixou de ser "em breve".
+- Sem DXF, sem torno e sem várias operações (use o desktop). **Sem trava de licença** (módulo `cam` não existe no banco): decisão do Igor antes de publicar o site oficial.
+- Conferir na prévia do ramo (celular): formulário, programa com A90, abrir no 3D.
+
+## CAM-02 etapa 3b — a peça gira na simulação (visual)
+- A trajetória carrega o giro da mesa (`MachineSettings.PartFrame` → `ToolPath.PartFrame`): limites e bruto automático são calculados na peça parada. Desktop: vem do perfil de máquina ativo (a análise refaz ao trocar o perfil). Web: do formulário do CAM.
+- `SimulationScene.PartMatrix` (A/B do movimento atual) gira material, fixações e percurso; a ferramenta fica parada e sempre visível. Desktop (OpenGL: matriz no modelo e nas linhas; normal rotacionada) e web (three.js, grupo da mesa). Conferido no desktop com GPU por software; **web não conferida a olho**.
+- Cada rotativo gira de uma vez no movimento seguinte (indexado). O corte do material na face girada continua não simulado.
+
+## CAM-02 etapa 3c — texto enrolado no cilindro (4º eixo contínuo)
+- `RotaryWrap` (Core): traços desenrolados (u ao longo do eixo, v ao redor) viram X (ou Y) e A (ou B) **juntos**, Z fixo na superfície menos a profundidade, ferramenta vertical sobre a linha de centro. Avanço corrigido por trecho: o controle trata graus como mm, então F sai ajustado para a superfície andar no avanço pedido. Checa o curso do eixo. Texto em fonte de traço único (`StrokeFont`).
+- Pós: no Siemens, `FGROUP(X,Y,Z,A)` antes e `FGROUP(X,Y,Z)` depois (o rotativo entra no avanço de trajetória). **O comportamento do F com rotativo no Fanuc 21i não foi confirmado**: rodar no ar, avanço baixo.
+- Telas: desktop (aba Fresa, "Texto enrolado no cilindro", usa o perfil ativo) e web (formulário do CAM). No 3D o bruto automático é uma caixa em volta da gravação (o cilindro redondo não é desenhado).
+- Não feito: gravar contorno/figura no cilindro, texto ao redor (em vez de ao longo do eixo), 3D simultâneo (X,Y,Z,A) de superfícies.
+
+## CAM-02 etapa 3d — eixo rotativo contínuo e corte da face girada (desktop)
+- Movimento só de A/B vira um movimento de comprimento zero e o ângulo é interpolado ao longo do trecho (usinar com o 4º eixo girando junto): a peça gira suave na simulação.
+- Material em voxels (`VoxelStock`, `VoxelSimulator`, `VoxelMesh`; bits, blocos de 16³, faces expostas em fileiras) quando o programa gira a peça (`SimulationFactory.NeedsVoxels`): a ferramenta é levada para a peça parada e corta em qualquer direção (perfis topo reto/esférica/toroidal/cone). Voltar/avançar por pontos de retorno; rápidos não cortam (sem aviso de colisão).
+- Só no desktop. A web continua em 3 eixos (não corta nesses trechos; o aviso do analisador diz isso). Bruto: o do setup (bloco) ou caixa em volta dos cortes; cilindro redondo não é desenhado.
+- Resolução: até 256 voxels no lado maior e 12 milhões no total (voxel ≥ 0,05 mm). Conferido a olho no desktop (face girada e gravação enrolada).
+
+## Setup — eixo do bruto cilíndrico (X, Y ou Z)
+- `SetupStock.Axis` (Z padrão; arquivos antigos seguem iguais). Redondo e tubo, só na fresa. Eixo X/Y = cilindro deitado: o campo do eixo é o começo e `Height` o comprimento; os outros dois campos são o centro. `Extent` (caixa) e `Contains` (ponto no material, com furo do tubo) no Core; `ToStock` usa a caixa.
+- Cilindro deitado usa material em voxels (`SimulationFactory.UsesVoxels`) nas duas cascas; celular com voxel mais grosso (≤96 no lado, ≤1 milhão no total). Com isso a web também passa a cortar a face girada (aproximado), em vez de ignorá-la; **não conferido no celular**.
+- Formulário do setup (web): seletor "Eixo do cilindro"; com eixo X/Y a posição vira o centro da barra e a fixação fica abaixo do cilindro. O desktop lê o setup salvo (a caixa de bruto do desktop só edita bloco).
+- Não feito: castanhas/morsa acompanhando o eixo, vista 2D de frente para o eixo (proposta pendente).
+- **Voxels, acabamento:** a luz da malha usa a normal suavizada (gradiente da densidade numa janela 5×5×5; as faces planas do bruto seguem planas) e faces vizinhas iguais continuam fundidas. Voxel mais fino: PC até 320 por lado / 16 milhões; celular até 160 por lado / 2,5 milhões. Medido no PC (Release, texto no cilindro Ø50×60): simulação ≈ 0,2 s e malha ≈ 1,7 s; **tempo no celular (WASM) não medido**.
+- **Eixo automático do bruto:** `SetupAxis.Auto` segue o eixo rotativo da mesa do perfil de máquina: A → cilindro ao longo de X, centro no pivô (Y, Z); só B → ao longo de Y, centro no pivô (X, Z); sem perfil, X com os campos informados. `SetupStock.Resolved(frame)`, `RotaryPartFrame.HasA/HasB`. Seletor "Automático (eixo da máquina)" no setup da web; no desktop vale o perfil ativo. Na web, o eixo automático só acha o pivô quando há perfil (hoje o perfil vem do formulário do CAM).

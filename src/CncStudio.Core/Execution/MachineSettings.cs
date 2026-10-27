@@ -20,6 +20,9 @@ public sealed record MachineSettings
     /// <summary>Limites de curso (avisos quando o programa passa deles). Null = sem verificação.</summary>
     public TravelLimits? TravelLimits { get; init; }
 
+    /// <summary>Mesa com eixo rotativo A/B: o desenho do percurso e o bruto usam a peça parada (giro desfeito). Null = coordenadas da máquina.</summary>
+    public Scene.RotaryPartFrame? PartFrame { get; init; }
+
     /// <summary>Fresa ou torno. Null = descobrir pelo programa (<see cref="MachineDetector"/>).</summary>
     public MachineKind? Machine { get; init; }
 

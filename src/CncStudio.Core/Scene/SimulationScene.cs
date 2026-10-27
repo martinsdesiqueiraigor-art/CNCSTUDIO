@@ -1,3 +1,4 @@
+using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Rendering;
 using CncStudio.Core.Setup;
@@ -17,6 +18,13 @@ public sealed record SceneSnapshot(IReadOnlyList<SceneObjectState> Objects, IRea
 {
     /// <summary>Cena do torno (muda o ângulo da vista isométrica).</summary>
     public bool IsLathe { get; init; }
+
+    /// <summary>Gira a peça (material, fixações e percurso) para a posição atual da mesa; a ferramenta não gira. Identidade sem eixo rotativo.</summary>
+    public float[] PartMatrix { get; init; } = SimulationScene.IdentityMatrix;
+
+    /// <summary>Papéis que giram junto com a mesa.</summary>
+    public static bool RotatesWithTable(SceneRole role) => role is SceneRole.Material or SceneRole.Section or SceneRole.Fixture or SceneRole.FixtureJaw
+        or SceneRole.FeedPath or SceneRole.RapidPath or SceneRole.RapidInMaterial or SceneRole.CurrentPath;
 
     /// <summary>
     /// Opacidade do material e da face de corte: 1 = sólido (padrão); menor que 1 deixa ver a
@@ -74,7 +82,7 @@ public sealed class SimulationScene
     private readonly Func<int, ToolProfile> _profileOf;
     private readonly MachiningSetup? _setup;
     private readonly ToolPath _path;
-    private readonly HeightMapMesh? _mill;
+    private readonly IMaterialMesh? _mill;
     private readonly TurningStock? _turning;
     private readonly SceneObject _cutter;
     private readonly SceneObject _holder;
@@ -87,7 +95,7 @@ public sealed class SimulationScene
     private SceneLines? _current;
 
     private SimulationScene(ToolPath path, Func<int, ToolProfile> profileOf, MachiningSetup? setup, ScenePalette palette,
-        HeightMapMesh? mill, TurningStock? turning)
+        IMaterialMesh? mill, TurningStock? turning)
     {
         _path = path;
         _profileOf = profileOf;
@@ -110,6 +118,14 @@ public sealed class SimulationScene
         return new SimulationScene(path, profileOf, setup, palette, new HeightMapMesh(map, palette), null);
     }
 
+    /// <summary>Cena da fresa com eixo rotativo: material em voxels (corte em qualquer direção), fixações do setup e a trajetória.</summary>
+    public static SimulationScene ForVoxels(VoxelStock stock, ToolPath path, Func<int, ToolProfile> profileOf,
+        MachiningSetup? setup = null, ScenePalette? palette = null)
+    {
+        palette ??= ScenePalette.Realistic;
+        return new SimulationScene(path, profileOf, setup, palette, new VoxelMesh(stock, palette), null);
+    }
+
     /// <summary>
     /// Cena do torno: peça de revolução (com corte de 1/4 opcional), placa com castanhas e o inserto,
     /// com o eixo da peça deitado em X da cena (ver <see cref="SceneMeshes.LatheToWorld"/>).
@@ -121,25 +137,15 @@ public sealed class SimulationScene
 
     public bool IsLathe => _turning is not null;
 
-    /// <summary>Fresa com eixo rotativo na mesa: o percurso é desenhado na peça parada (desfaz o giro de A/B). Null = coordenadas da máquina.</summary>
-    public RotaryPartFrame? PartFrame
-    {
-        get => _partFrame;
-        set
-        {
-            _partFrame = value;
-            SetRapidCollisions([]);
-        }
-    }
-
-    private RotaryPartFrame? _partFrame;
+    /// <summary>Giro da mesa (A/B) desfeito no desenho do percurso; vem da trajetória. Null = coordenadas da máquina.</summary>
+    public RotaryPartFrame? PartFrame => _path.PartFrame;
 
     public IReadOnlyList<SceneObject> Objects => _objects;
 
     public IReadOnlyList<SceneLines> Lines => _lines;
 
     /// <summary>Material da fresa em blocos (null no torno).</summary>
-    public HeightMapMesh? MillMaterial => _mill;
+    public IMaterialMesh? MillMaterial => _mill;
 
     /// <summary>Câmera atual; a tela troca ao girar, aproximar ou escolher uma vista.</summary>
     public SceneCamera Camera { get; set; } = new(Point3.Origin, 100, 35, 30);
@@ -269,10 +275,39 @@ public sealed class SimulationScene
         Point3 world = _turning is not null ? SceneMeshes.LatheToWorld(tip with { Y = 0 }) : tip;
         _cutter.Offset = world;
         _holder.Offset = world;
-        // Com a peça girada a ferramenta ficaria inclinada em relação à peça; esconde em vez de mostrar errado
-        bool rotated = PartFrame is not null && moveIndex >= 0 && moveIndex < _path.Moves.Count
-            && _path.Moves[moveIndex].ModalId is var id && id >= 0 && id < _path.Modals.Count && _path.Modals[id].Rotary.IsRotated;
-        _cutter.Visible = _holder.Visible = !rotated;
+        if (moveIndex >= 0 && _path.Moves.Count > 0)
+        {
+            SetPartRotation(Math.Min(moveIndex, _path.Moves.Count - 1), tip); // programa terminado: vale a posição do último movimento
+        }
+    }
+
+    /// <summary>Matriz 4x4 (colunas) que gira a peça e o percurso para a posição da mesa no movimento atual; identidade sem eixo rotativo.</summary>
+    public float[] PartMatrix { get; private set; } = IdentityMatrix;
+
+    public static readonly float[] IdentityMatrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
+    private void SetPartRotation(int moveIndex, Point3 tip)
+    {
+        float[] next = IdentityMatrix;
+        if (PartFrame is { } frame)
+        {
+            // Movimento com giro e deslocamento juntos: o ângulo acompanha a ponta ao longo do trecho
+            RotaryAngles end = _path.RotaryAt(moveIndex), start = _path.RotaryAtStart(moveIndex);
+            RotaryAngles now = end;
+            Move m = _path.Moves[moveIndex];
+            double length = m.Start.DistanceTo(m.End);
+            if (length > 1e-9 && (Math.Abs(end.A - start.A) > 1e-9 || Math.Abs(end.B - start.B) > 1e-9))
+            {
+                now = RotaryAngles.Lerp(start, end, Math.Clamp(m.Start.DistanceTo(tip) / length, 0, 1));
+            }
+
+            if (now.IsRotated)
+            {
+                next = [.. frame.ToMachineMatrix(_path.Modals[m.ModalId].Offset, now).Select(v => (float)v)];
+            }
+        }
+
+        PartMatrix = next;
     }
 
     /// <summary>
@@ -286,6 +321,7 @@ public sealed class SimulationScene
         _palette)
     {
         IsLathe = IsLathe,
+        PartMatrix = PartMatrix,
         MaterialOpacity = TransparentMaterial ? TransparentOpacity : 1f,
     };
 
@@ -331,6 +367,16 @@ public sealed class SimulationScene
             Move m = _path.Moves[move];
             var points = new List<Point3> { m.Start };
             m.AppendPolyline(points, 0.01);
+            RotaryAngles endAngles = _path.RotaryAt(move), startAngles = _path.RotaryAtStart(move);
+            if (PartFrame is { } frame && (endAngles.IsRotated || startAngles.IsRotated))
+            {
+                Point3 offset = _path.Modals[m.ModalId].Offset;
+                for (int k = 0; k < points.Count; k++)
+                {
+                    points[k] = frame.ToPart(points[k], offset, k == 0 ? startAngles : endAngles);
+                }
+            }
+
             for (int k = 0; k + 1 < points.Count; k++)
             {
                 Point3 a = points[k], b = points[k + 1];

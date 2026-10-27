@@ -126,7 +126,6 @@ public partial class MainWindow : Window
         // Diâmetro efetivo com a mesma regra da compensação (setup → tabela → comentário "FRESA D10" → padrão)
         Graphics.DiameterOf = EffectiveDiameter;
         // Perfil de corte: o do setup do programa ativo; senão, topo reto com o diâmetro efetivo
-        Graphics.PartFrameSource = () => CncStudio.Core.Scene.RotaryPartFrame.From(_settings.MachineProfiles.FirstOrDefault(m => m.Name == _settings.ActiveMachineProfile));
         Graphics.ProfileOf = tool => SimulationFactory.MillProfiles(_active.Setup, EffectiveDiameter)(tool);
         Graphics.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
         Statistics.DiameterOf = EffectiveDiameter;
@@ -644,6 +643,10 @@ public partial class MainWindow : Window
     /// Dispara parse + trajetória numa thread de fundo. Se o texto mudar antes de
     /// terminar, a análise antiga é cancelada e o resultado dela é descartado.
     /// </summary>
+    /// <summary>Giro da mesa (A/B) do perfil de máquina ativo, para o desenho e o bruto usarem a peça parada; null sem eixo rotativo.</summary>
+    private CncStudio.Core.Scene.RotaryPartFrame? ActivePartFrame() =>
+        CncStudio.Core.Scene.RotaryPartFrame.From(_settings.MachineProfiles.FirstOrDefault(m => m.Name == _settings.ActiveMachineProfile));
+
     private async void StartAnalysis()
     {
         _analysisTimer.Stop();
@@ -657,7 +660,7 @@ public partial class MainWindow : Window
         string? folder = _active.FilePath is not null
             ? Path.GetDirectoryName(_active.FilePath)
             : Path.Combine(AppContext.BaseDirectory, "samples", "macros");
-        MachineSettings machine = _active.Setup.ApplyTo(_settings.ToMachineSettings(folder));
+        MachineSettings machine = _active.Setup.ApplyTo(_settings.ToMachineSettings(folder)) with { PartFrame = ActivePartFrame() };
         AnalysisStatus.Text = "Analisando…";
 
         try
@@ -818,7 +821,7 @@ public partial class MainWindow : Window
         Dialect dialect = CurrentDialect;
         string? filePath = _active.FilePath;
         string fileName = filePath is null ? "sem título" : Path.GetFileName(filePath);
-        MachineSettings machine = _active.Setup.ApplyTo(_settings.ToMachineSettings(filePath is null ? null : Path.GetDirectoryName(filePath)));
+        MachineSettings machine = _active.Setup.ApplyTo(_settings.ToMachineSettings(filePath is null ? null : Path.GetDirectoryName(filePath))) with { PartFrame = ActivePartFrame() };
         var tools = _settings.Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.Last());
         string? stock = CurrentStockDescription;
         AnalysisStatus.Text = "Gerando a folha de setup…";

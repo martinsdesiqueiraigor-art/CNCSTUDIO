@@ -13,7 +13,7 @@ namespace CncStudio.Core.Scene;
 /// externas da borda da grade, o fundo e as arestas vivas; juntos, os blocos formam um sólido
 /// fechado. Um bloco enxerga até <see cref="HeightMap.HaloCells"/> células além da própria borda.
 /// </summary>
-public sealed class HeightMapMesh
+public sealed class HeightMapMesh : IMaterialMesh
 {
     private readonly SolidMesh?[] _tiles;
     private readonly int[] _builtVersion;

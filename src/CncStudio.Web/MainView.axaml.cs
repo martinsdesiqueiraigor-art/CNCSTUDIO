@@ -1298,6 +1298,8 @@ public partial class MainView : UserControl
     private void LoadProgram(string fileName, string text, string? libraryPath = null)
     {
         _loading = true;
+        _camPartFrame = _pendingCamFrame;
+        _pendingCamFrame = null;
         _fileName = fileName;
         _libraryPath = libraryPath;
         LoadMachiningSetup();
@@ -1337,7 +1339,7 @@ public partial class MainView : UserControl
 
         try
         {
-            _analysis = ProgramAnalyzer.Analyze(Editor.Text, dialect, _machiningSetup.ApplyTo(MachineSettings.Default));
+            _analysis = ProgramAnalyzer.Analyze(Editor.Text, dialect, _machiningSetup.ApplyTo(MachineSettings.Default) with { PartFrame = _camPartFrame });
         }
         catch (Exception ex)
         {

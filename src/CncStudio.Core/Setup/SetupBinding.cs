@@ -43,8 +43,8 @@ public static class SetupBinding
             return stock.IsRound ? Stock.Bar(stock.Diameter, stock.Height, stock.Top) : null;
         }
 
-        (double minX, double minY, double maxX, double maxY) = stock.Footprint;
-        return Stock.Block(minX, maxX, minY, maxY, stock.Z, stock.Top);
+        Bounds3 box = stock.Extent;
+        return Stock.Block(box.Min.X, box.Max.X, box.Min.Y, box.Max.Y, box.Min.Z, box.Max.Z);
     }
 
     /// <summary>Bruto da simulação → bruto do setup (fresa: prisma; torno: redondo no eixo).</summary>

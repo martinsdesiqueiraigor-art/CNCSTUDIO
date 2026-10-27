@@ -69,8 +69,16 @@ public partial class MainWindow
         Cam.SaveTools = () => _settings.Save();
         Cam.MachineProfilesSource = () => _settings.MachineProfiles;
         Cam.ActiveMachineSource = () => _settings.ActiveMachineProfile;
-        Cam.SetActiveMachine = name => _settings.ActiveMachineProfile = name;
-        Cam.SaveMachines = () => _settings.Save();
+        Cam.SetActiveMachine = name =>
+        {
+            _settings.ActiveMachineProfile = name;
+            StartAnalysis(); // o 3D usa o giro do perfil ativo
+        };
+        Cam.SaveMachines = () =>
+        {
+            _settings.Save();
+            StartAnalysis();
+        };
         Cam.PickDxf = async () =>
         {
             IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions

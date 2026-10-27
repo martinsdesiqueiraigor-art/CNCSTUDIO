@@ -10,10 +10,12 @@ export function openSetup(json) {
     if (!stock) { resolve(null); return; }
     const round0 = Number(stock.Kind) !== 0;
     // Posição do conjunto no programa: centro do bruto em XY e topo em Z
+    // Cilindro deitado (Axis 1 = X, 2 = Y): o campo do eixo é o começo e os outros dois são o centro; aqui a origem é o centro da barra
+    let axis = round0 ? Number(stock.Axis ?? 0) : 0;
     const origin = {
-      X: round0 ? +stock.X : +stock.X + (+stock.Width) / 2,
-      Y: round0 ? +stock.Y : +stock.Y + (+stock.Depth) / 2,
-      Z: +stock.Z + (+stock.Height)
+      X: round0 ? +stock.X + (axis === 1 || axis === 3 ? (+stock.Height) / 2 : 0) : +stock.X + (+stock.Width) / 2,
+      Y: round0 ? +stock.Y + (axis === 2 ? (+stock.Height) / 2 : 0) : +stock.Y + (+stock.Depth) / 2,
+      Z: axis === 0 ? +stock.Z + (+stock.Height) : +stock.Z
     };
     const old = data.Fixtures?.[0];
     const fixture = old ? {...old} : {Kind:0,Name:'',X:0,Y:0,Z:-30,Width:150,Depth:110,Height:30,JawOpening:60,JawThickness:12,Rotation:0};
@@ -48,7 +50,7 @@ export function openSetup(json) {
     const fixFields=document.createElement('div');fixFields.style.cssText='display:flex;flex-direction:column;gap:8px';fixtureBox.append(fixFields);
     const originBox=section('03 · Posição no programa');
     const info=document.createElement('p');info.textContent='Coordenadas do programa (zero de peça = 0). O bruto e a fixação compartilham o mesmo centro XY.';info.style.cssText='color:#9baab9;font-size:12px;margin:0';originBox.append(info);
-    field(originBox,'Centro do bruto X (mm)',origin,'X');field(originBox,'Centro do bruto Y (mm)',origin,'Y');field(originBox,'Topo do bruto Z (mm)',origin,'Z');
+    const originFields=document.createElement('div');originFields.style.cssText='display:flex;flex-direction:column;gap:8px';originBox.append(originFields);
     const toolBox=section('04 · Ferramenta');
     const toolEditor = mountToolEditor(toolBox, data);
     fixtureBox.after(dimensionCard);
@@ -60,9 +62,13 @@ export function openSetup(json) {
     const close=value=>{root.remove();resolve(value)};
     cancel.addEventListener('click',()=>close(null));
     function renderFields(){
-      stockFields.replaceChildren();fixFields.replaceChildren();
+      stockFields.replaceChildren();fixFields.replaceChildren();originFields.replaceChildren();
+      if(stockKind!==0&&axis===3){const hint=document.createElement('p');hint.textContent='Automático: o cilindro segue o eixo rotativo da mesa do perfil de máquina (A → ao longo de X, B → ao longo de Y), com o centro no pivô do perfil. Y e Z abaixo só valem se não houver perfil.';hint.style.cssText='color:#9baab9;font-size:12px;margin:0';originFields.append(hint);}
+      const lying=stockKind!==0&&axis!==0;
+      if(lying){field(originFields,'Centro do bruto X (mm)',origin,'X');field(originFields,'Centro do bruto Y (mm)',origin,'Y');field(originFields,'Centro do bruto Z (mm)',origin,'Z');}
+      else{field(originFields,'Centro do bruto X (mm)',origin,'X');field(originFields,'Centro do bruto Y (mm)',origin,'Y');field(originFields,'Topo do bruto Z (mm)',origin,'Z');}
       if(stockKind===0){field(stockFields,'Comprimento X (mm)',stock,'Width',true);field(stockFields,'Largura Y (mm)',stock,'Depth',true);field(stockFields,'Espessura Z (mm)',stock,'Height',true);}
-      else {field(stockFields,'Diâmetro externo (mm)',stock,'Diameter',true);if(stockKind===2)field(stockFields,'Diâmetro interno (mm)',stock,'InnerDiameter',true);field(stockFields,stockKind===1?'Altura (mm)':'Comprimento (mm)',stock,'Height',true);}
+      else {select(stockFields,'Eixo do cilindro',['Z (em pé)','X (deitado)','Y (deitado)','Automático (eixo da máquina)'],axis,v=>{const was=axis;axis=v;stock.Axis=v;const r=(+stock.Diameter||0)/2;if(was===0&&v!==0)origin.Z-=r;else if(was!==0&&v===0)origin.Z+=r;});field(stockFields,'Diâmetro externo (mm)',stock,'Diameter',true);if(stockKind===2)field(stockFields,'Diâmetro interno (mm)',stock,'InnerDiameter',true);field(stockFields,stockKind===1&&axis===0?'Altura (mm)':'Comprimento (mm)',stock,'Height',true);}
       if(fixKind===1){for(const [l,k] of [['Comprimento da base (mm)','Width'],['Largura da base (mm)','Depth'],['Altura da base (mm)','Height'],['Abertura entre mordentes (mm)','JawOpening'],['Espessura dos mordentes (mm)','JawThickness'],['Rotação Z (graus)','Rotation']])field(fixFields,l,fixture,k,k!=='Rotation');}
       else if(fixKind===2){for(const [l,k] of [['Comprimento do apoio (mm)','Width'],['Largura do apoio (mm)','Depth'],['Altura do apoio (mm)','Height'],['Espessura do grampo (mm)','JawThickness'],['Rotação Z (graus)','Rotation']])field(fixFields,l,fixture,k,k!=='Rotation');}
       else if(fixKind===3){for(const [l,k] of [['Diâmetro do corpo (mm)','Width'],['Altura do corpo (mm)','Height'],['Abertura das castanhas (mm)','JawOpening'],['Largura da castanha (mm)','JawThickness'],['Rotação das castanhas (graus)','Rotation']])field(fixFields,l,fixture,k,k!=='Rotation');}
@@ -157,12 +163,15 @@ export function openSetup(json) {
       if(fixKind!==0&&!positive(fixture.Width,fixture.Height,fixture.JawThickness,...(fixKind===3?[]:[fixture.Depth]),...(fixKind===2?[]:[fixture.JawOpening]))){error.textContent='Confira as dimensões da fixação.';return;}
       const toolError = toolEditor.validate(); if(toolError){error.textContent=toolError;return;}
       stock.Kind=stockKind;
+      stock.Axis=stockKind===0?0:axis;
       if(![origin.X,origin.Y,origin.Z].every(Number.isFinite)){error.textContent='Confira a posição do bruto.';return;}
       // Alinha bruto e fixação em XY pelo centro informado; o topo do bruto fica em Z informado.
-      stock.X=stockKind===0?origin.X-stock.Width/2:origin.X;
-      stock.Y=stockKind===0?origin.Y-stock.Depth/2:origin.Y;
-      stock.Z=origin.Z-stock.Height;
-      if(fixKind!==0){fixture.Kind=fixKind-1;fixture.Depth=fixKind===3?fixture.Width:fixture.Depth;fixture.X=origin.X-fixture.Width/2;fixture.Y=origin.Y-fixture.Depth/2;fixture.Z=stock.Z-fixture.Height;data.Fixtures=[fixture];}else data.Fixtures=[];
+      const lyingSave=stockKind!==0&&axis!==0;
+      stock.X=stockKind===0?origin.X-stock.Width/2:(lyingSave&&(axis===1||axis===3)?origin.X-stock.Height/2:origin.X);
+      stock.Y=stockKind===0?origin.Y-stock.Depth/2:(lyingSave&&axis===2?origin.Y-stock.Height/2:origin.Y);
+      stock.Z=lyingSave?origin.Z:origin.Z-stock.Height;
+      const stockBottom=lyingSave?origin.Z-stock.Diameter/2:stock.Z;
+      if(fixKind!==0){fixture.Kind=fixKind-1;fixture.Depth=fixKind===3?fixture.Width:fixture.Depth;fixture.X=origin.X-fixture.Width/2;fixture.Y=origin.Y-fixture.Depth/2;fixture.Z=stockBottom-fixture.Height;data.Fixtures=[fixture];}else data.Fixtures=[];
       toolEditor.save();
       close(JSON.stringify(data));
     });

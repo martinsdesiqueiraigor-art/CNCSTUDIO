@@ -313,7 +313,9 @@ public partial class MainView
         ScenePalette palette = _technical ? ScenePalette.Technical : ScenePalette.Realistic;
         _scene = _material.Bar is { } bar
             ? SimulationScene.ForLathe(bar, analysis.ToolPath, _machiningSetup, palette)
-            : SimulationScene.ForMill(_material.Map!, analysis.ToolPath, _material.Profiles, _machiningSetup, palette);
+            : _material.Voxels is { } voxels
+                ? SimulationScene.ForVoxels(voxels, analysis.ToolPath, _material.Profiles, _machiningSetup, palette)
+                : SimulationScene.ForMill(_material.Map!, analysis.ToolPath, _material.Profiles, _machiningSetup, palette);
         _scene.QuarterSection = _quarterSection;
         _scene.TransparentMaterial = _transparent;
         ApplyToolVisibility();
@@ -432,7 +434,7 @@ public partial class MainView
         {
             IMaterialSimulation sim = _material.Simulation;
             _scene.Refresh();
-            _scene.SetTool(sim.CurrentTool, sim.ToolPosition);
+            _scene.SetTool(sim.CurrentTool, sim.ToolPosition, sim.CurrentMoveIndex);
             bool currentChanged = _scene.SetCurrentMove(sim.CurrentMoveIndex);
             if (currentChanged)
             {

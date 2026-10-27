@@ -1,6 +1,9 @@
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
+using CncStudio.Core.Dialects;
+using CncStudio.Core.Parsing;
 using CncStudio.Core.Scene;
+using CncStudio.Core.Trajectory;
 
 namespace CncStudio.Core.Tests;
 
@@ -36,5 +39,45 @@ public class RotaryPartFrameTests
         Assert.Equal(a.Z, b.Z, 6);
         // Distância ao eixo se conserva
         Assert.Equal(Math.Sqrt(7 * 7 + 28 * 28), Math.Sqrt(a.Y * a.Y + (a.Z + 25) * (a.Z + 25)), 6);
+    }
+
+    private static Point3 Apply(double[] m, Point3 p) => new(
+        (m[0] * p.X) + (m[4] * p.Y) + (m[8] * p.Z) + m[12],
+        (m[1] * p.X) + (m[5] * p.Y) + (m[9] * p.Z) + m[13],
+        (m[2] * p.X) + (m[6] * p.Y) + (m[10] * p.Z) + m[14]);
+
+    [Theory]
+    [InlineData(90, 0)]
+    [InlineData(0, 90)]
+    [InlineData(30, 45)]
+    [InlineData(-20, 70)]
+    public void MatrizDaMesaEOContrarioDeToPart(double a, double b)
+    {
+        var frame = new RotaryPartFrame(AY: 5, AZ: -25, AReversed: false, BX: 8, BZ: -25, BReversed: true);
+        var offset = new Point3(100, 50, 10);
+        var angles = new RotaryAngles(a, b, 0);
+        var part = new Point3(113, 61, -7);
+        Point3 machine = Apply(frame.ToMachineMatrix(offset, angles), part);
+        Point3 back = frame.ToPart(machine, offset, angles);
+        Assert.Equal(part.X, back.X, 6);
+        Assert.Equal(part.Y, back.Y, 6);
+        Assert.Equal(part.Z, back.Z, 6);
+    }
+
+    [Fact]
+    public void SemGiroAMatrizEIdentidade()
+    {
+        Assert.Equal(RotaryPartFrame.Identity(), Frame.ToMachineMatrix(Point3.Origin, default));
+    }
+
+    [Fact]
+    public void LimitesDoPercursoUsamAPecaParada()
+    {
+        // Corte a 25 acima do eixo com A90: na peça cai na lateral (|Y| = 25), não a 25 de altura em Z
+        const string text = "G21 G90 G54\nG00 A90.\nG00 X0 Y0 Z0\nG01 X20 F100";
+        ToolPath path = MachineExecutor.Execute(GCodeParser.Parse(text, Dialect.Fanuc), new MachineSettings { PartFrame = Frame });
+        Assert.Equal(25, Math.Abs(path.CuttingBounds.Min.Y), 6);
+        Assert.Equal(25, Math.Abs(path.CuttingBounds.Max.Y), 6);
+        Assert.Equal(-25, path.CuttingBounds.Max.Z, 6);
     }
 }

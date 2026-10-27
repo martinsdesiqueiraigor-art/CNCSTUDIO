@@ -42,7 +42,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
     private int _uMvp, _uModel, _uEyeX, _uEyeY, _uEyeZ, _uOpacity;
     private int _uBgTopR, _uBgTopG, _uBgTopB, _uBgBottomR, _uBgBottomG, _uBgBottomB;
     private unsafe delegate* unmanaged<int, int, void> _blendFunc; // o GlInterface do Avalonia não traz glBlendFunc
-    private int _uLineMvp, _uLineR, _uLineG, _uLineB, _uLineLift, _uLineOffX, _uLineOffY, _uLineOffZ;
+    private int _uLineModel, _uLineMvp, _uLineR, _uLineG, _uLineB, _uLineLift, _uLineOffX, _uLineOffY, _uLineOffZ;
     private bool _ready;
     private Point? _drag;
     private bool _panning;
@@ -122,6 +122,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
 
             _lineProgram = Link(gl, header, LineVertex, LineFragment);
             _uLineMvp = gl.GetUniformLocationString(_lineProgram, "uMvp");
+            _uLineModel = gl.GetUniformLocationString(_lineProgram, "uModel");
             _uLineR = gl.GetUniformLocationString(_lineProgram, "uR");
             _uLineG = gl.GetUniformLocationString(_lineProgram, "uG");
             _uLineB = gl.GetUniformLocationString(_lineProgram, "uB");
@@ -228,9 +229,17 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
                 model[i] = i % 5 == 0 ? 1 : 0;
             }
 
-            model[12] = (float)o.Offset.X;
-            model[13] = (float)o.Offset.Y;
-            model[14] = (float)o.Offset.Z;
+            if (SceneSnapshot.RotatesWithTable(o.Role))
+            {
+                for (int i = 0; i < 16; i++)
+                {
+                    model[i] = snapshot.PartMatrix[i];
+                }
+            }
+
+            model[12] += (float)o.Offset.X;
+            model[13] += (float)o.Offset.Y;
+            model[14] += (float)o.Offset.Z;
             gl.UniformMatrix4fv(_uModel, 1, false, model);
             gl.BindVertexArray(gpu.Vao);
             gl.DrawElements(Triangles, gpu.IndexCount, UnsignedInt, IntPtr.Zero);
@@ -265,6 +274,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
             gl.Uniform1f(_uLineOffX, (float)o.Offset.X);
             gl.Uniform1f(_uLineOffY, (float)o.Offset.Y);
             gl.Uniform1f(_uLineOffZ, (float)o.Offset.Z);
+            LineModel(gl, SceneSnapshot.RotatesWithTable(o.Role) ? snapshot.PartMatrix : SimulationScene.IdentityMatrix);
             gl.BindVertexArray(gpu.EdgeVao);
             gl.DrawArrays(Lines, 0, gpu.EdgeCount);
         }
@@ -272,6 +282,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         gl.Uniform1f(_uLineOffX, 0);
         gl.Uniform1f(_uLineOffY, 0);
         gl.Uniform1f(_uLineOffZ, 0);
+        LineModel(gl, SimulationScene.IdentityMatrix);
 
         // Trajetória; o rápido que encostou no material vai por último, por cima de tudo
         foreach (SceneLinesState lines in snapshot.Lines.OrderBy(l => l.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath))
@@ -288,6 +299,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
             }
 
             GpuLines gpu = UploadLines(gl, lines);
+            LineModel(gl, SceneSnapshot.RotatesWithTable(lines.Role) ? snapshot.PartMatrix : SimulationScene.IdentityMatrix);
             bool onTop = lines.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath;
             if (onTop)
             {
@@ -307,6 +319,15 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         }
 
         gl.BindVertexArray(0);
+    }
+
+    // Matriz do modelo do programa de linhas (gira a peça com a mesa; identidade para o resto)
+    private unsafe void LineModel(GlInterface gl, float[] matrix)
+    {
+        fixed (float* m = matrix)
+        {
+            gl.UniformMatrix4fv(_uLineModel, 1, false, m);
+        }
     }
 
     // Degradê vertical (cores do Core, um só lugar para o desktop e a web)
@@ -453,7 +474,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         void main() {
             vec4 world = uModel * vec4(aPos, 1.0);
             gl_Position = uMvp * world;
-            vNormal = aNormal;
+            vNormal = mat3(uModel) * aNormal;
             vColor = aColor;
             vWorld = world.xyz;
         }
@@ -510,8 +531,9 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         uniform float uOffX;
         uniform float uOffY;
         uniform float uOffZ;
+        uniform mat4 uModel;
         void main() {
-            gl_Position = uMvp * vec4(aPos + vec3(uOffX, uOffY, uOffZ), 1.0);
+            gl_Position = uMvp * (uModel * vec4(aPos + vec3(uOffX, uOffY, uOffZ), 1.0));
             gl_Position.z -= uLift * gl_Position.w; // um pouco à frente da superfície (não some no corte)
         }
         """;

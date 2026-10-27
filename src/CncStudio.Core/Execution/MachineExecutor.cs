@@ -117,7 +117,7 @@ public sealed partial class MachineExecutor
         FinishRun();
         PostProcess();
         _moves.TrimExcess();
-        return new ToolPath(_moves, _diagnostics, _messages, _dwells, _machine, _modals);
+        return new ToolPath(_moves, _diagnostics, _messages, _dwells, _machine, _modals, _settings.PartFrame);
     }
 
     internal Expressions.VariableStore Variables => _variables;
@@ -467,6 +467,7 @@ public sealed partial class MachineExecutor
         public int? WorkOffsetCode { get; set; }
         public double? Feed { get; set; }
         public double? Spindle { get; set; }         // S (rotação; no Siemens G4, rotações de espera)
+        public bool Rotary { get; set; }             // palavra A/B/C no bloco (fresa)
         public bool Dwell { get; set; }              // G04
         public bool CycleDwell { get; set; }         // G82: espera no fundo do furo
         public bool? FeedPerRevolution { get; set; } // G95/G99 (true) — G94/G98 (false)
@@ -560,10 +561,11 @@ public sealed partial class MachineExecutor
                     'B' => _rotary with { B = word.Value },
                     _ => _rotary with { C = word.Value },
                 };
+                w.Rotary = true;
                 if (!_rotaryWarned)
                 {
                     _rotaryWarned = true;
-                    Warning(line, word, $"Eixo rotativo {word.Letter}: o ângulo aparece no painel e no 3D, mas o corte do material com a peça girada não é simulado (simulação de 3 eixos).");
+                    Warning(line, word, $"Eixo rotativo {word.Letter}: o ângulo aparece no painel e no 3D, o corte do material com a peça girada é simulado em voxels (aproximado; não prova colisão).");
                 }
 
                 break;
@@ -738,6 +740,12 @@ public sealed partial class MachineExecutor
 
         if (!hasAxis && !(isArc && hasCenter))
         {
+            if (w.Rotary && !_lathe)
+            {
+                // Bloco só com eixo rotativo: a mesa gira parada. Vira um movimento de comprimento zero (um passo na simulação)
+                AddMove(new Move(_position, _position, isArc ? MotionMode.Linear : _motion, block.LineNumber, _feed, _activeTool));
+            }
+
             return;
         }
 
