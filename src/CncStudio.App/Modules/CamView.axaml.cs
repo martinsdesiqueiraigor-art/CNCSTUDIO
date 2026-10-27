@@ -139,15 +139,47 @@ public partial class CamView : UserControl
         };
         MillTab.Click += (_, _) => ShowMachine(lathe: false);
         LatheTab.Click += (_, _) => ShowMachine(lathe: true);
+        MachineTab.Click += (_, _) => ShowMachine(lathe: false, profile: true);
         RefreshPreview();
     }
 
-    private void ShowMachine(bool lathe)
+    private void ShowMachine(bool lathe, bool profile = false)
     {
-        MillTab.IsChecked = !lathe;
+        MillTab.IsChecked = !lathe && !profile;
         LatheTab.IsChecked = lathe;
-        MillPanel.IsVisible = !lathe;
+        MachineTab.IsChecked = profile;
+        MillPanel.IsVisible = !lathe && !profile;
         LathePanel.IsVisible = lathe;
+        MachinePanel.IsVisible = profile;
+        if (profile)
+        {
+            MachinePanel.Refresh();
+        }
+    }
+
+    /// <summary>Perfis de máquina 4/5 eixos guardados nas configurações.</summary>
+    public Func<List<MachineProfile>>? MachineProfilesSource
+    {
+        get => MachinePanel.ProfilesSource;
+        set => MachinePanel.ProfilesSource = value;
+    }
+
+    public Func<string>? ActiveMachineSource
+    {
+        get => MachinePanel.ActiveSource;
+        set => MachinePanel.ActiveSource = value;
+    }
+
+    public Action<string>? SetActiveMachine
+    {
+        get => MachinePanel.SetActive;
+        set => MachinePanel.SetActive = value;
+    }
+
+    public Action? SaveMachines
+    {
+        get => MachinePanel.Save;
+        set => MachinePanel.Save = value;
     }
 
     // ---------------------------------------------------------------- formulário

@@ -67,6 +67,10 @@ public partial class MainWindow
         };
         Cam.ToolsSource = () => _settings.Tools;
         Cam.SaveTools = () => _settings.Save();
+        Cam.MachineProfilesSource = () => _settings.MachineProfiles;
+        Cam.ActiveMachineSource = () => _settings.ActiveMachineProfile;
+        Cam.SetActiveMachine = name => _settings.ActiveMachineProfile = name;
+        Cam.SaveMachines = () => _settings.Save();
         Cam.PickDxf = async () =>
         {
             IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions

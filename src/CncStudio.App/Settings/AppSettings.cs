@@ -73,6 +73,12 @@ public sealed class AppSettings
 
     public List<ToolEntry> Tools { get; set; } = [];
 
+    /// <summary>Perfis de máquina 4/5 eixos do Casillas CAM (descritos pelo programador).</summary>
+    public List<CncStudio.Core.Cam.MachineProfile> MachineProfiles { get; set; } = [];
+
+    /// <summary>Nome do perfil de máquina em uso (vazio = nenhum).</summary>
+    public string ActiveMachineProfile { get; set; } = "";
+
     public List<WorkOffsetEntry> WorkOffsets { get; set; } =
         Enumerable.Range(54, 6).Select(code => new WorkOffsetEntry { Code = code }).ToList();
 
@@ -284,6 +290,9 @@ public sealed class AppSettings
     private void Normalize()
     {
         Tools ??= [];
+        MachineProfiles ??= [];
+        MachineProfiles.RemoveAll(p => p is null || p.Validate().Count > 0);
+        ActiveMachineProfile ??= "";
         Setups ??= [];
         Setups.RemoveAll(s => s is null);
         MigrateLegacyStocks();

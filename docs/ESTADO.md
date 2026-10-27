@@ -111,3 +111,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Fanuc: G71 tipo II (1º bloco do perfil com X e Z); Siemens: CYCLE95 (o simulador mergulha no rebaixo nos dois).
 - Com rebaixo o sobremetal em Z vai a zero (senão corta a parede do rebaixo a mais) e aparece aviso. Teste simula e confere que nada entra na peça.
 - Limites: sem checar ângulo de folga da pastilha; para canal retangular simples use "Canal" (6d).
+
+## CAM-02 · etapa 1 — perfil de máquina 4/5 eixos
+- Core: `MachineProfile` (comando, até 2 eixos rotativos A/B/C na mesa ou no cabeçote, limites, pivô, sentido, modo de saída calculado ou função da máquina), `Validate`/`Warnings`, `Describe`, modelos prontos e JSON (`MachineProfileJson`). 10 testes.
+- Desktop: aba "Perfil 4/5 eixos" no CAM (lista, novo a partir de modelo, duplicar, excluir, salvar, "usar este perfil"); perfis em `config.json` (`MachineProfiles`, `ActiveMachineProfile`).
+- Ainda **não gera programa**: só guarda a máquina. Próximo: 4º eixo no modo calculado (Fanuc 21i, sem G68.2/TCP, 5 eixos simultâneos). Plano: `CAM-02-4-e-5-eixos.md` no Projeto.
