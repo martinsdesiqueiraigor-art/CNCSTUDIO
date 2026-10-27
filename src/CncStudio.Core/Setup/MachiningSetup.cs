@@ -1,3 +1,4 @@
+using CncStudio.Core.Geometry;
 using System.Text.Json.Serialization;
 
 namespace CncStudio.Core.Setup;
@@ -104,12 +105,22 @@ public enum SetupStockKind
     Tube = 2,
 }
 
+/// <summary>Eixo do cilindro do bruto (redondo e tubo): em pé (Z) ou deitado ao longo de X ou Y.</summary>
+public enum SetupAxis
+{
+    Z = 0,
+    X = 1,
+    Y = 2,
+}
+
 /// <summary>
 /// Bruto. Posição em coordenadas do programa:
 /// <list type="bullet">
 /// <item>Prisma: (X, Y) é o canto de menor X e menor Y; tamanho Width × Depth.</item>
 /// <item>Redondo e tubo: (X, Y) é o centro; Diameter (e InnerDiameter no tubo).</item>
 /// <item>Z é o fundo do bruto; o topo fica em Z + Height (no torno, Height é o comprimento e o topo é a face).</item>
+/// <item>Cilindro deitado (<see cref="Axis"/> X ou Y, só na fresa): o campo do eixo é o começo do cilindro e Height o
+/// comprimento; os outros dois campos são o centro (ex.: eixo X → começa em X, centro em Y e Z).</item>
 /// </list>
 /// </summary>
 public sealed class SetupStock
@@ -125,8 +136,53 @@ public sealed class SetupStock
     public double InnerDiameter { get; set; } = 40;
     public string Material { get; set; } = "Aço";
 
+    /// <summary>Eixo do cilindro (redondo e tubo). Prisma e torno ignoram.</summary>
+    public SetupAxis Axis { get; set; } = SetupAxis.Z;
+
     [JsonIgnore]
     public double Top => Z + Height;
+
+    /// <summary>Cilindro deitado ao longo de X ou Y (só tem sentido na fresa).</summary>
+    [JsonIgnore]
+    public bool IsLying => IsRound && Axis != SetupAxis.Z;
+
+    /// <summary>Caixa que envolve o bruto em coordenadas do programa (considera o eixo do cilindro).</summary>
+    [JsonIgnore]
+    public Bounds3 Extent
+    {
+        get
+        {
+            double r = Diameter / 2;
+            (double, double, double, double, double, double) b = Axis switch
+            {
+                _ when !IsRound => (X, X + Width, Y, Y + Depth, Z, Top),
+                SetupAxis.X => (X, X + Height, Y - r, Y + r, Z - r, Z + r),
+                SetupAxis.Y => (X - r, X + r, Y, Y + Height, Z - r, Z + r),
+                _ => (X - r, X + r, Y - r, Y + r, Z, Top),
+            };
+            return Bounds3.Empty.Include(new Point3(b.Item1, b.Item3, b.Item5)).Include(new Point3(b.Item2, b.Item4, b.Item6));
+        }
+    }
+
+    /// <summary>Distância do ponto ao eixo do cilindro (só redondo e tubo).</summary>
+    public double RadialDistance(double x, double y, double z) => Axis switch
+    {
+        SetupAxis.X => Math.Sqrt(((y - Y) * (y - Y)) + ((z - Z) * (z - Z))),
+        SetupAxis.Y => Math.Sqrt(((x - X) * (x - X)) + ((z - Z) * (z - Z))),
+        _ => Math.Sqrt(((x - X) * (x - X)) + ((y - Y) * (y - Y))),
+    };
+
+    /// <summary>O ponto tem material no bruto? (cilindro maciço ou tubo; o prisma é a própria caixa)</summary>
+    public bool Contains(double x, double y, double z)
+    {
+        if (!IsRound)
+        {
+            return true;
+        }
+
+        double d = RadialDistance(x, y, z);
+        return d <= Diameter / 2 && (Kind != SetupStockKind.Tube || d >= InnerDiameter / 2);
+    }
 
     [JsonIgnore]
     public bool IsRound => Kind is SetupStockKind.Round or SetupStockKind.Tube;
@@ -139,9 +195,9 @@ public sealed class SetupStock
 
     public string? Validate()
     {
-        if (!Enum.IsDefined(Kind))
+        if (!Enum.IsDefined(Kind) || !Enum.IsDefined(Axis))
         {
-            return "Tipo de bruto desconhecido.";
+            return "Tipo ou eixo de bruto desconhecido.";
         }
 
         if (!SetupNumbers.Finite(X, Y, Z) || !SetupNumbers.Positive(Height))

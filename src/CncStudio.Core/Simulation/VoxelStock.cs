@@ -15,10 +15,10 @@ public sealed class VoxelStock
 
     private ulong[] _bits;
     private readonly int[] _tileVersion;
-    private readonly Func<double, double, bool>? _xyMask;
+    private readonly Func<double, double, double, bool>? _shape;
     private int _version;
 
-    public VoxelStock(Bounds3 bounds, double voxelSize, Func<double, double, bool>? xyMask = null)
+    public VoxelStock(Bounds3 bounds, double voxelSize, Func<double, double, double, bool>? shape = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(voxelSize, 0);
         VoxelSize = voxelSize;
@@ -28,7 +28,7 @@ public sealed class VoxelStock
         Nx = Math.Max(1, (int)Math.Ceiling((bounds.Max.X - bounds.Min.X) / voxelSize - 1e-9));
         Ny = Math.Max(1, (int)Math.Ceiling((bounds.Max.Y - bounds.Min.Y) / voxelSize - 1e-9));
         Nz = Math.Max(1, (int)Math.Ceiling((bounds.Max.Z - bounds.Min.Z) / voxelSize - 1e-9));
-        _xyMask = xyMask;
+        _shape = shape;
         TilesX = (Nx + TileSize - 1) / TileSize;
         TilesY = (Ny + TileSize - 1) / TileSize;
         TilesZ = (Nz + TileSize - 1) / TileSize;
@@ -100,7 +100,7 @@ public sealed class VoxelStock
             return false;
         }
 
-        return _xyMask is null || _xyMask(OriginX + ((x + 0.5) * VoxelSize), OriginY + ((y + 0.5) * VoxelSize));
+        return _shape is null || _shape(OriginX + ((x + 0.5) * VoxelSize), OriginY + ((y + 0.5) * VoxelSize), OriginZ + ((z + 0.5) * VoxelSize));
     }
 
     /// <summary>Quantos voxels têm material agora.</summary>

@@ -248,11 +248,11 @@ public partial class GraphicsPanel : UserControl
         {
             _turning = null;
             Func<int, ToolProfile> profileOf = ProfileOf ?? (tool => ToolProfile.Flat(diameterOf(tool)));
-            if (SimulationFactory.NeedsVoxels(_path))
+            if (SimulationFactory.UsesVoxels(_path, Setup))
             {
                 // Eixo rotativo com a peça girada: material em voxels (o corte vem de lado ou inclinado)
                 _map = null;
-                VoxelStock voxels = SimulationFactory.VoxelStockFor(Stock, _path, profileOf);
+                VoxelStock voxels = SimulationFactory.VoxelStockFor(Stock, _path, profileOf, Setup);
                 _simulation = new VoxelSimulator(voxels, _path, profileOf);
                 _scene = SimulationScene.ForVoxels(voxels, _path, profileOf, Setup);
                 _stockBounds = voxels.Bounds;

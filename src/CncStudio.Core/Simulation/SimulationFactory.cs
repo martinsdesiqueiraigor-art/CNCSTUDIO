@@ -61,14 +61,29 @@ public static class SimulationFactory
     public static bool NeedsVoxels(ToolPath path) =>
         path.Machine == MachineKind.Mill && path.PartFrame is not null && path.Modals.Any(m => m.Rotary.IsRotated);
 
+    /// <summary>Material em voxels: programa que gira a peça, ou bruto cilíndrico deitado do setup (a grade de alturas só vê de cima).</summary>
+    public static bool UsesVoxels(ToolPath path, MachiningSetup? setup) =>
+        path.Machine == MachineKind.Mill && (NeedsVoxels(path) || (setup?.Stock is { IsLying: true } lying && lying.Validate() is null));
+
+    /// <summary>Voxels no lado maior e no total: PC e celular (mesma regra de <see cref="CellsFor"/>).</summary>
+    public static (int PerSide, long Total) VoxelLimits(int maxCellsPerSide) =>
+        maxCellsPerSide >= DesktopCells ? (256, 12_000_000) : (96, 1_000_000);
+
     /// <summary>
-    /// Bruto em voxels, na peça parada: o bruto dado (bloco) ou uma caixa que envolve os cortes, com folga da
-    /// maior ferramenta. O tamanho do voxel sai de <see cref="VoxelStock.ChooseVoxelSize"/>.
+    /// Bruto em voxels, na peça parada: o do setup (bloco, ou cilindro/tubo no eixo escolhido), o bruto dado ou uma
+    /// caixa que envolve os cortes com folga da maior ferramenta. O voxel sai de <see cref="VoxelStock.ChooseVoxelSize"/>.
     /// </summary>
-    public static VoxelStock VoxelStockFor(Stock? stock, ToolPath path, Func<int, ToolProfile> profileOf)
+    public static VoxelStock VoxelStockFor(Stock? stock, ToolPath path, Func<int, ToolProfile> profileOf,
+        MachiningSetup? setup = null, int maxCellsPerSide = DesktopCells)
     {
         Bounds3 box;
-        if (stock is { Machine: MachineKind.Mill, IsValid: true })
+        Func<double, double, double, bool>? shape = null;
+        if (setup?.Stock is { IsRound: true } round && round.Validate() is null)
+        {
+            box = round.Extent;
+            shape = round.Contains;
+        }
+        else if (stock is { Machine: MachineKind.Mill, IsValid: true })
         {
             box = stock.Bounds;
         }
@@ -82,7 +97,8 @@ public static class SimulationFactory
                 : Bounds3.Empty.Include(cut.Min - new Point3(margin, margin, margin)).Include(cut.Max + new Point3(margin, margin, margin));
         }
 
-        return new VoxelStock(box, VoxelStock.ChooseVoxelSize(box));
+        (int perSide, long total) = VoxelLimits(maxCellsPerSide);
+        return new VoxelStock(box, VoxelStock.ChooseVoxelSize(box, perSide, total), shape);
     }
 
     /// <summary>Barra do torno: a do bruto dado ou uma automática pela trajetória.</summary>
@@ -104,6 +120,12 @@ public static class SimulationFactory
         }
 
         Func<int, ToolProfile> profiles = MillProfiles(setup, analysis.ToolDiameterOf);
+        if (UsesVoxels(path, setup))
+        {
+            VoxelStock voxels = VoxelStockFor(stock, path, profiles, setup, maxCellsPerSide);
+            return new MaterialSimulationParts(new VoxelSimulator(voxels, path, profiles), null, null, stock) { Profiles = profiles, Voxels = voxels };
+        }
+
         HeightMap map = MillStock(stock, path, profiles, maxCellsPerSide);
         if (setup?.Stock is { IsRound: true } round && stock is not null && round.ToStock(MachineKind.Mill) is not null
             && SetupBinding.EffectiveStock(setup, path.Machine, programText, path.CuttingBounds).Source == StockSource.Setup)
@@ -123,5 +145,8 @@ public static class SimulationFactory
 public sealed record MaterialSimulationParts(IMaterialSimulation Simulation, HeightMap? Map, TurningStock? Bar, Stock? Stock)
 {
     /// <summary>Perfil de cada ferramenta da fresa (para desenhar a ferramenta igual ao que corta).</summary>
+    /// <summary>Material em voxels (fresa com peça girada ou bruto cilíndrico deitado); quando preenchido, <c>Map</c> é null.</summary>
+    public VoxelStock? Voxels { get; init; }
+
     public Func<int, ToolProfile> Profiles { get; init; } = tool => ToolProfile.Flat(ProgramAnalysis.DefaultToolDiameter);
 }

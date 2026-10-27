@@ -157,3 +157,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Material em voxels (`VoxelStock`, `VoxelSimulator`, `VoxelMesh`; bits, blocos de 16³, faces expostas em fileiras) quando o programa gira a peça (`SimulationFactory.NeedsVoxels`): a ferramenta é levada para a peça parada e corta em qualquer direção (perfis topo reto/esférica/toroidal/cone). Voltar/avançar por pontos de retorno; rápidos não cortam (sem aviso de colisão).
 - Só no desktop. A web continua em 3 eixos (não corta nesses trechos; o aviso do analisador diz isso). Bruto: o do setup (bloco) ou caixa em volta dos cortes; cilindro redondo não é desenhado.
 - Resolução: até 256 voxels no lado maior e 12 milhões no total (voxel ≥ 0,05 mm). Conferido a olho no desktop (face girada e gravação enrolada).
+
+## Setup — eixo do bruto cilíndrico (X, Y ou Z)
+- `SetupStock.Axis` (Z padrão; arquivos antigos seguem iguais). Redondo e tubo, só na fresa. Eixo X/Y = cilindro deitado: o campo do eixo é o começo e `Height` o comprimento; os outros dois campos são o centro. `Extent` (caixa) e `Contains` (ponto no material, com furo do tubo) no Core; `ToStock` usa a caixa.
+- Cilindro deitado usa material em voxels (`SimulationFactory.UsesVoxels`) nas duas cascas; celular com voxel mais grosso (≤96 no lado, ≤1 milhão no total). Com isso a web também passa a cortar a face girada (aproximado), em vez de ignorá-la; **não conferido no celular**.
+- Formulário do setup (web): seletor "Eixo do cilindro"; com eixo X/Y a posição vira o centro da barra e a fixação fica abaixo do cilindro. O desktop lê o setup salvo (a caixa de bruto do desktop só edita bloco).
+- Não feito: castanhas/morsa acompanhando o eixo, vista 2D de frente para o eixo (proposta pendente).
