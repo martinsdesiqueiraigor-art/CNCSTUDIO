@@ -13,6 +13,12 @@ public readonly record struct ToolMove(MoveKind Kind, double X, double Y, double
 {
     public Point2 XY => new(X, Y);
 
+    /// <summary>Letra do eixo rotativo posicionado neste movimento ("A", "B" ou "C"); null = sem palavra rotativa.</summary>
+    public string? RotaryLetter { get; init; }
+
+    /// <summary>Ângulo (graus) da palavra rotativa, já com o sentido da máquina.</summary>
+    public double RotaryAngle { get; init; }
+
     public bool IsArc => Kind is MoveKind.ArcCw or MoveKind.ArcCcw;
 }
 

@@ -54,6 +54,7 @@ public static class CamPost
         private MoveKind? _modal;
         private double _feed = double.NaN;
         private double _x = double.NaN, _y = double.NaN, _z = double.NaN;
+        private readonly Dictionary<string, double> _rot = [];
 
         public override string ToString() => _sb.ToString();
 
@@ -237,6 +238,17 @@ public static class CamPost
             {
                 sb.Append('Z').Append(N(z)).Append(' ');
                 any = true;
+            }
+
+            if (m.RotaryLetter is { } letter)
+            {
+                double a = Math.Round(m.RotaryAngle, 3);
+                if (!_rot.TryGetValue(letter, out double cur) || Math.Abs(cur - a) > 1e-9)
+                {
+                    sb.Append(letter).Append(N(a)).Append(' ');
+                    _rot[letter] = a;
+                    any = true;
+                }
             }
 
             if (arc)
