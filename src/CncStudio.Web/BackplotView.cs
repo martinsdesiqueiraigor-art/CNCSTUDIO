@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Rendering;
+using CncStudio.Core.Scene;
 using CncStudio.Core.Setup;
 using CncStudio.Core.Trajectory;
 
@@ -22,6 +23,9 @@ public enum MillView
 
     /// <summary>Frente (plano XZ).</summary>
     Front,
+
+    /// <summary>De frente para o eixo rotativo: o bruto gira com A/B, a ferramenta fica parada (só em programa que gira a peça).</summary>
+    Axis,
 }
 
 /// <summary>
@@ -440,15 +444,25 @@ public sealed class BackplotView : Control
             return;
         }
 
+        if (_path is null || _path.Moves.Count == 0)
+        {
+            if (_fitPending)
+            {
+                FitNow(bounds.Size);
+            }
+
+            DrawText(context, "Sem trajetória para mostrar", new Point(12, 52));
+            return;
+        }
+
+        if (_millView == MillView.Axis && !_lathe && DrawEndView(context, bounds.Size))
+        {
+            return;
+        }
+
         if (_fitPending)
         {
             FitNow(bounds.Size);
-        }
-
-        if (_path is null || _path.Moves.Count == 0)
-        {
-            DrawText(context, "Sem trajetória para mostrar", new Point(12, 52));
-            return;
         }
 
         DrawAxes(context, bounds.Size);
@@ -505,6 +519,86 @@ public sealed class BackplotView : Control
         {
             DrawTool(context, executed);
         }
+    }
+
+    /// <summary>
+    /// Vista de frente para o eixo rotativo (<see cref="RotaryEndView"/>): bruto girando, ferramenta parada, percurso na superfície.
+    /// Retorna false quando o programa não gira a peça (aí vale a vista comum).
+    /// </summary>
+    private bool DrawEndView(DrawingContext context, Size size)
+    {
+        if (_path is null)
+        {
+            return false;
+        }
+
+        int executed = _visibleMoves ?? _path.Moves.Count;
+        double diameter = 10;
+        if (_path.Moves.Count > 0)
+        {
+            int moveIndex = Math.Clamp(Math.Max(0, executed - 1), 0, _path.Moves.Count - 1);
+            diameter = _machiningSetup?.ToolOf(_path.Moves[moveIndex].Tool)?.Diameter ?? 10;
+        }
+
+        RotaryEndView? view = RotaryEndView.Build(_path, _machiningSetup?.Stock, executed, _partialTip, diameter);
+        if (view is null)
+        {
+            return false;
+        }
+
+        double scale = Math.Min(size.Width, size.Height) / (2 * view.FitRadius * 1.25);
+        Point Screen((double U, double V) p) => new(
+            (size.Width / 2) + ((p.U - view.Center.U) * scale), (size.Height / 2) - ((p.V - view.Center.V) * scale));
+        Point ScreenUv(double u, double v) => Screen((u, v));
+
+        // Bruto (com furo, se for tubo) e a marca do topo da peça parada
+        var blue = Color.Parse("#58A6FF");
+        if (view.Outline.Count > 2)
+        {
+            StreamGeometry body = Polygon(view.Outline.Select(Screen).ToList());
+            context.DrawGeometry(new SolidColorBrush(blue, 0.12), new Pen(new SolidColorBrush(blue), 1.6), body);
+            if (view.Hole.Count > 2)
+            {
+                context.DrawGeometry(_palette.BackgroundBrush, new Pen(new SolidColorBrush(blue), 1.2), Polygon(view.Hole.Select(Screen).ToList()));
+            }
+        }
+
+        var markPen = new Pen(new SolidColorBrush(Color.Parse("#F0883E")), 2, lineCap: PenLineCap.Round);
+        context.DrawLine(markPen, ScreenUv(view.Mark.U1, view.Mark.V1), ScreenUv(view.Mark.U2, view.Mark.V2));
+        context.DrawEllipse(markPen.Brush, null, ScreenUv(view.Mark.U2, view.Mark.V2), 4, 4);
+        context.DrawEllipse(_palette.AxisBrush, null, Screen(view.Center), 3, 3);
+
+        // Percurso executado, girado com a peça (cortes acesos, rápidos fracos)
+        var cutPen = new Pen(_palette.Bright[1], 1.6, lineCap: PenLineCap.Round);
+        var rapidPen = new Pen(_palette.Dim[0], 1);
+        foreach (EndViewSegment s in view.Path)
+        {
+            context.DrawLine(s.Rapid ? rapidPen : cutPen, ScreenUv(s.U1, s.V1), ScreenUv(s.U2, s.V2));
+        }
+
+        // Ferramenta parada: ponta e corpo para cima
+        Point tip = Screen(view.Tool);
+        double half = Math.Max(2, view.ToolDiameter * scale / 2);
+        var toolBody = new Rect(tip.X - half, tip.Y - Math.Min(size.Height, 30 * scale + 20), half * 2, Math.Min(size.Height, 30 * scale + 20));
+        context.DrawRectangle(new SolidColorBrush(Color.Parse("#C7E8FF"), 0.55), new Pen(new SolidColorBrush(Color.Parse("#C7E8FF")), 1.2), toolBody);
+        context.DrawEllipse(_palette.ToolBrush, new Pen(_palette.BackgroundBrush, 1.5), tip, 3.5, 3.5);
+
+        DrawText(context, $"{view.AxisLetter} {view.Angle:0.0}° · de frente para o eixo", new Point(12, 52));
+        return true;
+    }
+
+    private static StreamGeometry Polygon(IReadOnlyList<Point> points)
+    {
+        var geometry = new StreamGeometry();
+        using StreamGeometryContext g = geometry.Open();
+        g.BeginFigure(points[0], true);
+        for (int i = 1; i < points.Count; i++)
+        {
+            g.LineTo(points[i]);
+        }
+
+        g.EndFigure(true);
+        return geometry;
     }
 
     private void DrawMachiningSetup(DrawingContext context, double px)

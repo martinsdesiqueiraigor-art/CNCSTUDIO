@@ -150,7 +150,26 @@ public partial class MainView
     /// </summary>
     private void UpdateBackplotView()
     {
-        Backplot.MillView = _mode == PlotMode.TwoDPlus3D && _millViewChoice == MillView.Iso ? MillView.Top : _millViewChoice;
+        MillView view = _mode == PlotMode.TwoDPlus3D && _millViewChoice == MillView.Iso ? MillView.Top : _millViewChoice;
+        Backplot.MillView = view == MillView.Axis && !HasRotatedPart ? MillView.Top : view;
+    }
+
+    /// <summary>O programa atual gira a peça (A/B ≠ 0 com perfil de máquina): vale a vista de frente para o eixo.</summary>
+    private bool HasRotatedPart => _analysis?.ToolPath is { } p && p.PartFrame is not null && p.Modals.Any(m => m.Rotary.IsRotated);
+
+    /// <summary>Mostra o botão da vista de frente para o eixo só quando o programa gira a peça; sem giro, volta à vista de cima.</summary>
+    private void UpdateAxisViewButton()
+    {
+        bool rotated = HasRotatedPart;
+        AxisViewButton.IsVisible = rotated;
+        if (!rotated && _millViewChoice == MillView.Axis)
+        {
+            SetMillView(MillView.Top);
+        }
+        else
+        {
+            UpdateBackplotView();
+        }
     }
 
     /// <summary>Área do gráfico com espaço para 2D e 3D lado a lado (PC).</summary>
