@@ -282,3 +282,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - STEP só no desktop: motor OpenCASCADE (LGPL 2.1 + exceção OCCT, uso proprietário permitido com aviso; confirmar com profissional). Candidato: pacote OcctNet.Wrapper (MIT, 0.1.1, net10), só no `CncStudio.App`; o Core continua sem NuGet e recebe a malha (`TriangleMesh`) e a lista de faces/arestas. O STL continua, sem novos investimentos.
 - Teste de viabilidade do STEP precisa de um STEP real de peça do Igor. Depois do CAM vem o Assist.
 - PR #85 (tema claro em Comparar/Estatísticas) aguarda conferir no celular e o OK do merge.
+
+## CAM 3D — estudo do STEP (28/10, só estudo; nenhum código do produto)
+- Teste em pasta separada do pacote `OcctNet.Wrapper` 0.1.1 (MIT; OpenCASCADE 7.9, LGPL + exceção): importa e exporta STEP, triangula, erros viram `OcctException`. Não expõe faces, arestas, tipos de superfície, unidades nem volume.
+- Achado: a triangulação tem a **área certa, mas a ordem dos vértices invertida nas faces reversas** (parede de furo): o volume da malha sai errado (122 094 em vez de 113 717 numa placa furada). Solução prevista no Core: orientar a malha (juntar vértices, propagar pelas arestas, sinal global pelo volume).
+- Pacote pesa 673 MB (win-x64 78 MB de nativos); seleção de faces e arestas (etapa 4) não cabe nele. Falta: STEP real do Igor (unidades, NURBS, montagens), teste no Windows, medir o instalador, conferir a licença LGPL com profissional.
+- Detalhe e decisões pedidas: `avaliacao-occt-step.md` no Projeto do claude.ai (repositório privado).
