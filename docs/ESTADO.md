@@ -175,3 +175,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `RotaryIndexing.Place` passa a aceitar furação em ciclo fixo (G81/G82/G83/G73; CYCLE81/82/83 no Siemens): desloca pontos e níveis Z para a face girada e o pós gira o eixo (`DrillCycle.RotaryLetter/RotaryAngle`) na altura segura, acima do cilindro, antes de descer ao primeiro furo. O ciclo fica como está: o furo sai radial porque a face gira para cima.
 - Desktop: já vale na tela do CAM (caixa "face girada" com a operação de furação). Web: o CAM web ainda não tem furação.
 - Limites: o eixo não volta a zero ao fim (como nas outras operações da face girada); confira sentido do giro e rode no ar; Siemens com rotativo e ciclo não confirmado em controle.
+
+## CAM-03 · J1 — modelo do Job no Core (ajuste-cam-job-modelo)
+- `Core/Cam/CamJob.cs`: `CamJob` (nome, comando, nº do programa, zero, bruto, contornos, lista de `CamOperationSpec` com os **parâmetros** de contorno, bolsão, faceamento, furação, texto no cilindro e face girada; ligar/desligar, mover, duplicar) e `CamJobBuilder` (gera percurso e programa com o mesmo código do CAM; erro por operação).
+- `Core/Cam/CamJobJson.cs`: salvar/abrir em JSON versionado (`casillas-job`, versão 1), sem reflexão (serve ao WebAssembly); recusa arquivo estranho, versão mais nova e índice inválido.
+- Teste-chave: o Job gera o mesmo programa que o fluxo direto (Fanuc e Siemens). 15 testes novos; total 947. **Só Core**: a tela ainda não usa o Job (J2 em diante). Plano: `CAM-03-tela-de-trabalho-job.md` no Projeto.
