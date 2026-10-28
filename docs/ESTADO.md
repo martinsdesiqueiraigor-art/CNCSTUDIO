@@ -220,3 +220,7 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Core `Assist/Quote.cs`: `QuoteInput`, `QuoteCalculator`, `QuoteResult`. Ciclo = (tempo simulado + trocas × s) × (1 + folga) + carga/descarga. Custo = máquina + preparo÷lote + material + ferramenta; preço = custo × (1 + margem) ÷ (1 − impostos). 9 testes novos (983).
 - Aba **Orçamento** no Assist: usa o programa aberto no Code (`CurrentAnalysis`); valores em R$ ficam só em `AppSettings.Quote` (neste computador, nunca no repositório); botão "Copiar proposta" (texto marcado como estimativa, sem prazo).
 - Conferido no Xvfb com o exemplo (4min25s → ciclo 5min22s, cálculo bate à mão). Teste rápido das bibliotecas some na aba Orçamento. Sem PDF ainda.
+
+## ASSIST · proposta em arquivo (fase-assist-proposta)
+- `QuoteResult.ToHtml`: proposta de uma página (peça, quantidade, valor por peça e total), sem custos internos nem margem; cabeçalho com nome/contato do usuário. Texto escapado. 1 teste novo (984).
+- Aba Orçamento: campo "seu nome e contato" (salvo em `AppSettings.Quote.Company`) e botão "Salvar proposta (HTML)…"; para PDF, abrir no navegador e Imprimir › Salvar como PDF. Seletor de arquivo não testado no Xvfb.

@@ -106,6 +106,25 @@ public partial class MainWindow
                 await clipboard.SetTextAsync(text);
             }
         };
+        Assist.SaveProposal = async (suggested, text) =>
+        {
+            IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Salvar proposta",
+                SuggestedFileName = suggested,
+                DefaultExtension = "html",
+                FileTypeChoices = [new FilePickerFileType("Página HTML") { Patterns = ["*.html"] }],
+            });
+            if (file is null)
+            {
+                return;
+            }
+
+            await using Stream stream = await file.OpenWriteAsync();
+            stream.SetLength(0);
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(text);
+        };
         Assist.LibrarySource = () => _settings.AssistLibraryJson;
         Assist.SaveLibrary = json =>
         {
