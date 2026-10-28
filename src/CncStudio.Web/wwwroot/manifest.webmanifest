@@ -1,7 +1,7 @@
 {
   "name": "Casillas Code — editor e simulador CNC",
   "short_name": "Casillas Code",
-  "description": "Editor e simulador de programas CNC (Fanuc e Siemens) — torno e fresa.",
+  "description": "Editor, simulador 3D e CAM para programas CNC Fanuc e Siemens, torno e fresa. Roda no seu aparelho.",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",
