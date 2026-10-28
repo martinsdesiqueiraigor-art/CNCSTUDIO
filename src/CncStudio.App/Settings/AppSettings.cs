@@ -73,6 +73,9 @@ public sealed class AppSettings
 
     public List<ToolEntry> Tools { get; set; } = [];
 
+    /// <summary>Biblioteca do Casillas Assist (JSON versionado); vazio = itens iniciais.</summary>
+    public string AssistLibraryJson { get; set; } = "";
+
     /// <summary>Perfis de máquina 4/5 eixos do Casillas CAM (descritos pelo programador).</summary>
     public List<CncStudio.Core.Cam.MachineProfile> MachineProfiles { get; set; } = [];
 

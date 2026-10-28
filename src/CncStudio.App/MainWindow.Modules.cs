@@ -96,6 +96,48 @@ public partial class MainWindow
             using var reader = new StreamReader(stream);
             return (files[0].Name, await reader.ReadToEndAsync());
         };
+        Assist.LibrarySource = () => _settings.AssistLibraryJson;
+        Assist.SaveLibrary = json =>
+        {
+            _settings.AssistLibraryJson = json;
+            _settings.Save();
+        };
+        Assist.PickFile = async () =>
+        {
+            IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Abrir biblioteca do Assist",
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Biblioteca Casillas Assist") { Patterns = ["*.casillas-assist", "*.json"] }],
+            });
+            if (files.Count == 0)
+            {
+                return null;
+            }
+
+            await using Stream stream = await files[0].OpenReadAsync();
+            using var reader = new StreamReader(stream);
+            return (files[0].Name, await reader.ReadToEndAsync());
+        };
+        Assist.SaveFile = async (suggested, text) =>
+        {
+            IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Salvar biblioteca do Assist",
+                SuggestedFileName = suggested,
+                DefaultExtension = "casillas-assist",
+                FileTypeChoices = [new FilePickerFileType("Biblioteca Casillas Assist") { Patterns = ["*.casillas-assist"] }],
+            });
+            if (file is null)
+            {
+                return;
+            }
+
+            await using Stream stream = await file.OpenWriteAsync();
+            stream.SetLength(0);
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(text);
+        };
         Cam.PickJob = async () =>
         {
             IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
@@ -223,6 +265,12 @@ public partial class MainWindow
         Optimizer.IsVisible = id == "otimizador";
         Macro.IsVisible = id == "macro";
         Cam.IsVisible = id == "cam";
+        Assist.IsVisible = id == "assist";
+        if (id == "assist")
+        {
+            Assist.Reload();
+        }
+
         if (id == "cam")
         {
             Cam.RefreshBank();
