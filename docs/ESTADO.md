@@ -257,3 +257,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 
 ## Ajuste — botão Calcular (Assist)
 - O botão laranja ficava cinza ao clicar/passar o mouse (o tema trocava o fundo). Agora os estados do tema usam a cor de destaque. Só interface; não conferido visualmente.
+
+## CAM 3D — parte 1: importar STL e ver (`fase-cam3d-stl`)
+- Core `Cam3D/`: `StlReader` (binário e texto, descarta triângulo inválido, erros em português) e `TriangleMesh` (tamanho, área, volume, malha fechada?, escala, topo em Z0, malha para o 3D). 7 testes.
+- Desktop: aba **CAM › Modelo 3D (STL)**: abrir STL, escolher unidade (mm, pol, cm, m), ver no 3D e conferir medidas e malha.
+- Ainda sem percurso 3D (varredura e desbaste vêm depois). Não conferido visualmente nem com STL real: testar no .exe da Prévia com uma peça sua.

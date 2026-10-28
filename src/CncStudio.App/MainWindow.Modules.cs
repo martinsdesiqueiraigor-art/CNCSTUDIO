@@ -81,6 +81,24 @@ public partial class MainWindow
             _settings.Save();
             StartAnalysis();
         };
+        Cam.PickStl = async () =>
+        {
+            IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Abrir modelo STL",
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Modelo STL") { Patterns = ["*.stl", "*.STL"] }],
+            });
+            if (files.Count == 0)
+            {
+                return null;
+            }
+
+            await using Stream stream = await files[0].OpenReadAsync();
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            return (files[0].Name, memory.ToArray());
+        };
         Cam.PickDxf = async () =>
         {
             IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
