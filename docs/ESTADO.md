@@ -220,3 +220,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Core `Assist/Quote.cs`: `QuoteInput`, `QuoteCalculator`, `QuoteResult`. Ciclo = (tempo simulado + trocas × s) × (1 + folga) + carga/descarga. Custo = máquina + preparo÷lote + material + ferramenta; preço = custo × (1 + margem) ÷ (1 − impostos). 9 testes novos (983).
 - Aba **Orçamento** no Assist: usa o programa aberto no Code (`CurrentAnalysis`); valores em R$ ficam só em `AppSettings.Quote` (neste computador, nunca no repositório); botão "Copiar proposta" (texto marcado como estimativa, sem prazo).
 - Conferido no Xvfb com o exemplo (4min25s → ciclo 5min22s, cálculo bate à mão). Teste rápido das bibliotecas some na aba Orçamento. Sem PDF ainda.
+
+## Trava de licença do CAM web (ajuste-cam-web-licenca)
+- `platform-ui.js`: `cam` entra em `GATED`, mas como `SOFT`: só trava depois que o servidor passar a listar o módulo `cam` (`moduleKnown` em `account.js`). Hoje o produto `cam` está inativo no servidor ("em breve"), então o CAM web continua abrindo livre, sem pedir conta.
+- Para ligar a venda: o Igor ativa o produto `cam` no Supabase (não mexi). Aí o CAM passa a exigir teste ativo ou licença, com "Comprar licença", como Macro e Otimizador.
+- Não testado em navegador real (só JS; conferir na Prévia).
