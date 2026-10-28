@@ -262,3 +262,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Core `Cam3D/`: `StlReader` (binário e texto, descarta triângulo inválido, erros em português) e `TriangleMesh` (tamanho, área, volume, malha fechada?, escala, topo em Z0, malha para o 3D). 7 testes.
 - Desktop: aba **CAM › Modelo 3D (STL)**: abrir STL, escolher unidade (mm, pol, cm, m), ver no 3D e conferir medidas e malha.
 - Ainda sem percurso 3D (varredura e desbaste vêm depois). Não conferido visualmente nem com STL real: testar no .exe da Prévia com uma peça sua.
+
+## CAM 3D — parte 2: varredura de acabamento (`fase-cam3d-varredura`)
+- Core `Cam3D/DropCutter` (altura da ponta de fresa esférica sobre o STL: faces, arestas e vértices, com grade) e `SurfaceFinish.Raster` (linhas ao longo de X em zigue-zague, só onde há modelo, simplificação por tolerância, sobe à aproximação entre trechos). 6 testes, inclusive "nunca abaixo do modelo" e programa Fanuc/Siemens que roda no analisador.
+- Desktop: na aba **Modelo 3D**, campos da bola, passo, tolerância, dialeto, **Gerar varredura** e **Abrir no editor**.
+- Limites: só o corpo esférico é conferido (haste não); passo lateral só em X; sem desbaste; programa único (ainda não entra no Trabalho). Não testado com STL real nem na máquina: simular no Code e primeira execução no ar.
