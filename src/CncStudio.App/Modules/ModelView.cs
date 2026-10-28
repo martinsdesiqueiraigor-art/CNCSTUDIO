@@ -13,7 +13,7 @@ namespace CncStudio.App.Modules;
 
 /// <summary>
 /// CAM 3D, parte 1: abre um modelo STL, confere medidas e malha e mostra no 3D (a mesma vista
-/// da simulação). Ainda não gera percurso: é a base para a varredura e o desbaste 3D.
+/// da simulação). Gera varredura de acabamento e desbaste por níveis.
 /// </summary>
 public sealed class ModelView : Grid
 {
@@ -41,6 +41,7 @@ public sealed class ModelView : Grid
     private readonly Button _openEditor = new() { Content = "Abrir no editor (simular no Code)", Padding = new Thickness(12, 6), IsEnabled = false };
     private TriangleMesh? _current;
     private string _program = "";
+    private string _programSuffix = "-varredura";
     private TriangleMesh? _raw;
     private string _fileName = "";
 
@@ -68,7 +69,7 @@ public sealed class ModelView : Grid
         panel.Children.Add(new TextBlock { Text = "Modelo 3D (STL)", FontSize = 20, FontWeight = FontWeight.Bold });
         panel.Children.Add(new TextBlock
         {
-            Text = "Primeiro passo do CAM 3D: abrir o modelo, conferir medidas e malha. O percurso 3D (varredura e desbaste) vem nas próximas etapas.",
+            Text = "CAM 3D: abrir o modelo, conferir medidas e malha, gerar desbaste por níveis e varredura de acabamento.",
             Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12,
         });
         panel.Children.Add(open);
@@ -98,7 +99,21 @@ public sealed class ModelView : Grid
         Button generate = new() { Content = "Gerar varredura", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold };
         generate.Click += async (_, _) => await Generate();
         panel.Children.Add(generate);
-        _openEditor.Click += (_, _) => OpenInEditor?.Invoke(_program, Path.GetFileNameWithoutExtension(_fileName) + "-varredura.nc");
+
+        panel.Children.Add(new TextBlock { Text = "Desbaste por níveis (fresa esférica)", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Usa a ferramenta, o fundo e o comando acima. Planos de Z constante, linhas em X em zigue-zague, só onde sobra material; deixa sobra para o acabamento. Bruto = prisma do tamanho do modelo. Confere só a esfera; simule e rode no ar.",
+            Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12,
+        });
+        AddField(panel, "RZ", "Passo em Z (mm)", "2");
+        AddField(panel, "RSTEP", "Passo lateral do desbaste (mm)", "3");
+        AddField(panel, "RAX", "Sobra axial, no fundo (mm)", "0,3");
+        AddField(panel, "RRAD", "Sobra radial, nas paredes (mm)", "0,3");
+        Button rough = new() { Content = "Gerar desbaste", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold };
+        rough.Click += async (_, _) => await GenerateRough();
+        panel.Children.Add(rough);
+        _openEditor.Click += (_, _) => OpenInEditor?.Invoke(_program, Path.GetFileNameWithoutExtension(_fileName) + _programSuffix + ".nc");
         panel.Children.Add(_openEditor);
         panel.Children.Add(_result);
 
@@ -174,11 +189,56 @@ public sealed class ModelView : Grid
         }
 
         _program = program;
+        _programSuffix = "-varredura";
         _openEditor.IsEnabled = true;
         int lines = program.Count(c => c == '\n');
         _result.Text = $"Programa gerado: {lines:N0} linhas, {result.Operation!.Moves.Count:N0} movimentos.\n" +
             string.Join("\n", result.Operation.Warnings.Select(w => "• " + w)) +
             "\n• Altura segura = topo + 25 mm; aproximação = topo + 5 mm (Z0 = topo do modelo).";
+    }
+
+    private async Task GenerateRough()
+    {
+        _openEditor.IsEnabled = false;
+        if (_current is not { } model)
+        {
+            _result.Text = "• Abra um STL primeiro.";
+            return;
+        }
+
+        double[] v = new[] { "D", "S", "FXY", "FZ", "TN", "RZ", "RSTEP", "RAX", "RRAD" }.Select(Num).ToArray();
+        if (v.Any(double.IsNaN))
+        {
+            _result.Text = "• Preencha todos os números da ferramenta e do desbaste.";
+            return;
+        }
+
+        double top = model.Bounds.Max.Z;
+        double bottom = double.IsNaN(Num("BOT")) ? model.Bounds.Min.Z : Num("BOT");
+        var tool = new CamTool((int)v[4], v[0], v[1], v[2], v[3], "Bola D" + v[0].ToString("0.##", Pt));
+        var levels = new CamLevels(top + 25, top + 5, top, Math.Min(bottom, top - 0.01), v[5]);
+        var rp = new RoughParams(v[6], v[7], v[8]);
+        CamDialect dialect = _dialect.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
+        string name = Path.GetFileNameWithoutExtension(_fileName).ToUpperInvariant();
+        _result.Text = "Calculando…";
+        (OperationResult result, string program) = await Task.Run(() =>
+        {
+            OperationResult r = SurfaceRoughing.ByLevels(model, tool, levels, rp);
+            return (r, r.Ok ? CamPost.Generate([r.Operation!], new PostOptions(dialect, ProgramName: name.Length > 0 ? name : "DESBASTE 3D")) : "");
+        });
+        if (!result.Ok)
+        {
+            _result.Text = "• " + result.Error;
+            return;
+        }
+
+        _program = program;
+        _programSuffix = "-desbaste";
+        _openEditor.IsEnabled = true;
+        int lines = program.Count(c => c == '\n');
+        _result.Text = $"Desbaste gerado: {lines:N0} linhas, {result.Operation!.Moves.Count:N0} movimentos.\n" +
+            string.Join("\n", result.Operation.Warnings.Select(w => "• " + w)) +
+            "\n• Altura segura = topo + 25 mm; aproximação = topo + 5 mm (Z0 = topo do modelo). Depois do desbaste, rode a varredura de acabamento com a mesma ferramenta ou uma menor.";
     }
 
     private async Task Open()
