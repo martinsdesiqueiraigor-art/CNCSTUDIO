@@ -6,9 +6,24 @@ Editor e simulador de programas CNC (FANUC e Siemens, fresa e torno), com simula
 Faz parte da plataforma **Casillas CNC** (Code, Macro, Academy, Biblioteca CNC, Ferramentas e CAM).
 O nome interno do código continua `CncStudio` (pastas, namespaces e solução).
 
-> **Status (18/10/2026):** Fase 1 (simulação 3D) na `main` e publicada. Próxima tarefa: interface enxuta (`docs/tarefas/CODE-06-interface-enxuta.md`).
+> **Status (28/10/2026):** simulação 3D, Macro (geradores), Otimizador e Academy (módulo 1) na `main`; no desktop também o **CAM** (fresa, torno, 4º eixo, Trabalho), o **Casillas Assist** e o início do **CAM 3D** (STL e varredura). 1013 testes. **Nada do CAM foi testado em máquina real**: simule e rode a primeira vez no ar.
 > Onde paramos: [docs/ESTADO.md](docs/ESTADO.md). Guia para agentes: [CLAUDE.md](CLAUDE.md) e [AGENTS.md](AGENTS.md).
 > Plano e missões da plataforma ficam no repositório privado `casillas-plataforma`. Planos antigos: [docs/historico/](docs/historico/).
+
+## O que a plataforma tem hoje
+
+| Módulo | Onde | Situação |
+|---|---|---|
+| **Code** (editor e simulação 3D) | Web, celular e PC | Pronto |
+| **Macro** (geradores de programa com prévia 3D, texto em gravação) | Web | Pronto; tela no desktop falta |
+| **Otimizador** (laços Macro B só para simulador, com conferência) | Web | Pronto; desktop falta |
+| **Academy** (aulas, exercícios, quizzes) | Web | Módulo 1; os demais a escrever |
+| **CAM** | PC (Windows) | Fresa 2,5D e torno (rosca, canal, rebaixo), pós Fanuc e Siemens, banco de ferramentas, 4º eixo (face girada, texto no cilindro), tela **Trabalho** em árvore |
+| **Casillas Assist** | PC | Bibliotecas (materiais, morsas, castanhas), orçamento com proposta, plano automático a partir do DXF |
+| **CAM 3D** | PC | Abre STL e faz **varredura de acabamento** com fresa esférica; desbaste e STEP ainda não |
+| **Ferramentas** (calculadoras) | Repositório `Casillas_app_2` | App à parte |
+
+Limites que valem para o CAM: a simulação é de 3 eixos (grade de alturas; voxels na face girada) e **não promete colisão evitada**; o arquivo do SolidWorks (`.sldprt`) não é lido (exporte **STL**).
 
 ## Testar uma versão em andamento (prévia)
 
@@ -118,6 +133,9 @@ src/CncStudio.Core/          Lógica pura, sem UI e sem pacotes NuGet
   Simulation/                Remoção de material (fresa e torno) e fábrica da simulação
   Scene/                     O que o 3D desenha (malhas, câmera, cores), igual na web e no PC
   Setup/ Statistics/ Reports/ Editing/  Setup, estatísticas, relatórios e funções NC
+  Cam/                       CAM: geometria 2D, DXF, operações de fresa e torno, pós, Job, 4º eixo
+  Cam3D/                     CAM 3D: leitor de STL, malha, drop cutter e varredura de acabamento
+  Assist/                    Bibliotecas, orçamento e plano automático
 src/CncStudio.App/           Desktop Avalonia (editor, gráfico, 3D por OpenGL em Graphics/)
 src/CncStudio.Web/           Web e celular (WebAssembly; 3D por three.js em wwwroot/scene3d.js)
 tests/CncStudio.Core.Tests/  Testes xUnit do Core

@@ -484,3 +484,15 @@ installer-output/
 
 # Prints locais de teste (nunca sobem)
 screenshots/
+
+# Segredos e variantes do .env (o repositório é público)
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+secrets*.json
+service-account*.json
+
+# Pastas locais de prévia e teste (nunca sobem)
+preview/
