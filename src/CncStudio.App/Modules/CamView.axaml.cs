@@ -44,6 +44,7 @@ public partial class CamView : UserControl
             _pickDxf = value;
             LathePanel.PickDxf = value;
             JobPanel.PickDxf = value;
+            LatheJobPanel.PickDxf = value;
         }
     }
 
@@ -58,6 +59,7 @@ public partial class CamView : UserControl
             _openInEditor = value;
             LathePanel.OpenInEditor = value;
             JobPanel.OpenInEditor = value;
+            LatheJobPanel.OpenInEditor = value;
         }
     }
 
@@ -71,6 +73,7 @@ public partial class CamView : UserControl
             _copyText = value;
             LathePanel.CopyText = value;
             JobPanel.CopyText = value;
+            LatheJobPanel.CopyText = value;
         }
     }
 
@@ -108,14 +111,22 @@ public partial class CamView : UserControl
     public Func<Task<(string Name, string Text)?>>? PickJob
     {
         get => JobPanel.PickJob;
-        set => JobPanel.PickJob = value;
+        set
+        {
+            JobPanel.PickJob = value;
+            LatheJobPanel.PickJob = value;
+        }
     }
 
     /// <summary>Salva o trabalho num arquivo escolhido (nome sugerido, texto).</summary>
     public Func<string, string, Task>? SaveJobFile
     {
         get => JobPanel.SaveJobFile;
-        set => JobPanel.SaveJobFile = value;
+        set
+        {
+            JobPanel.SaveJobFile = value;
+            LatheJobPanel.SaveJobFile = value;
+        }
     }
 
     public CamView()
@@ -183,20 +194,23 @@ public partial class CamView : UserControl
         LatheTab.Click += (_, _) => ShowMachine(lathe: true);
         MachineTab.Click += (_, _) => ShowMachine(lathe: false, profile: true);
         JobTab.Click += (_, _) => ShowMachine(lathe: false, job: true);
+        LatheJobTab.Click += (_, _) => ShowMachine(lathe: false, latheJob: true);
         JobPanel.MachineSource = () => MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
         RefreshPreview();
     }
 
-    private void ShowMachine(bool lathe, bool profile = false, bool job = false)
+    private void ShowMachine(bool lathe, bool profile = false, bool job = false, bool latheJob = false)
     {
-        MillTab.IsChecked = !lathe && !profile && !job;
+        MillTab.IsChecked = !lathe && !profile && !job && !latheJob;
         LatheTab.IsChecked = lathe;
         MachineTab.IsChecked = profile;
         JobTab.IsChecked = job;
-        MillPanel.IsVisible = !lathe && !profile && !job;
+        LatheJobTab.IsChecked = latheJob;
+        MillPanel.IsVisible = !lathe && !profile && !job && !latheJob;
         LathePanel.IsVisible = lathe;
         MachinePanel.IsVisible = profile;
         JobPanel.IsVisible = job;
+        LatheJobPanel.IsVisible = latheJob;
         if (profile)
         {
             MachinePanel.Refresh();

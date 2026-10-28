@@ -17,7 +17,7 @@ public static class CamJobJson
 {
     private const string Format = "casillas-job";
 
-    private sealed class FormatException(string message) : Exception(message);
+    internal sealed class FormatException(string message) : Exception(message);
 
     public static string ToJson(CamJob job)
     {
@@ -39,20 +39,7 @@ public static class CamJobJson
         var contours = new JsonArray();
         foreach (Contour c in job.Contours)
         {
-            var segs = new JsonArray();
-            foreach (Segment2 s in c.Segments)
-            {
-                var a = new JsonArray(s.Start.X, s.Start.Y, s.End.X, s.End.Y);
-                if (s.IsArc)
-                {
-                    a.Add(JsonValue.Create(s.Center.X));
-                    a.Add(JsonValue.Create(s.Center.Y));
-                    a.Add(JsonValue.Create(s.Ccw ? 1 : 0));
-                }
-
-                segs.Add(a);
-            }
-
+            JsonArray segs = SegmentsToJson(c.Segments);
             contours.Add(segs);
         }
 
@@ -65,6 +52,25 @@ public static class CamJobJson
 
         root["operations"] = ops;
         return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    internal static JsonArray SegmentsToJson(IReadOnlyList<Segment2> segments)
+    {
+        var segs = new JsonArray();
+        foreach (Segment2 s in segments)
+        {
+            var a = new JsonArray(s.Start.X, s.Start.Y, s.End.X, s.End.Y);
+            if (s.IsArc)
+            {
+                a.Add(JsonValue.Create(s.Center.X));
+                a.Add(JsonValue.Create(s.Center.Y));
+                a.Add(JsonValue.Create(s.Ccw ? 1 : 0));
+            }
+
+            segs.Add(a);
+        }
+
+        return segs;
     }
 
     private static JsonObject OpToJson(CamOperationSpec s)
@@ -148,6 +154,11 @@ public static class CamJobJson
                 return new JobLoadResult(null, "O arquivo não é um Job do Casillas CAM.");
             }
 
+            if (Str(root, "format") == LatheJobJson.Format)
+            {
+                return new JobLoadResult(null, "Este trabalho é de torno. Abra-o no botão Torno da aba Trabalho.");
+            }
+
             if (Str(root, "format") != Format)
             {
                 return new JobLoadResult(null, "O arquivo não é um Job do Casillas CAM.");
@@ -200,11 +211,13 @@ public static class CamJobJson
         }
     }
 
-    private static Contour ContourFrom(JsonNode? node)
+    private static Contour ContourFrom(JsonNode? node) => new(SegmentsFrom(node, "Contorno inválido no arquivo."));
+
+    internal static List<Segment2> SegmentsFrom(JsonNode? node, string emptyMessage)
     {
         if (node is not JsonArray segs || segs.Count == 0)
         {
-            throw new FormatException("Contorno inválido no arquivo.");
+            throw new FormatException(emptyMessage);
         }
 
         var list = new List<Segment2>();
@@ -212,16 +225,16 @@ public static class CamJobJson
         {
             if (sn is not JsonArray a || (a.Count != 4 && a.Count != 7))
             {
-                throw new FormatException("Trecho de contorno inválido no arquivo.");
+                throw new FormatException("Trecho inválido no arquivo.");
             }
 
-            double[] v = a.Select(n => n is JsonValue jv && jv.TryGetValue(out double d) && double.IsFinite(d) ? d : throw new FormatException("Número inválido no contorno.")).ToArray();
+            double[] v = a.Select(n => n is JsonValue jv && jv.TryGetValue(out double d) && double.IsFinite(d) ? d : throw new FormatException("Número inválido no desenho.")).ToArray();
             list.Add(a.Count == 4
                 ? Segment2.Line(new Point2(v[0], v[1]), new Point2(v[2], v[3]))
                 : Segment2.Arc(new Point2(v[0], v[1]), new Point2(v[2], v[3]), new Point2(v[4], v[5]), v[6] != 0));
         }
 
-        return new Contour(list);
+        return list;
     }
 
     private static CamOperationSpec OpFrom(JsonObject o)
@@ -270,20 +283,20 @@ public static class CamJobJson
         return spec;
     }
 
-    private static JsonObject Obj(JsonObject o, string key) => o[key] as JsonObject ?? throw new FormatException($"Falta o bloco \"{key}\" no arquivo.");
+    internal static JsonObject Obj(JsonObject o, string key) => o[key] as JsonObject ?? throw new FormatException($"Falta o bloco \"{key}\" no arquivo.");
 
-    private static JsonArray Arr(JsonObject o, string key) => o[key] as JsonArray ?? throw new FormatException($"Falta a lista \"{key}\" no arquivo.");
+    internal static JsonArray Arr(JsonObject o, string key) => o[key] as JsonArray ?? throw new FormatException($"Falta a lista \"{key}\" no arquivo.");
 
-    private static string Str(JsonObject o, string key) =>
+    internal static string Str(JsonObject o, string key) =>
         o[key] is JsonValue v && v.TryGetValue(out string? s) && s is not null ? s : throw new FormatException($"Falta o texto \"{key}\" no arquivo.");
 
-    private static double Num(JsonObject o, string key) =>
+    internal static double Num(JsonObject o, string key) =>
         o[key] is JsonValue v && v.TryGetValue(out double d) && double.IsFinite(d) ? d : throw new FormatException($"Falta o número \"{key}\" no arquivo.");
 
-    private static bool Bool(JsonObject o, string key) =>
+    internal static bool Bool(JsonObject o, string key) =>
         o[key] is JsonValue v && v.TryGetValue(out bool b) ? b : throw new FormatException($"Falta o valor sim/não \"{key}\" no arquivo.");
 
-    private static T Enum<T>(string name, string what)
+    internal static T Enum<T>(string name, string what)
         where T : struct, Enum =>
         System.Enum.TryParse(name, false, out T value) && System.Enum.IsDefined(value) ? value : throw new FormatException($"Valor desconhecido de {what}: \"{name}\".");
 }
