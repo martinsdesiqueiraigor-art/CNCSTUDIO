@@ -33,26 +33,33 @@ public sealed partial class AssistView
     /// <summary>Salva a proposta em HTML (nome sugerido, texto); abra no navegador e imprima ou salve como PDF.</summary>
     public Func<string, string, Task>? SaveProposal { get; set; }
 
+    private readonly TextBlock _cardTime = new() { Text = "—" };
+    private readonly TextBlock _cardPrice = new() { Text = "—" };
+    private readonly TextBlock _cardTotal = new() { Text = "—" };
+
     private void AddQuoteTab()
     {
-        var form = new StackPanel { Spacing = 6, MaxWidth = 620 };
-        form.Children.Add(new TextBlock { Text = "O tempo vem do programa aberto no Code (simulação). Os valores em R$ são seus: ficam só neste computador.", TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8 });
+        const string accent = "#FF9A3D";
+        var form = new StackPanel { Spacing = 6 };
+        form.Children.Add(new TextBlock { Text = "Calcule o custo da peça", FontSize = 16, FontWeight = FontWeight.SemiBold });
+        form.Children.Add(new TextBlock { Text = "O tempo vem do programa aberto no Code (simulação). Os valores em R$ são seus e ficam só neste computador.", TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8 });
         form.Children.Add(_quoteProgram);
         form.Children.Add(_partName);
         form.Children.Add(_company);
-        Add(form, "qty", "Quantidade do lote", "peças", d => d.Quantity);
-        Add(form, "rate", "Hora-máquina", "R$/h", d => d.MachineRatePerHour);
-        Add(form, "setup", "Preparo (setup)", "h", d => d.SetupHours);
-        Add(form, "tc", "Troca de ferramenta", "s", d => d.ToolChangeSeconds);
-        Add(form, "load", "Carga e descarga da peça", "s", d => d.LoadUnloadSeconds);
-        Add(form, "safety", "Folga sobre o tempo simulado", "%", d => d.SafetyPercent);
-        Add(form, "mat", "Material por peça", "R$", d => d.MaterialPerPart);
-        Add(form, "wear", "Desgaste de ferramenta por peça", "R$", d => d.ToolWearPerPart);
-        Add(form, "margin", "Margem", "%", d => d.MarginPercent);
-        Add(form, "tax", "Impostos sobre a venda", "%", d => d.TaxPercent);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        Button calc = new() { Content = "Calcular", Padding = new Thickness(16, 6) };
-        Button copy = new() { Content = "Copiar proposta", Padding = new Thickness(16, 6) };
+        Add(form, "qty", "lote", "Quantidade do lote", "peças", d => d.Quantity);
+        Add(form, "rate", "moeda", "Hora-máquina", "R$/h", d => d.MachineRatePerHour);
+        Add(form, "setup", "preparo", "Preparo (setup)", "h", d => d.SetupHours);
+        Add(form, "tc", "troca", "Troca de ferramenta", "s", d => d.ToolChangeSeconds);
+        Add(form, "load", "caixa", "Carga e descarga da peça", "s", d => d.LoadUnloadSeconds);
+        Add(form, "safety", "relogio", "Folga sobre o tempo simulado", "%", d => d.SafetyPercent);
+        Add(form, "mat", "caixa", "Material por peça", "R$", d => d.MaterialPerPart);
+        Add(form, "wear", "ferramenta", "Desgaste de ferramenta por peça", "R$", d => d.ToolWearPerPart);
+        Add(form, "margin", "margem", "Margem", "%", d => d.MarginPercent);
+        Add(form, "tax", "imposto", "Impostos sobre a venda", "%", d => d.TaxPercent);
+
+        Button calc = new() { Content = "Calcular", Padding = new Thickness(20, 8), FontWeight = FontWeight.SemiBold, Background = new SolidColorBrush(Color.Parse(accent)), Foreground = Brushes.Black };
+        Button copy = new() { Content = "Copiar proposta", Padding = new Thickness(16, 8) };
+        Button file = new() { Content = "Salvar proposta (HTML)…", Padding = new Thickness(16, 8) };
         calc.Click += (_, _) => CalculateQuote();
         copy.Click += async (_, _) =>
         {
@@ -62,7 +69,6 @@ public sealed partial class AssistView
                 _quoteResult.Text += "\n(proposta copiada)";
             }
         };
-        Button file = new() { Content = "Salvar proposta (HTML)…", Padding = new Thickness(16, 6) };
         file.Click += async (_, _) =>
         {
             if (_lastHtml.Length > 0 && SaveProposal is not null)
@@ -71,12 +77,26 @@ public sealed partial class AssistView
                 _quoteResult.Text += "\n(abra o arquivo no navegador e use Imprimir › Salvar como PDF)";
             }
         };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 6, 0, 0) };
         buttons.Children.Add(calc);
         buttons.Children.Add(copy);
         buttons.Children.Add(file);
         form.Children.Add(buttons);
-        form.Children.Add(_quoteResult);
-        var tab = new TabItem { Header = "Orçamento", Content = new Border { Padding = new Thickness(0, 10), Child = form } };
+
+        // Resultado ao lado do formulário: sempre à vista, sem rolar
+        var result = new StackPanel { Spacing = 10 };
+        result.Children.Add(new TextBlock { Text = "Resultado da estimativa", FontSize = 16, FontWeight = FontWeight.SemiBold });
+        result.Children.Add(UiKit.ResultCard("Tempo de ciclo por peça", "relogio", accent, _cardTime));
+        result.Children.Add(UiKit.ResultCard("Preço por peça", "moeda", "#F5C542", _cardPrice));
+        result.Children.Add(UiKit.ResultCard("Total do lote", "lote", "#3DDC97", _cardTotal));
+        result.Children.Add(new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12), Child = _quoteResult }.Themed());
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,24,360") };
+        Grid.SetColumn(form, 0);
+        Grid.SetColumn(result, 2);
+        grid.Children.Add(form);
+        grid.Children.Add(result);
+        var tab = new TabItem { Header = "Orçamento", Content = new Border { Padding = new Thickness(0, 10), Child = grid } };
         tab.PropertyChanged += (_, e) =>
         {
             if (e.Property == TabItem.IsSelectedProperty && tab.IsSelected)
@@ -87,15 +107,18 @@ public sealed partial class AssistView
         _tabs.Items.Add(tab);
     }
 
-    private void Add(StackPanel form, string key, string label, string unit, Func<QuoteDefaults, double> get)
+    private void Add(StackPanel form, string key, string icon, string label, string unit, Func<QuoteDefaults, double> get)
     {
         var box = new TextBox { MinHeight = 26 };
         _quoteBoxes[key] = box;
-        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("260,*,60") };
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("28,240,*,56") };
+        var ic = UiKit.Icon(icon, "#FF9A3D", 17);
         var l = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
         var u = new TextBlock { Text = unit, Opacity = 0.65, FontSize = 11, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        Grid.SetColumn(box, 1);
-        Grid.SetColumn(u, 2);
+        Grid.SetColumn(l, 1);
+        Grid.SetColumn(box, 2);
+        Grid.SetColumn(u, 3);
+        row.Children.Add(ic);
         row.Children.Add(l);
         row.Children.Add(box);
         row.Children.Add(u);
@@ -131,6 +154,7 @@ public sealed partial class AssistView
     {
         _lastProposal = "";
         _lastHtml = "";
+        _cardTime.Text = _cardPrice.Text = _cardTotal.Text = "—";
         if (ProgramSource?.Invoke() is not { } p || p.Time <= TimeSpan.Zero)
         {
             _quoteResult.Text = "Abra no Code um programa com movimentos de corte para calcular o tempo.";
@@ -162,11 +186,14 @@ public sealed partial class AssistView
         string M(double v) => "R$ " + v.ToString("N2", Br);
         _lastProposal = r.ToText(_partName.Text ?? "");
         _lastHtml = r.ToHtml(_partName.Text ?? "", _company.Text ?? "");
+        _cardTime.Text = DurationFormat.Format(r.CycleTime, Br);
+        _cardPrice.Text = M(r.PricePerPart);
+        _cardTotal.Text = M(r.Total);
         _quoteResult.Text = string.Join("\n",
-            $"Tempo de ciclo estimado: {DurationFormat.Format(r.CycleTime, Br)} por peça",
-            $"Máquina {M(r.MachineCostPerPart)} · Preparo {M(r.SetupCostPerPart)} · Material {M(r.MaterialPerPart)} · Ferramenta {M(r.ToolWearPerPart)}",
+            $"Máquina {M(r.MachineCostPerPart)} · Preparo {M(r.SetupCostPerPart)}",
+            $"Material {M(r.MaterialPerPart)} · Ferramenta {M(r.ToolWearPerPart)}",
             $"Custo por peça {M(r.CostPerPart)} · Margem {M(r.MarginPerPart)} · Impostos {M(r.TaxPerPart)}",
-            $"Preço por peça: {M(r.PricePerPart)}   ·   Total do lote ({r.Quantity}): {M(r.Total)}",
+            $"Lote de {r.Quantity} peça(s).",
             "Estimativa: confira com a primeira peça cortada.");
     }
 }
