@@ -70,4 +70,18 @@ public class QuoteTests
         Assert.Contains("11 min 56 s", text);
         Assert.DoesNotContain("prazo", text);
     }
+
+    [Fact]
+    public void Proposta_html_mostra_preco_escapa_texto_e_esconde_custos_internos()
+    {
+        (QuoteResult? r, _) = QuoteCalculator.Calculate(Base());
+        string html = r!.ToHtml("Flange <A&B>", "Usinagem X\nTel 19 9999", new DateOnly(2026, 10, 28));
+        Assert.Contains("Flange &lt;A&amp;B&gt;", html);
+        Assert.Contains("Usinagem X<br>Tel 19 9999", html);
+        Assert.Contains("28/10/2026", html);
+        Assert.Contains("R$ " + r.PricePerPart.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("pt-BR")), html);
+        Assert.DoesNotContain("Margem", html);
+        Assert.DoesNotContain("Hora-máquina", html);
+        Assert.DoesNotContain("<script", html);
+    }
 }

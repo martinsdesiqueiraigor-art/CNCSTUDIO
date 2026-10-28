@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 
 namespace CncStudio.Core.Assist;
 
@@ -80,6 +81,39 @@ public sealed record QuoteResult(
             $"Valor por peça: {Money(PricePerPart)}",
             $"Total do lote: {Money(Total)}",
             "Valores estimados; sujeitos a confirmação após a primeira peça.");
+    }
+
+    /// <summary>
+    /// Proposta em HTML de uma página (imprime ou "salva como PDF" pelo navegador). Mostra só o valor por peça e o total,
+    /// sem os custos internos. <paramref name="company"/>: nome/contato de quem vende (opcional).
+    /// </summary>
+    public string ToHtml(string partName, string company = "", DateOnly? date = null)
+    {
+        string E(string t) => WebUtility.HtmlEncode(t);
+        string name = partName.Trim().Length > 0 ? partName.Trim() : "Peça";
+        string day = (date ?? DateOnly.FromDateTime(DateTime.Today)).ToString("dd/MM/yyyy", Br);
+        string from = company.Trim().Length > 0 ? $"<p class=\"from\">{E(company.Trim()).Replace("\n", "<br>")}</p>" : "";
+        return $$$"""
+            <!doctype html>
+            <html lang="pt-BR"><head><meta charset="utf-8"><title>Proposta — {{{E(name)}}}</title>
+            <style>
+            body{font:15px/1.5 system-ui,Segoe UI,Arial,sans-serif;color:#111;max-width:720px;margin:32px auto;padding:0 20px}
+            h1{font-size:24px;margin:0 0 4px}.from{color:#444;margin:0 0 20px}.date{color:#666;margin:0 0 20px}
+            table{border-collapse:collapse;width:100%;margin:12px 0}td,th{border-bottom:1px solid #ccc;padding:8px;text-align:left}
+            td.n,th.n{text-align:right}.total td{font-weight:700;font-size:17px;border-top:2px solid #111}
+            .note{color:#555;font-size:13px;margin-top:24px}
+            @media print{body{margin:0}}
+            </style></head><body>
+            <h1>Proposta comercial</h1>{{{from}}}
+            <p class="date">{{{day}}}</p>
+            <table>
+            <tr><th>Peça</th><th class="n">Quantidade</th><th class="n">Valor por peça</th><th class="n">Total</th></tr>
+            <tr><td>{{{E(name)}}}</td><td class="n">{{{Quantity}}}</td><td class="n">{{{Money(PricePerPart)}}}</td><td class="n">{{{Money(Total)}}}</td></tr>
+            <tr class="total"><td colspan="3">Total do lote</td><td class="n">{{{Money(Total)}}}</td></tr>
+            </table>
+            <p class="note">Valores estimados, sujeitos a confirmação após a primeira peça. Prazo e condições de pagamento a combinar.</p>
+            </body></html>
+            """;
     }
 
     private static string Cycle(TimeSpan t) => t.TotalMinutes >= 1 ? $"{(int)t.TotalMinutes} min {t.Seconds:00} s" : $"{t.TotalSeconds:0.#} s";
