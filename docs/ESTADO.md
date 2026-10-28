@@ -282,3 +282,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - STEP só no desktop: motor OpenCASCADE (LGPL 2.1 + exceção OCCT, uso proprietário permitido com aviso; confirmar com profissional). Candidato: pacote OcctNet.Wrapper (MIT, 0.1.1, net10), só no `CncStudio.App`; o Core continua sem NuGet e recebe a malha (`TriangleMesh`) e a lista de faces/arestas. O STL continua, sem novos investimentos.
 - Teste de viabilidade do STEP precisa de um STEP real de peça do Igor. Depois do CAM vem o Assist.
 - PR #85 (tema claro em Comparar/Estatísticas) aguarda conferir no celular e o OK do merge.
+
+## CAM · DXF com unidade e escolha de contorno por clique (`fase-cam-dxf-contornos`, a partir da `main`)
+- Core: `DxfImporter` lê `$INSUNITS` (pol, pé, mm, cm, m) e `ParseInMillimeters` converte tudo para mm e avisa ("Unidade do DXF: polegadas… × 25,4"). Sem unidade ou unidade estranha: assume mm e avisa para conferir o tamanho. `Contour.Scaled`, `Segment2.Scaled`. `ContourPick.At`: borda mais perto (dentro da tolerância) ou o menor contorno que contém o ponto. 13 testes novos (1026).
+- Desktop: os quatro pontos de abertura de DXF (Trabalho fresa e torno, CAM rápido fresa e torno) usam `ParseInMillimeters`. `CamPreview` ganhou o evento `ContourPicked` (clique esquerdo; tolerância de 8 px); no Trabalho fresa o clique seleciona o contorno na árvore e as propriedades acompanham.
+- Limites: a escala só vale para a unidade do cabeçalho (sem "escala manual" ainda); sem camadas nem seleção múltipla; DXF só em texto. Os outros três módulos ainda não escutam o clique. Não conferido visualmente: testar no .exe da Prévia com um DXF em polegadas e clicando nos contornos.
+- Este ramo e o `fase-cam3d-desbaste` mexem em `docs/ESTADO.md` no mesmo ponto (fim do arquivo): ao mesclar os dois pode haver conflito simples de texto.

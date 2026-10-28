@@ -398,7 +398,7 @@ public partial class CamView : UserControl
             return;
         }
 
-        DxfImportResult r = DxfImporter.Parse(file.Text);
+        DxfImportResult r = DxfImporter.ParseInMillimeters(file.Text);
         _contours.Clear();
         _contours.AddRange(r.Contours);
         _baseName = Path.GetFileNameWithoutExtension(file.Name);

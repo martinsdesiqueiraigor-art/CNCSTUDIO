@@ -178,7 +178,7 @@ public partial class LatheCamView : UserControl
             return;
         }
 
-        DxfImportResult r = DxfImporter.Parse(file.Text);
+        DxfImportResult r = DxfImporter.ParseInMillimeters(file.Text);
         List<Segment2>? chain = r.OpenChains.OrderByDescending(c => c.Sum(s => s.Length)).FirstOrDefault()?.ToList();
         if (chain is null)
         {
