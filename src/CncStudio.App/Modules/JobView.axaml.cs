@@ -354,6 +354,17 @@ public partial class JobView : UserControl
         {
             path = ToolpathView.CuttingPolylines(built);
         }
+        else if (SelectedOp() is null)
+        {
+            // Nada selecionado (ou grupo "Operações"): mostra o percurso de todas as operações ligadas
+            foreach (JobOpResult item in _build.Items)
+            {
+                if (!item.Skipped && item.Result is { Operation: { } op })
+                {
+                    path.AddRange(ToolpathView.CuttingPolylines(op));
+                }
+            }
+        }
 
         int selected = SelectedContour() ?? (SelectedOp() is { } o && o < _job.Operations.Count ? _job.Operations[o].ContourIndex : -1);
         Preview.Set(_job.Contours, selected, path);
