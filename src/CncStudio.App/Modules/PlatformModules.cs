@@ -20,6 +20,7 @@ public static class PlatformModules
         new("otimizador", "Casillas Otimizador", "Encontra repetições e simplifica o programa", true, "#ffb454"),
         new("macro", "Casillas Macro", "Geradores de programa: furação, bolsões, rosca, texto", true, "#9b7bff"),
         new("cam", "Casillas CAM", "Do desenho ao programa 2,5D: contorno, bolsão, faceamento e furação", true, "#4d8dff"),
+        new("assist", "Casillas Assist", "Bibliotecas de materiais, morsas e castanhas, com sugestão de fixação", true, "#ffd23f"),
     ];
 
     /// <summary>Endereço da plataforma na web. Troca só aqui quando o casillas.com.br ativar.</summary>

@@ -209,3 +209,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `Core/Assist`: `AssistLibrary` (materiais, morsas, castanhas de torno), `AssistLibraryJson` (arquivo `casillas-assist-biblioteca`, versão 1). Ferramentas e máquinas seguem nos cadastros atuais do Code.
 - Material sugere rpm/avanço/passe da fresa; morsa confere abertura, mandíbula e altura; castanha confere a faixa de pega (fora/dentro). Itens iniciais todos **rascunho** (Igor revisa).
 - 11 testes (974). Ainda sem tela: a tela do Assist no desktop é a fase 1B.
+
+## ASSIST · fase 1B — tela no desktop (fase-assist-tela)
+- Módulo **Assist** na barra lateral (`Modules/AssistView.cs`, só código): abas Materiais, Morsas e Castanhas com lista, campos editáveis, Novo/Duplicar/Remover e caixa "Rascunho". Valida a cada edição e volta atrás se inválido.
+- Salva sozinho em `AppSettings.AssistLibraryJson`; "Abrir/Salvar em arquivo" (`*.casillas-assist`); "Voltar aos itens iniciais".
+- Teste rápido: peça (largura, altura, Ø) e material → morsas e castanhas que servem e rpm/avanço/passe da fresa.
+- Verificado no Xvfb (tela, lista, campos, teste). Seletor de arquivo não testável lá. Ícone do módulo usa o padrão (sem arte própria ainda).
