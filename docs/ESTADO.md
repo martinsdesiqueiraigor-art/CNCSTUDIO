@@ -249,3 +249,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Árvore do Trabalho com ícones por tipo (peça, contorno, bruto, fixação, ferramentas, operações; por operação: contorno, bolsão, faceamento, furo, texto / torneamento, rosca, canal).
 - Coluna direita agora tem abas **Propriedades | Código**; a vista 2D ocupa a coluna do meio inteira.
 - Nenhuma lógica mudou (999 testes ok). Etapa 3 (3D no Trabalho) aguarda OK.
+
+## UI etapa 3 — vista 3D no Trabalho
+- Botão **3D** sobre a vista do Trabalho (fresa e torno): simula o programa gerado até o fim e mostra o material cortado, com a mesma cena 3D do Code (`JobSceneView`). Volta ao 2D desmarcando.
+- Roda em segundo plano; edição nova descarta a simulação antiga. Sem placa de vídeo: mensagem e usa o 2D.
+- Teste novo cobre o caminho programa → simulação → cena. Não conferido visualmente: testar no .exe da Prévia.
