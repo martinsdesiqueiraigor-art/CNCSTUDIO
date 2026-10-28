@@ -215,3 +215,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Salva sozinho em `AppSettings.AssistLibraryJson`; "Abrir/Salvar em arquivo" (`*.casillas-assist`); "Voltar aos itens iniciais".
 - Teste rápido: peça (largura, altura, Ø) e material → morsas e castanhas que servem e rpm/avanço/passe da fresa.
 - Verificado no Xvfb (tela, lista, campos, teste). Seletor de arquivo não testável lá. Ícone do módulo usa o padrão (sem arte própria ainda).
+
+## ASSIST · fase 2 — tempo de ciclo e orçamento (fase-assist-orcamento)
+- Core `Assist/Quote.cs`: `QuoteInput`, `QuoteCalculator`, `QuoteResult`. Ciclo = (tempo simulado + trocas × s) × (1 + folga) + carga/descarga. Custo = máquina + preparo÷lote + material + ferramenta; preço = custo × (1 + margem) ÷ (1 − impostos). 9 testes novos (983).
+- Aba **Orçamento** no Assist: usa o programa aberto no Code (`CurrentAnalysis`); valores em R$ ficam só em `AppSettings.Quote` (neste computador, nunca no repositório); botão "Copiar proposta" (texto marcado como estimativa, sem prazo).
+- Conferido no Xvfb com o exemplo (4min25s → ciclo 5min22s, cálculo bate à mão). Teste rápido das bibliotecas some na aba Orçamento. Sem PDF ainda.

@@ -8,6 +8,20 @@ using CncStudio.Core.Simulation;
 namespace CncStudio.App.Settings;
 
 /// <summary>Uma ferramenta cadastrada.</summary>
+public sealed class QuoteDefaults
+{
+    public int Quantity { get; set; } = 1;
+    public double MachineRatePerHour { get; set; }
+    public double SetupHours { get; set; }
+    public double ToolChangeSeconds { get; set; } = 6;
+    public double LoadUnloadSeconds { get; set; } = 30;
+    public double SafetyPercent { get; set; } = 10;
+    public double MaterialPerPart { get; set; }
+    public double ToolWearPerPart { get; set; }
+    public double MarginPercent { get; set; } = 20;
+    public double TaxPercent { get; set; }
+}
+
 public sealed class ToolEntry
 {
     public int Number { get; set; }
@@ -75,6 +89,9 @@ public sealed class AppSettings
 
     /// <summary>Biblioteca do Casillas Assist (JSON versionado); vazio = itens iniciais.</summary>
     public string AssistLibraryJson { get; set; } = "";
+
+    /// <summary>Últimos valores usados no orçamento do Assist (só os números do usuário).</summary>
+    public QuoteDefaults Quote { get; set; } = new();
 
     /// <summary>Perfis de máquina 4/5 eixos do Casillas CAM (descritos pelo programador).</summary>
     public List<CncStudio.Core.Cam.MachineProfile> MachineProfiles { get; set; } = [];

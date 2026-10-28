@@ -96,6 +96,16 @@ public partial class MainWindow
             using var reader = new StreamReader(stream);
             return (files[0].Name, await reader.ReadToEndAsync());
         };
+        Assist.QuoteSource = () => _settings.Quote;
+        Assist.SaveQuote = () => _settings.Save();
+        Assist.ProgramSource = () => CurrentAnalysis is { } a ? (a.Statistics.TotalTime, a.Statistics.ToolChanges, _active.DisplayName) : null;
+        Assist.CopyText = async text =>
+        {
+            if (Clipboard is { } clipboard)
+            {
+                await clipboard.SetTextAsync(text);
+            }
+        };
         Assist.LibrarySource = () => _settings.AssistLibraryJson;
         Assist.SaveLibrary = json =>
         {
