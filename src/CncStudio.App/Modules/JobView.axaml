@@ -2,7 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:modules="using:CncStudio.App.Modules"
              x:Class="CncStudio.App.Modules.JobView">
-  <Grid ColumnDefinitions="360,*">
+  <Grid ColumnDefinitions="330,*,330">
     <Border Grid.Column="0" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,1,0">
       <DockPanel Margin="14,12">
         <StackPanel DockPanel.Dock="Top" Spacing="6">
@@ -55,5 +55,10 @@
                  FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="12" />
       </DockPanel>
     </Grid>
+    <Border Grid.Column="2" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1,0,0,0">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="PropsPanel" Margin="14,12" Spacing="6" />
+      </ScrollViewer>
+    </Border>
   </Grid>
 </UserControl>
