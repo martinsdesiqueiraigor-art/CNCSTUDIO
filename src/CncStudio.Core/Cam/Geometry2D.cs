@@ -36,6 +36,9 @@ public readonly record struct Segment2(Point2 Start, Point2 End, Point2 Center =
 
     public double Radius => IsArc ? Center.DistanceTo(Start) : 0;
 
+    /// <summary>Trecho com as medidas multiplicadas por <paramref name="factor"/> a partir da origem (o sentido do arco não muda).</summary>
+    public Segment2 Scaled(double factor) => this with { Start = Start * factor, End = End * factor, Center = Center * factor };
+
     /// <summary>Ângulo girado pelo arco (rad, positivo = anti-horário). Zero para reta.</summary>
     public double Sweep
     {

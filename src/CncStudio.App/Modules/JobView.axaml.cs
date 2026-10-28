@@ -80,6 +80,13 @@ public partial class JobView : UserControl
                 UpdatePreview();
             }
         };
+        Preview.ContourPicked += (_, index) =>
+        {
+            if (index >= 0 && index < _job.Contours.Count)
+            {
+                SelectContourInTree(index);
+            }
+        };
         OpenButton.Click += (_, _) =>
         {
             if (_build.Ok && _build.Program.Length > 0)
@@ -152,7 +159,7 @@ public partial class JobView : UserControl
             return;
         }
 
-        DxfImportResult r = DxfImporter.Parse(file.Text);
+        DxfImportResult r = DxfImporter.ParseInMillimeters(file.Text);
         if (_job.Operations.Count > 0 && _job.Contours.Count > 0)
         {
             Errors.Text = "• O desenho já tem operações. Abra o DXF num trabalho novo (Abrir trabalho… ou reabra o programa) para não misturar contornos.";
@@ -338,6 +345,22 @@ public partial class JobView : UserControl
         if (on)
         {
             Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc);
+        }
+    }
+
+    /// <summary>Seleciona o contorno na árvore (o clique na vista 2D); a vista e as propriedades acompanham.</summary>
+    private void SelectContourInTree(int index)
+    {
+        foreach (TreeViewItem group in Tree.Items.OfType<TreeViewItem>())
+        {
+            foreach (TreeViewItem item in group.Items.OfType<TreeViewItem>())
+            {
+                if (item.Tag is TreeTag { Kind: "contour" } t && t.Index == index)
+                {
+                    Tree.SelectedItem = item;
+                    return;
+                }
+            }
         }
     }
 

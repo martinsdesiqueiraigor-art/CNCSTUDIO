@@ -21,6 +21,9 @@ public sealed class Contour
 
     public IReadOnlyList<Segment2> Segments { get; }
 
+    /// <summary>Cópia com todas as medidas multiplicadas por <paramref name="factor"/> (positivo), a partir da origem.</summary>
+    public Contour Scaled(double factor) => new([.. Segments.Select(s => s.Scaled(factor))]);
+
     /// <summary>Início de cada trecho no fim do anterior (fecha, dentro de uma tolerância).</summary>
     public bool IsClosed
     {

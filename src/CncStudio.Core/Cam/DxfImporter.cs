@@ -2,8 +2,43 @@ using System.Globalization;
 
 namespace CncStudio.Core.Cam;
 
-/// <summary>Resultado da leitura de um DXF: contornos fechados, cadeias abertas e avisos em português.</summary>
-public sealed record DxfImportResult(IReadOnlyList<Contour> Contours, IReadOnlyList<IReadOnlyList<Segment2>> OpenChains, IReadOnlyList<string> Warnings);
+/// <summary>Unidade de desenho declarada no cabeçalho do DXF (<c>$INSUNITS</c>).</summary>
+public enum DxfUnits { Unspecified, Inches, Feet, Millimeters, Centimeters, Meters, Other }
+
+/// <summary>Resultado da leitura de um DXF: contornos fechados, cadeias abertas, unidade declarada e avisos em português.</summary>
+public sealed record DxfImportResult(IReadOnlyList<Contour> Contours, IReadOnlyList<IReadOnlyList<Segment2>> OpenChains, IReadOnlyList<string> Warnings, DxfUnits Units = DxfUnits.Unspecified)
+{
+    /// <summary>Fator para converter a unidade do arquivo em milímetros (1 quando não informada ou desconhecida).</summary>
+    public double ToMillimeters => Units switch
+    {
+        DxfUnits.Inches => 25.4,
+        DxfUnits.Feet => 304.8,
+        DxfUnits.Centimeters => 10,
+        DxfUnits.Meters => 1000,
+        _ => 1,
+    };
+
+    /// <summary>Nome da unidade em português, para mostrar ao usuário.</summary>
+    public string UnitsName => Units switch
+    {
+        DxfUnits.Inches => "polegadas",
+        DxfUnits.Feet => "pés",
+        DxfUnits.Millimeters => "milímetros",
+        DxfUnits.Centimeters => "centímetros",
+        DxfUnits.Meters => "metros",
+        DxfUnits.Other => "uma unidade que o Casillas não converte",
+        _ => "não informada",
+    };
+
+    /// <summary>Mesmo desenho com todas as medidas multiplicadas por <paramref name="factor"/> (a origem fica onde está).</summary>
+    public DxfImportResult Scaled(double factor) => Math.Abs(factor - 1) < 1e-12
+        ? this
+        : this with
+        {
+            Contours = [.. Contours.Select(c => c.Scaled(factor))],
+            OpenChains = [.. OpenChains.Select(ch => (IReadOnlyList<Segment2>)[.. ch.Select(sg => sg.Scaled(factor))])],
+        };
+}
 
 /// <summary>
 /// Lê DXF em texto (ASCII) e monta contornos fechados em 2D. Entende LINE, ARC, CIRCLE, LWPOLYLINE e POLYLINE (com bulge);
@@ -110,7 +145,68 @@ public static class DxfImporter
             warnings.Add("Nenhum contorno encontrado no arquivo.");
         }
 
-        return new DxfImportResult(closed, open, warnings);
+        DxfUnits units = ReadUnits(text);
+        if (units == DxfUnits.Unspecified && (closed.Count > 0 || open.Count > 0))
+        {
+            warnings.Add("O DXF não informa a unidade: as medidas foram lidas como milímetros (confira o tamanho).");
+        }
+        else if (units == DxfUnits.Other)
+        {
+            warnings.Add("A unidade do DXF não é mm, polegada, pé, cm nem m: as medidas foram lidas como milímetros (confira o tamanho).");
+        }
+
+        return new DxfImportResult(closed, open, warnings, units);
+    }
+
+    /// <summary>
+    /// Lê o DXF e já converte as medidas para milímetros pela unidade do cabeçalho. Avisa a conversão feita;
+    /// sem unidade informada, mantém as medidas (e o aviso de <see cref="Parse"/>).
+    /// </summary>
+    public static DxfImportResult ParseInMillimeters(string text)
+    {
+        DxfImportResult r = Parse(text);
+        double factor = r.ToMillimeters;
+        if (Math.Abs(factor - 1) < 1e-12)
+        {
+            return r;
+        }
+
+        DxfImportResult scaled = r.Scaled(factor);
+        return scaled with { Warnings = [$"Unidade do DXF: {r.UnitsName}. Medidas convertidas para milímetros (× {factor.ToString("0.####", CultureInfo.GetCultureInfo("pt-BR"))}).", .. r.Warnings] };
+    }
+
+    /// <summary>Lê <c>$INSUNITS</c> no cabeçalho (1 pol, 2 pé, 4 mm, 5 cm, 6 m; 0 ou ausente = não informada).</summary>
+    private static DxfUnits ReadUnits(string text)
+    {
+        string[] lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        for (int i = 0; i + 3 < lines.Length; i++)
+        {
+            if (lines[i].Trim() == "9" && lines[i + 1].Trim().Equals("$INSUNITS", StringComparison.OrdinalIgnoreCase))
+            {
+                if (lines[i + 2].Trim() == "70" && int.TryParse(lines[i + 3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int code))
+                {
+                    return code switch
+                    {
+                        0 => DxfUnits.Unspecified,
+                        1 => DxfUnits.Inches,
+                        2 => DxfUnits.Feet,
+                        4 => DxfUnits.Millimeters,
+                        5 => DxfUnits.Centimeters,
+                        6 => DxfUnits.Meters,
+                        _ => DxfUnits.Other,
+                    };
+                }
+
+                return DxfUnits.Unspecified;
+            }
+
+            if (lines[i].Trim() == "0" && lines[i + 1].Trim() == "ENDSEC")
+            {
+                break; // fim do cabeçalho
+            }
+        }
+
+        return DxfUnits.Unspecified;
     }
 
     private static Point2 OnCircle(Point2 c, double r, double angle) =>
