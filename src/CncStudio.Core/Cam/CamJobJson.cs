@@ -107,6 +107,10 @@ public static class CamJobJson
         if (s.PocketParams is { } p)
         {
             o["pocketParams"] = new JsonObject { ["stepOver"] = p.StepOverPercent, ["finish"] = p.FinishAllowance, ["lead"] = p.LeadRadius };
+            if (s.Islands)
+            {
+                o["islands"] = true;
+            }
         }
 
         if (s.Kind == JobOpKind.Facing)
@@ -256,7 +260,7 @@ public static class CamJobJson
 
         if (o["pocketParams"] is JsonObject p)
         {
-            spec = spec with { PocketParams = new PocketParams(Num(p, "stepOver"), Num(p, "finish"), Num(p, "lead")) };
+            spec = spec with { PocketParams = new PocketParams(Num(p, "stepOver"), Num(p, "finish"), Num(p, "lead")), Islands = o["islands"] is not null && Bool(o, "islands") };
         }
 
         if (o["facingStepOver"] is not null)

@@ -11,7 +11,7 @@ public sealed record ContourParams(ContourSide Side, bool Climb = true, bool Con
 public sealed record PocketParams(double StepOverPercent = 60, double FinishAllowance = 0, double LeadRadius = 2);
 
 /// <summary>Operações de fresa 2,5D. Todas devolvem movimentos neutros; o pós-processador escreve o G-code.</summary>
-public static class CamOperations
+public static partial class CamOperations
 {
     private static OperationResult Fail(string message) => new(null, message);
 
