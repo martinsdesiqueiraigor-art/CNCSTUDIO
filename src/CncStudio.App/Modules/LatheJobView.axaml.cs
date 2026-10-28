@@ -249,6 +249,15 @@ public partial class LatheJobView : UserControl
     }
 
     /// <summary>Guarda o estado das operações antes de uma alteração (para Desfazer).</summary>
+    private static string OpIcon(LatheOperationSpec s) => s.Kind switch
+    {
+        LatheOpKind.Turning => "torneamento",
+        LatheOpKind.Facing => "faceamento",
+        LatheOpKind.Drilling => "furo",
+        LatheOpKind.Threading => "rosca",
+        _ => "canal",
+    };
+
     private void Snap()
     {
         _undo.Push(_job.Operations);
@@ -305,17 +314,17 @@ public partial class LatheJobView : UserControl
     {
         Tree.Items.Clear();
         TreeViewItem? select = null;
-        TreeViewItem Node(string text) => new() { Header = text, IsExpanded = true };
+        TreeViewItem Node(string text, string? icon = null) => new() { Header = icon is null ? text : UiKit.IconLabel(icon, text), IsExpanded = true };
 
-        Tree.Items.Add(Node(LatheJobInfo.ProfileTitle(_job.Profile)));
-        TreeViewItem tools = Node("Ferramentas");
+        Tree.Items.Add(Node(LatheJobInfo.ProfileTitle(_job.Profile), "perfil"));
+        TreeViewItem tools = Node("Ferramentas", "ferramentas");
         foreach (LatheTool t in LatheJobInfo.ToolsUsed(_job))
         {
             tools.Items.Add(Node($"T{t.Number} · {(t.Rpm > 0 ? $"{t.Rpm:0} rpm" : $"G96 {t.SurfaceSpeed:0} m/min")} · máx. {t.MaxRpm:0} rpm"));
         }
 
         Tree.Items.Add(tools);
-        TreeViewItem ops = Node($"Operações ({_job.Operations.Count})");
+        TreeViewItem ops = Node($"Operações ({_job.Operations.Count})", "operacoes");
         for (int i = 0; i < _job.Operations.Count; i++)
         {
             int index = i;
@@ -323,6 +332,7 @@ public partial class LatheJobView : UserControl
             var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
             var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6, Opacity = spec.Enabled ? 1 : 0.5 };
             row.Children.Add(check);
+            row.Children.Add(UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
             row.Children.Add(new TextBlock { Text = LatheJobInfo.OpTitle(i, spec), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center });
             check.IsCheckedChanged += (_, _) =>
             {

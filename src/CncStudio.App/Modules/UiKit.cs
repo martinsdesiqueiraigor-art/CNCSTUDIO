@@ -20,6 +20,20 @@ public static class UiKit
         ["ferramenta"] = "M12 3v8M9 11h6l-1 5h-4zM12 16v5",
         ["margem"] = "M3 17l6-6 4 4 8-9M15 6h6v6",
         ["imposto"] = "M7 3h8l4 4v14H7zM15 3v4h4M10 12h6M10 16h6",
+        ["peca"] = "M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8",
+        ["bruto"] = "M4 8h13v11H4zM4 8l3-4h13l-3 4M20 4v11l-3 4",
+        ["fixacao"] = "M4 19h16M7 19v-9h10v9M9 10V5h6v5",
+        ["ferramentas"] = "M12 3v8M9 11h6l-1 5h-4zM12 16v5",
+        ["operacoes"] = "M5 6h14M5 12h14M5 18h14",
+        ["contorno"] = "M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z",
+        ["bolsao"] = "M4 4h16v16H4zM9 9h6v6H9z",
+        ["faceamento"] = "M3 7h18M3 12h18M3 17h18",
+        ["furo"] = "M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+        ["texto"] = "M5 6h14M12 6v13M9 19h6",
+        ["rosca"] = "M6 5h12M6 9l12 2M6 13l12 2M6 17l12 2",
+        ["canal"] = "M3 8h6v8h6V8h6",
+        ["torneamento"] = "M3 6h18M3 18h18M8 6v12M17 6v8",
+        ["perfil"] = "M3 18l5-8 4 4 4-9 5 8",
         ["moeda"] = "M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 7v10M9.5 9.5c0-1 1-1.5 2.5-1.5s2.5.8 2.5 1.8-1 1.4-2.5 1.7-2.5.7-2.5 1.8 1 1.7 2.5 1.7 2.5-.5 2.5-1.5",
     };
 
@@ -73,5 +87,14 @@ public static class UiKit
             BorderBrush = new SolidColorBrush(Color.Parse(accent), 0.7),
             Child = stack,
         }.Themed();
+    }
+
+    /// <summary>Linha de árvore: ícone pequeno e texto.</summary>
+    public static StackPanel IconLabel(string icon, string text, string color = "#8FB4FF", double size = 15)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        row.Children.Add(Icon(icon, color, size));
+        row.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center });
+        return row;
     }
 }

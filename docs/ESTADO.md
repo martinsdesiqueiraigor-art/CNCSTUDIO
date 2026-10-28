@@ -244,3 +244,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Etapa 1 do redesenho (sugestão de Igor de 28/10): `Modules/UiKit.cs` (ícones de linha próprios, cartão de resultado, fundo que acompanha o tema).
 - Orçamento: formulário com ícones por campo e **resultado em cartões** (tempo de ciclo, preço por peça, total do lote) ao lado, sem rolar. Cabeçalho do Assist agora só "Casillas Assist"; teste rápido usa o fundo do tema (claro/escuro). Abas do CAM: "Trabalho fresa" e "Trabalho torno" (sem "(novo)").
 - Só visual, sem mudança de cálculo. Próximas: etapa 2 (árvore do Trabalho com ícones, abas Propriedades/Visualização/Código) e etapa 3 (vista 3D no Trabalho).
+
+## UI etapa 2 — Trabalho (fresa e torno)
+- Árvore do Trabalho com ícones por tipo (peça, contorno, bruto, fixação, ferramentas, operações; por operação: contorno, bolsão, faceamento, furo, texto / torneamento, rosca, canal).
+- Coluna direita agora tem abas **Propriedades | Código**; a vista 2D ocupa a coluna do meio inteira.
+- Nenhuma lógica mudou (999 testes ok). Etapa 3 (3D no Trabalho) aguarda OK.
