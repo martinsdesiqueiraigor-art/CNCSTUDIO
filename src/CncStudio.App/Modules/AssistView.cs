@@ -11,7 +11,7 @@ namespace CncStudio.App.Modules;
 /// Casillas Assist, fase 1: bibliotecas de materiais, morsas e castanhas de torno, com um teste rápido
 /// ("que morsa ou castanha serve?"). Só sugere; a conferência final é do usinador.
 /// </summary>
-public sealed class AssistView : UserControl
+public sealed partial class AssistView : UserControl
 {
     private static readonly CultureInfo Br = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -86,8 +86,11 @@ public sealed class AssistView : UserControl
             () => _lib.Jaws.Add(new ChuckJawEntry(Unique("Nova castanha", _lib.Jaws.Select(j => j.Name)), 160, 20, 160, 0, 0, 25)),
             i => _lib.Jaws.Insert(i + 1, _lib.Jaws[i] with { Name = Unique(_lib.Jaws[i].Name + " cópia", _lib.Jaws.Select(j => j.Name)) }),
             i => _lib.Jaws.RemoveAt(i), JawFields, (i, d) => _lib.Jaws[i] = _lib.Jaws[i] with { Draft = d }));
+        AddQuoteTab();
         stack.Children.Add(_tabs);
-        stack.Children.Add(BuildTest());
+        Border test = BuildTest();
+        _tabs.SelectionChanged += (_, _) => test.IsVisible = _tabs.SelectedIndex < 3;
+        stack.Children.Add(test);
         root.Content = stack;
         Content = root;
         Reload();
