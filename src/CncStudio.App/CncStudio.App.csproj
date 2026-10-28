@@ -38,6 +38,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CncStudio.Core\CncStudio.Core.csproj" />
+    <!-- Leitura de STEP (OpenCASCADE): só no desktop -->
+    <ProjectReference Include="..\CncStudio.Step\CncStudio.Step.csproj" />
   </ItemGroup>
 
   <!-- Exemplos acessíveis pelos botões "Exemplo Fanuc" / "Exemplo Siemens" -->

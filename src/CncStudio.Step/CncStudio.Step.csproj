@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Leitura de STEP (CAD) para o CAM 3D, só no desktop. Usa o OpenCASCADE pelo pacote OcctNet.Wrapper
+    (MIT; OpenCASCADE é LGPL 2.1 com exceção, aviso obrigatório no instalador).
+    O Core continua sem pacotes NuGet: este projeto entrega ao Core uma TriangleMesh.
+    Fora da simulação web (WebAssembly não carrega esse nativo).
+  -->
+  <PropertyGroup>
+    <RootNamespace>CncStudio.Step</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Versão fixa, como os demais pacotes -->
+  <ItemGroup>
+    <PackageReference Include="OcctNet.Wrapper" Version="0.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CncStudio.Core\CncStudio.Core.csproj" />
+  </ItemGroup>
+
+</Project>

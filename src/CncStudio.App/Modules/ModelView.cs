@@ -8,6 +8,7 @@ using CncStudio.App.Graphics;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Cam3D;
 using CncStudio.Core.Scene;
+using CncStudio.Step;
 
 namespace CncStudio.App.Modules;
 
@@ -27,7 +28,7 @@ public sealed class ModelView : Grid
     private readonly TextBlock _info = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
     private readonly TextBlock _hint = new()
     {
-        Text = "Abra um arquivo STL para ver o modelo.",
+        Text = "Abra um arquivo STL ou STEP para ver o modelo.",
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
         Opacity = 0.6,
@@ -59,20 +60,20 @@ public sealed class ModelView : Grid
         }
 
         _unit.SelectedIndex = 0;
-        Button open = new() { Content = "Abrir STL…", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold };
+        Button open = new() { Content = "Abrir STL ou STEP…", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold };
         open.Click += async (_, _) => await Open();
         _unit.SelectionChanged += (_, _) => Show();
         _top.IsCheckedChanged += (_, _) => Show();
 
         var panel = new StackPanel { Margin = new Thickness(16, 14), Spacing = 8 };
-        panel.Children.Add(new TextBlock { Text = "Modelo 3D (STL)", FontSize = 20, FontWeight = FontWeight.Bold });
+        panel.Children.Add(new TextBlock { Text = "Modelo 3D (STL ou STEP)", FontSize = 20, FontWeight = FontWeight.Bold });
         panel.Children.Add(new TextBlock
         {
             Text = "Primeiro passo do CAM 3D: abrir o modelo, conferir medidas e malha. O percurso 3D (varredura e desbaste) vem nas próximas etapas.",
             Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12,
         });
         panel.Children.Add(open);
-        panel.Children.Add(new TextBlock { Text = "Unidade do arquivo (o STL não guarda a unidade)", Opacity = 0.75, FontSize = 12 });
+        panel.Children.Add(new TextBlock { Text = "Unidade do arquivo (o STL não guarda a unidade; o STEP já é lido em mm)", Opacity = 0.75, FontSize = 12 });
         panel.Children.Add(_unit);
         panel.Children.Add(_top);
         panel.Children.Add(_info);
@@ -144,7 +145,7 @@ public sealed class ModelView : Grid
         _openEditor.IsEnabled = false;
         if (_current is not { } model)
         {
-            _result.Text = "• Abra um STL primeiro.";
+            _result.Text = "• Abra um STL ou STEP primeiro.";
             return;
         }
 
@@ -188,6 +189,25 @@ public sealed class ModelView : Grid
             return;
         }
 
+        bool isStep = file.Name.EndsWith(".step", StringComparison.OrdinalIgnoreCase) || file.Name.EndsWith(".stp", StringComparison.OrdinalIgnoreCase);
+        if (isStep)
+        {
+            _info.Text = "Lendo o STEP…";
+            StepResult step = await Task.Run(() => StepMeshReader.Read(file.Data));
+            if (!step.Ok)
+            {
+                _info.Text = "• " + step.Error;
+                return;
+            }
+
+            _raw = step.Mesh;
+            _fileName = file.Name;
+            _unit.SelectedIndex = 0; // o OpenCASCADE já entrega em milímetros
+            _unit.IsEnabled = false;
+            Show(0, $"STEP lido em milímetros (malha de 0,05 mm de desvio; {step.Orientation!.FlippedTriangles:N0} triângulos reorientados).");
+            return;
+        }
+
         StlResult r = await Task.Run(() => StlReader.Read(file.Data));
         if (!r.Ok)
         {
@@ -197,13 +217,21 @@ public sealed class ModelView : Grid
 
         _raw = r.Mesh;
         _fileName = file.Name;
+        _unit.IsEnabled = true;
         Show(r.Skipped);
     }
 
+    private string _sourceNote = "";
+
     private int _lastSkipped;
 
-    private void Show(int? skipped = null)
+    private void Show(int? skipped = null, string? note = null)
     {
+        if (note is not null || skipped is not null)
+        {
+            _sourceNote = note ?? "";
+        }
+
         if (_raw is null)
         {
             return;
@@ -224,7 +252,7 @@ public sealed class ModelView : Grid
         bool closed = mesh.IsClosed;
         string F(double v) => v.ToString("0.##", Pt);
         _info.Text =
-            $"{_fileName}\n" +
+            $"{_fileName}\n" + (_sourceNote.Length > 0 ? _sourceNote + "\n" : "") +
             $"{mesh.TriangleCount:N0} triângulos" + (_lastSkipped > 0 ? $" ({_lastSkipped} inválidos descartados)" : "") + "\n" +
             $"Tamanho: X {F(size.X)} × Y {F(size.Y)} × Z {F(size.Z)} mm\n" +
             $"Z: de {F(mesh.Bounds.Min.Z)} a {F(mesh.Bounds.Max.Z)} mm\n" +
