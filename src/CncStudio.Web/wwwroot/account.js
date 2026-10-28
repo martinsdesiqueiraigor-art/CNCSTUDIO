@@ -162,6 +162,12 @@ function recompute(cached) {
     return { ...cached, modules: mods, ...codeView(mods.code, cached.trial_ends_at) };
 }
 
+/** O servidor já lista este módulo na última situação conhecida? (Produto inativo no servidor não aparece.) */
+export function moduleKnown(slug) {
+    const c = load('cc.license');
+    return !!(c && c.modules && c.modules[slug]);
+}
+
 /** Estado de um módulo da plataforma na última situação conhecida: VALID | TRIAL | EXPIRED | DEVICE_LIMIT | null (sem conta). */
 export function moduleState(slug) {
     const c = load('cc.license');
