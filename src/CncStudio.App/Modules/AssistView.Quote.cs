@@ -58,6 +58,13 @@ public sealed partial class AssistView
         Add(form, "tax", "imposto", "Impostos sobre a venda", "%", d => d.TaxPercent);
 
         Button calc = new() { Content = "Calcular", Padding = new Thickness(20, 8), FontWeight = FontWeight.SemiBold, Background = new SolidColorBrush(Color.Parse(accent)), Foreground = Brushes.Black };
+        // O tema troca o fundo ao passar o mouse/clicar; mantém a cor de destaque nesses estados
+        foreach (string state in new[] { "PointerOver", "Pressed", "Disabled" })
+        {
+            calc.Resources["ButtonBackground" + state] = calc.Background;
+            calc.Resources["ButtonForeground" + state] = Brushes.Black;
+        }
+
         Button copy = new() { Content = "Copiar proposta", Padding = new Thickness(16, 8) };
         Button file = new() { Content = "Salvar proposta (HTML)…", Padding = new Thickness(16, 8) };
         calc.Click += (_, _) => CalculateQuote();

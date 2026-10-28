@@ -254,3 +254,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Botão **3D** sobre a vista do Trabalho (fresa e torno): simula o programa gerado até o fim e mostra o material cortado, com a mesma cena 3D do Code (`JobSceneView`). Volta ao 2D desmarcando.
 - Roda em segundo plano; edição nova descarta a simulação antiga. Sem placa de vídeo: mensagem e usa o 2D.
 - Teste novo cobre o caminho programa → simulação → cena. Não conferido visualmente: testar no .exe da Prévia.
+
+## Ajuste — botão Calcular (Assist)
+- O botão laranja ficava cinza ao clicar/passar o mouse (o tema trocava o fundo). Agora os estados do tema usam a cor de destaque. Só interface; não conferido visualmente.
