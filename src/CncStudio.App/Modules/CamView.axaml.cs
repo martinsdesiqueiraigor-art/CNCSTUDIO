@@ -35,6 +35,13 @@ public partial class CamView : UserControl
     private string _program = "";
     private string _baseName = "CAM";
 
+    /// <summary>Abre o seletor de arquivo STL e devolve nome e bytes (null se cancelou).</summary>
+    public Func<Task<(string Name, byte[] Data)?>>? PickStl
+    {
+        get => ModelPanel.PickStl;
+        set => ModelPanel.PickStl = value;
+    }
+
     /// <summary>Abre o seletor de arquivo DXF e devolve nome e texto (null se cancelou).</summary>
     public Func<Task<(string Name, string Text)?>>? PickDxf
     {
@@ -209,22 +216,25 @@ public partial class CamView : UserControl
         MachineTab.Click += (_, _) => ShowMachine(lathe: false, profile: true);
         JobTab.Click += (_, _) => ShowMachine(lathe: false, job: true);
         LatheJobTab.Click += (_, _) => ShowMachine(lathe: false, latheJob: true);
+        ModelTab.Click += (_, _) => ShowMachine(lathe: false, model: true);
         JobPanel.MachineSource = () => MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
         RefreshPreview();
     }
 
-    private void ShowMachine(bool lathe, bool profile = false, bool job = false, bool latheJob = false)
+    private void ShowMachine(bool lathe, bool profile = false, bool job = false, bool latheJob = false, bool model = false)
     {
-        MillTab.IsChecked = !lathe && !profile && !job && !latheJob;
+        MillTab.IsChecked = !lathe && !profile && !job && !latheJob && !model;
         LatheTab.IsChecked = lathe;
         MachineTab.IsChecked = profile;
         JobTab.IsChecked = job;
         LatheJobTab.IsChecked = latheJob;
-        MillPanel.IsVisible = !lathe && !profile && !job && !latheJob;
+        ModelTab.IsChecked = model;
+        MillPanel.IsVisible = !lathe && !profile && !job && !latheJob && !model;
         LathePanel.IsVisible = lathe;
         MachinePanel.IsVisible = profile;
         JobPanel.IsVisible = job;
         LatheJobPanel.IsVisible = latheJob;
+        ModelPanel.IsVisible = model;
         if (profile)
         {
             MachinePanel.Refresh();
