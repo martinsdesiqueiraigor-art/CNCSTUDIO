@@ -20,6 +20,9 @@ public sealed class QuoteDefaults
     public double ToolWearPerPart { get; set; }
     public double MarginPercent { get; set; } = 20;
     public double TaxPercent { get; set; }
+
+    /// <summary>Nome e contato de quem vende, para o cabeçalho da proposta.</summary>
+    public string Company { get; set; } = "";
 }
 
 public sealed class ToolEntry

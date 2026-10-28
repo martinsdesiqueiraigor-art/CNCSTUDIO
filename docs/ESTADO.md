@@ -221,6 +221,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Aba **Orçamento** no Assist: usa o programa aberto no Code (`CurrentAnalysis`); valores em R$ ficam só em `AppSettings.Quote` (neste computador, nunca no repositório); botão "Copiar proposta" (texto marcado como estimativa, sem prazo).
 - Conferido no Xvfb com o exemplo (4min25s → ciclo 5min22s, cálculo bate à mão). Teste rápido das bibliotecas some na aba Orçamento. Sem PDF ainda.
 
+## ASSIST · proposta em arquivo (fase-assist-proposta)
+- `QuoteResult.ToHtml`: proposta de uma página (peça, quantidade, valor por peça e total), sem custos internos nem margem; cabeçalho com nome/contato do usuário. Texto escapado. 1 teste novo (984).
+- Aba Orçamento: campo "seu nome e contato" (salvo em `AppSettings.Quote.Company`) e botão "Salvar proposta (HTML)…"; para PDF, abrir no navegador e Imprimir › Salvar como PDF. Seletor de arquivo não testado no Xvfb.
 ## Trava de licença do CAM web (ajuste-cam-web-licenca)
 - `platform-ui.js`: `cam` entra em `GATED`, mas como `SOFT`: só trava depois que o servidor passar a listar o módulo `cam` (`moduleKnown` em `account.js`). Hoje o produto `cam` está inativo no servidor ("em breve"), então o CAM web continua abrindo livre, sem pedir conta.
 - Para ligar a venda: o Igor ativa o produto `cam` no Supabase (não mexi). Aí o CAM passa a exigir teste ativo ou licença, com "Comprar licença", como Macro e Otimizador.
