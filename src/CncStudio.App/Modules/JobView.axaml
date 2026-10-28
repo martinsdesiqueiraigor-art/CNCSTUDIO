@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:modules="using:CncStudio.App.Modules"
+             x:Class="CncStudio.App.Modules.JobView">
+  <Grid ColumnDefinitions="360,*">
+    <Border Grid.Column="0" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,1,0">
+      <DockPanel Margin="14,12">
+        <StackPanel DockPanel.Dock="Top" Spacing="6">
+          <TextBlock Text="Trabalho (fresa)" FontSize="20" FontWeight="Bold" />
+          <TextBlock Text="Peça, operações e programa num lugar só. Mude a ordem, desligue ou duplique operações." Opacity="0.75" TextWrapping="Wrap" FontSize="12" />
+          <WrapPanel>
+            <Button x:Name="OpenDxfButton" Content="Abrir DXF…" Padding="10,5" Margin="0,0,6,6" />
+            <Button x:Name="OpenJobButton" Content="Abrir trabalho…" Padding="10,5" Margin="0,0,6,6" />
+            <Button x:Name="SaveJobButton" Content="Salvar trabalho…" Padding="10,5" Margin="0,0,6,6" />
+          </WrapPanel>
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="6" ColumnSpacing="8">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Nome" VerticalAlignment="Center" />
+            <TextBox Grid.Row="0" Grid.Column="1" x:Name="NameBox" MinHeight="26" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Comando" VerticalAlignment="Center" />
+            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="DialectCombo" SelectedIndex="0" MinWidth="120">
+              <ComboBoxItem Content="Fanuc" />
+              <ComboBoxItem Content="Siemens" />
+            </ComboBox>
+          </Grid>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+          <ComboBox x:Name="KindCombo" HorizontalAlignment="Stretch" />
+          <Button x:Name="AddButton" Content="Adicionar operação" Padding="12,7" FontWeight="SemiBold" HorizontalAlignment="Stretch" />
+          <WrapPanel>
+            <Button x:Name="UpButton" Content="Subir" Padding="10,5" Margin="0,0,6,0" />
+            <Button x:Name="DownButton" Content="Descer" Padding="10,5" Margin="0,0,6,0" />
+            <Button x:Name="DuplicateButton" Content="Duplicar" Padding="10,5" Margin="0,0,6,0" />
+            <Button x:Name="RemoveButton" Content="Remover" Padding="10,5" />
+          </WrapPanel>
+          <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="#FF9A83" FontSize="12" />
+        </StackPanel>
+        <TreeView x:Name="Tree" Margin="0,8,0,0" />
+      </DockPanel>
+    </Border>
+    <Grid Grid.Column="1" RowDefinitions="*,260">
+      <Border Grid.Row="0" Margin="12" CornerRadius="8" ClipToBounds="True" Background="#0B1216" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
+        <Grid>
+          <modules:CamPreview x:Name="Preview" />
+          <TextBlock x:Name="PreviewHint" Text="Abra um DXF ou um trabalho salvo para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
+        </Grid>
+      </Border>
+      <DockPanel Grid.Row="1" Margin="12,0,12,12">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+          <Button x:Name="OpenButton" Content="Abrir no editor (simular no Code)" Padding="12,6" IsEnabled="False" />
+          <Button x:Name="CopyButton" Content="Copiar" Padding="12,6" IsEnabled="False" />
+          <TextBlock Text="Simule antes de rodar na máquina." VerticalAlignment="Center" Opacity="0.6" FontSize="12" />
+        </StackPanel>
+        <TextBlock x:Name="Warnings" DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="#F2C45A" FontSize="12" />
+        <TextBox x:Name="Output" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                 FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="12" />
+      </DockPanel>
+    </Grid>
+  </Grid>
+</UserControl>

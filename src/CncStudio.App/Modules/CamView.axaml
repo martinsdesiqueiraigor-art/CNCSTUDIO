@@ -9,11 +9,13 @@
       <ToggleButton x:Name="MillTab" Content="Fresa" Padding="16,5" IsChecked="True" />
       <ToggleButton x:Name="LatheTab" Content="Torno" Padding="16,5" />
       <ToggleButton x:Name="MachineTab" Content="Perfil 4/5 eixos" Padding="16,5" />
+      <ToggleButton x:Name="JobTab" Content="Trabalho (novo)" Padding="16,5" />
     </StackPanel>
   </Border>
   <Grid>
   <modules:LatheCamView x:Name="LathePanel" IsVisible="False" />
   <modules:MachineProfileView x:Name="MachinePanel" IsVisible="False" />
+  <modules:JobView x:Name="JobPanel" IsVisible="False" />
   <Grid x:Name="MillPanel" ColumnDefinitions="380,*">
     <Border Grid.Column="0" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,1,0">
       <ScrollViewer HorizontalScrollBarVisibility="Disabled">
