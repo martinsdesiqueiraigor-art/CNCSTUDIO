@@ -23,8 +23,6 @@ public sealed class StatsPanel : UserControl
     {
         var sheet = new Border
         {
-            Background = Brush("BarBackground"),
-            BorderBrush = Brush("SubtleBorder"),
             BorderThickness = new Thickness(0, 1, 0, 0),
             CornerRadius = new CornerRadius(16, 16, 0, 0),
             VerticalAlignment = VerticalAlignment.Bottom,
@@ -36,6 +34,9 @@ public sealed class StatsPanel : UserControl
                 Padding = new Thickness(14, 8, 14, 14),
             },
         };
+
+        sheet.Bind(Border.BackgroundProperty, this.GetResourceObservable("BarBackground"));
+        sheet.Bind(Border.BorderBrushProperty, this.GetResourceObservable("SubtleBorder"));
 
         // Fundo escurecido: toque fora fecha
         var dim = new Border { Background = new SolidColorBrush(Color.FromArgb(140, 0, 0, 0)) };
@@ -63,15 +64,16 @@ public sealed class StatsPanel : UserControl
         ProgramStatistics stats = sheet.Statistics;
         bool lathe = sheet.Machine == MachineKind.Lathe;
 
-        _content.Children.Add(new Border
+        var handle = new Border
         {
             Width = 40,
             Height = 4,
             CornerRadius = new CornerRadius(2),
-            Background = Brush("SubtleBorder"),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 0, 0, 4),
-        });
+        };
+        handle.Bind(Border.BackgroundProperty, this.GetResourceObservable("SubtleBorder"));
+        _content.Children.Add(handle);
 
         // Tempo total e fechar
         var close = new Button { Content = "Fechar", Classes = { "bar" }, VerticalAlignment = VerticalAlignment.Center };
@@ -237,15 +239,20 @@ public sealed class StatsPanel : UserControl
         return new Border { Background = Brush("SubtleBorder"), CornerRadius = new CornerRadius(3), Child = grid, Margin = new Thickness(0, 2) };
     }
 
-    private Control Card(Control child) => new Border
+    private Control Card(Control child)
     {
-        Background = Brush("AppBackground"),
-        BorderBrush = Brush("SubtleBorder"),
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(10),
-        Padding = new Thickness(10, 8),
-        Child = child,
-    };
+        var card = new Border
+        {
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(10, 8),
+            Child = child,
+        };
+        // Cores acompanham o tema (claro/escuro) mesmo depois de o painel ser criado
+        card.Bind(Border.BackgroundProperty, this.GetResourceObservable("AppBackground"));
+        card.Bind(Border.BorderBrushProperty, this.GetResourceObservable("SubtleBorder"));
+        return card;
+    }
 
     private static Control Section(string text) => new TextBlock
     {

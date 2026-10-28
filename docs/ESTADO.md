@@ -271,3 +271,14 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## Descrição do site e README (SEO)
 - `index.html`: descrição, tags Open Graph e dados estruturados (JSON-LD) com a lista de recursos da web e do desktop; manifesto com descrição nova; README abre com o que há na web e no Windows.
 - Texto só descreve o que já existe (sem "em breve"). As páginas `conheca.html` e `conheca-classica.html` passaram de "14 dias" para "30 dias" de teste (pedido do Igor). `termos.html` (§4) e a FAQ das páginas Conheça alinhados à regra de 24/10: 30 dias; depois, o Code abre e edita, mas simular, salvar e exportar precisam de licença; Macro, Otimizador e CAM travam; Academy módulo 1 aberto. **Texto de termos: o Igor decide a publicação** (o merge publica na hora). Não revisados por advogado.
+
+## Ajuste: tema claro nos painéis Comparar e Estatísticas (28/10)
+- Os painéis pegavam a cor do tema só ao serem criados; ao trocar para o modo claro ficavam com fundo escuro e texto escuro.
+- Agora o fundo e as bordas seguem o tema em tempo real (`GetResourceObservable`). Web compilada, 1013 testes ok.
+- Falta conferir no celular (modo claro) depois da prévia.
+
+## Decisões do CAM (28/10) — para a próxima conversa
+- Próximos passos do CAM, só no desktop Windows (tela Trabalho), nesta ordem: 1) desbaste por níveis (passo em Z, sobra radial/axial, passo lateral; aba "Desbaste" no Modelo 3D); 2) DXF e seleção de contornos 2D; 3) estudo do STEP; 4) seleção de faces e arestas no 3D. O CAM web (CAM rápido) não muda por enquanto.
+- STEP só no desktop: motor OpenCASCADE (LGPL 2.1 + exceção OCCT, uso proprietário permitido com aviso; confirmar com profissional). Candidato: pacote OcctNet.Wrapper (MIT, 0.1.1, net10), só no `CncStudio.App`; o Core continua sem NuGet e recebe a malha (`TriangleMesh`) e a lista de faces/arestas. O STL continua, sem novos investimentos.
+- Teste de viabilidade do STEP precisa de um STEP real de peça do Igor. Depois do CAM vem o Assist.
+- PR #85 (tema claro em Comparar/Estatísticas) aguarda conferir no celular e o OK do merge.

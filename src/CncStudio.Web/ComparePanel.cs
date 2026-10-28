@@ -116,7 +116,9 @@ public sealed class ComparePanel : UserControl
         body.Children.Add(_empty);
         _list.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<Entry>((entry, _) => entry is null ? new Panel() : BuildRow(entry));
 
-        var root = new DockPanel { Background = Brush("AppBackground") ?? Brush("BarBackground") };
+        var root = new DockPanel();
+        // Fundo acompanha o tema (claro/escuro) mesmo depois de o painel ser criado
+        root.Bind(Panel.BackgroundProperty, this.GetResourceObservable("AppBackground"));
         DockPanel.SetDock(top, Dock.Top);
         root.Children.Add(top);
         root.Children.Add(body);
