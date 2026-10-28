@@ -27,19 +27,21 @@ public class CamJobInfoTests
             job.Operations.Add(CamJobInfo.NewOperation(kind, side, kind == JobOpKind.Pocket ? 1 : 0));
         }
 
-        JobBuild build = CamJobBuilder.Build(job, null);
+        Assert.Contains("perfil da máquina", CamJobBuilder.Build(job, null).Errors[^1]);
+        MachineProfile machine = MachineProfile.FourAxisTableA();
+        machine.Axes[0].PivotZ = -20;
+        JobBuild build = CamJobBuilder.Build(job, machine);
         Assert.True(build.Ok, string.Join("; ", build.Errors));
         Assert.Equal(CamJobInfo.NewKinds.Count, build.Operations.Count);
     }
 
     [Fact]
-    public void Ferramentas_usadas_sem_repetir_e_texto_no_cilindro_nao_tem_padrao()
+    public void Ferramentas_usadas_sem_repetir()
     {
         var job = new CamJob();
         job.Operations.Add(CamJobInfo.NewOperation(JobOpKind.Drilling, ContourSide.Outside, -1));
         job.Operations.Add(CamJobInfo.NewOperation(JobOpKind.Drilling, ContourSide.Outside, -1, new CamTool(2, 6, 4000, 400, 150)));
         job.Operations.Add(CamJobInfo.NewOperation(JobOpKind.Drilling, ContourSide.Outside, -1));
         Assert.Equal([1, 2], CamJobInfo.ToolsUsed(job).Select(t => t.Number));
-        Assert.Throws<ArgumentOutOfRangeException>(() => CamJobInfo.NewOperation(JobOpKind.WrapText, ContourSide.Outside, -1));
     }
 }

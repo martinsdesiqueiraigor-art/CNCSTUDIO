@@ -18,6 +18,7 @@ public static class CamJobInfo
         ("Bolsão", JobOpKind.Pocket, ContourSide.Outside),
         ("Faceamento", JobOpKind.Facing, ContourSide.Outside),
         ("Furação (círculos do desenho)", JobOpKind.Drilling, ContourSide.Outside),
+        ("Texto no cilindro (4º eixo)", JobOpKind.WrapText, ContourSide.Outside),
     ];
 
     /// <summary>Nome padrão da operação, sem o nome personalizado.</summary>
@@ -62,7 +63,7 @@ public static class CamJobInfo
 
     /// <summary>
     /// Operação nova com valores padrão (os mesmos da tela atual do CAM). Contorno, bolsão e faceamento ficam no contorno
-    /// <paramref name="contourIndex"/>; a furação usa todos os círculos. Os números são editados depois no painel de propriedades.
+    /// <paramref name="contourIndex"/>; a furação usa todos os círculos. O texto no cilindro precisa do perfil da máquina na hora de gerar.
     /// </summary>
     public static CamOperationSpec NewOperation(JobOpKind kind, ContourSide side, int contourIndex, CamTool? tool = null)
     {
@@ -74,7 +75,7 @@ public static class CamJobInfo
             JobOpKind.Pocket => new CamOperationSpec(kind, t, levels) { ContourIndex = contourIndex, PocketParams = new PocketParams(60, 0, 2) },
             JobOpKind.Facing => new CamOperationSpec(kind, t, levels) { ContourIndex = contourIndex, FacingStepOverPercent = 60 },
             JobOpKind.Drilling => new CamOperationSpec(kind, t, levels) { Drill = new DrillSpec(DrillCycleKind.Drill, 0, 0) },
-            _ => throw new ArgumentOutOfRangeException(nameof(kind), "Texto no cilindro ainda não tem valores padrão (precisa do perfil da máquina)."),
+            _ => new CamOperationSpec(JobOpKind.WrapText, t, levels) { Wrap = new WrapSpec("CASILLAS", 6, "A", new WrapSetup(40, 0, 0, 0.3, 0.15, 3, 200, 60)) },
         };
     }
 }

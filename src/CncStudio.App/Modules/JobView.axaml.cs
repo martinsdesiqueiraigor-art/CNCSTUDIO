@@ -69,6 +69,7 @@ public partial class JobView : UserControl
         {
             if (!_busy)
             {
+                BuildProps();
                 UpdatePreview();
             }
         };
@@ -193,12 +194,12 @@ public partial class JobView : UserControl
         Errors.Text = "";
         (_, JobOpKind kind, ContourSide side) = CamJobInfo.NewKinds[Math.Max(0, KindCombo.SelectedIndex)];
         int contour = SelectedContour() ?? (SelectedOp() is { } o ? _job.Operations[o].ContourIndex : -1);
-        if (kind != JobOpKind.Drilling && (contour < 0 || contour >= _job.Contours.Count))
+        if (kind is not (JobOpKind.Drilling or JobOpKind.WrapText) && (contour < 0 || contour >= _job.Contours.Count))
         {
             contour = _job.Contours.Count > 0 ? 0 : -1;
         }
 
-        if (kind != JobOpKind.Drilling && contour < 0)
+        if (kind is not (JobOpKind.Drilling or JobOpKind.WrapText) && contour < 0)
         {
             Errors.Text = "• Abra um DXF ou um trabalho com desenho antes de adicionar operações.";
             return;
@@ -226,7 +227,7 @@ public partial class JobView : UserControl
     // ---------------------------------------------------------------- tela
 
     /// <summary>Refaz a árvore, o programa e a vista. <paramref name="op"/>: operação a deixar selecionada; <paramref name="keep"/>: manter a seleção atual.</summary>
-    private void Refresh(int? op = null, bool keep = false)
+    private void Refresh(int? op = null, bool keep = false, bool props = true)
     {
         int? keepOp = keep ? SelectedOp() : op;
         int? keepContour = keep ? SelectedContour() : null;
@@ -241,6 +242,11 @@ public partial class JobView : UserControl
         finally
         {
             _busy = false;
+        }
+
+        if (props)
+        {
+            BuildProps();
         }
 
         Errors.Text = _build.Errors.Count > 0 && _job.Operations.Count > 0 ? string.Join("\n", _build.Errors.Select(e => "• " + e)) : "";
@@ -282,7 +288,10 @@ public partial class JobView : UserControl
         {
             int index = i;
             CamOperationSpec spec = _job.Operations[i];
-            var check = new CheckBox { IsChecked = spec.Enabled, Content = CamJobInfo.OpTitle(i, spec), Opacity = spec.Enabled ? 1 : 0.5 };
+            var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
+            var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6, Opacity = spec.Enabled ? 1 : 0.5 };
+            row.Children.Add(check);
+            row.Children.Add(new TextBlock { Text = CamJobInfo.OpTitle(i, spec), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center });
             check.IsCheckedChanged += (_, _) =>
             {
                 if (!_busy)
@@ -290,7 +299,7 @@ public partial class JobView : UserControl
                     SetEnabled(index, check.IsChecked == true);
                 }
             };
-            var item = new TreeViewItem { Header = check, Tag = new TreeTag("op", i), IsExpanded = true };
+            var item = new TreeViewItem { Header = row, Tag = new TreeTag("op", i), IsExpanded = true };
             ops.Items.Add(item);
             if (selectOp == i)
             {
