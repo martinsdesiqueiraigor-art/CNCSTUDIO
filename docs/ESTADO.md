@@ -201,3 +201,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Torno do Trabalho agora usa o **banco de ferramentas** (só as de torno) e põe no banco as T novas ao abrir no Code.
 - **Desfazer** (botão) nas duas telas: `UndoStack` guarda até 50 estados das operações; limpa ao abrir arquivo.
 - 3 testes novos (964). Não testado: clique real no .exe.
+
+## CAM-03 · J4 — percurso de todas as operações (ajuste-cam-job-vista)
+- Fresa do Trabalho: sem operação selecionada (ou no grupo "Operações"), a vista mostra o percurso de todas as operações ligadas. Com uma operação selecionada, só o dela. Só tela, sem mudança no Core. Torno não mudou.
