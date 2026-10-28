@@ -16,7 +16,9 @@ public sealed partial class AssistView
     private readonly TextBlock _quoteProgram = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
     private readonly TextBlock _quoteResult = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
     private readonly TextBox _partName = new() { Text = "", Watermark = "nome da peça (opcional)", MinHeight = 26 };
+    private readonly TextBox _company = new() { Watermark = "seu nome e contato (cabeçalho da proposta)", MinHeight = 26 };
     private string _lastProposal = "";
+    private string _lastHtml = "";
 
     /// <summary>Valores guardados do orçamento (nas configurações).</summary>
     public Func<QuoteDefaults>? QuoteSource { get; set; }
@@ -28,12 +30,16 @@ public sealed partial class AssistView
 
     public Func<string, Task>? CopyText { get; set; }
 
+    /// <summary>Salva a proposta em HTML (nome sugerido, texto); abra no navegador e imprima ou salve como PDF.</summary>
+    public Func<string, string, Task>? SaveProposal { get; set; }
+
     private void AddQuoteTab()
     {
         var form = new StackPanel { Spacing = 6, MaxWidth = 620 };
         form.Children.Add(new TextBlock { Text = "O tempo vem do programa aberto no Code (simulação). Os valores em R$ são seus: ficam só neste computador.", TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8 });
         form.Children.Add(_quoteProgram);
         form.Children.Add(_partName);
+        form.Children.Add(_company);
         Add(form, "qty", "Quantidade do lote", "peças", d => d.Quantity);
         Add(form, "rate", "Hora-máquina", "R$/h", d => d.MachineRatePerHour);
         Add(form, "setup", "Preparo (setup)", "h", d => d.SetupHours);
@@ -56,8 +62,18 @@ public sealed partial class AssistView
                 _quoteResult.Text += "\n(proposta copiada)";
             }
         };
+        Button file = new() { Content = "Salvar proposta (HTML)…", Padding = new Thickness(16, 6) };
+        file.Click += async (_, _) =>
+        {
+            if (_lastHtml.Length > 0 && SaveProposal is not null)
+            {
+                await SaveProposal("proposta.html", _lastHtml);
+                _quoteResult.Text += "\n(abra o arquivo no navegador e use Imprimir › Salvar como PDF)";
+            }
+        };
         buttons.Children.Add(calc);
         buttons.Children.Add(copy);
+        buttons.Children.Add(file);
         form.Children.Add(buttons);
         form.Children.Add(_quoteResult);
         var tab = new TabItem { Header = "Orçamento", Content = new Border { Padding = new Thickness(0, 10), Child = form } };
@@ -97,6 +113,7 @@ public sealed partial class AssistView
             _quoteBoxes[key].Text = get(d).ToString("0.##", Br);
         }
 
+        _company.Text = d.Company;
         (TimeSpan Time, int ToolChanges, string Name)? p = ProgramSource?.Invoke();
         _quoteProgram.Text = p is { } v
             ? $"Programa: {v.Name} · tempo simulado {DurationFormat.Format(v.Time, Br)} · {v.ToolChanges} troca(s) de ferramenta"
@@ -113,6 +130,7 @@ public sealed partial class AssistView
     private void CalculateQuote()
     {
         _lastProposal = "";
+        _lastHtml = "";
         if (ProgramSource?.Invoke() is not { } p || p.Time <= TimeSpan.Zero)
         {
             _quoteResult.Text = "Abra no Code um programa com movimentos de corte para calcular o tempo.";
@@ -138,10 +156,12 @@ public sealed partial class AssistView
         d.ToolWearPerPart = input.ToolWearPerPart;
         d.MarginPercent = input.MarginPercent;
         d.TaxPercent = input.TaxPercent;
+        d.Company = _company.Text ?? "";
         SaveQuote?.Invoke();
 
         string M(double v) => "R$ " + v.ToString("N2", Br);
         _lastProposal = r.ToText(_partName.Text ?? "");
+        _lastHtml = r.ToHtml(_partName.Text ?? "", _company.Text ?? "");
         _quoteResult.Text = string.Join("\n",
             $"Tempo de ciclo estimado: {DurationFormat.Format(r.CycleTime, Br)} por peça",
             $"Máquina {M(r.MachineCostPerPart)} · Preparo {M(r.SetupCostPerPart)} · Material {M(r.MaterialPerPart)} · Ferramenta {M(r.ToolWearPerPart)}",
