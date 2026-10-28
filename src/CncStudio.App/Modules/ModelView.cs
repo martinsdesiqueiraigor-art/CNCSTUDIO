@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using CncStudio.App.Graphics;
+using CncStudio.Core.Cam;
 using CncStudio.Core.Cam3D;
 using CncStudio.Core.Scene;
 
@@ -34,11 +35,20 @@ public sealed class ModelView : Grid
 
     private readonly ComboBox _unit = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly CheckBox _top = new() { Content = "Topo da peça em Z = 0 e canto em X0 Y0", IsChecked = true };
+    private readonly Dictionary<string, TextBox> _f = [];
+    private readonly ComboBox _dialect = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly TextBlock _result = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+    private readonly Button _openEditor = new() { Content = "Abrir no editor (simular no Code)", Padding = new Thickness(12, 6), IsEnabled = false };
+    private TriangleMesh? _current;
+    private string _program = "";
     private TriangleMesh? _raw;
     private string _fileName = "";
 
     /// <summary>Abre o seletor de STL e devolve nome e bytes (null se cancelou).</summary>
     public Func<Task<(string Name, byte[] Data)?>>? PickStl { get; set; }
+
+    /// <summary>Entrega o programa gerado ao editor (nome do arquivo, texto).</summary>
+    public Action<string, string>? OpenInEditor { get; set; }
 
     public ModelView()
     {
@@ -67,6 +77,31 @@ public sealed class ModelView : Grid
         panel.Children.Add(_top);
         panel.Children.Add(_info);
 
+        panel.Children.Add(new TextBlock { Text = "Varredura de acabamento (fresa esférica)", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "3 eixos, linhas ao longo de X em zigue-zague, só onde há modelo. Confere só a esfera (não a haste). Simule e rode a primeira vez no ar.",
+            Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12,
+        });
+        AddField(panel, "D", "Diâmetro da bola (mm)", "6");
+        AddField(panel, "S", "Rotação (rpm)", "8000");
+        AddField(panel, "FXY", "Avanço XY (mm/min)", "1200");
+        AddField(panel, "FZ", "Avanço de descida (mm/min)", "400");
+        AddField(panel, "STEP", "Passo lateral (mm)", "1");
+        AddField(panel, "TOL", "Tolerância da linha (mm)", "0,02");
+        AddField(panel, "BOT", "Fundo mínimo Z (mm; vazio = base do modelo)", "");
+        AddField(panel, "TN", "Número da ferramenta (T)", "1");
+        _dialect.Items.Add(new ComboBoxItem { Content = "Fanuc" });
+        _dialect.Items.Add(new ComboBoxItem { Content = "Siemens" });
+        _dialect.SelectedIndex = 0;
+        panel.Children.Add(_dialect);
+        Button generate = new() { Content = "Gerar varredura", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold };
+        generate.Click += async (_, _) => await Generate();
+        panel.Children.Add(generate);
+        _openEditor.Click += (_, _) => OpenInEditor?.Invoke(_program, Path.GetFileNameWithoutExtension(_fileName) + "-varredura.nc");
+        panel.Children.Add(_openEditor);
+        panel.Children.Add(_result);
+
         var left = new Border
         {
             Child = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled },
@@ -91,6 +126,59 @@ public sealed class ModelView : Grid
             _hint.Text = "3D pela placa de vídeo indisponível (" + message + ").";
             _hint.IsVisible = true;
         };
+    }
+
+    private void AddField(StackPanel panel, string id, string label, string value)
+    {
+        panel.Children.Add(new TextBlock { Text = label, Opacity = 0.75, FontSize = 12 });
+        var box = new TextBox { Text = value };
+        _f[id] = box;
+        panel.Children.Add(box);
+    }
+
+    private double Num(string id) =>
+        double.TryParse(_f[id].Text?.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : double.NaN;
+
+    private async Task Generate()
+    {
+        _openEditor.IsEnabled = false;
+        if (_current is not { } model)
+        {
+            _result.Text = "• Abra um STL primeiro.";
+            return;
+        }
+
+        double[] v = new[] { "D", "S", "FXY", "FZ", "STEP", "TOL", "TN" }.Select(Num).ToArray();
+        if (v.Any(double.IsNaN))
+        {
+            _result.Text = "• Preencha todos os números da ferramenta e da varredura.";
+            return;
+        }
+
+        double top = model.Bounds.Max.Z;
+        double bottom = double.IsNaN(Num("BOT")) ? model.Bounds.Min.Z : Num("BOT");
+        var tool = new CamTool((int)v[6], v[0], v[1], v[2], v[3], "Bola D" + v[0].ToString("0.##", Pt));
+        var levels = new CamLevels(top + 25, top + 5, top, Math.Min(bottom, top - 0.01), 1);
+        CamDialect dialect = _dialect.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
+        string name = Path.GetFileNameWithoutExtension(_fileName).ToUpperInvariant();
+        _result.Text = "Calculando…";
+        (OperationResult result, string program) = await Task.Run(() =>
+        {
+            OperationResult r = SurfaceFinish.Raster(model, tool, levels, new SurfaceParams(v[4], v[5]));
+            return (r, r.Ok ? CamPost.Generate([r.Operation!], new PostOptions(dialect, ProgramName: name.Length > 0 ? name : "VARREDURA 3D")) : "");
+        });
+        if (!result.Ok)
+        {
+            _result.Text = "• " + result.Error;
+            return;
+        }
+
+        _program = program;
+        _openEditor.IsEnabled = true;
+        int lines = program.Count(c => c == '\n');
+        _result.Text = $"Programa gerado: {lines:N0} linhas, {result.Operation!.Moves.Count:N0} movimentos.\n" +
+            string.Join("\n", result.Operation.Warnings.Select(w => "• " + w)) +
+            "\n• Altura segura = topo + 25 mm; aproximação = topo + 5 mm (Z0 = topo do modelo).";
     }
 
     private async Task Open()
@@ -128,6 +216,9 @@ public sealed class ModelView : Grid
         {
             mesh = mesh.PlacedTopAtZero();
         }
+
+        _current = mesh;
+        _openEditor.IsEnabled = false;
 
         var size = mesh.Size;
         bool closed = mesh.IsClosed;

@@ -79,6 +79,7 @@ public partial class CamView : UserControl
             LathePanel.OpenInEditor = value;
             JobPanel.OpenInEditor = value;
             LatheJobPanel.OpenInEditor = value;
+            ModelPanel.OpenInEditor = value;
         }
     }
 
