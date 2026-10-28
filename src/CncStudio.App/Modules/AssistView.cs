@@ -48,7 +48,7 @@ public sealed partial class AssistView : UserControl
     {
         var root = new ScrollViewer { HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         var stack = new StackPanel { Margin = new Thickness(28, 22), Spacing = 12, MaxWidth = 1000, HorizontalAlignment = HorizontalAlignment.Stretch };
-        stack.Children.Add(new TextBlock { Text = "Casillas Assist · Bibliotecas", FontSize = 24, FontWeight = FontWeight.Bold });
+        stack.Children.Add(new TextBlock { Text = "Casillas Assist", FontSize = 24, FontWeight = FontWeight.Bold });
         stack.Children.Add(Note("Os itens iniciais são rascunho: pontos de partida a conferir com o catálogo do fabricante. O Assist só sugere; confira, simule e rode a primeira vez no ar."));
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -87,6 +87,7 @@ public sealed partial class AssistView : UserControl
             i => _lib.Jaws.Insert(i + 1, _lib.Jaws[i] with { Name = Unique(_lib.Jaws[i].Name + " cópia", _lib.Jaws.Select(j => j.Name)) }),
             i => _lib.Jaws.RemoveAt(i), JawFields, (i, d) => _lib.Jaws[i] = _lib.Jaws[i] with { Draft = d }));
         AddQuoteTab();
+        AddPlanTab();
         stack.Children.Add(_tabs);
         Border test = BuildTest();
         _tabs.SelectionChanged += (_, _) => test.IsVisible = _tabs.SelectedIndex < 3;

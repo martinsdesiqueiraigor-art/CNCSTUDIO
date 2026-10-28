@@ -50,6 +50,18 @@ public partial class CamView : UserControl
 
     private Func<Task<(string Name, string Text)?>>? _pickDxf;
 
+    /// <summary>Contornos e bruto do Trabalho de fresa (para o Assist).</summary>
+    public IReadOnlyList<Contour> JobContours => JobPanel.Contours;
+
+    public JobStock? JobStockInfo => JobPanel.Stock;
+
+    /// <summary>Põe as operações sugeridas no Trabalho de fresa e mostra essa aba.</summary>
+    public void ApplyPlan(IEnumerable<CamOperationSpec> operations)
+    {
+        JobPanel.AddOperations(operations);
+        ShowMachine(lathe: false, job: true);
+    }
+
     /// <summary>Abre um texto numa aba nova do editor (texto, nome sugerido).</summary>
     public Action<string, string>? OpenInEditor
     {
