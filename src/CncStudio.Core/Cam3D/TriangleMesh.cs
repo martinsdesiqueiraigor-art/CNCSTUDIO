@@ -135,6 +135,22 @@ public sealed class TriangleMesh
     private static int Compare((long, long, long) a, (long, long, long) b) =>
         a.Item1 != b.Item1 ? a.Item1.CompareTo(b.Item1) : a.Item2 != b.Item2 ? a.Item2.CompareTo(b.Item2) : a.Item3.CompareTo(b.Item3);
 
+    /// <summary>Malha só com os triângulos de índice dado (ou, com <paramref name="invert"/>, com todos os outros).</summary>
+    public TriangleMesh Subset(IEnumerable<int> indices, bool invert = false)
+    {
+        var chosen = new HashSet<int>(indices);
+        var list = new List<(Point3, Point3, Point3)>();
+        for (int i = 0; i < TriangleCount; i++)
+        {
+            if (chosen.Contains(i) != invert)
+            {
+                list.Add(Triangle(i));
+            }
+        }
+
+        return new TriangleMesh(list);
+    }
+
     /// <summary>Malha para a placa de vídeo (cada triângulo com a normal dele, cor do material).</summary>
     public SolidMesh ToSolidMesh(uint rgb = 0xB8C4D0)
     {

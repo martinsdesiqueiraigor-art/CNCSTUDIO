@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using CncStudio.App.Graphics;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Cam3D;
+using CncStudio.Core.Geometry;
 using CncStudio.Core.Scene;
 using CncStudio.Step;
 
@@ -39,9 +40,16 @@ public sealed class ModelView : Grid
     private readonly Dictionary<string, TextBox> _f = [];
     private readonly ComboBox _dialect = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBlock _result = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+    private readonly TextBlock _sel = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Text = "Clique no modelo para escolher uma região ou uma aresta (Ctrl soma)." };
+    private readonly Button _drillButton = new() { Content = "Gerar furação dos furos escolhidos", Padding = new Thickness(12, 6), IsEnabled = false };
+    private readonly HashSet<int> _selFaces = [];
+    private readonly HashSet<int> _selEdges = [];
+    private MeshFeatures? _features;
+    private int _analysis, _version = 1;
     private readonly Button _openEditor = new() { Content = "Abrir no editor (simular no Code)", Padding = new Thickness(12, 6), IsEnabled = false };
     private TriangleMesh? _current;
     private string _program = "";
+    private string _programSuffix = "-varredura.nc";
     private TriangleMesh? _raw;
     private string _fileName = "";
 
@@ -78,6 +86,20 @@ public sealed class ModelView : Grid
         panel.Children.Add(_top);
         panel.Children.Add(_info);
 
+        panel.Children.Add(new TextBlock { Text = "Faces e arestas", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "São regiões lidas da malha (dobra acima de 30°), não as faces do CAD. Com malha grossa um furo pode virar vários pedaços.",
+            Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12,
+        });
+        panel.Children.Add(_sel);
+        AddField(panel, "DD", "Broca (mm)", "6");
+        AddField(panel, "DS", "Rotação da broca (rpm)", "2500");
+        AddField(panel, "DF", "Avanço de furação (mm/min)", "150");
+        AddField(panel, "DQ", "Bicada Q (mm)", "3");
+        _drillButton.Click += (_, _) => GenerateDrilling();
+        panel.Children.Add(_drillButton);
+
         panel.Children.Add(new TextBlock { Text = "Varredura de acabamento (fresa esférica)", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
         panel.Children.Add(new TextBlock
         {
@@ -99,7 +121,7 @@ public sealed class ModelView : Grid
         Button generate = new() { Content = "Gerar varredura", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold };
         generate.Click += async (_, _) => await Generate();
         panel.Children.Add(generate);
-        _openEditor.Click += (_, _) => OpenInEditor?.Invoke(_program, Path.GetFileNameWithoutExtension(_fileName) + "-varredura.nc");
+        _openEditor.Click += (_, _) => OpenInEditor?.Invoke(_program, Path.GetFileNameWithoutExtension(_fileName) + _programSuffix);
         panel.Children.Add(_openEditor);
         panel.Children.Add(_result);
 
@@ -121,6 +143,7 @@ public sealed class ModelView : Grid
 
         Children.Add(left);
         Children.Add(frame);
+        _gl.SceneClicked += OnSceneClicked;
         _gl.Failed += (_, message) =>
         {
             _gl.IsVisible = false;
@@ -175,6 +198,7 @@ public sealed class ModelView : Grid
         }
 
         _program = program;
+        _programSuffix = "-varredura.nc";
         _openEditor.IsEnabled = true;
         int lines = program.Count(c => c == '\n');
         _result.Text = $"Programa gerado: {lines:N0} linhas, {result.Operation!.Moves.Count:N0} movimentos.\n" +
@@ -266,5 +290,185 @@ public sealed class ModelView : Grid
         _gl.IsVisible = true;
         _gl.Show(mesh.ToSnapshot());
         Dispatcher.UIThread.Post(() => _gl.Fit(SceneView.Isometric), DispatcherPriority.Background);
+        _ = AnalyzeAsync(mesh);
+    }
+
+    // ---------------------------------------------------------------- faces e arestas
+
+    private async Task AnalyzeAsync(TriangleMesh mesh)
+    {
+        int mine = ++_analysis;
+        _features = null;
+        _selFaces.Clear();
+        _selEdges.Clear();
+        _drillButton.IsEnabled = false;
+        _sel.Text = "Lendo faces e arestas…";
+        MeshFeatures features = await Task.Run(() => MeshFeatures.Analyze(mesh));
+        if (mine != _analysis)
+        {
+            return; // abriu outro modelo no meio
+        }
+
+        _features = features;
+        _sel.Text = $"{features.Faces.Count:N0} regiões e {features.Edges.Count:N0} arestas. Clique no modelo para escolher (Ctrl soma).";
+    }
+
+    private void OnSceneClicked(object? sender, SceneClickEventArgs e)
+    {
+        if (_features is not { } features || _current is null)
+        {
+            return;
+        }
+
+        (MeshFace? face, MeshEdge? edge) = features.Pick(e.Origin, e.Direction, e.Tolerance);
+        if (!e.Additive)
+        {
+            bool same = (face is not null && _selFaces.Count == 1 && _selFaces.Contains(face.Id) && _selEdges.Count == 0)
+                || (edge is not null && _selEdges.Count == 1 && _selEdges.Contains(edge.Id) && _selFaces.Count == 0);
+            _selFaces.Clear();
+            _selEdges.Clear();
+            if (same)
+            {
+                face = null;
+                edge = null;
+            }
+        }
+
+        if (face is not null && !_selFaces.Remove(face.Id))
+        {
+            _selFaces.Add(face.Id);
+        }
+
+        if (edge is not null && !_selEdges.Remove(edge.Id))
+        {
+            _selEdges.Add(edge.Id);
+        }
+
+        PublishSelection(features, _current);
+    }
+
+    private IEnumerable<MeshFace> SelectedHoles(MeshFeatures features) =>
+        _selFaces.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole && f.Axis is { } a && Math.Abs(a.Z) >= 0.99);
+
+    private void PublishSelection(MeshFeatures features, TriangleMesh mesh)
+    {
+        _version++;
+        var objects = new List<SceneObjectState>();
+        var lines = new List<SceneLinesState>();
+        if (_selFaces.Count == 0)
+        {
+            objects.Add(new SceneObjectState("modelo/0", SceneRole.Material, mesh.ToSolidMesh(), _version, Point3.Origin, true));
+        }
+        else
+        {
+            int[] chosen = [.. _selFaces.SelectMany(i => features.Faces[i].Triangles)];
+            objects.Add(new SceneObjectState("modelo/0", SceneRole.Material, mesh.Subset(chosen, invert: true).ToSolidMesh(), _version, Point3.Origin, true));
+            objects.Add(new SceneObjectState("selecao/0", SceneRole.Material, mesh.Subset(chosen).ToSolidMesh(0xFF9F1C), _version, Point3.Origin, true));
+        }
+
+        if (_selEdges.Count > 0)
+        {
+            var pos = new List<float>();
+            foreach (MeshEdge ed in _selEdges.Select(i => features.Edges[i]))
+            {
+                for (int i = 0; i + 1 < ed.Points.Count; i++)
+                {
+                    pos.AddRange([(float)ed.Points[i].X, (float)ed.Points[i].Y, (float)ed.Points[i].Z, (float)ed.Points[i + 1].X, (float)ed.Points[i + 1].Y, (float)ed.Points[i + 1].Z]);
+                }
+            }
+
+            lines.Add(new SceneLinesState(SceneRole.CurrentPath, [.. pos], 0x00E5FF));
+        }
+
+        _gl.Show(new SceneSnapshot(objects, lines, mesh.Bounds, ScenePalette.Realistic));
+        _sel.Text = Describe(features);
+        _drillButton.IsEnabled = SelectedHoles(features).Any();
+    }
+
+    private string Describe(MeshFeatures features)
+    {
+        string F(double v) => v.ToString("0.###", Pt);
+        string P(Point3 p) => $"X {F(p.X)} Y {F(p.Y)} Z {F(p.Z)}";
+        var lines = new List<string>();
+        foreach (MeshFace f in _selFaces.Select(i => features.Faces[i]).Take(8))
+        {
+            lines.Add(f.Kind switch
+            {
+                FaceKind.Plane => $"• Plano: {F(f.Area)} mm², normal ({F(f.Normal.X)}; {F(f.Normal.Y)}; {F(f.Normal.Z)}), centro {P(f.Center)}",
+                FaceKind.Hole => $"• Furo Ø {F(f.Diameter)} mm, profundidade da parede {F(f.Depth)} mm, centro {P(f.Center)}" + (f.Axis is { } a && Math.Abs(a.Z) < 0.99 ? " (não é vertical: sem furação automática)" : ""),
+                FaceKind.Boss => $"• Pino Ø {F(f.Diameter)} mm, altura {F(f.Depth)} mm, centro {P(f.Center)}",
+                FaceKind.ConcaveCurve => $"• Raio interno (côncavo) Ø {F(f.Diameter)} mm, {F(f.Area)} mm²",
+                FaceKind.ConvexCurve => $"• Arredondamento (convexo) Ø {F(f.Diameter)} mm, {F(f.Area)} mm²",
+                _ => $"• Superfície livre: {F(f.Area)} mm²",
+            });
+        }
+
+        foreach (MeshEdge ed in _selEdges.Select(i => features.Edges[i]).Take(8))
+        {
+            lines.Add(ed.Kind switch
+            {
+                EdgeKind.Line => $"• Aresta reta: {F(ed.Length)} mm, de {P(ed.Points[0])} a {P(ed.Points[^1])}",
+                EdgeKind.Circle => $"• Círculo Ø {F(ed.Diameter)} mm, centro {P(ed.Center)}",
+                EdgeKind.Arc => $"• Arco Ø {F(ed.Diameter)} mm, comprimento {F(ed.Length)} mm",
+                _ => $"• Aresta curva: {F(ed.Length)} mm" + (ed.Closed ? " (fechada)" : ""),
+            });
+        }
+
+        int total = _selFaces.Count + _selEdges.Count;
+        if (total == 0)
+        {
+            return $"{features.Faces.Count:N0} regiões e {features.Edges.Count:N0} arestas. Clique no modelo para escolher (Ctrl soma).";
+        }
+
+        if (total > 16)
+        {
+            lines.Add($"… e mais {total - 16} itens");
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    private void GenerateDrilling()
+    {
+        _openEditor.IsEnabled = false;
+        if (_features is not { } features || _current is not { } model)
+        {
+            return;
+        }
+
+        MeshFace[] holes = [.. SelectedHoles(features)];
+        double[] v = new[] { "DD", "DS", "DF", "DQ", "TN" }.Select(Num).ToArray();
+        if (holes.Length == 0 || v.Any(double.IsNaN))
+        {
+            _result.Text = "• Escolha furos verticais e preencha broca, rotação, avanço e bicada.";
+            return;
+        }
+
+        double smallest = holes.Min(h => h.Diameter);
+        if (v[0] > smallest + 0.01)
+        {
+            _result.Text = $"• A broca ({v[0].ToString("0.##", Pt)} mm) é maior que o menor furo escolhido ({smallest.ToString("0.##", Pt)} mm).";
+            return;
+        }
+
+        double top = holes.Max(h => h.Box.Max.Z), bottom = holes.Min(h => h.Box.Min.Z);
+        var tool = new CamTool((int)v[4], v[0], v[1], v[2] * 4, v[2], "Broca D" + v[0].ToString("0.##", Pt));
+        OperationResult r = CamOperations.Drilling(tool, model.Bounds.Max.Z + 25, holes.Select(h => new Point2(h.Center.X, h.Center.Y)), DrillCycleKind.Peck,
+            top, bottom, top + 2, v[3]);
+        if (!r.Ok)
+        {
+            _result.Text = "• " + r.Error;
+            return;
+        }
+
+        CamDialect dialect = _dialect.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
+        string name = Path.GetFileNameWithoutExtension(_fileName).ToUpperInvariant();
+        _program = CamPost.Generate([r.Operation!], new PostOptions(dialect, ProgramName: name.Length > 0 ? name + " FUROS" : "FUROS 3D"));
+        _programSuffix = "-furos.nc";
+        _openEditor.IsEnabled = true;
+        string F(double x) => x.ToString("0.##", Pt);
+        _result.Text = $"Furação gerada: {holes.Length} furo(s), de Z {F(top)} até Z {F(bottom)} (ponta da broca), bicada {F(v[3])} mm.\n" +
+            "• A profundidade é a da parede do furo na malha; furo cego com fundo cônico não é considerado.\n" +
+            "• O ponto do furo é o centro lido da malha: confira antes de rodar. Primeira vez, no ar.";
     }
 }

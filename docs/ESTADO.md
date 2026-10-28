@@ -290,3 +290,10 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Testes do STEP à parte (usam o nativo pesado): `dotnet test tests/CncStudio.Step.Tests` (5 testes: placa furada com volume certo e malha fechada, serve para a varredura, arquivo inválido, polegadas → mm, dois corpos). Os STEP de teste são gerados pelo próprio OpenCASCADE: **nenhum STEP real de CAD (SolidWorks, Fusion) foi testado**.
 - Custo: o .exe do Windows (arquivo único) passou de 48,3 MB para **79,1 MB** (+30,8 MB); o restore baixa 673 MB (todas as plataformas). O pacote traz DLLs de terceiros que o Casillas não usa (ffmpeg, FreeImage, OpenVR, TBB, jemalloc…): **conferir as licenças com um profissional antes de vender** e avaliar enxugar o publish.
 - Sem faces e arestas (o pacote não expõe topologia): seleção no 3D adiada; se precisar, fork do wrapper (MIT). Não conferido na tela: abrir um STEP pelo botão no .exe da Prévia.
+
+## CAM 3D — selecionar faces e arestas (`fase-cam3d-selecao`, em cima da `fase-cam-step-malha`)
+- Core `Cam3D/MeshFeatures`: lê a malha e acha **regiões** (triângulos vizinhos com dobra < 30°: plano, furo, pino, raio côncavo/convexo, livre) e **arestas vivas** (reta, círculo, arco, curva), com área, normal, centro, Ø e profundidade. `Pick` escolhe por um raio (aresta na frente ganha da face). 7 testes (caixa, arruela com furo e pino, raio pelo furo, clique perto/longe da aresta).
+- Desktop: na aba **Modelo 3D** o clique (sem arrastar) escolhe região (laranja) ou aresta (azul-claro); clique de novo desfaz; **Ctrl soma**. Painel mostra os dados. `GlSceneView` ganhou o evento `SceneClicked` e `RayAt`.
+- Botão **Gerar furação dos furos escolhidos**: furos verticais viram ciclo G83/bicada (Z do topo ao fundo da parede, centro lido da malha). Furo cego com fundo cônico não é considerado.
+- Limites: são regiões da **malha**, não as faces do CAD (STEP vira malha); malha grossa parte o furo em pedaços; precisa normal para fora. Testado só com placa gerada por mim (STL), nenhum STEP real.
+
