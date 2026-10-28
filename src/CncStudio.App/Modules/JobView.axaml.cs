@@ -97,6 +97,25 @@ public partial class JobView : UserControl
         Refresh();
     }
 
+    /// <summary>Contornos e bruto do Trabalho aberto (o Assist lê para sugerir um plano).</summary>
+    public IReadOnlyList<Contour> Contours => _job.Contours;
+
+    public JobStock? Stock => _job.Stock;
+
+    /// <summary>Junta operações sugeridas (pelo Assist) ao fim do Trabalho; dá para desfazer.</summary>
+    public void AddOperations(IEnumerable<CamOperationSpec> operations)
+    {
+        List<CamOperationSpec> list = operations.ToList();
+        if (list.Count == 0)
+        {
+            return;
+        }
+
+        Snap();
+        _job.Operations.AddRange(list);
+        Refresh(op: _job.Operations.Count - list.Count);
+    }
+
     public Func<Task<(string Name, string Text)?>>? PickDxf { get; set; }
 
     /// <summary>Abre o seletor de trabalho salvo (.casillas-job); devolve nome e texto.</summary>

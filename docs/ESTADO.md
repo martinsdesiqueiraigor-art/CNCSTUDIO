@@ -229,6 +229,12 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Core `Cam/PocketIslands.cs`: `FindIslands` (contornos inteiros dentro do bolsão), `PocketWithIslands`. Contorna a parede e cada ilha em anéis (com rampa) e limpa o resto em passes paralelos em X que desviam das ilhas; acabamento (se houver sobremetal) na parede e nas ilhas. Erros claros: ilha perto demais da parede ou ilhas muito próximas (a ferramenta não passa).
 - Trabalho (fresa): opção **"Contornar ilhas"** no bolsão (`CamOperationSpec.Islands`, salvo no arquivo como `islands`, versão 1 compatível). Desligada = bolsão igual ao de antes.
 - 7 testes novos (991). Limites: passes paralelos só na direção X; entrada em rampa/zigue-zague; confira na simulação. Web não usa ainda.
+
+## ASSIST · fase 3 — plano automático 2D (fase-assist-plano, em cima de ajuste-cam-ilhas)
+- Core `Assist/Planner.cs` (`AssistPlanner.Plan`): maior contorno = peça; círculos de Ø até 20 = furos (broca da biblioteca ou nova); outros contornos dentro = bolsões; contornos dentro de um bolsão = ilhas. Ordem: furos, bolsões, contorno por último. Cada operação é testada no CAM antes de entrar (fresa maior que cabe; senão aviso). Corte (rpm/avanço/passe) do material escolhido. 8 testes (998), inclusive o plano virando programa nos dois comandos.
+- Aba **Plano 2D** no Assist: lê o desenho do Trabalho fresa, escolhe material e espessura, "Sugerir plano" e "Aplicar ao Trabalho (CAM)" (entra no fim do Trabalho; dá para Desfazer).
+- Profundidades são suposições (2D não diz): furos e contorno até a espessura, bolsões até a metade; contorno sem pontes. Avisos na tela. Conferido no Xvfb (DXF de teste → sugestão → aplicar).
+- **Depende do PR do bolsão com ilhas**: merge das ilhas primeiro.
 ## Trava de licença do CAM web (ajuste-cam-web-licenca)
 - `platform-ui.js`: `cam` entra em `GATED`, mas como `SOFT`: só trava depois que o servidor passar a listar o módulo `cam` (`moduleKnown` em `account.js`). Hoje o produto `cam` está inativo no servidor ("em breve"), então o CAM web continua abrindo livre, sem pedir conta.
 - Para ligar a venda: o Igor ativa o produto `cam` no Supabase (não mexi). Aí o CAM passa a exigir teste ativo ou licença, com "Comprar licença", como Macro e Otimizador.

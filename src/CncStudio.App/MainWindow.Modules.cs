@@ -5,6 +5,8 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using CncStudio.App.Modules;
+using CncStudio.Core.Assist;
+using CncStudio.Core.Setup;
 
 namespace CncStudio.App;
 
@@ -95,6 +97,14 @@ public partial class MainWindow
             await using Stream stream = await files[0].OpenReadAsync();
             using var reader = new StreamReader(stream);
             return (files[0].Name, await reader.ReadToEndAsync());
+        };
+        Assist.PlanDrawing = () => (Cam.JobContours, Cam.JobStockInfo?.Thickness);
+        Assist.PlanTools = () => _settings.Tools.Select(t => new PlanTool(
+            t.Number, t.Diameter, Enum.TryParse(t.Kind, out ToolKind kind) && kind == ToolKind.Drill, t.Description)).ToList();
+        Assist.ApplyPlan = operations =>
+        {
+            Cam.ApplyPlan(operations);
+            ShowModule("cam");
         };
         Assist.QuoteSource = () => _settings.Quote;
         Assist.SaveQuote = () => _settings.Save();
