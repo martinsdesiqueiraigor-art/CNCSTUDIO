@@ -402,7 +402,7 @@ public sealed partial class AssistView : UserControl
         go.Click += (_, _) => RunTest();
         panel.Children.Add(go);
         panel.Children.Add(_testResult);
-        return new Border { Background = new SolidColorBrush(Color.Parse("#131a22")), CornerRadius = new CornerRadius(8), Padding = new Thickness(12), Child = panel };
+        return new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(12), Child = panel }.Themed();
     }
 
     private static StackPanel Row(string a, TextBox boxA, string b, TextBox? boxB, string unit)

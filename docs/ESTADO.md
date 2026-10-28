@@ -239,3 +239,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `platform-ui.js`: `cam` entra em `GATED`, mas como `SOFT`: só trava depois que o servidor passar a listar o módulo `cam` (`moduleKnown` em `account.js`). Hoje o produto `cam` está inativo no servidor ("em breve"), então o CAM web continua abrindo livre, sem pedir conta.
 - Para ligar a venda: o Igor ativa o produto `cam` no Supabase (não mexi). Aí o CAM passa a exigir teste ativo ou licença, com "Comprar licença", como Macro e Otimizador.
 - Não testado em navegador real (só JS; conferir na Prévia).
+
+## UI · base visual do Assist (ajuste-ui-assist-base)
+- Etapa 1 do redesenho (sugestão de Igor de 28/10): `Modules/UiKit.cs` (ícones de linha próprios, cartão de resultado, fundo que acompanha o tema).
+- Orçamento: formulário com ícones por campo e **resultado em cartões** (tempo de ciclo, preço por peça, total do lote) ao lado, sem rolar. Cabeçalho do Assist agora só "Casillas Assist"; teste rápido usa o fundo do tema (claro/escuro). Abas do CAM: "Trabalho fresa" e "Trabalho torno" (sem "(novo)").
+- Só visual, sem mudança de cálculo. Próximas: etapa 2 (árvore do Trabalho com ícones, abas Propriedades/Visualização/Código) e etapa 3 (vista 3D no Trabalho).
