@@ -2,7 +2,10 @@
 
 # Casillas Code
 
-Editor e simulador de programas CNC (FANUC e Siemens, fresa e torno), com simulação 3D na web, no celular e no PC.
+Editor e simulador de programas CNC (FANUC e Siemens, fresa e torno), com simulação 3D na web, no celular e no PC. **Roda no seu aparelho: o programa não é enviado a nenhum servidor.**
+
+- **Na web e no celular** (https://casillas.com.br): editor, simulação 3D com remoção de material, Macro (geradores de programa), Otimizador, Academy (aulas e quizzes), biblioteca de exemplos, comparar programas, folha de setup e CAM básico (contorno, bolsão e texto no cilindro).
+- **No Windows (desktop):** tudo isso e mais o **CAM** de fresa 2,5D e de torno (rosca, canal, rebaixo), pós Fanuc e Siemens, 4º eixo e face girada, a tela **Trabalho** (árvore com visualização 2D e 3D), o **CAM 3D** (leitura de STL e varredura de acabamento) e o **Casillas Assist** (orçamento, tempo de ciclo e plano a partir do DXF).
 Faz parte da plataforma **Casillas CNC** (Code, Macro, Academy, Biblioteca CNC, Ferramentas e CAM).
 O nome interno do código continua `CncStudio` (pastas, namespaces e solução).
 
