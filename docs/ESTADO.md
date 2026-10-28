@@ -204,3 +204,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 
 ## CAM-03 · J4 — percurso de todas as operações (ajuste-cam-job-vista)
 - Fresa do Trabalho: sem operação selecionada (ou no grupo "Operações"), a vista mostra o percurso de todas as operações ligadas. Com uma operação selecionada, só o dela. Só tela, sem mudança no Core. Torno não mudou.
+
+## ASSIST · fase 1A — bibliotecas no Core (fase-assist-bibliotecas)
+- `Core/Assist`: `AssistLibrary` (materiais, morsas, castanhas de torno), `AssistLibraryJson` (arquivo `casillas-assist-biblioteca`, versão 1). Ferramentas e máquinas seguem nos cadastros atuais do Code.
+- Material sugere rpm/avanço/passe da fresa; morsa confere abertura, mandíbula e altura; castanha confere a faixa de pega (fora/dentro). Itens iniciais todos **rascunho** (Igor revisa).
+- 11 testes (974). Ainda sem tela: a tela do Assist no desktop é a fase 1B.
