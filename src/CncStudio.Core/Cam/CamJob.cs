@@ -35,6 +35,9 @@ public sealed record CamOperationSpec(JobOpKind Kind, CamTool Tool, CamLevels Le
 
     public PocketParams? PocketParams { get; init; }
 
+    /// <summary>Bolsão: contornar como ilhas os contornos do desenho que ficam por inteiro dentro dele.</summary>
+    public bool Islands { get; init; }
+
     /// <summary>Faceamento: passo lateral em % do diâmetro.</summary>
     public double FacingStepOverPercent { get; init; } = 60;
 
@@ -276,7 +279,9 @@ public static class CamJobBuilder
             case JobOpKind.Contour:
                 return CamOperations.Contour(part!, s.Tool, s.Levels, s.ContourParams!);
             case JobOpKind.Pocket:
-                return CamOperations.Pocket(part!, s.Tool, s.Levels, s.PocketParams!);
+                return s.Islands
+                    ? CamOperations.PocketWithIslands(part!, CamOperations.FindIslands(part!, job.Contours), s.Tool, s.Levels, s.PocketParams!)
+                    : CamOperations.Pocket(part!, s.Tool, s.Levels, s.PocketParams!);
             case JobOpKind.Facing:
                 (double x0, double y0, double x1, double y1) = part!.BoundsXY();
                 return CamOperations.Facing(s.Tool, s.Levels, x0, y0, x1 - x0, y1 - y0, s.FacingStepOverPercent);

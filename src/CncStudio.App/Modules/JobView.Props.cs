@@ -101,6 +101,7 @@ public partial class JobView
                 Num(i, "Passo lateral", "% Ø", p.StepOverPercent, (x, v) => x with { PocketParams = p with { StepOverPercent = v } });
                 Num(i, "Sobremetal de acabamento", "mm", p.FinishAllowance, (x, v) => x with { PocketParams = p with { FinishAllowance = v } });
                 Num(i, "Raio de entrada", "mm", p.LeadRadius, (x, v) => x with { PocketParams = p with { LeadRadius = v } });
+                Check(i, "Contornar ilhas (contornos do desenho dentro deste)", s.Islands, (x, v) => x with { Islands = v });
                 break;
             case JobOpKind.Facing:
                 Section("Faceamento");
