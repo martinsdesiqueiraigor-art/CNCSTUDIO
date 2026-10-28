@@ -254,6 +254,15 @@ public partial class JobView : UserControl
     }
 
     /// <summary>Guarda o estado das operações antes de uma alteração (para Desfazer).</summary>
+    private static string OpIcon(CamOperationSpec s) => s.Kind switch
+    {
+        JobOpKind.Contour => "contorno",
+        JobOpKind.Pocket => "bolsao",
+        JobOpKind.Facing => "faceamento",
+        JobOpKind.Drilling => "furo",
+        _ => "texto",
+    };
+
     private void Snap()
     {
         _undo.Push(_job.Operations);
@@ -312,12 +321,12 @@ public partial class JobView : UserControl
     {
         Tree.Items.Clear();
         TreeViewItem? select = null;
-        TreeViewItem Node(string text, object? tag = null) => new() { Header = text, Tag = tag, IsExpanded = true };
+        TreeViewItem Node(string text, object? tag = null, string? icon = null) => new() { Header = icon is null ? text : UiKit.IconLabel(icon, text), Tag = tag, IsExpanded = true };
 
-        TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})");
+        TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", null, "peca");
         for (int i = 0; i < _job.Contours.Count; i++)
         {
-            TreeViewItem c = Node(CamJobInfo.ContourTitle(_job.Contours[i], i), new TreeTag("contour", i));
+            TreeViewItem c = Node(CamJobInfo.ContourTitle(_job.Contours[i], i), new TreeTag("contour", i), "contorno");
             part.Items.Add(c);
             if (selectContour == i)
             {
@@ -326,16 +335,16 @@ public partial class JobView : UserControl
         }
 
         Tree.Items.Add(part);
-        Tree.Items.Add(Node(CamJobInfo.StockTitle(_job.Stock)));
-        Tree.Items.Add(Node("Fixação: em breve"));
-        TreeViewItem tools = Node("Ferramentas");
+        Tree.Items.Add(Node(CamJobInfo.StockTitle(_job.Stock), null, "bruto"));
+        Tree.Items.Add(Node("Fixação: em breve", null, "fixacao"));
+        TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
         foreach (CamTool t in CamJobInfo.ToolsUsed(_job))
         {
             tools.Items.Add(Node($"T{t.Number} · Ø{t.Diameter:0.##} · {t.SpindleRpm:0} rpm"));
         }
 
         Tree.Items.Add(tools);
-        TreeViewItem ops = Node($"Operações ({_job.Operations.Count})");
+        TreeViewItem ops = Node($"Operações ({_job.Operations.Count})", null, "operacoes");
         for (int i = 0; i < _job.Operations.Count; i++)
         {
             int index = i;
@@ -343,6 +352,7 @@ public partial class JobView : UserControl
             var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
             var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6, Opacity = spec.Enabled ? 1 : 0.5 };
             row.Children.Add(check);
+            row.Children.Add(UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
             row.Children.Add(new TextBlock { Text = CamJobInfo.OpTitle(i, spec), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center });
             check.IsCheckedChanged += (_, _) =>
             {
