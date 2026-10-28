@@ -38,7 +38,8 @@
             <Button x:Name="UpButton" Content="Subir" Padding="10,5" Margin="0,0,6,0" />
             <Button x:Name="DownButton" Content="Descer" Padding="10,5" Margin="0,0,6,0" />
             <Button x:Name="DuplicateButton" Content="Duplicar" Padding="10,5" Margin="0,0,6,0" />
-            <Button x:Name="RemoveButton" Content="Remover" Padding="10,5" />
+            <Button x:Name="RemoveButton" Content="Remover" Padding="10,5" Margin="0,0,6,0" />
+            <Button x:Name="UndoButton" Content="Desfazer" Padding="10,5" IsEnabled="False" />
           </WrapPanel>
           <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="#FF9A83" FontSize="12" />
         </StackPanel>

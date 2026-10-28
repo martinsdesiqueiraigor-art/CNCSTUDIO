@@ -195,3 +195,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Core: `LatheJob` (perfil Z×raio, comando, nº do programa, lista de `LatheOperationSpec` com os parâmetros de torneamento externo/interno, faceamento, furação axial, rosca e canal; ligar/desligar, mover, duplicar), `LatheJobBuilder` (gera com o mesmo código do torno: `LatheOperations` + `LathePost`), `LatheJobInfo` (títulos e operação nova com os valores padrão da tela atual) e `LatheJobJson` (arquivo `casillas-job-torno`, versão 1; fresa e torno se reconhecem e avisam qual botão usar). 11 testes novos; total 961. Teste-chave: o Trabalho gera o mesmo programa que o fluxo direto (Fanuc e Siemens).
 - Desktop: nova aba **Trabalho torno (novo)** ao lado da fresa, com a mesma estrutura (árvore, vista do perfil e do percurso simulado, programa ao vivo, painel de propriedades). Perfil por DXF ou por pontos Z Ø. As telas antigas continuam.
 - Limites: o seletor de arquivo não é testável em Xvfb; o torno ainda não usa o banco de ferramentas (T e velocidade digitados); castanha e contraponto ficam para o Assist.
+
+## CAM-03 · J6 — ferramentas e desfazer (ajuste-cam-job-ferramentas)
+- Painel separado em **Ferramenta** (T, nome, Ø) e **Condição de corte** (rotação/avanços). Mudar Ø ou nome vale para todas as operações com o mesmo T (`ApplyToolGeometry`); o corte fica em cada operação.
+- Torno do Trabalho agora usa o **banco de ferramentas** (só as de torno) e põe no banco as T novas ao abrir no Code.
+- **Desfazer** (botão) nas duas telas: `UndoStack` guarda até 50 estados das operações; limpa ao abrir arquivo.
+- 3 testes novos (964). Não testado: clique real no .exe.

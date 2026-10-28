@@ -1,5 +1,6 @@
 using System.Globalization;
 using Avalonia.Controls;
+using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Execution;
@@ -16,6 +17,7 @@ public partial class LatheJobView : UserControl
     private readonly LatheJob _job = new() { Name = "TORNO" };
     private LatheBuild _build = new("", [], [], [], []);
     private bool _busy;
+    private readonly UndoStack<LatheOperationSpec> _undo = new();
 
     public LatheJobView()
     {
@@ -38,12 +40,15 @@ public partial class LatheJobView : UserControl
             }
         };
         AddButton.Click += (_, _) => AddOperation();
+        UndoButton.Click += (_, _) => Undo();
         UpButton.Click += (_, _) => MoveSelected(-1);
         DownButton.Click += (_, _) => MoveSelected(1);
         DuplicateButton.Click += (_, _) =>
         {
-            if (SelectedOp() is { } i && _job.DuplicateOperation(i) is var at && at >= 0)
+            if (SelectedOp() is { } i && i < _job.Operations.Count)
             {
+                Snap();
+                int at = _job.DuplicateOperation(i);
                 Refresh(op: at);
             }
         };
@@ -51,6 +56,7 @@ public partial class LatheJobView : UserControl
         {
             if (SelectedOp() is { } i)
             {
+                Snap();
                 _job.Operations.RemoveAt(i);
                 Refresh(op: Math.Min(i, _job.Operations.Count - 1));
             }
@@ -83,6 +89,7 @@ public partial class LatheJobView : UserControl
         {
             if (_build.Ok && _build.Program.Length > 0)
             {
+                EnsureToolsInBank();
                 OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
             }
         };
@@ -103,6 +110,10 @@ public partial class LatheJobView : UserControl
     public Func<string, string, Task>? SaveJobFile { get; set; }
 
     public Action<string, string>? OpenInEditor { get; set; }
+
+    public Func<List<ToolEntry>>? ToolsSource { get; set; }
+
+    public Action? SaveTools { get; set; }
 
     public Func<string, Task>? CopyText { get; set; }
 
@@ -200,6 +211,7 @@ public partial class LatheJobView : UserControl
         _job.Profile = j.Profile;
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
+        _undo.Clear();
         Refresh();
     }
 
@@ -214,22 +226,49 @@ public partial class LatheJobView : UserControl
         Errors.Text = "";
         (_, LatheOpKind kind, bool isInternal) = LatheJobInfo.NewKinds[Math.Max(0, KindCombo.SelectedIndex)];
         LatheTool? tool = _job.Operations.Count > 0 ? _job.Operations[^1].Tool : null;
+        Snap();
         _job.Operations.Add(LatheJobInfo.NewOperation(kind, isInternal, tool));
         Refresh(op: _job.Operations.Count - 1);
     }
 
     private void MoveSelected(int delta)
     {
-        if (SelectedOp() is { } i && _job.MoveOperation(i, i + delta))
+        if (SelectedOp() is { } i && i + delta >= 0 && i + delta < _job.Operations.Count)
         {
+            Snap();
+            _job.MoveOperation(i, i + delta);
             Refresh(op: i + delta);
         }
     }
 
     private void SetEnabled(int index, bool enabled)
     {
+        Snap();
         _job.Operations[index] = _job.Operations[index] with { Enabled = enabled };
         Refresh(op: index, props: false);
+    }
+
+    /// <summary>Guarda o estado das operações antes de uma alteração (para Desfazer).</summary>
+    private void Snap()
+    {
+        _undo.Push(_job.Operations);
+        UndoButton.IsEnabled = true;
+    }
+
+    private void Undo()
+    {
+        IReadOnlyList<LatheOperationSpec>? back = _undo.Pop();
+        UndoButton.IsEnabled = _undo.CanUndo;
+        if (back is null)
+        {
+            return;
+        }
+
+        int? keep = SelectedOp();
+        _job.Operations.Clear();
+        _job.Operations.AddRange(back);
+        Errors.Text = "";
+        Refresh(op: keep is { } k ? Math.Min(k, _job.Operations.Count - 1) : null);
     }
 
     // ---------------------------------------------------------------- tela
@@ -341,5 +380,38 @@ public partial class LatheJobView : UserControl
 
         Preview.Set(contours, 0, lines);
         PreviewHint.IsVisible = _job.Profile is null;
+    }
+
+    /// <summary>Tipo da ferramenta no banco para uma operação de torno.</summary>
+    private static string BankKind(LatheOperationSpec s) => s.Kind switch
+    {
+        LatheOpKind.Threading => s.IsInternal ? "ThreadInternal" : "ThreadExternal",
+        LatheOpKind.Grooving => s.IsInternal ? "PartInternal" : "PartExternal",
+        _ => s.IsInternal ? "TurnInternal" : "TurnExternal",
+    };
+
+    /// <summary>Põe no banco as ferramentas do trabalho que ainda não existem lá (por T).</summary>
+    private void EnsureToolsInBank()
+    {
+        List<ToolEntry>? tools = ToolsSource?.Invoke();
+        if (tools is null)
+        {
+            return;
+        }
+
+        bool changed = false;
+        foreach (LatheOperationSpec s in _job.Operations)
+        {
+            if (tools.All(e => e.Number != s.Tool.Number))
+            {
+                tools.Add(new ToolEntry { Number = s.Tool.Number, Description = s.Tool.Name, Kind = BankKind(s), SpindleRpm = s.Tool.Rpm });
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            SaveTools?.Invoke();
+        }
     }
 }

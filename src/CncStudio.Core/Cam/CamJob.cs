@@ -85,6 +85,26 @@ public sealed class CamJob
     }
 
     /// <summary>Copia a operação logo abaixo dela. Devolve a posição da cópia ou -1.</summary>
+    /// <summary>
+    /// Propaga a geometria da ferramenta (diâmetro e nome) para todas as operações com o mesmo T.
+    /// Rotação e avanços ficam em cada operação (condição de corte). Devolve quantas operações mudaram.
+    /// </summary>
+    public int ApplyToolGeometry(int number, double diameter, string name)
+    {
+        int changed = 0;
+        for (int i = 0; i < Operations.Count; i++)
+        {
+            CamTool t = Operations[i].Tool;
+            if (t.Number == number && (t.Diameter != diameter || t.Name != name))
+            {
+                Operations[i] = Operations[i] with { Tool = t with { Diameter = diameter, Name = name } };
+                changed++;
+            }
+        }
+
+        return changed;
+    }
+
     public int DuplicateOperation(int index)
     {
         if (index < 0 || index >= Operations.Count)

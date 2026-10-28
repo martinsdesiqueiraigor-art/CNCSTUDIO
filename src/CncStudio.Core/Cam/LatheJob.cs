@@ -84,6 +84,23 @@ public sealed class LatheJob
         return true;
     }
 
+    /// <summary>Propaga o nome da ferramenta para todas as operações com o mesmo T (condições de corte ficam em cada uma). Devolve quantas mudaram.</summary>
+    public int ApplyToolGeometry(int number, string name)
+    {
+        int changed = 0;
+        for (int i = 0; i < Operations.Count; i++)
+        {
+            LatheTool t = Operations[i].Tool;
+            if (t.Number == number && t.Name != name)
+            {
+                Operations[i] = Operations[i] with { Tool = t with { Name = name } };
+                changed++;
+            }
+        }
+
+        return changed;
+    }
+
     public int DuplicateOperation(int index)
     {
         if (index < 0 || index >= Operations.Count)

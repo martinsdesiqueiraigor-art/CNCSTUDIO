@@ -87,6 +87,7 @@ public partial class CamView : UserControl
         {
             _toolsSource = value;
             JobPanel.ToolsSource = value;
+            LatheJobPanel.ToolsSource = value;
         }
     }
 
@@ -102,6 +103,7 @@ public partial class CamView : UserControl
         {
             _saveTools = value;
             JobPanel.SaveTools = value;
+            LatheJobPanel.SaveTools = value;
         }
     }
 

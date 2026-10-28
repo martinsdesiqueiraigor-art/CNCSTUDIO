@@ -197,3 +197,53 @@ public class CamJobTests
         Assert.Contains("Operação", index.Error);
     }
 }
+
+public class CamJobToolTests
+{
+    private static readonly CamLevels Levels = new(50, 2, 0, -6, 3);
+
+    [Fact]
+    public void Geometria_da_ferramenta_vale_para_todo_o_mesmo_T_e_o_corte_fica_na_operacao()
+    {
+        var job = new CamJob();
+        job.Operations.Add(new CamOperationSpec(JobOpKind.Facing, new CamTool(1, 10, 3000, 500, 200, "A"), Levels));
+        job.Operations.Add(new CamOperationSpec(JobOpKind.Facing, new CamTool(1, 10, 6000, 900, 300, "A"), Levels));
+        job.Operations.Add(new CamOperationSpec(JobOpKind.Facing, new CamTool(2, 6, 4000, 400, 150), Levels));
+
+        Assert.Equal(2, job.ApplyToolGeometry(1, 12, "Topo D12"));
+        Assert.Equal(12, job.Operations[1].Tool.Diameter);
+        Assert.Equal("Topo D12", job.Operations[0].Tool.Name);
+        Assert.Equal(6000, job.Operations[1].Tool.SpindleRpm);
+        Assert.Equal(6, job.Operations[2].Tool.Diameter);
+        Assert.Equal(0, job.ApplyToolGeometry(1, 12, "Topo D12"));
+    }
+
+    [Fact]
+    public void Torno_propaga_o_nome_e_mantem_rotacao()
+    {
+        var job = new LatheJob();
+        job.Operations.Add(LatheJobInfo.NewOperation(LatheOpKind.Facing, false, new LatheTool(3, "x", 200, 3000, 800)));
+        job.Operations.Add(LatheJobInfo.NewOperation(LatheOpKind.Drilling, false, new LatheTool(3, "x", 150, 2500, 0)));
+        Assert.Equal(2, job.ApplyToolGeometry(3, "CNMG"));
+        Assert.Equal(800, job.Operations[0].Tool.Rpm);
+        Assert.Equal(150, job.Operations[1].Tool.SurfaceSpeed);
+    }
+
+    [Fact]
+    public void Desfazer_devolve_o_estado_anterior_e_respeita_o_limite()
+    {
+        var undo = new UndoStack<int>(3);
+        Assert.False(undo.CanUndo);
+        Assert.Null(undo.Pop());
+        for (int i = 1; i <= 5; i++)
+        {
+            undo.Push([i]);
+        }
+
+        Assert.Equal(3, undo.Count);
+        Assert.Equal([5], undo.Pop());
+        Assert.Equal([4], undo.Pop());
+        Assert.Equal([3], undo.Pop());
+        Assert.False(undo.CanUndo);
+    }
+}

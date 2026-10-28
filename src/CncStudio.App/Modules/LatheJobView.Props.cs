@@ -3,7 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
+using CncStudio.Core.Setup;
 
 namespace CncStudio.App.Modules;
 
@@ -35,8 +37,10 @@ public partial class LatheJobView
         Text(i, "Nome", s.Label, "padrão", (x, v) => x with { Label = v.Trim() });
 
         Section("Ferramenta");
+        BankPicker(i);
         Num(i, "Ferramenta (T)", "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } });
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Desbaste CNMG", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
+        Section("Condição de corte");
         Num(i, "Velocidade de corte (G96)", "m/min", s.Tool.SurfaceSpeed, (x, v) => x with { Tool = x.Tool with { SurfaceSpeed = v } });
         Num(i, "Rotação máxima", "rpm", s.Tool.MaxRpm, (x, v) => x with { Tool = x.Tool with { MaxRpm = v } });
         Num(i, "Rotação fixa (0 = G96)", "rpm", s.Tool.Rpm, (x, v) => x with { Tool = x.Tool with { Rpm = v } });
@@ -126,7 +130,15 @@ public partial class LatheJobView
             return;
         }
 
+        Snap();
+        LatheTool before = _job.Operations[i].Tool;
         _job.Operations[i] = change(_job.Operations[i]);
+        LatheTool after = _job.Operations[i].Tool;
+        if (after.Number == before.Number && after.Name != before.Name)
+        {
+            _job.ApplyToolGeometry(after.Number, after.Name);
+        }
+
         Refresh(op: i, props: rebuild);
     }
 
@@ -220,5 +232,37 @@ public partial class LatheJobView
             }
         };
         PropsPanel.Children.Add(box);
+    }
+
+    // ---------------------------------------------------------------- banco de ferramentas
+
+    private static bool IsLatheTool(ToolEntry e) =>
+        Enum.TryParse(e.Kind, out ToolKind kind) && new SetupTool { Kind = kind }.IsLathe;
+
+    private void BankPicker(int i)
+    {
+        List<ToolEntry> bank = (ToolsSource?.Invoke() ?? []).Where(IsLatheTool).OrderBy(t => t.Number).ToList();
+        if (bank.Count == 0)
+        {
+            return;
+        }
+
+        var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Ferramenta do banco…" };
+        foreach (ToolEntry t in bank)
+        {
+            combo.Items.Add(new ComboBoxItem { Content = $"T{t.Number} · {(t.Description.Length > 0 ? t.Description : "Torno")}" });
+        }
+
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (combo.SelectedIndex < 0)
+            {
+                return;
+            }
+
+            ToolEntry t = bank[combo.SelectedIndex];
+            Edit(i, x => x with { Tool = x.Tool with { Number = t.Number, Name = t.Description, Rpm = t.SpindleRpm > 0 ? t.SpindleRpm : x.Tool.Rpm } }, rebuild: true);
+        };
+        PropsPanel.Children.Add(combo);
     }
 }

@@ -71,6 +71,7 @@ public partial class JobView
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Fresa topo Z4", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
         Num(i, "Ferramenta (T)", "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } });
         Num(i, "Diâmetro", "mm", s.Tool.Diameter, (x, v) => x with { Tool = x.Tool with { Diameter = v } });
+        Section("Condição de corte");
         Num(i, "Rotação", "rpm", s.Tool.SpindleRpm, (x, v) => x with { Tool = x.Tool with { SpindleRpm = v } });
         Num(i, s.Kind == JobOpKind.WrapText ? "Avanço na superfície" : "Avanço no plano", "mm/min", s.Tool.FeedXY, (x, v) => x with { Tool = x.Tool with { FeedXY = v } });
         Num(i, "Avanço de descida", "mm/min", s.Tool.FeedZ, (x, v) => x with { Tool = x.Tool with { FeedZ = v } });
@@ -165,7 +166,16 @@ public partial class JobView
             return;
         }
 
+        Snap();
+        CamTool before = _job.Operations[i].Tool;
         _job.Operations[i] = change(_job.Operations[i]);
+        CamTool after = _job.Operations[i].Tool;
+        if (after.Number == before.Number && (after.Diameter != before.Diameter || after.Name != before.Name))
+        {
+            // Geometria da ferramenta vale para todo o mesmo T; rotação e avanços ficam em cada operação
+            _job.ApplyToolGeometry(after.Number, after.Diameter, after.Name);
+        }
+
         Refresh(op: i, props: rebuild);
     }
 
