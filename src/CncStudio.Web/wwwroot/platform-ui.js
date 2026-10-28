@@ -2,7 +2,7 @@
 // Tudo em HTML; roda antes do .NET carregar. Para abrir Academy e Macro (que dependem do .NET), avisa o C#
 // pelo callback registrado em onPlatform (web.js). Se o .NET ainda não carregou, guarda o pedido e entrega depois.
 
-import { accountCheck, accountLogin, accountPanel, moduleState } from './account.js';
+import { accountCheck, accountLogin, accountPanel, moduleKnown, moduleState } from './account.js';
 
 const DOCK_H = 'calc(56px + env(safe-area-inset-bottom, 0px))';
 const LAST_KEY = 'cc.platform.last';
@@ -51,7 +51,9 @@ function deliver(id) {
 }
 
 // Módulos que exigem teste ativo ou licença (o Code trava a simulação por dentro; a Academy abre o módulo 1)
-const GATED = new Set(['macro', 'otimizador']);
+const GATED = new Set(['macro', 'otimizador', 'cam']);
+// Módulos que só travam depois que o servidor passa a listá-los (produto ainda inativo = abre livre, sem pedir conta)
+const SOFT = new Set(['cam']);
 const BUY_URL = 'https://wa.me/5519996816755?text=' + encodeURIComponent('Olá! Quero comprar a licença do Casillas.');
 
 /** Aviso "Comprar licença" quando o teste acabou. */
@@ -85,6 +87,11 @@ function buyDialog(mod) {
 export function ensureAccess(id) { return allowed(MODULES.find(m => m.id === id)); }
 
 async function allowed(mod) {
+  if (SOFT.has(mod.id) && !moduleKnown(mod.id)) {
+    // O servidor ainda não vende este módulo: abre livre e atualiza a situação em segundo plano
+    accountCheck().catch(() => {});
+    return true;
+  }
   let st = moduleState(mod.id);
   if (st === 'VALID' || st === 'TRIAL') { accountCheck().catch(() => {}); return true; } // confere de novo em segundo plano
   try {
