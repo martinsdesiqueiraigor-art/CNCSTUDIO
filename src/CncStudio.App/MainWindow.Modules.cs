@@ -96,6 +96,42 @@ public partial class MainWindow
             using var reader = new StreamReader(stream);
             return (files[0].Name, await reader.ReadToEndAsync());
         };
+        Cam.PickJob = async () =>
+        {
+            IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Abrir trabalho do CAM",
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Trabalho Casillas CAM") { Patterns = ["*.casillas-job", "*.json"] }],
+            });
+            if (files.Count == 0)
+            {
+                return null;
+            }
+
+            await using Stream stream = await files[0].OpenReadAsync();
+            using var reader = new StreamReader(stream);
+            return (files[0].Name, await reader.ReadToEndAsync());
+        };
+        Cam.SaveJobFile = async (suggested, text) =>
+        {
+            IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Salvar trabalho do CAM",
+                SuggestedFileName = suggested,
+                DefaultExtension = "casillas-job",
+                FileTypeChoices = [new FilePickerFileType("Trabalho Casillas CAM") { Patterns = ["*.casillas-job"] }],
+            });
+            if (file is null)
+            {
+                return;
+            }
+
+            await using Stream stream = await file.OpenWriteAsync();
+            stream.SetLength(0);
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(text);
+        };
         Optimizer.CopyText = Macro.CopyText = Cam.CopyText = async text =>
         {
             if (Clipboard is { } clipboard)

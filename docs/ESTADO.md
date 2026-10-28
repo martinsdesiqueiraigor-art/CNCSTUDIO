@@ -180,3 +180,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - `Core/Cam/CamJob.cs`: `CamJob` (nome, comando, nº do programa, zero, bruto, contornos, lista de `CamOperationSpec` com os **parâmetros** de contorno, bolsão, faceamento, furação, texto no cilindro e face girada; ligar/desligar, mover, duplicar) e `CamJobBuilder` (gera percurso e programa com o mesmo código do CAM; erro por operação).
 - `Core/Cam/CamJobJson.cs`: salvar/abrir em JSON versionado (`casillas-job`, versão 1), sem reflexão (serve ao WebAssembly); recusa arquivo estranho, versão mais nova e índice inválido.
 - Teste-chave: o Job gera o mesmo programa que o fluxo direto (Fanuc e Siemens). 15 testes novos; total 947. **Só Core**: a tela ainda não usa o Job (J2 em diante). Plano: `CAM-03-tela-de-trabalho-job.md` no Projeto.
+
+## CAM-03 · J2 — árvore do Job no desktop (ajuste-cam-job-arvore)
+- Nova aba **Trabalho (novo)** no módulo CAM (`Modules/JobView`): árvore (Peça com contornos, Bruto, Fixação "em breve", Ferramentas, Operações), vista 2D e programa ao vivo (Fanuc/Siemens). Abrir DXF, abrir e salvar o trabalho (`.casillas-job`), adicionar operação (contorno por fora/dentro/sobre a linha, bolsão, faceamento, furação), ligar/desligar, subir/descer, duplicar, remover, copiar e abrir no editor. A tela antiga continua igual.
+- Core: `CamJobInfo` (títulos da árvore, operação nova com valores padrão, ferramentas usadas). 3 testes novos; total 950.
+- Limites: operação nova nasce com valores padrão (edição dos números é a J3); face girada e texto no cilindro só vêm de trabalho aberto (a criação é da J3); o DXF não pode ser aberto sobre um desenho que já tem operações. Conferido em Xvfb; o seletor de arquivo não é testável lá.

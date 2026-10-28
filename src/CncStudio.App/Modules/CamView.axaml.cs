@@ -43,6 +43,7 @@ public partial class CamView : UserControl
         {
             _pickDxf = value;
             LathePanel.PickDxf = value;
+            JobPanel.PickDxf = value;
         }
     }
 
@@ -56,6 +57,7 @@ public partial class CamView : UserControl
         {
             _openInEditor = value;
             LathePanel.OpenInEditor = value;
+            JobPanel.OpenInEditor = value;
         }
     }
 
@@ -68,18 +70,53 @@ public partial class CamView : UserControl
         {
             _copyText = value;
             LathePanel.CopyText = value;
+            JobPanel.CopyText = value;
         }
     }
 
     private Func<string, Task>? _copyText;
 
     /// <summary>Tabela de ferramentas do Code (a mesma do simulador); o CAM lê e grava nela.</summary>
-    public Func<List<ToolEntry>>? ToolsSource { get; set; }
+    public Func<List<ToolEntry>>? ToolsSource
+    {
+        get => _toolsSource;
+        set
+        {
+            _toolsSource = value;
+            JobPanel.ToolsSource = value;
+        }
+    }
+
+    private Func<List<ToolEntry>>? _toolsSource;
 
     private List<ToolEntry>? Tools => ToolsSource?.Invoke();
 
     /// <summary>Grava as configurações (depois de mudar o banco de ferramentas).</summary>
-    public Action? SaveTools { get; set; }
+    public Action? SaveTools
+    {
+        get => _saveTools;
+        set
+        {
+            _saveTools = value;
+            JobPanel.SaveTools = value;
+        }
+    }
+
+    private Action? _saveTools;
+
+    /// <summary>Seletor de trabalho salvo (.casillas-job) da tela Trabalho.</summary>
+    public Func<Task<(string Name, string Text)?>>? PickJob
+    {
+        get => JobPanel.PickJob;
+        set => JobPanel.PickJob = value;
+    }
+
+    /// <summary>Salva o trabalho num arquivo escolhido (nome sugerido, texto).</summary>
+    public Func<string, string, Task>? SaveJobFile
+    {
+        get => JobPanel.SaveJobFile;
+        set => JobPanel.SaveJobFile = value;
+    }
 
     public CamView()
     {
@@ -145,17 +182,21 @@ public partial class CamView : UserControl
         MillTab.Click += (_, _) => ShowMachine(lathe: false);
         LatheTab.Click += (_, _) => ShowMachine(lathe: true);
         MachineTab.Click += (_, _) => ShowMachine(lathe: false, profile: true);
+        JobTab.Click += (_, _) => ShowMachine(lathe: false, job: true);
+        JobPanel.MachineSource = () => MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
         RefreshPreview();
     }
 
-    private void ShowMachine(bool lathe, bool profile = false)
+    private void ShowMachine(bool lathe, bool profile = false, bool job = false)
     {
-        MillTab.IsChecked = !lathe && !profile;
+        MillTab.IsChecked = !lathe && !profile && !job;
         LatheTab.IsChecked = lathe;
         MachineTab.IsChecked = profile;
-        MillPanel.IsVisible = !lathe && !profile;
+        JobTab.IsChecked = job;
+        MillPanel.IsVisible = !lathe && !profile && !job;
         LathePanel.IsVisible = lathe;
         MachinePanel.IsVisible = profile;
+        JobPanel.IsVisible = job;
         if (profile)
         {
             MachinePanel.Refresh();
