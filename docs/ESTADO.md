@@ -271,3 +271,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## Descrição do site e README (SEO)
 - `index.html`: descrição, tags Open Graph e dados estruturados (JSON-LD) com a lista de recursos da web e do desktop; manifesto com descrição nova; README abre com o que há na web e no Windows.
 - Texto só descreve o que já existe (sem "em breve"). As páginas `conheca.html` e `conheca-classica.html` passaram de "14 dias" para "30 dias" de teste (pedido do Igor). `termos.html` (§4) e a FAQ das páginas Conheça alinhados à regra de 24/10: 30 dias; depois, o Code abre e edita, mas simular, salvar e exportar precisam de licença; Macro, Otimizador e CAM travam; Academy módulo 1 aberto. **Texto de termos: o Igor decide a publicação** (o merge publica na hora). Não revisados por advogado.
+
+## Ajuste: tema claro nos painéis Comparar e Estatísticas (28/10)
+- Os painéis pegavam a cor do tema só ao serem criados; ao trocar para o modo claro ficavam com fundo escuro e texto escuro.
+- Agora o fundo e as bordas seguem o tema em tempo real (`GetResourceObservable`). Web compilada, 1013 testes ok.
+- Falta conferir no celular (modo claro) depois da prévia.
