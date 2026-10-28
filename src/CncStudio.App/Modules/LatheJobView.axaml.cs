@@ -61,6 +61,7 @@ public partial class LatheJobView : UserControl
                 Refresh(op: Math.Min(i, _job.Operations.Count - 1));
             }
         };
+        View3DButton.IsCheckedChanged += (_, _) => Update3D();
         NameBox.LostFocus += (_, _) =>
         {
             string name = NameBox.Text?.Trim() ?? "";
@@ -308,6 +309,28 @@ public partial class LatheJobView : UserControl
         Output.Text = _build.Ok ? _build.Program : "";
         OpenButton.IsEnabled = CopyButton.IsEnabled = _build.Ok && _build.Program.Length > 0;
         UpdatePreview();
+        Update3D();
+    }
+
+    /// <summary>Alterna 2D/3D e, no 3D, simula o programa atual.</summary>
+    private void Update3D()
+    {
+        bool on = View3DButton.IsChecked == true;
+        Scene3D.IsVisible = on;
+        Preview.IsVisible = !on;
+        if (on)
+        {
+            PreviewHint.IsVisible = false;
+        }
+        else
+        {
+            UpdatePreview();
+        }
+
+        if (on)
+        {
+            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc);
+        }
     }
 
     private void BuildTree(int? selectOp)

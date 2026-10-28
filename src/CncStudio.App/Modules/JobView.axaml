@@ -42,6 +42,8 @@
       <Border Margin="12" CornerRadius="8" ClipToBounds="True" Background="#0B1216" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
         <Grid>
           <modules:CamPreview x:Name="Preview" />
+          <modules:JobSceneView x:Name="Scene3D" IsVisible="False" />
+          <ToggleButton x:Name="View3DButton" Content="3D" Padding="12,4" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" />
           <TextBlock x:Name="PreviewHint" Text="Abra um DXF ou um trabalho salvo para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
         </Grid>
       </Border>

@@ -18,6 +18,22 @@ public class CamJobTests
         return job;
     }
 
+    [Fact]
+    public void Programa_do_Trabalho_simula_e_monta_a_cena_3D()
+    {
+        // O mesmo caminho da vista 3D do Trabalho: analisar, simular até o fim e montar a cena
+        CamJob job = Sample();
+        JobBuild build = CamJobBuilder.Build(job, null);
+        Assert.True(build.Ok, string.Join("; ", build.Errors));
+        var analysis = ProgramAnalyzer.Analyze(build.Program, Dialects.Dialect.Fanuc);
+        var parts = Simulation.SimulationFactory.Create(analysis, null, build.Program);
+        parts.Simulation.RunToEnd();
+        Assert.NotNull(parts.Map);
+        var scene = Scene.SimulationScene.ForMill(parts.Map!, analysis.ToolPath, parts.Profiles);
+        scene.Refresh();
+        Assert.NotEmpty(scene.Snapshot().Objects);
+    }
+
     private static MachineProfile Machine()
     {
         MachineProfile m = MachineProfile.FourAxisTableA();
