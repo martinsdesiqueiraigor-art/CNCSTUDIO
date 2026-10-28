@@ -15,6 +15,7 @@ public partial class JobView : UserControl
     private readonly CamJob _job = new() { Name = "TRABALHO" };
     private JobBuild _build = new("", [], [], [], []);
     private bool _busy;
+    private readonly UndoStack<CamOperationSpec> _undo = new();
 
     public JobView()
     {
@@ -29,12 +30,15 @@ public partial class JobView : UserControl
         OpenJobButton.Click += async (_, _) => await OpenJob();
         SaveJobButton.Click += async (_, _) => await SaveJob();
         AddButton.Click += (_, _) => AddOperation();
+        UndoButton.Click += (_, _) => Undo();
         UpButton.Click += (_, _) => MoveSelected(-1);
         DownButton.Click += (_, _) => MoveSelected(1);
         DuplicateButton.Click += (_, _) =>
         {
-            if (SelectedOp() is { } i && _job.DuplicateOperation(i) is var at && at >= 0)
+            if (SelectedOp() is { } i && i < _job.Operations.Count)
             {
+                Snap();
+                int at = _job.DuplicateOperation(i);
                 Refresh(op: at);
             }
         };
@@ -42,6 +46,7 @@ public partial class JobView : UserControl
         {
             if (SelectedOp() is { } i)
             {
+                Snap();
                 _job.Operations.RemoveAt(i);
                 Refresh(op: Math.Min(i, _job.Operations.Count - 1));
             }
@@ -168,6 +173,7 @@ public partial class JobView : UserControl
         _job.Contours.AddRange(j.Contours);
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
+        _undo.Clear();
         Refresh();
     }
 
@@ -206,22 +212,49 @@ public partial class JobView : UserControl
         }
 
         CamTool? tool = _job.Operations.Count > 0 ? _job.Operations[^1].Tool : null;
+        Snap();
         _job.Operations.Add(CamJobInfo.NewOperation(kind, side, contour, tool));
         Refresh(op: _job.Operations.Count - 1);
     }
 
     private void MoveSelected(int delta)
     {
-        if (SelectedOp() is { } i && _job.MoveOperation(i, i + delta))
+        if (SelectedOp() is { } i && i + delta >= 0 && i + delta < _job.Operations.Count)
         {
+            Snap();
+            _job.MoveOperation(i, i + delta);
             Refresh(op: i + delta);
         }
     }
 
     private void SetEnabled(int index, bool enabled)
     {
+        Snap();
         _job.Operations[index] = _job.Operations[index] with { Enabled = enabled };
         Refresh(op: index);
+    }
+
+    /// <summary>Guarda o estado das operações antes de uma alteração (para Desfazer).</summary>
+    private void Snap()
+    {
+        _undo.Push(_job.Operations);
+        UndoButton.IsEnabled = true;
+    }
+
+    private void Undo()
+    {
+        IReadOnlyList<CamOperationSpec>? back = _undo.Pop();
+        UndoButton.IsEnabled = _undo.CanUndo;
+        if (back is null)
+        {
+            return;
+        }
+
+        int? keep = SelectedOp();
+        _job.Operations.Clear();
+        _job.Operations.AddRange(back);
+        Errors.Text = "";
+        Refresh(op: keep is { } k ? Math.Min(k, _job.Operations.Count - 1) : null);
     }
 
     // ---------------------------------------------------------------- tela
