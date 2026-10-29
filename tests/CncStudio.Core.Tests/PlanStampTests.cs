@@ -16,6 +16,9 @@ public class PlanStampTests
         Contour.Rectangle(30, 20, 40, 20),
     ];
 
+    /// <summary>CheckApply com todas as ferramentas novas já confirmadas: os testes de validade do desenho não tratam de confirmação.</summary>
+    private static string? Check(PlanResult plan, PlanInput current) => PlanValidity.CheckApply(plan, current, PlanValidity.NewToolNumbers(plan, current));
+
     private static PlanInput Input(IReadOnlyList<Contour>? contours = null, double thickness = 10, MaterialEntry? material = null, IReadOnlyList<PlanTool>? tools = null) =>
         new(contours ?? Plate(), thickness, material ?? Steel, tools ?? []);
 
@@ -26,7 +29,7 @@ public class PlanStampTests
         PlanResult plan = AssistPlanner.Plan(input);
         Assert.NotNull(plan.Stamp);
         Assert.Equal(PlanStamp.Of(input), plan.Stamp);
-        Assert.Null(PlanValidity.CheckApply(plan, input));
+        Assert.Null(Check(plan, input));
     }
 
     [Fact]
@@ -41,7 +44,7 @@ public class PlanStampTests
     public void Mudar_a_espessura_invalida_o_plano()
     {
         PlanResult plan = AssistPlanner.Plan(Input());
-        string? msg = PlanValidity.CheckApply(plan, Input(thickness: 12));
+        string? msg = Check(plan, Input(thickness: 12));
         Assert.NotNull(msg);
         Assert.Contains("espessura", msg);
     }
@@ -50,7 +53,7 @@ public class PlanStampTests
     public void Mudar_o_material_invalida_o_plano()
     {
         PlanResult plan = AssistPlanner.Plan(Input());
-        string? msg = PlanValidity.CheckApply(plan, Input(material: AssistLibrary.Defaults().Materials[0]));
+        string? msg = Check(plan, Input(material: AssistLibrary.Defaults().Materials[0]));
         Assert.Contains("material", msg);
     }
 
@@ -58,7 +61,7 @@ public class PlanStampTests
     public void Mudar_ou_tirar_o_material_invalida_o_plano()
     {
         PlanResult plan = AssistPlanner.Plan(Input());
-        Assert.NotNull(PlanValidity.CheckApply(plan, new PlanInput(Plate(), 10, null, [])));
+        Assert.NotNull(Check(plan, new PlanInput(Plate(), 10, null, [])));
     }
 
     [Fact]
@@ -66,10 +69,10 @@ public class PlanStampTests
     {
         PlanTool mill = new(1, 10, false, "Fresa 10", 4);
         PlanResult plan = AssistPlanner.Plan(Input(tools: [mill]));
-        Assert.Null(PlanValidity.CheckApply(plan, Input(tools: [mill])));
-        Assert.Contains("ferramentas", PlanValidity.CheckApply(plan, Input(tools: [mill, new PlanTool(2, 6, false, "Fresa 6", 4)])));
-        Assert.Contains("ferramentas", PlanValidity.CheckApply(plan, Input(tools: [mill with { Diameter = 8 }])));
-        Assert.Contains("ferramentas", PlanValidity.CheckApply(plan, Input(tools: [])));
+        Assert.Null(Check(plan, Input(tools: [mill])));
+        Assert.Contains("ferramentas", Check(plan, Input(tools: [mill, new PlanTool(2, 6, false, "Fresa 6", 4)])));
+        Assert.Contains("ferramentas", Check(plan, Input(tools: [mill with { Diameter = 8 }])));
+        Assert.Contains("ferramentas", Check(plan, Input(tools: [])));
     }
 
     [Fact]
@@ -79,7 +82,7 @@ public class PlanStampTests
         List<Contour> other = Plate();
         other[1] = Contour.Circle(new Point2(20, 15), 4); // furo deslocado 5 mm
         Assert.Equal(Plate().Count, other.Count);
-        Assert.Contains("desenho", PlanValidity.CheckApply(plan, Input(other)));
+        Assert.Contains("desenho", Check(plan, Input(other)));
     }
 
     [Fact]
@@ -88,22 +91,22 @@ public class PlanStampTests
         PlanResult plan = AssistPlanner.Plan(Input());
         List<Contour> swapped = Plate();
         (swapped[1], swapped[2]) = (swapped[2], swapped[1]);
-        Assert.Contains("desenho", PlanValidity.CheckApply(plan, Input(swapped)));
+        Assert.Contains("desenho", Check(plan, Input(swapped)));
     }
 
     [Fact]
     public void Tirar_um_contorno_invalida_o_plano()
     {
         PlanResult plan = AssistPlanner.Plan(Input());
-        Assert.NotNull(PlanValidity.CheckApply(plan, Input(Plate().Take(2).ToList())));
+        Assert.NotNull(Check(plan, Input(Plate().Take(2).ToList())));
     }
 
     [Fact]
     public void Voltar_aos_mesmos_dados_deixa_o_plano_valido_de_novo()
     {
         PlanResult plan = AssistPlanner.Plan(Input());
-        Assert.NotNull(PlanValidity.CheckApply(plan, Input(thickness: 15)));
-        Assert.Null(PlanValidity.CheckApply(plan, Input(thickness: 10)));
+        Assert.NotNull(Check(plan, Input(thickness: 15)));
+        Assert.Null(Check(plan, Input(thickness: 10)));
     }
 
     [Fact]
@@ -112,17 +115,17 @@ public class PlanStampTests
         PlanResult plan = AssistPlanner.Plan(Input());
         List<Contour> noisy = Plate();
         noisy[1] = Contour.Circle(new Point2(15 + 1e-6, 15), 4);
-        Assert.Null(PlanValidity.CheckApply(plan, Input(noisy)));
+        Assert.Null(Check(plan, Input(noisy)));
         List<Contour> moved = Plate();
         moved[1] = Contour.Circle(new Point2(15.001, 15), 4);
-        Assert.NotNull(PlanValidity.CheckApply(plan, Input(moved)));
+        Assert.NotNull(Check(plan, Input(moved)));
     }
 
     [Fact]
     public void Plano_sem_registro_nunca_e_aceito()
     {
         PlanResult plan = AssistPlanner.Plan(Input()) with { Stamp = null };
-        Assert.Contains("registro", PlanValidity.CheckApply(plan, Input()));
+        Assert.Contains("registro", Check(plan, Input()));
     }
 
     [Fact]
@@ -132,7 +135,7 @@ public class PlanStampTests
         PlanResult plan = AssistPlanner.Plan(input);
         CamOperationSpec broken = plan.Operations[0] with { ContourIndex = 99 };
         PlanResult tampered = plan with { Operations = [broken, .. plan.Operations.Skip(1)] };
-        Assert.Contains("não existe", PlanValidity.CheckApply(tampered, input));
+        Assert.Contains("não existe", Check(tampered, input));
     }
 
     private static PlanResult Tamper(PlanResult plan, Func<CamOperationSpec, bool> pick, Func<CamOperationSpec, CamOperationSpec> change) =>
@@ -152,7 +155,7 @@ public class PlanStampTests
         PlanResult plan = AssistPlanner.Plan(input);
         Assert.Contains(plan.Operations, o => o.Kind == kind);
         PlanResult tampered = Tamper(plan, o => o.Kind == kind, o => o with { ContourIndex = index });
-        Assert.Contains("não existe", PlanValidity.CheckApply(tampered, input));
+        Assert.Contains("não existe", Check(tampered, input));
     }
 
     [Fact]
@@ -172,13 +175,13 @@ public class PlanStampTests
         PlanInput input = Input();
         PlanResult plan = AssistPlanner.Plan(input);
         PlanResult deeper = Tamper(plan, o => o.Kind == JobOpKind.Contour, o => o with { Levels = o.Levels with { BottomZ = o.Levels.BottomZ - 5 } });
-        Assert.Contains("alteradas", PlanValidity.CheckApply(deeper, input));
+        Assert.Contains("alteradas", Check(deeper, input));
         PlanResult otherTool = Tamper(plan, o => o.Kind == JobOpKind.Pocket, o => o with { Tool = o.Tool with { SpindleRpm = o.Tool.SpindleRpm + 1 } });
-        Assert.Contains("alteradas", PlanValidity.CheckApply(otherTool, input));
+        Assert.Contains("alteradas", Check(otherTool, input));
         PlanResult removed = plan with { Operations = plan.Operations.Skip(1).ToList() };
-        Assert.Contains("alteradas", PlanValidity.CheckApply(removed, input));
+        Assert.Contains("alteradas", Check(removed, input));
         PlanResult disabled = Tamper(plan, o => o.Kind == JobOpKind.Drilling, o => o with { Enabled = false });
-        Assert.Contains("alteradas", PlanValidity.CheckApply(disabled, input));
+        Assert.Contains("alteradas", Check(disabled, input));
     }
 
     [Fact]
@@ -196,7 +199,7 @@ public class PlanStampTests
         Assert.False(plan.Operations is CamOperationSpec[]);
         Assert.Equal(before, plan.Operations.Count);
         Assert.Same(first, plan.Operations[0]);
-        Assert.Null(PlanValidity.CheckApply(plan, input));
+        Assert.Null(Check(plan, input));
     }
 
     [Fact]
@@ -206,7 +209,7 @@ public class PlanStampTests
         PlanResult plan = AssistPlanner.Plan(input);
         PlanResult copy = plan with { };
         Assert.Same(plan.Operations, copy.Operations);
-        Assert.Null(PlanValidity.CheckApply(copy, input));
+        Assert.Null(Check(copy, input));
     }
 
     private static CamOperationSpec Full() =>
@@ -302,16 +305,16 @@ public class PlanStampTests
     public void Diferenca_menor_que_a_grade_na_mesma_celula_e_aceita()
     {
         PlanResult plan = AssistPlanner.Plan(WithX(15.00001));
-        Assert.Null(PlanValidity.CheckApply(plan, WithX(15.00004)));
+        Assert.Null(Check(plan, WithX(15.00004)));
     }
 
     [Fact]
     public void Diferenca_de_um_decimo_de_micron_ou_mais_nunca_e_aceita()
     {
         PlanResult plan = AssistPlanner.Plan(WithX(15.00004));
-        Assert.NotNull(PlanValidity.CheckApply(plan, WithX(15.00014)));
-        Assert.NotNull(PlanValidity.CheckApply(plan, WithX(15.0001)));
-        Assert.NotNull(PlanValidity.CheckApply(plan, WithX(14.9999)));
+        Assert.NotNull(Check(plan, WithX(15.00014)));
+        Assert.NotNull(Check(plan, WithX(15.0001)));
+        Assert.NotNull(Check(plan, WithX(14.9999)));
     }
 
     [Fact]
@@ -319,7 +322,7 @@ public class PlanStampTests
     {
         // 15,00004 e 15,00006 distam 0,00002 (< 0,0001) mas caem em células diferentes (15,0000 e 15,0001): recusa conservadora, documentada
         PlanResult plan = AssistPlanner.Plan(WithX(15.00004));
-        Assert.NotNull(PlanValidity.CheckApply(plan, WithX(15.00006)));
+        Assert.NotNull(Check(plan, WithX(15.00006)));
     }
 
     [Fact]

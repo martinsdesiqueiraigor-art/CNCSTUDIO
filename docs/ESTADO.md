@@ -292,3 +292,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Revisão total: +57 testes em relação à 1ª entrega do PR 1 (1083 no total), suíte completa verde.
 - Não faz parte deste PR: profundidades supostas, ferramenta nova, Z e rpm (PR 2 em diante). Não foi conferido em Windows real nem com um DXF aberto pelo Trabalho (a tela foi alimentada por teste).
 
+
+## Assist — ferramenta nova × banco (`ajuste-assist-ferramenta-nova`, a partir da `main` com o PR #86; auditoria A-04, Fase 1 / PR 2)
+- Core `Assist/PlanStamp`: `PlanValidity.ToolsOf` classifica cada ferramenta do plano como **Banco** (mesmo número e diâmetro no banco atual) ou **Nova** (inventada pelo plano). Calculado na hora, sem estado guardado. `CheckApply(plan, input, confirmadas)` recusa a aplicação enquanto houver ferramenta nova sem confirmação, listando os T.
+- Assist (Plano 2D): cada operação mostra `T# (banco)` ou `T# (NOVA, fora do banco)`; para cada ferramenta nova há uma caixa "Confirmo T# · Ø · nome"; o botão Aplicar só liga com todas marcadas. Mudar espessura/material/desenho/ferramentas descarta o plano e as confirmações. Cadastrar a ferramenta no banco muda o registro: é preciso sugerir de novo, e aí ela vira "banco".
+- 8 testes novos no Core (1091 no total). Conferido no app (Xvfb): banco vazio (3 caixas, Aplicar desligado até marcar todas; desmarcar desliga; mudar espessura limpa tudo), banco completo (sem caixas, aplica 4 operações).
+- Não faz parte: ferramenta "indisponível" (sem dado de disponibilidade hoje), profundidades supostas (PR 3), Z (PR 5), rpm (PR 6). A caixa confirma número e diâmetro, não a fixação nem o magazine da máquina.
