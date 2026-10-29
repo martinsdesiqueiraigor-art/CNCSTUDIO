@@ -1,3 +1,4 @@
+using CncStudio.Core.Cam;
 using CncStudio.Core.Cam3D;
 using CncStudio.Core.Geometry;
 using Xunit;
@@ -125,5 +126,57 @@ public class MeshFeaturesTests
         MeshFeatures f = MeshFeatures.Analyze(new TriangleMesh([]));
         Assert.Empty(f.Faces);
         Assert.Empty(f.Edges);
+    }
+
+    /// <summary>Bloco 40×40×10 com bolsão quadrado 10..30, fundo em Z=5.</summary>
+    private static TriangleMesh PocketBlock()
+    {
+        var t = new List<(Point3, Point3, Point3)>();
+        Point3[] o = [P(0, 0, 10), P(40, 0, 10), P(40, 40, 10), P(0, 40, 10)];
+        Point3[] i = [P(10, 10, 10), P(30, 10, 10), P(30, 30, 10), P(10, 30, 10)];
+        Point3[] f = [P(10, 10, 5), P(30, 10, 5), P(30, 30, 5), P(10, 30, 5)];
+        for (int k = 0; k < 4; k++)
+        {
+            int n = (k + 1) % 4;
+            Quad(t, o[k], o[n], i[n], i[k]); // topo em moldura (normal +Z)
+            Quad(t, i[k], i[n], f[n], f[k]); // parede do bolsão: normal para dentro do bolsão
+            Quad(t, o[k], P(o[k].X, o[k].Y, 0), P(o[n].X, o[n].Y, 0), o[n]); // parede externa
+        }
+
+        Quad(t, f[0], f[1], f[2], f[3]); // fundo (+Z)
+        Quad(t, P(0, 0, 0), P(0, 40, 0), P(40, 40, 0), P(40, 0, 0)); // base (-Z)
+        return new TriangleMesh(t);
+    }
+
+    [Fact]
+    public void Fundo_do_bolsao_tem_um_contorno_de_4_cantos()
+    {
+        MeshFeatures f = MeshFeatures.Analyze(PocketBlock());
+        MeshFace floor = Assert.Single(f.Faces, x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99 && Math.Abs(x.Center.Z - 5) < 1e-6);
+        IReadOnlyList<IReadOnlyList<Point3>> loops = f.BoundaryLoops(floor);
+        Assert.Single(loops);
+        Assert.Equal(4, loops[0].Count);
+        Assert.Equal(20, loops[0].Max(p => p.X) - loops[0].Min(p => p.X), 6);
+    }
+
+    [Fact]
+    public void Moldura_do_topo_tem_dois_contornos_e_nao_vira_bolsao()
+    {
+        MeshFeatures f = MeshFeatures.Analyze(PocketBlock());
+        MeshFace top = Assert.Single(f.Faces, x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99 && Math.Abs(x.Center.Z - 10) < 1e-6);
+        Assert.Equal(2, f.BoundaryLoops(top).Count);
+        OperationResult r = FacePocket.Build(f, top, new CamTool(1, 6, 8000, 800, 300, "Topo"), 10, 2, new PocketParams());
+        Assert.False(r.Ok);
+    }
+
+    [Fact]
+    public void Bolsao_a_partir_do_fundo_gera_percurso_ate_o_fundo()
+    {
+        MeshFeatures f = MeshFeatures.Analyze(PocketBlock());
+        MeshFace floor = Assert.Single(f.Faces, x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99 && Math.Abs(x.Center.Z - 5) < 1e-6);
+        OperationResult r = FacePocket.Build(f, floor, new CamTool(1, 6, 8000, 800, 300, "Topo"), 10, 2.5, new PocketParams());
+        Assert.True(r.Ok, r.Error);
+        Assert.Contains(r.Operation!.Moves, m => Math.Abs(m.Z - 5) < 1e-6);
+        Assert.DoesNotContain(r.Operation.Moves, m => m.Z < 5 - 1e-6);
     }
 }

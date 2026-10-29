@@ -296,4 +296,4 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Desktop: na aba **Modelo 3D** o clique (sem arrastar) escolhe região (laranja) ou aresta (azul-claro); clique de novo desfaz; **Ctrl soma**. Painel mostra os dados. `GlSceneView` ganhou o evento `SceneClicked` e `RayAt`.
 - Botão **Gerar furação dos furos escolhidos**: furos verticais viram ciclo G83/bicada (Z do topo ao fundo da parede, centro lido da malha). Furo cego com fundo cônico não é considerado.
 - Limites: são regiões da **malha**, não as faces do CAD (STEP vira malha); malha grossa parte o furo em pedaços; precisa normal para fora. Testado só com placa gerada por mim (STL), nenhum STEP real.
-
+- **Bolsão pela região escolhida:** Core `Cam3D/FacePocket` (+ `MeshFeatures.BoundaryLoops`): região plana voltada para cima = fundo, borda = contorno, usa o `Pocket` 2,5D existente. Recusa região com ilhas/furos dentro e fundo no topo do modelo. Botão "Gerar bolsão da região escolhida" na aba Modelo 3D (fresa, rpm, avanço, passo Z e lateral). 3 testes novos (1028). Não conferido na tela.

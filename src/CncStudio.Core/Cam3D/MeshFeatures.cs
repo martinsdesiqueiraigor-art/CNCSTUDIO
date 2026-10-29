@@ -188,6 +188,122 @@ public sealed class MeshFeatures
         return new MeshFeatures(mesh, faceOf, faces, edges);
     }
 
+    /// <summary>
+    /// Contornos da borda de uma região, como laços de pontos (arestas usadas por um só triângulo da região).
+    /// Pontos alinhados no meio de uma reta são removidos. O laço de maior área vem primeiro.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyList<Point3>> BoundaryLoops(MeshFace face)
+    {
+        var ids = new Dictionary<(long, long, long), int>();
+        var points = new List<Point3>();
+        var count = new Dictionary<(int, int), int>();
+        var dir = new Dictionary<(int, int), (int, int)>();
+        foreach (int t in face.Triangles)
+        {
+            (Point3 a, Point3 b, Point3 c) = _mesh.Triangle(t);
+            int[] v = [Weld(ids, points, a), Weld(ids, points, b), Weld(ids, points, c)];
+            for (int k = 0; k < 3; k++)
+            {
+                int p = v[k], q = v[(k + 1) % 3];
+                if (p == q)
+                {
+                    continue;
+                }
+
+                (int, int) key = p < q ? (p, q) : (q, p);
+                count[key] = count.GetValueOrDefault(key) + 1;
+                dir[key] = (p, q);
+            }
+        }
+
+        // aresta de borda: p -> q no sentido do triângulo
+        var next = new Dictionary<int, List<int>>();
+        foreach (((int, int) key, int n) in count)
+        {
+            if (n == 1)
+            {
+                (int p, int q) = dir[key];
+                if (!next.TryGetValue(p, out List<int>? l))
+                {
+                    next[p] = l = [];
+                }
+
+                l.Add(q);
+            }
+        }
+
+        var loops = new List<List<Point3>>();
+        foreach (int start in next.Keys.OrderBy(k => k).ToList())
+        {
+            while (next[start].Count > 0)
+            {
+                var ring = new List<int> { start };
+                int cur = start;
+                while (true)
+                {
+                    if (!next.TryGetValue(cur, out List<int>? outs) || outs.Count == 0)
+                    {
+                        break;
+                    }
+
+                    int to = outs[0];
+                    outs.RemoveAt(0);
+                    if (to == start)
+                    {
+                        loops.Add(Simplify([.. ring.Select(i => points[i])]));
+                        break;
+                    }
+
+                    ring.Add(to);
+                    cur = to;
+                }
+
+                if (next[start].Count == 0)
+                {
+                    break;
+                }
+            }
+        }
+
+        return [.. loops.Where(l => l.Count >= 3).OrderByDescending(l => Math.Abs(AreaXY(l)))];
+    }
+
+    private static double AreaXY(IReadOnlyList<Point3> l)
+    {
+        double a = 0;
+        for (int i = 0; i < l.Count; i++)
+        {
+            Point3 p = l[i], q = l[(i + 1) % l.Count];
+            a += (p.X * q.Y) - (q.X * p.Y);
+        }
+
+        return a / 2;
+    }
+
+    private static List<Point3> Simplify(List<Point3> ring)
+    {
+        bool changed = true;
+        while (changed && ring.Count > 3)
+        {
+            changed = false;
+            for (int i = 0; i < ring.Count; i++)
+            {
+                Point3 a = ring[(i + ring.Count - 1) % ring.Count], b = ring[i], c = ring[(i + 1) % ring.Count];
+                Point3 ab = b - a, ac = c - a;
+                Point3 cr = ViewCamera.Cross(ab, ac);
+                double l = Math.Sqrt(ac.Dot(ac));
+                if (l > 1e-9 && Math.Sqrt(cr.Dot(cr)) / l < 1e-6 && ab.Dot(ac) > 0)
+                {
+                    ring.RemoveAt(i);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        return ring;
+    }
+
     /// <summary>Primeira região atingida pelo raio (origem, direção) e a distância até ela.</summary>
     public (MeshFace? Face, double Distance) PickFace(Point3 origin, Point3 direction)
     {

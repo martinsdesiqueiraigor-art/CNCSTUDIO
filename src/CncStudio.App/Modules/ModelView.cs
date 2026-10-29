@@ -42,6 +42,7 @@ public sealed class ModelView : Grid
     private readonly TextBlock _result = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
     private readonly TextBlock _sel = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Text = "Clique no modelo para escolher uma região ou uma aresta (Ctrl soma)." };
     private readonly Button _drillButton = new() { Content = "Gerar furação dos furos escolhidos", Padding = new Thickness(12, 6), IsEnabled = false };
+    private readonly Button _pocketButton = new() { Content = "Gerar bolsão da região escolhida", Padding = new Thickness(12, 6), IsEnabled = false };
     private readonly HashSet<int> _selFaces = [];
     private readonly HashSet<int> _selEdges = [];
     private MeshFeatures? _features;
@@ -99,6 +100,18 @@ public sealed class ModelView : Grid
         AddField(panel, "DQ", "Bicada Q (mm)", "3");
         _drillButton.Click += (_, _) => GenerateDrilling();
         panel.Children.Add(_drillButton);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Bolsão: a região plana escolhida (voltada para cima) é o fundo e a borda dela é o contorno. Sem ilhas nem furos dentro.",
+            Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(0, 6, 0, 0),
+        });
+        AddField(panel, "PD", "Fresa de topo (mm)", "6");
+        AddField(panel, "PS", "Rotação da fresa (rpm)", "8000");
+        AddField(panel, "PF", "Avanço da fresa (mm/min)", "800");
+        AddField(panel, "PZ", "Passo em Z (mm)", "1");
+        AddField(panel, "PE", "Passo lateral (% do diâmetro)", "60");
+        _pocketButton.Click += (_, _) => GeneratePocket();
+        panel.Children.Add(_pocketButton);
 
         panel.Children.Add(new TextBlock { Text = "Varredura de acabamento (fresa esférica)", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
         panel.Children.Add(new TextBlock
@@ -302,6 +315,7 @@ public sealed class ModelView : Grid
         _selFaces.Clear();
         _selEdges.Clear();
         _drillButton.IsEnabled = false;
+        _pocketButton.IsEnabled = false;
         _sel.Text = "Lendo faces e arestas…";
         MeshFeatures features = await Task.Run(() => MeshFeatures.Analyze(mesh));
         if (mine != _analysis)
@@ -383,6 +397,42 @@ public sealed class ModelView : Grid
         _gl.Show(new SceneSnapshot(objects, lines, mesh.Bounds, ScenePalette.Realistic));
         _sel.Text = Describe(features);
         _drillButton.IsEnabled = SelectedHoles(features).Any();
+        _pocketButton.IsEnabled = _selFaces.Count == 1 && features.Faces[_selFaces.First()] is { Kind: FaceKind.Plane, Normal.Z: >= 0.99 };
+    }
+
+    private void GeneratePocket()
+    {
+        _openEditor.IsEnabled = false;
+        if (_features is not { } features || _current is not { } model || _selFaces.Count != 1)
+        {
+            return;
+        }
+
+        double[] v = new[] { "PD", "PS", "PF", "PZ", "PE", "TN" }.Select(Num).ToArray();
+        if (v.Any(double.IsNaN))
+        {
+            _result.Text = "• Preencha fresa, rotação, avanço, passo em Z e passo lateral.";
+            return;
+        }
+
+        var tool = new CamTool((int)v[5], v[0], v[1], v[2], v[2] / 2, "Fresa D" + v[0].ToString("0.##", Pt));
+        MeshFace face = features.Faces[_selFaces.First()];
+        OperationResult r = FacePocket.Build(features, face, tool, model.Bounds.Max.Z, v[3], new PocketParams(v[4]));
+        if (!r.Ok)
+        {
+            _result.Text = "• " + r.Error;
+            return;
+        }
+
+        CamDialect dialect = _dialect.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
+        string name = Path.GetFileNameWithoutExtension(_fileName).ToUpperInvariant();
+        _program = CamPost.Generate([r.Operation!], new PostOptions(dialect, ProgramName: name.Length > 0 ? name + " BOLSAO" : "BOLSAO 3D"));
+        _programSuffix = "-bolsao.nc";
+        _openEditor.IsEnabled = true;
+        string F(double x) => x.ToString("0.##", Pt);
+        _result.Text = $"Bolsão gerado: fundo em Z {F(face.Center.Z)}, {r.Operation!.Moves.Count:N0} movimentos.\n" +
+            string.Join("\n", r.Operation!.Warnings.Select(w => "• " + w)) +
+            "\n• O contorno é o da malha: confira se o bolsão é aberto por cima e se a fresa cabe nos cantos. Primeira vez, no ar.";
     }
 
     private string Describe(MeshFeatures features)
