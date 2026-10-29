@@ -282,3 +282,10 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - STEP só no desktop: motor OpenCASCADE (LGPL 2.1 + exceção OCCT, uso proprietário permitido com aviso; confirmar com profissional). Candidato: pacote OcctNet.Wrapper (MIT, 0.1.1, net10), só no `CncStudio.App`; o Core continua sem NuGet e recebe a malha (`TriangleMesh`) e a lista de faces/arestas. O STL continua, sem novos investimentos.
 - Teste de viabilidade do STEP precisa de um STEP real de peça do Igor. Depois do CAM vem o Assist.
 - PR #85 (tema claro em Comparar/Estatísticas) aguarda conferir no celular e o OK do merge.
+
+## Assist — plano obsoleto não se aplica (`ajuste-assist-plano-obsoleto`, a partir da `main`; auditoria A-09, Fase 1 / PR 1)
+- Core `Assist/PlanStamp`: o plano sugerido guarda um registro do desenho (geometria e ordem dos contornos, 0,0001 mm), espessura, material e ferramentas. `PlanValidity.CheckApply` recusa se algo mudou ou se uma operação aponta para contorno que não existe. `PlanResult.Stamp` é preenchido sempre (também em plano sem operações).
+- Assist (aba Plano 2D): mudar espessura ou material, ou voltar à aba com outro desenho/ferramentas, descarta o plano e liga o aviso "desatualizado: mudou X"; o botão Aplicar fica desligado. O clique em Aplicar confere de novo (o desenho pode mudar fora do Assist sem passar pela aba). Voltar aos mesmos dados não "ressuscita" o plano na tela: é preciso sugerir de novo.
+- 12 testes novos no Core (1026 no total): espessura, material, ferramentas, geometria com o mesmo número de contornos, ordem trocada, contorno removido, ruído < 0,1 µm, plano sem registro, índice inexistente. Conferido também no app real (Xvfb): sugerir → mudar espessura (bloqueia) → mudar desenho e clicar Aplicar (recusa) → sugerir e aplicar (4 operações entram).
+- Não faz parte deste PR: profundidades supostas, ferramenta nova, Z e rpm (PR 2 em diante). Não foi conferido em Windows real nem com um DXF aberto pelo Trabalho (a tela foi alimentada por teste).
+

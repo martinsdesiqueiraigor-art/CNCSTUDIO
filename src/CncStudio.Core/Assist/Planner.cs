@@ -13,6 +13,9 @@ public sealed record PlanInput(IReadOnlyList<Contour> Contours, double Thickness
 public sealed record PlanResult(IReadOnlyList<CamOperationSpec> Operations, IReadOnlyList<string> Notes)
 {
     public bool Ok => Operations.Count > 0;
+
+    /// <summary>Dados em que o plano se baseou. Serve para recusar a aplicação se algo mudou depois (<see cref="PlanValidity"/>).</summary>
+    public PlanStamp? Stamp { get; init; }
 }
 
 /// <summary>
@@ -28,7 +31,9 @@ public static class AssistPlanner
 
     private static bool IsCircle(Contour c) => c.Segments.Count == 1 && c.Segments[0].IsArc && c.Segments[0].Start.DistanceTo(c.Segments[0].End) < 1e-6;
 
-    public static PlanResult Plan(PlanInput input)
+    public static PlanResult Plan(PlanInput input) => PlanCore(input) with { Stamp = PlanStamp.Of(input) };
+
+    private static PlanResult PlanCore(PlanInput input)
     {
         var notes = new List<string>();
         var ops = new List<CamOperationSpec>();
