@@ -133,4 +133,121 @@ public class PlanStampTests
         PlanResult tampered = plan with { Operations = [broken, .. plan.Operations.Skip(1)] };
         Assert.Contains("não existe", PlanValidity.CheckApply(tampered, input));
     }
+
+    private static PlanResult Tamper(PlanResult plan, Func<CamOperationSpec, bool> pick, Func<CamOperationSpec, CamOperationSpec> change) =>
+        plan with { Operations = plan.Operations.Select(o => pick(o) ? change(o) : o).ToList() };
+
+    [Theory]
+    [InlineData(JobOpKind.Drilling, -1)]
+    [InlineData(JobOpKind.Drilling, -5)]
+    [InlineData(JobOpKind.Drilling, 4)]
+    [InlineData(JobOpKind.Pocket, -1)]
+    [InlineData(JobOpKind.Pocket, 4)]
+    [InlineData(JobOpKind.Contour, -1)]
+    [InlineData(JobOpKind.Contour, 4)]
+    public void Indice_fora_do_desenho_e_recusado_em_toda_operacao_do_Assist(JobOpKind kind, int index)
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        Assert.Contains(plan.Operations, o => o.Kind == kind);
+        PlanResult tampered = Tamper(plan, o => o.Kind == kind, o => o with { ContourIndex = index });
+        Assert.Contains("não existe", PlanValidity.CheckApply(tampered, input));
+    }
+
+    [Fact]
+    public void Todas_as_operacoes_geradas_apontam_para_um_contorno_valido()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        Assert.Contains(plan.Operations, o => o.Kind == JobOpKind.Drilling);
+        Assert.Contains(plan.Operations, o => o.Kind == JobOpKind.Pocket);
+        Assert.Contains(plan.Operations, o => o.Kind == JobOpKind.Contour);
+        Assert.All(plan.Operations, o => Assert.InRange(o.ContourIndex, 0, input.Contours.Count - 1));
+    }
+
+    [Fact]
+    public void Alterar_a_operacao_depois_da_sugestao_invalida_o_plano()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        PlanResult deeper = Tamper(plan, o => o.Kind == JobOpKind.Contour, o => o with { Levels = o.Levels with { BottomZ = o.Levels.BottomZ - 5 } });
+        Assert.Contains("alteradas", PlanValidity.CheckApply(deeper, input));
+        PlanResult otherTool = Tamper(plan, o => o.Kind == JobOpKind.Pocket, o => o with { Tool = o.Tool with { SpindleRpm = o.Tool.SpindleRpm + 1 } });
+        Assert.Contains("alteradas", PlanValidity.CheckApply(otherTool, input));
+        PlanResult removed = plan with { Operations = plan.Operations.Skip(1).ToList() };
+        Assert.Contains("alteradas", PlanValidity.CheckApply(removed, input));
+        PlanResult disabled = Tamper(plan, o => o.Kind == JobOpKind.Drilling, o => o with { Enabled = false });
+        Assert.Contains("alteradas", PlanValidity.CheckApply(disabled, input));
+    }
+
+    [Fact]
+    public void Lista_de_operacoes_entregue_nao_pode_ser_alterada_por_fora()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        int before = plan.Operations.Count;
+        if (plan.Operations is IList<CamOperationSpec> list)
+        {
+            Assert.Throws<NotSupportedException>(() => list.RemoveAt(0));
+        }
+
+        Assert.Equal(before, plan.Operations.Count);
+        Assert.Null(PlanValidity.CheckApply(plan, input));
+    }
+
+    private static PlanInput WithX(double x) =>
+        Input([Contour.Rectangle(0, 0, 100, 60), Contour.Circle(new Point2(x, 15), 4), Contour.Rectangle(30, 20, 40, 20)]);
+
+    [Fact]
+    public void Diferenca_menor_que_a_grade_na_mesma_celula_e_aceita()
+    {
+        PlanResult plan = AssistPlanner.Plan(WithX(15.00001));
+        Assert.Null(PlanValidity.CheckApply(plan, WithX(15.00004)));
+    }
+
+    [Fact]
+    public void Diferenca_de_um_decimo_de_micron_ou_mais_nunca_e_aceita()
+    {
+        PlanResult plan = AssistPlanner.Plan(WithX(15.00004));
+        Assert.NotNull(PlanValidity.CheckApply(plan, WithX(15.00014)));
+        Assert.NotNull(PlanValidity.CheckApply(plan, WithX(15.0001)));
+        Assert.NotNull(PlanValidity.CheckApply(plan, WithX(14.9999)));
+    }
+
+    [Fact]
+    public void Cruzar_a_fronteira_de_arredondamento_com_menos_de_um_decimo_de_micron_recusa_por_seguranca()
+    {
+        // 15,00004 e 15,00006 distam 0,00002 (< 0,0001) mas caem em células diferentes (15,0000 e 15,0001): recusa conservadora, documentada
+        PlanResult plan = AssistPlanner.Plan(WithX(15.00004));
+        Assert.NotNull(PlanValidity.CheckApply(plan, WithX(15.00006)));
+    }
+
+    [Fact]
+    public void Meio_decimal_e_decidido_pela_representacao_binaria_e_e_estavel()
+    {
+        // 0,00005 e 0,00015 não existem exatamente em binário: o lado do arredondamento é determinístico, mas não é "meio para cima"
+        Assert.Equal(PlanStamp.N(0.00005), PlanStamp.N(0.00005));
+        Assert.Equal("0", PlanStamp.N(0.00005));
+        Assert.Equal("0.0001", PlanStamp.N(0.00015));
+        Assert.Equal("0.0002", PlanStamp.N(0.00016));
+        Assert.Equal("0.0001", PlanStamp.N(0.0001));
+    }
+
+    [Fact]
+    public void Zero_negativo_vale_como_zero()
+    {
+        Assert.Equal("0", PlanStamp.N(-0.0));
+        Assert.Equal("0", PlanStamp.N(-0.00001));
+        Assert.Equal(PlanStamp.N(0.00001), PlanStamp.N(-0.00001));
+        Assert.Equal("-0.0001", PlanStamp.N(-0.0001));
+    }
+
+    [Fact]
+    public void NaN_e_infinitos_sao_diferenciados_e_estaveis()
+    {
+        Assert.Equal("nan", PlanStamp.N(double.NaN));
+        Assert.Equal("+inf", PlanStamp.N(double.PositiveInfinity));
+        Assert.Equal("-inf", PlanStamp.N(double.NegativeInfinity));
+        Assert.NotEqual(PlanStamp.N(double.PositiveInfinity), PlanStamp.N(double.NegativeInfinity));
+    }
 }
