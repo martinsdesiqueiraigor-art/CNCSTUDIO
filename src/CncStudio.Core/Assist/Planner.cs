@@ -13,6 +13,12 @@ public sealed record PlanInput(IReadOnlyList<Contour> Contours, double Thickness
 public sealed record PlanResult(IReadOnlyList<CamOperationSpec> Operations, IReadOnlyList<string> Notes)
 {
     public bool Ok => Operations.Count > 0;
+
+    /// <summary>Dados em que o plano se baseou. Serve para recusar a aplicação se algo mudou depois (<see cref="PlanValidity"/>).</summary>
+    public PlanStamp? Stamp { get; init; }
+
+    /// <summary>Impressão digital das operações no momento da sugestão (<see cref="PlanStamp.OfOperations"/>).</summary>
+    public string? OperationsStamp { get; init; }
 }
 
 /// <summary>
@@ -28,7 +34,16 @@ public static class AssistPlanner
 
     private static bool IsCircle(Contour c) => c.Segments.Count == 1 && c.Segments[0].IsArc && c.Segments[0].Start.DistanceTo(c.Segments[0].End) < 1e-6;
 
-    public static PlanResult Plan(PlanInput input)
+    public static PlanResult Plan(PlanInput input) => Seal(PlanCore(input), input);
+
+    private static PlanResult Seal(PlanResult plan, PlanInput input)
+    {
+        // Cópia própria das operações: quem recebeu o plano não consegue alterar a lista por baixo do registro
+        IReadOnlyList<CamOperationSpec> ops = Array.AsReadOnly(plan.Operations.ToArray());
+        return plan with { Operations = ops, Stamp = PlanStamp.Of(input), OperationsStamp = PlanStamp.OfOperations(ops) };
+    }
+
+    private static PlanResult PlanCore(PlanInput input)
     {
         var notes = new List<string>();
         var ops = new List<CamOperationSpec>();

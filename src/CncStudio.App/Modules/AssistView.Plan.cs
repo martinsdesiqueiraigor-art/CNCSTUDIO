@@ -42,6 +42,8 @@ public sealed partial class AssistView
         row.Children.Add(_planThickness);
         row.Children.Add(new TextBlock { Text = "mm", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.65, FontSize = 11 });
         form.Children.Add(row);
+        _planMaterial.SelectionChanged += (_, _) => OnPlanInputChanged();
+        _planThickness.TextChanged += (_, _) => OnPlanInputChanged();
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         Button suggest = new() { Content = "Sugerir plano", Padding = new Thickness(16, 6) };
         suggest.Click += (_, _) => SuggestPlan();
@@ -49,9 +51,17 @@ public sealed partial class AssistView
         {
             if (_plan is { Ok: true } plan && ApplyPlan is not null)
             {
+                // Confere de novo na hora de aplicar: o desenho, a espessura, o material ou as ferramentas podem ter mudado
+                if (CheckPlanStillValid() is { } stale)
+                {
+                    InvalidatePlan(stale);
+                    return;
+                }
+
                 ApplyPlan(plan.Operations);
                 _planResult.Text += "\n(operações adicionadas ao Trabalho fresa)";
                 _planApply.IsEnabled = false;
+                _plan = null;
             }
         };
         buttons.Children.Add(suggest);
@@ -69,7 +79,75 @@ public sealed partial class AssistView
         _tabs.Items.Add(tab);
     }
 
+    private bool _loadingPlan;
+
+    /// <summary>Espessura ou material mudaram: o plano já sugerido deixa de valer.</summary>
+    private void OnPlanInputChanged()
+    {
+        if (!_loadingPlan && CheckPlanStillValid() is { } stale)
+        {
+            InvalidatePlan(stale);
+        }
+    }
+
+    /// <summary>Descarta o plano sugerido e explica por quê (o botão Aplicar fica desligado até sugerir de novo).</summary>
+    private void InvalidatePlan(string reason)
+    {
+        _plan = null;
+        _planApply.IsEnabled = false;
+        _planResult.Text = "⚠ " + reason;
+    }
+
+    /// <summary>Mensagem do motivo se o plano guardado não vale mais; null se vale (ou se não há plano).</summary>
+    private string? CheckPlanStillValid()
+    {
+        if (_plan is not { } plan)
+        {
+            return null;
+        }
+
+        (PlanInput? input, string? error) = BuildPlanInput();
+        return input is null ? error : PlanValidity.CheckApply(plan, input);
+    }
+
+    /// <summary>Monta os dados do plano com o que está na tela agora (desenho do Trabalho, espessura, material e ferramentas).</summary>
+    private (PlanInput? Input, string? Error) BuildPlanInput()
+    {
+        (IReadOnlyList<Contour> contours, double? thickness)? d = PlanDrawing?.Invoke();
+        if (d is not { } drawing || drawing.contours.Count == 0)
+        {
+            return (null, "O desenho do Trabalho fresa não está mais aberto. Abra um DXF em CAM › Trabalho fresa e sugira de novo.");
+        }
+
+        if (!double.TryParse((_planThickness.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double thick) || !(thick > 0))
+        {
+            return (null, "Confira a espessura do bruto.");
+        }
+
+        MaterialEntry? material = _planMaterial.SelectedIndex >= 0 && _planMaterial.SelectedIndex < _lib.Materials.Count ? _lib.Materials[_planMaterial.SelectedIndex] : null;
+        return (new PlanInput(drawing.contours, thick, material, PlanTools?.Invoke() ?? []), null);
+    }
+
     private void LoadPlan()
+    {
+        _loadingPlan = true;
+        try
+        {
+            LoadPlanFields();
+        }
+        finally
+        {
+            _loadingPlan = false;
+        }
+
+        // Voltou para a aba: o desenho, o material ou as ferramentas podem ter mudado fora daqui
+        if (CheckPlanStillValid() is { } stale)
+        {
+            InvalidatePlan(stale);
+        }
+    }
+
+    private void LoadPlanFields()
     {
         int keep = _planMaterial.SelectedIndex;
         _planMaterial.Items.Clear();
@@ -94,21 +172,14 @@ public sealed partial class AssistView
     {
         _plan = null;
         _planApply.IsEnabled = false;
-        (IReadOnlyList<Contour> contours, double? thickness)? d = PlanDrawing?.Invoke();
-        if (d is not { } drawing || drawing.contours.Count == 0)
+        (PlanInput? input, string? error) = BuildPlanInput();
+        if (input is null)
         {
-            _planResult.Text = "Abra um DXF em CAM › Trabalho fresa primeiro.";
+            _planResult.Text = error is not null && error.StartsWith("O desenho", StringComparison.Ordinal) ? "Abra um DXF em CAM › Trabalho fresa primeiro." : error;
             return;
         }
 
-        if (!double.TryParse((_planThickness.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double thick) || !(thick > 0))
-        {
-            _planResult.Text = "Confira a espessura do bruto.";
-            return;
-        }
-
-        MaterialEntry? material = _planMaterial.SelectedIndex >= 0 && _planMaterial.SelectedIndex < _lib.Materials.Count ? _lib.Materials[_planMaterial.SelectedIndex] : null;
-        PlanResult plan = AssistPlanner.Plan(new PlanInput(drawing.contours, thick, material, PlanTools?.Invoke() ?? []));
+        PlanResult plan = AssistPlanner.Plan(input);
         var lines = new List<string>();
         for (int i = 0; i < plan.Operations.Count; i++)
         {
