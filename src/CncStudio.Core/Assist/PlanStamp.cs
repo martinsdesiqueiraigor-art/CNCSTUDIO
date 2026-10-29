@@ -25,11 +25,55 @@ public sealed record PlanStamp(string Drawing, string Thickness, string Material
         double.IsNaN(v) ? "nan" : double.IsInfinity(v) ? (v > 0 ? "+inf" : "-inf") : (Math.Round(v, 4) + 0.0).ToString("0.####", Inv);
 
     /// <summary>
-    /// Impressão digital das operações do plano (todos os campos de cada operação). Guardada na sugestão e conferida na aplicação:
-    /// qualquer alteração posterior das operações (ferramenta, níveis, índice do contorno…) invalida o plano.
+    /// Impressão digital das operações do plano. Percorre por reflexão todas as propriedades públicas de cada operação e dos
+    /// registros aninhados (ferramenta, níveis, parâmetros, furação, texto, face…), em ordem de nome, com cultura invariante,
+    /// números com precisão total (sem quantizar), enums pelo nome e nulo explícito. Campo novo entra sozinho. Não depende de
+    /// <c>ToString()</c>, que varia com a cultura e não é um contrato.
     /// </summary>
-    public static string OfOperations(IEnumerable<CamOperationSpec> operations) =>
-        string.Join("\n", operations.Select(o => o.ToString()));
+    public static string OfOperations(IEnumerable<CamOperationSpec> operations)
+    {
+        var sb = new StringBuilder();
+        foreach (CamOperationSpec o in operations)
+        {
+            Describe(sb, o);
+            sb.Append('\n');
+        }
+
+        return sb.ToString();
+    }
+
+    private static void Describe(StringBuilder sb, object? v)
+    {
+        switch (v)
+        {
+            case null: sb.Append("null"); break;
+            case double d: sb.Append(d.ToString("R", Inv)); break;
+            case float f: sb.Append(f.ToString("R", Inv)); break;
+            case bool or int or long or Enum: sb.Append(Convert.ToString(v, Inv)); break;
+            case string str: sb.Append('"').Append(str.Replace("\"", "\\\"")).Append('"'); break;
+            case System.Collections.IEnumerable items:
+                sb.Append('[');
+                foreach (object? item in items)
+                {
+                    Describe(sb, item);
+                    sb.Append(',');
+                }
+
+                sb.Append(']');
+                break;
+            default:
+                sb.Append(v.GetType().Name).Append('{');
+                foreach (System.Reflection.PropertyInfo p in v.GetType().GetProperties().Where(p => p.GetIndexParameters().Length == 0).OrderBy(p => p.Name, StringComparer.Ordinal))
+                {
+                    sb.Append(p.Name).Append('=');
+                    Describe(sb, p.GetValue(v));
+                    sb.Append(';');
+                }
+
+                sb.Append('}');
+                break;
+        }
+    }
 
     public static PlanStamp Of(PlanInput input)
     {

@@ -39,7 +39,7 @@ public static class AssistPlanner
     private static PlanResult Seal(PlanResult plan, PlanInput input)
     {
         // Cópia própria das operações: quem recebeu o plano não consegue alterar a lista por baixo do registro
-        CamOperationSpec[] ops = plan.Operations.ToArray();
+        IReadOnlyList<CamOperationSpec> ops = Array.AsReadOnly(plan.Operations.ToArray());
         return plan with { Operations = ops, Stamp = PlanStamp.Of(input), OperationsStamp = PlanStamp.OfOperations(ops) };
     }
 

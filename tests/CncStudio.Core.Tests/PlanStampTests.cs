@@ -1,3 +1,4 @@
+using System.Globalization;
 using CncStudio.Core.Assist;
 using CncStudio.Core.Cam;
 
@@ -181,18 +182,117 @@ public class PlanStampTests
     }
 
     [Fact]
-    public void Lista_de_operacoes_entregue_nao_pode_ser_alterada_por_fora()
+    public void Lista_de_operacoes_entregue_e_somente_leitura_de_verdade()
     {
         PlanInput input = Input();
         PlanResult plan = AssistPlanner.Plan(input);
         int before = plan.Operations.Count;
-        if (plan.Operations is IList<CamOperationSpec> list)
-        {
-            Assert.Throws<NotSupportedException>(() => list.RemoveAt(0));
-        }
-
+        CamOperationSpec first = plan.Operations[0];
+        var list = Assert.IsAssignableFrom<IList<CamOperationSpec>>(plan.Operations);
+        Assert.True(list.IsReadOnly);
+        Assert.Throws<NotSupportedException>(() => list.RemoveAt(0));
+        Assert.Throws<NotSupportedException>(() => list.Add(first));
+        Assert.Throws<NotSupportedException>(() => list[0] = first with { Enabled = false });
+        Assert.False(plan.Operations is CamOperationSpec[]);
         Assert.Equal(before, plan.Operations.Count);
+        Assert.Same(first, plan.Operations[0]);
         Assert.Null(PlanValidity.CheckApply(plan, input));
+    }
+
+    [Fact]
+    public void Plano_nao_e_afetado_por_alterar_a_lista_de_origem()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        PlanResult copy = plan with { };
+        Assert.Same(plan.Operations, copy.Operations);
+        Assert.Null(PlanValidity.CheckApply(copy, input));
+    }
+
+    private static CamOperationSpec Full() =>
+        new(JobOpKind.Pocket, new CamTool(3, 6, 8000, 800, 300, "F6"), new CamLevels(50, 2, 0, -5, 1))
+        {
+            Label = "x", ContourIndex = 1, ContourParams = new ContourParams(ContourSide.Outside, true, false, 0.1, 3),
+            PocketParams = new PocketParams(60, 0.1, 2), Islands = true, FacingStepOverPercent = 55,
+            Drill = new DrillSpec(DrillCycleKind.Peck, 2, 0.5), Wrap = new WrapSpec("AB", 3, "A", new WrapSetup(40)),
+            Face = new RotaryFaceSpec("A", 90, 20),
+        };
+
+    public static TheoryData<string, Func<CamOperationSpec, CamOperationSpec>> Changes() => new()
+    {
+        { "Kind", o => o with { Kind = JobOpKind.Contour } },
+        { "Enabled", o => o with { Enabled = false } },
+        { "Label", o => o with { Label = "y" } },
+        { "ContourIndex", o => o with { ContourIndex = 2 } },
+        { "Islands", o => o with { Islands = false } },
+        { "FacingStepOver", o => o with { FacingStepOverPercent = 56 } },
+        { "Tool.Number", o => o with { Tool = o.Tool with { Number = 4 } } },
+        { "Tool.Diameter", o => o with { Tool = o.Tool with { Diameter = 6.001 } } },
+        { "Tool.Rpm", o => o with { Tool = o.Tool with { SpindleRpm = 8001 } } },
+        { "Tool.FeedXY", o => o with { Tool = o.Tool with { FeedXY = 801 } } },
+        { "Tool.FeedZ", o => o with { Tool = o.Tool with { FeedZ = 301 } } },
+        { "Tool.Name", o => o with { Tool = o.Tool with { Name = "G" } } },
+        { "Levels.SafeZ", o => o with { Levels = o.Levels with { SafeZ = 51 } } },
+        { "Levels.ClearanceZ", o => o with { Levels = o.Levels with { ClearanceZ = 3 } } },
+        { "Levels.TopZ", o => o with { Levels = o.Levels with { TopZ = 0.5 } } },
+        { "Levels.BottomZ", o => o with { Levels = o.Levels with { BottomZ = -5.0001 } } },
+        { "Levels.StepDown", o => o with { Levels = o.Levels with { StepDown = 1.5 } } },
+        { "Contour.Side", o => o with { ContourParams = o.ContourParams! with { Side = ContourSide.Inside } } },
+        { "Contour.Climb", o => o with { ContourParams = o.ContourParams! with { Climb = false } } },
+        { "Contour.Comp", o => o with { ContourParams = o.ContourParams! with { ControllerComp = true } } },
+        { "Contour.Allowance", o => o with { ContourParams = o.ContourParams! with { Allowance = 0.2 } } },
+        { "Contour.Lead", o => o with { ContourParams = o.ContourParams! with { LeadRadius = 4 } } },
+        { "Contour.Null", o => o with { ContourParams = null } },
+        { "Pocket.StepOver", o => o with { PocketParams = o.PocketParams! with { StepOverPercent = 61 } } },
+        { "Pocket.Finish", o => o with { PocketParams = o.PocketParams! with { FinishAllowance = 0.2 } } },
+        { "Pocket.Lead", o => o with { PocketParams = o.PocketParams! with { LeadRadius = 1 } } },
+        { "Drill.Cycle", o => o with { Drill = o.Drill! with { Cycle = DrillCycleKind.Drill } } },
+        { "Drill.Peck", o => o with { Drill = o.Drill! with { Peck = 3 } } },
+        { "Drill.Dwell", o => o with { Drill = o.Drill! with { DwellSeconds = 1 } } },
+        { "Wrap.Text", o => o with { Wrap = o.Wrap! with { Text = "AC" } } },
+        { "Wrap.Height", o => o with { Wrap = o.Wrap! with { LetterHeight = 4 } } },
+        { "Wrap.Axis", o => o with { Wrap = o.Wrap! with { Axis = "B" } } },
+        { "Wrap.Setup.Diameter", o => o with { Wrap = o.Wrap! with { Setup = o.Wrap!.Setup with { Diameter = 41 } } } },
+        { "Wrap.Setup.PlungeFeed", o => o with { Wrap = o.Wrap! with { Setup = o.Wrap!.Setup with { PlungeFeed = 61 } } } },
+        { "Face.Axis", o => o with { Face = o.Face! with { Axis = "B" } } },
+        { "Face.Angle", o => o with { Face = o.Face! with { Angle = 91 } } },
+        { "Face.AxisToFace", o => o with { Face = o.Face! with { AxisToFace = 21 } } },
+        { "Face.Null", o => o with { Face = null } },
+    };
+
+    [Theory]
+    [MemberData(nameof(Changes))]
+    public void Qualquer_campo_da_operacao_muda_a_impressao_digital(string field, Func<CamOperationSpec, CamOperationSpec> change)
+    {
+        CamOperationSpec baseline = Full();
+        Assert.Equal(PlanStamp.OfOperations([baseline]), PlanStamp.OfOperations([Full()]));
+        Assert.NotEqual(PlanStamp.OfOperations([baseline]), PlanStamp.OfOperations([change(baseline)]));
+        Assert.False(string.IsNullOrEmpty(field));
+    }
+
+    [Fact]
+    public void Impressao_digital_nao_depende_da_cultura()
+    {
+        CultureInfo old = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("pt-BR");
+            string br = PlanStamp.OfOperations([Full()]);
+            CultureInfo.CurrentCulture = new CultureInfo("en-US");
+            Assert.Equal(br, PlanStamp.OfOperations([Full()]));
+            Assert.Contains("Diameter=6;", br);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = old;
+        }
+    }
+
+    [Fact]
+    public void Ordem_das_operacoes_conta()
+    {
+        CamOperationSpec a = Full(), b = Full() with { Label = "b" };
+        Assert.NotEqual(PlanStamp.OfOperations([a, b]), PlanStamp.OfOperations([b, a]));
     }
 
     private static PlanInput WithX(double x) =>
