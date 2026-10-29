@@ -12,7 +12,8 @@ Lido no início de cada sessão. Curto de propósito: detalhe vai em `docs/`, n�
 ## Código
 | Pasta | O que é |
 |---|---|
-| `src/CncStudio.Core` | Toda a lógica e geometria. **Sem pacotes NuGet**, warnings = erro. |
+| `src/CncStudio.Core` | Toda a lógica e geometria. **Zero pacotes NuGet**, warnings = erro. |
+| `src/CncStudio.Step` (satélites) | Leitura de formatos que exigem biblioteca de terceiros (hoje o STEP, via OpenCASCADE). Só desktop. **Podem ter pacotes**, com a licença conferida antes de adicionar. |
 | `src/CncStudio.App` | Desktop Avalonia 11.3 (principal). 3D por OpenGL (`Graphics/GlSceneView`). |
 | `src/CncStudio.Web` | WebAssembly (`net10.0-browser`, fora da .sln). 3D por three.js (`wwwroot/scene3d.js`). |
 | `tests/CncStudio.Core.Tests` | xUnit, só do Core. |
@@ -31,12 +32,12 @@ Desktop sem placa de vídeo (testes): `CASILLAS_SOFTWARE_GL=1 xvfb-run ...`.
 ## Convenções
 - Textos da interface em pt-BR com acentos; comentários em português.
 - Cálculo e geometria no Core, com teste. Uma fonte de verdade por dado.
-- **Por que o Core não tem NuGet:** o mesmo Core roda no desktop, na web (WebAssembly) e nos testes; dependência de terceiros traz risco de licença, de segurança e de tamanho, e o cálculo de usinagem precisa ser auditável. Pacote pesado ou só de desktop vai em projeto separado (ex.: `CncStudio.Step`), nunca no Core. (Motivo escrito pelo Claude em 29/10, a confirmar com o Igor.)
+- **Duas camadas:** (1) Core = zero pacotes; (2) projetos satélite (ex.: `CncStudio.Step`, leitura de formatos) podem ter pacotes, com a licença conferida antes e sem o Core depender deles. Motivo: o mesmo Core roda no desktop, na web (WebAssembly) e nos testes; dependência de terceiros traz risco de licença, segurança e tamanho, e o cálculo de usinagem precisa ser auditável. (Motivo escrito pelo Claude em 29/10, a confirmar com o Igor.)
 - Commits pequenos, em português, autor `Claude <noreply@anthropic.com>`.
 - Nada de prometer colisão garantida (simulação é 3 eixos, grade de alturas).
 
 ## Regras (sempre)
-- **Nunca**: push/merge/rebase no `main`, `--force`, publicar web oficial ou instalador, mexer em Supabase, painel de ativação, termos ou página de vendas, apagar backup (`origin` local) ou `preview/`, commitar `bin/ obj/ publish/ preview/ screenshots/ .env` ou credenciais, adicionar NuGet ao Core.
+- **Nunca**: push/merge/rebase no `main`, `--force`, publicar web oficial ou instalador, mexer em Supabase, painel de ativação, termos ou página de vendas, apagar backup (`origin` local) ou `preview/`, commitar `bin/ obj/ publish/ preview/ screenshots/ .env` ou credenciais, adicionar NuGet ao Core (satélite pode, com licença conferida).
 - Trabalhar num ramo (`fase-N-...`, `ajuste-...`, `dev`). O merge no `main` é do dono, por PR.
 
 ## Como trabalhamos (economia)
