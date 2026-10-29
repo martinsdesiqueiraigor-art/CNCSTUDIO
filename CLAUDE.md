@@ -31,6 +31,7 @@ Desktop sem placa de vídeo (testes): `CASILLAS_SOFTWARE_GL=1 xvfb-run ...`.
 ## Convenções
 - Textos da interface em pt-BR com acentos; comentários em português.
 - Cálculo e geometria no Core, com teste. Uma fonte de verdade por dado.
+- **Por que o Core não tem NuGet:** o mesmo Core roda no desktop, na web (WebAssembly) e nos testes; dependência de terceiros traz risco de licença, de segurança e de tamanho, e o cálculo de usinagem precisa ser auditável. Pacote pesado ou só de desktop vai em projeto separado (ex.: `CncStudio.Step`), nunca no Core. (Motivo escrito pelo Claude em 29/10, a confirmar com o Igor.)
 - Commits pequenos, em português, autor `Claude <noreply@anthropic.com>`.
 - Nada de prometer colisão garantida (simulação é 3 eixos, grade de alturas).
 
