@@ -21,7 +21,7 @@ public class SurfaceRoughingTests
     }
 
     // Meia esfera (cúpula) de raio 15 com centro em (15, 15, 0), com base plana em Z = 0
-    private static TriangleMesh Dome()
+    internal static TriangleMesh Dome()
     {
         const double radius = 15;
         const int segments = 24;
@@ -151,5 +151,87 @@ public class SurfaceRoughingTests
         Assert.False(SurfaceRoughing.ByLevels(dome, Ball, new CamLevels(40, 30, 10, 0, 5), new RoughParams(3)).Ok); // topo do bruto abaixo do modelo
         Assert.False(SurfaceRoughing.ByLevels(dome, Ball, new CamLevels(40, 30, 15, 0, 0), new RoughParams(3)).Ok); // passo em Z zero
         Assert.False(SurfaceRoughing.ByLevels(new TriangleMesh([]), Ball, levels, new RoughParams(3)).Ok);
+    }
+}
+
+public class SurfaceLevelsTests
+{
+    // Caixa de 20 x 20 x 10 com base em Z = 0 e topo em Z = 10
+    private static TriangleMesh Box()
+    {
+        Point3 p000 = new(0, 0, 0), p100 = new(20, 0, 0), p110 = new(20, 20, 0), p010 = new(0, 20, 0);
+        Point3 p001 = new(0, 0, 10), p101 = new(20, 0, 10), p111 = new(20, 20, 10), p011 = new(0, 20, 10);
+        return new TriangleMesh(new (Point3, Point3, Point3)[]
+        {
+            (p000, p010, p110), (p000, p110, p100), (p001, p101, p111), (p001, p111, p011),
+            (p000, p100, p101), (p000, p101, p001), (p010, p011, p111), (p010, p111, p110),
+            (p000, p001, p011), (p000, p011, p010), (p100, p110, p111), (p100, p111, p101),
+        });
+    }
+
+    [Fact]
+    public void UsaAsAlturasDigitadasSemSomarNada()
+    {
+        (CamLevels? l, string? e) = SurfaceLevels.Build(Box(), new ModelZ(50, 14), 2, 1.5);
+        Assert.Null(e);
+        Assert.Equal(50, l!.SafeZ);
+        Assert.Equal(14, l.ClearanceZ);
+        Assert.Equal(10, l.TopZ);
+        Assert.Equal(2, l.BottomZ);
+        Assert.Equal(1.5, l.StepDown);
+    }
+
+    [Theory]
+    [InlineData(50, 8)]   // aproximação abaixo do topo
+    [InlineData(10, 14)]  // seguro abaixo da aproximação
+    [InlineData(14, 14)]  // seguro igual à aproximação
+    [InlineData(double.NaN, 14)]
+    [InlineData(50, double.PositiveInfinity)]
+    public void AlturasIncoerentesBloqueiam(double safe, double clearance)
+    {
+        (CamLevels? l, string? e) = SurfaceLevels.Build(Box(), new ModelZ(safe, clearance), 2, 1);
+        Assert.Null(l);
+        Assert.False(string.IsNullOrEmpty(e));
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(10)]      // no topo
+    [InlineData(12)]      // acima do topo
+    [InlineData(-3)]      // abaixo da base do modelo
+    public void FundoInvalidoBloqueia(double bottom)
+    {
+        (CamLevels? l, string? e) = SurfaceLevels.Build(Box(), new ModelZ(50, 14), bottom, 1);
+        Assert.Null(l);
+        Assert.False(string.IsNullOrEmpty(e));
+    }
+
+    [Fact]
+    public void FundoNaBaseDoModeloServe()
+    {
+        (CamLevels? l, string? e) = SurfaceLevels.Build(Box(), new ModelZ(50, 14), 0, 1);
+        Assert.Null(e);
+        Assert.Equal(0, l!.BottomZ);
+    }
+
+    [Fact]
+    public void PassoEmZZeroBloqueia()
+    {
+        (CamLevels? l, string? e) = SurfaceLevels.Build(Box(), new ModelZ(50, 14), 2, 0);
+        Assert.Null(l);
+        Assert.NotNull(e);
+    }
+
+    [Fact]
+    public void DesbasteUsaOsZDoUsuarioNosMovimentos()
+    {
+        (CamLevels? l, _) = SurfaceLevels.Build(SurfaceRoughingTests.Dome(), new ModelZ(55, 17), 2, 3);
+        OperationResult r = SurfaceRoughing.ByLevels(SurfaceRoughingTests.Dome(), new CamTool(1, 6, 8000, 1200, 400, "Bola D6"), l!, new RoughParams(3, 0.3, 0.3));
+        Assert.True(r.Ok, r.Error);
+        var zs = r.Operation!.Moves.Where(m => m.Kind == MoveKind.Rapid).Select(m => m.Z).ToList();
+        Assert.Contains(55, zs);
+        Assert.Contains(17, zs);
+        Assert.DoesNotContain(35, zs);
+        Assert.DoesNotContain(15, zs);
     }
 }
