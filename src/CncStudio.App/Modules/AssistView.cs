@@ -30,6 +30,35 @@ public sealed partial class AssistView : UserControl
     private AssistLibrary _lib = AssistLibrary.Defaults();
     private readonly TextBlock _message = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
     private readonly TabControl _tabs = new();
+    private readonly List<Avalonia.Controls.Primitives.ToggleButton> _stepButtons = [];
+    private StackPanel _libPage = new();
+    private int _step = -1;
+
+    /// <summary>Mostra uma etapa: 0 Preparar, 1 Sugerir, 2 Revisar (plano 2D), 3 Orçar, 4 Bibliotecas.</summary>
+    private void ShowStep(int step)
+    {
+        bool wasPlan = _step is >= 0 and <= 2;
+        _step = step;
+        for (int i = 0; i < _stepButtons.Count; i++)
+        {
+            _stepButtons[i].IsChecked = i == step;
+        }
+
+        _planPage.IsVisible = step <= 2;
+        _secPrepare.IsVisible = step == 0;
+        _secSuggest.IsVisible = step == 1;
+        _secReview.IsVisible = step == 2;
+        _quotePage.IsVisible = step == 3;
+        _libPage.IsVisible = step == 4;
+        if (step <= 2 && !wasPlan)
+        {
+            LoadPlan();
+        }
+        else if (step == 3)
+        {
+            LoadQuote();
+        }
+    }
     private readonly List<(ListBox List, StackPanel Form, Section Sec)> _sections = [];
     private readonly TextBlock _testResult = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
     private bool _busy;
@@ -51,6 +80,7 @@ public sealed partial class AssistView : UserControl
         stack.Children.Add(new TextBlock { Text = "Casillas Assist", FontSize = 24, FontWeight = FontWeight.Bold });
         stack.Children.Add(Note("Os itens iniciais são rascunho: pontos de partida a conferir com o catálogo do fabricante. O Assist só sugere; confira, simule e rode a primeira vez no ar."));
 
+        var libPage = new StackPanel { Spacing = 12 };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         Button open = new() { Content = "Abrir biblioteca…", Padding = new Thickness(12, 6) };
         Button save = new() { Content = "Salvar em arquivo…", Padding = new Thickness(12, 6) };
@@ -71,8 +101,9 @@ public sealed partial class AssistView : UserControl
         buttons.Children.Add(open);
         buttons.Children.Add(save);
         buttons.Children.Add(reset);
-        stack.Children.Add(buttons);
-        stack.Children.Add(_message);
+        libPage.Children.Add(new TextBlock { Text = "Bibliotecas: materiais, morsas e castanhas usados nas sugestões", FontWeight = FontWeight.SemiBold });
+        libPage.Children.Add(buttons);
+        libPage.Children.Add(_message);
 
         AddSection(new Section("Materiais", () => _lib.Materials.Count, i => _lib.Materials[i].Name, i => _lib.Materials[i].Draft,
             () => _lib.Materials.Add(new MaterialEntry(Unique("Novo material", _lib.Materials.Select(m => m.Name)), MaterialGroup.Steel, 100, 0.05, 0.5)),
@@ -88,10 +119,26 @@ public sealed partial class AssistView : UserControl
             i => _lib.Jaws.RemoveAt(i), JawFields, (i, d) => _lib.Jaws[i] = _lib.Jaws[i] with { Draft = d }));
         AddQuoteTab();
         AddPlanTab();
-        stack.Children.Add(_tabs);
-        Border test = BuildTest();
-        _tabs.SelectionChanged += (_, _) => test.IsVisible = _tabs.SelectedIndex < 3;
-        stack.Children.Add(test);
+        libPage.Children.Add(_tabs);
+        libPage.Children.Add(BuildTest());
+        _libPage = libPage;
+
+        var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        string[] names = ["1 Preparar", "2 Sugerir", "3 Revisar", "4 Orçar", "Bibliotecas"];
+        for (int i = 0; i < names.Length; i++)
+        {
+            int step = i;
+            var b = new Avalonia.Controls.Primitives.ToggleButton { Content = names[i], Padding = new Thickness(14, 6), Margin = i == 4 ? new Thickness(24, 0, 0, 0) : new Thickness(0) };
+            b.Click += (_, _) => ShowStep(step);
+            _stepButtons.Add(b);
+            bar.Children.Add(b);
+        }
+
+        stack.Children.Add(bar);
+        stack.Children.Add(_planPage);
+        stack.Children.Add(_quotePage);
+        stack.Children.Add(_libPage);
+        ShowStep(0);
         root.Content = stack;
         Content = root;
         Reload();
