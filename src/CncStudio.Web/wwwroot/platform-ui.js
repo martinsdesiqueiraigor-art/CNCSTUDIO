@@ -11,7 +11,7 @@ const LAST_KEY = 'cc.platform.last';
 const MODULES = [
   { id: 'academy', img: 'ic-academy', name: 'Casillas Academy', text: 'Formação profissional', color: '#3ddc84', icon: '<path d="M2 9l10-5 10 5-10 5-10-5zM6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5M22 9v6" />' },
   { id: 'cam', img: 'ic-cam', name: 'Casillas CAM', text: 'Do desenho ao programa 2,5D e 4º eixo', color: '#4d8dff', icon: '<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />' },
-  { id: 'assist', name: 'Casillas Assist', text: 'Sugestões e orçamento a partir do desenho', color: '#ffd24a', desktop: true, icon: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />' },
+  { id: 'assist', img: 'ic-assist', name: 'Casillas Assist', text: 'Sugestões e orçamento a partir do desenho', color: '#ffd24a', desktop: true },
   { id: 'code', img: 'ic-code', name: 'Casillas Code', text: 'Editor G-code e M-code', color: '#e36bf0', icon: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />' },
   { id: 'biblioteca', img: 'ic-biblioteca', name: 'Casillas Biblioteca CNC', text: 'Banco de dados G-code', color: '#ee5a45', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
   { id: 'macro', img: 'ic-macro', name: 'Casillas Macro', text: 'Programação paramétrica e lógica', color: '#9b7bff', icon: '<path d="M4 4h16v16H4zM4 9h16M9 9v11" />' },
