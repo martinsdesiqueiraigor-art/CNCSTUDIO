@@ -141,18 +141,52 @@ function enter(id) {
 
 function hideHome() { if (homeEl) { homeEl.remove(); homeEl = null; } }
 
-// Situação da licença guardada pela conta (account.js): só para o aviso de período de teste
-function trialNotice() {
+// Situação da licença guardada pela conta (account.js), só para a etiqueta: nada é decidido aqui
+function licenseChip() {
   try {
     const st = JSON.parse(localStorage.getItem('cc.license') || 'null');
     if (!st) return null;
+    if (st.state === 'licensed') return { text: 'Licença ativa', kind: 'ok' };
     if (st.state === 'trial' && st.trial_ends_at) {
       const days = Math.max(0, Math.ceil((Date.parse(st.trial_ends_at) - Date.now()) / 86400000));
-      return { text: days > 1 ? `Período de teste · ${days} dias restantes` : (days === 1 ? 'Período de teste · último dia' : 'Período de teste termina hoje'), warn: days <= 5 };
+      return { text: days > 1 ? `Trial · ${days} dias` : (days === 1 ? 'Trial · último dia' : 'Trial termina hoje'), kind: days <= 5 ? 'warn' : 'info' };
     }
-    if (st.state === 'expired') return { text: 'Período de teste encerrado · comprar licença', warn: true };
+    if (st.state === 'expired') return { text: 'Trial encerrado', kind: 'warn' };
+    if (st.state === 'device_limit') return { text: 'Limite de aparelhos', kind: 'warn' };
   } catch { /* sem armazenamento */ }
   return null;
+}
+
+function chip(text, kind) {
+  const c = { ok: ['#3ddc84', 'rgba(61,220,132,.12)'], warn: ['#ffd7a8', 'rgba(240,136,62,.18)'], info: ['#7cc4ff', 'rgba(77,141,255,.14)'] }[kind] || ['#9baab9', 'rgba(255,255,255,.06)'];
+  return make('span', text, `display:inline-block;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:700;color:${c[0]};background:${c[1]};border:1px solid ${c[0]}55`);
+}
+
+// O Consultor Técnico mora dentro do app Casillas (calculadora): o botão só abre esse módulo lá
+const CONSULTOR_URL = 'https://martinsdesiqueiraigor-art.github.io/Casillas_app_2/#/modulo/consultor-tecnico';
+
+function consultorBanner() {
+  const b = make('div', null, 'position:relative;overflow:hidden;display:flex;align-items:center;gap:6px;min-height:128px;margin-bottom:10px;padding:12px 8px 12px 14px;border-radius:16px;border:1px solid #ff9a4d55;background:linear-gradient(120deg,#2b1a0b 0%,#161b22 70%);box-sizing:border-box');
+  b.className = 'pl-banner';
+  const txt = make('div', null, 'flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;z-index:1');
+  txt.append(
+    make('div', 'CONSULTOR TÉCNICO', 'font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#ff9a4d;white-space:nowrap'),
+    make('strong', 'Tire suas dúvidas de usinagem', 'font-size:15px;line-height:1.2;color:#f3d9a4'),
+    make('span', 'Orientação rápida sobre ferramentas e parâmetros. Confira sempre no catálogo do fabricante.', 'font-size:11.5px;line-height:1.3;color:#9baab9'),
+  );
+  const go = make('button', 'Abrir Consultor Técnico', 'align-self:flex-start;margin-top:3px;min-height:38px;padding:0 12px;white-space:nowrap;border:0;border-radius:10px;background:linear-gradient(180deg,#ff8a33,#ef6a0e);color:#1a0d02;font:800 12.5px system-ui,sans-serif;cursor:pointer');
+  go.type = 'button';
+  go.addEventListener('click', () => window.open(CONSULTOR_URL, '_blank', 'noopener'));
+  txt.append(go);
+  const pics = make('div', null, 'flex:none;display:flex;align-items:flex-end;margin-right:-6px');
+  pics.className = 'pl-mascots';
+  const cap = make('img', null, 'height:86px;width:auto;margin-right:-20px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))');
+  cap.src = './img/plataforma/mascote-capivara.webp'; cap.alt = ''; cap.loading = 'lazy';
+  const qua = make('img', null, 'height:80px;width:auto;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))');
+  qua.src = './img/plataforma/mascote-quati.webp'; qua.alt = ''; qua.loading = 'lazy';
+  pics.append(cap, qua);
+  b.append(txt, pics);
+  return b;
 }
 
 let homeStyle = null;
@@ -166,13 +200,14 @@ function ensureHomeStyle() {
     '.pl-card{flex:0 0 calc((100% - 16px)/3);aspect-ratio:1/1.06;max-height:calc((100% - 8px)/2)}',
     '.pl-logo{width:clamp(120px,24vh,190px)!important;height:clamp(120px,24vh,190px)!important}',
     '.pl-sub{display:none!important}',
+    '@media (max-width:599px){.pl-wrap{flex:none!important}.pl-right{flex:none!important}.pl-grid{flex:none!important;align-content:flex-start!important}.pl-card{max-height:none!important}}',
     '@media (max-height:620px){.pl-tag{display:none!important}}',
     // celular deitado / tela larga: logo e título à esquerda, 4 colunas × 2 linhas à direita (sem cartão sozinho)
     '@media (min-width:600px){.pl-wrap{flex-direction:row!important;align-items:center;gap:14px;max-width:980px!important}',
-    '.pl-left{flex:0 0 26%;display:flex;flex-direction:column;justify-content:center}',
-    '.pl-right{flex:1;display:flex;flex-direction:column;min-width:0;height:100%}',
-    '.pl-card{flex:0 0 calc((100% - 24px)/4);aspect-ratio:auto;max-height:calc((100% - 8px)/2);height:calc((100% - 8px)/2)}',
-    '.pl-logo{width:clamp(90px,34vh,170px)!important;height:clamp(90px,34vh,170px)!important}}',
+    '.pl-wrap{align-items:flex-start!important;flex:none!important}.pl-left{flex:0 0 36%;display:flex;flex-direction:column}',
+    '.pl-right{flex:1;display:flex;flex-direction:column;min-width:0}',
+    '.pl-grid{flex:none!important;align-content:flex-start!important}.pl-card{flex:0 0 calc((100% - 24px)/4);aspect-ratio:1/1.06;max-height:none!important;height:auto!important}',
+    '}',
     '@media (min-width:600px) and (min-height:700px){.pl-sub{display:-webkit-box!important}}',
   ].join('');
   document.head.append(homeStyle);
@@ -185,16 +220,28 @@ function showHome() {
   const wrap = make('div', null, 'max-width:760px;width:100%;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0');
   wrap.className = 'pl-wrap';
 
-  const head = make('div', null, 'text-align:center;flex:none;margin-bottom:6px');
+  const head = make('div', null, 'display:flex;align-items:center;gap:10px;flex:none;margin-bottom:8px');
   head.className = 'pl-head';
-  const logo = make('img', null, 'width:150px;height:150px;margin:-10px auto -18px;display:block;object-fit:contain;-webkit-mask-image:radial-gradient(circle at center,#000 64%,transparent 78%);mask-image:radial-gradient(circle at center,#000 64%,transparent 78%)');
-  logo.className = 'pl-logo'; logo.src = './img/plataforma/topo.webp'; logo.alt = 'Casillas';
-  head.append(logo, make('h1', 'Plataforma Casillas', 'font-size:20px;line-height:1.2;margin:6px 0 0;color:#f3d9a4'));
-  const notice = trialNotice();
-  if (notice) {
-    head.append(make('div', notice.text, `display:inline-block;margin-top:4px;padding:2px 12px;border-radius:999px;font-size:12px;font-weight:700;color:${notice.warn ? '#ffd7a8' : '#b9d6ff'};background:${notice.warn ? 'rgba(240,136,62,.14)' : 'rgba(77,141,255,.14)'};border:1px solid ${notice.warn ? 'rgba(240,136,62,.45)' : 'rgba(77,141,255,.4)'}`));
-  }
-  const left = make('div', null, ''); left.className = 'pl-left'; left.append(head);
+  const logo = make('img', null, 'width:64px;height:64px;object-fit:contain;flex:none;-webkit-mask-image:radial-gradient(circle at center,#000 62%,transparent 76%);mask-image:radial-gradient(circle at center,#000 62%,transparent 76%)');
+  logo.className = 'pl-logo2'; logo.src = './img/plataforma/topo.webp'; logo.alt = 'Casillas';
+  const titles = make('div', null, 'flex:1;min-width:0');
+  titles.append(make('h1', 'Casillas', 'font-size:22px;line-height:1.1;margin:0;color:#f3d9a4'), make('div', 'Plataforma de Usinagem CNC', 'font-size:12px;color:#9baab9'));
+  head.append(logo, titles);
+  const gear = make('button', null, 'flex:none;width:40px;height:40px;border-radius:12px;border:1px solid #30363d;background:#161b22;display:flex;align-items:center;justify-content:center;cursor:pointer');
+  gear.type = 'button'; gear.setAttribute('aria-label', 'Conta e licença');
+  gear.innerHTML = svg('<circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />', '#c9d1d9', 20);
+  gear.addEventListener('click', async () => {
+    try { if (await accountPanel(await accountCheck()) === 'refresh') showHome(); } catch { toast('Conecte-se à internet para abrir a conta'); }
+  });
+  head.append(gear);
+  // Etiquetas de situação: licença/teste (lidas da última situação confirmada) e uso sem internet
+  const chips = make('div', null, 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px');
+  chips.className = 'pl-chips';
+  const lic = licenseChip();
+  if (lic) chips.append(chip(lic.text, lic.kind));
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) chips.append(chip('Offline disponível', 'info'));
+  const banner = consultorBanner();
+  const left = make('div', null, ''); left.className = 'pl-left'; left.append(head, chips, banner);
   const right = make('div', null, 'display:flex;flex-direction:column;flex:1;min-height:0'); right.className = 'pl-right';
   wrap.append(left, right);
 
@@ -202,7 +249,7 @@ function showHome() {
   const grid = make('div', null, ''); grid.className = 'pl-grid';
   MODULES.forEach(m => {
     const c = make('button', null, `position:relative;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;min-height:0;min-width:0;border:2px solid ${m.color};border-radius:14px;background:linear-gradient(160deg,${m.color}26,#0f151c 62%);box-shadow:0 0 10px ${m.color}55,inset 0 0 12px ${m.color}14;color:#e6edf3;padding:6px 6px 8px;cursor:pointer;font:inherit;overflow:hidden;${m.soon ? 'opacity:.72' : ''}`);
-    c.type = 'button'; c.className = 'pl-card';
+    c.type = 'button'; c.className = 'pl-card'; c.dataset.find = (m.name + ' ' + m.text).toLowerCase();
     const ic = make('div', null, 'flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center');
     if (m.img) {
       const im = make('img', null, 'max-height:100%;max-width:100%;height:auto;width:auto;aspect-ratio:1;object-fit:contain' + (!m.img.endsWith('.svg') && !m.img.startsWith('ic-') ? ';-webkit-mask-image:radial-gradient(circle at center,#000 58%,transparent 76%);mask-image:radial-gradient(circle at center,#000 58%,transparent 76%)' : ''));
@@ -220,7 +267,24 @@ function showHome() {
     c.addEventListener('click', () => openModule(m.id));
     grid.append(c);
   });
-  right.append(grid);
+  const bar = make('div', null, 'display:flex;align-items:center;gap:10px;margin-bottom:8px');
+  bar.append(make('strong', 'Módulos Casillas', 'font-size:16px;color:#e6edf3;white-space:nowrap'));
+  const search = make('input', null, 'flex:1;min-width:0;height:36px;box-sizing:border-box;padding:0 12px;border-radius:12px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;font:14px system-ui,sans-serif');
+  search.type = 'search'; search.placeholder = 'Buscar módulo…'; search.setAttribute('aria-label', 'Buscar módulo');
+  const empty = make('div', 'Nenhum módulo encontrado.', 'display:none;text-align:center;color:#9baab9;font-size:13px;padding:12px');
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    let shown = 0;
+    grid.querySelectorAll('.pl-card').forEach(card => {
+      const hit = !q || (card.dataset.find || '').includes(q);
+      card.style.display = hit ? '' : 'none';
+      if (hit) shown++;
+    });
+    empty.style.display = shown ? 'none' : 'block';
+  });
+  bar.append(search);
+  right.append(bar);
+  right.append(grid, empty);
   const tag = make('div', 'Formação profissional • Gestão de usinagem • Banco de dados G-code • Análise e otimização • Editores avançados • Gestão de ativos', 'text-align:center;color:#c9a96a;font-size:10.5px;font-weight:700;letter-spacing:.2px;margin:8px 6px 0;line-height:1.4;flex:none');
   tag.className = 'pl-tag';
   right.append(tag);

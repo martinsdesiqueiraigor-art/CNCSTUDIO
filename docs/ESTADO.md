@@ -389,3 +389,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Etapa **4 Orçar** ganha ✓ quando há programa analisado no Code. Ela **não depende do plano**: o orçamento usa o tempo do programa do Code, não as operações do Assist (por isso continua livre).
 - "Fixação" na árvore virou só o nome + etiqueta "não verificada" (o texto longo não cabia no painel).
 - Fora do escopo, visto no tema claro: o aviso amarelo do topo do Assist ("Os itens iniciais são rascunho…") fica escuro com texto claro (cor fixa, já existia).
+
+## Web: tela inicial renovada (`ajuste-web-tela-inicial`)
+- `platform-ui.js`: cabeçalho compacto (logo, "Casillas · Plataforma de Usinagem CNC", engrenagem que abre Conta); etiquetas **Licença ativa / Trial · N dias / Trial encerrado / Limite de aparelhos** (só lê o que `account.js` já guardou em `cc.license`, nenhuma regra mudou) e **Offline disponível** (só aparece se o service worker já controla a página); faixa **Consultor Técnico** com os mascotes (WebP, ~86 KB e ~71 KB) abrindo `…/Casillas_app_2/#/modulo/consultor-tecnico` em nova aba (o Consultor mora no app Casillas; aviso de conferir no catálogo do fabricante); título "Módulos Casillas" com **busca**; mesmos 8 cartões e **mesma barra inferior** de antes. Projetos recentes ficou de fora.
+- A tela agora rola em vez de espremer os cartões. Conferido no Chromium (360×780, 360×640, 900×420, 900×1100); não testado no aparelho nem o Consultor aberto de verdade (só o endereço, lido no código do app Casillas). A página real depende do .NET; a verificação foi num HTML de teste isolado (removido).
+- Próximos da lista: Simulação 3D, Code, Macro, Otimizador, Loja.
