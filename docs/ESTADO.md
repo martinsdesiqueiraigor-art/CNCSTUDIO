@@ -380,3 +380,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **Revisar só abre com plano sugerido** (botão desligado e "Sugira um plano primeiro"); se o plano perde a validade (desenho, material ou espessura mudaram), volta para Sugerir. "✓" em Sugerir (plano pronto) e em Revisar (pode aplicar).
 - Revisar mostra a lista **"O que falta para aplicar (n)"** (fixação, alturas Z, rotação acima do limite, cada profundidade) ou "✓ Nada falta". Core `PlanReview.Missing` lista todos os itens de uma vez (o `Review` continua parando no primeiro); 3 testes novos. Aplicar segue só liberado quando `Review` aprova: a lista é informação, não troca a regra.
 - Conferido na tela (Xvfb): Revisar bloqueada sem plano; com plano mostra 5 pendências. Falta ainda: tema claro; Orçar continua livre (não depende do plano).
+
+## UX, passo 5: barra de pendências no Trabalho de torno (`ajuste-ux-torno-pendencias`)
+- Mesma barra do Trabalho de fresa no rodapé da vista do torno: "✓ Pronto para gerar" ou "Pendências (n)" (sem perfil, sem operação, operação com erro) + aviso fixo de que fixação e colisões não são verificadas. Core `LatheJobInfo.Pending` (1 teste). Não conferido visualmente.

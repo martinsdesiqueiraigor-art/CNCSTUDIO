@@ -29,3 +29,15 @@ public class CamJobPendingTests
         Assert.Contains(p, x => x.Contains("operação"));
     }
 }
+
+public class LatheJobPendingTests
+{
+    [Fact]
+    public void Pending_trabalho_vazio_lista_perfil_e_operacao()
+    {
+        var job = new LatheJob();
+        var p = LatheJobInfo.Pending(job, LatheJobBuilder.Build(job));
+        Assert.Contains(p, x => x.Contains("perfil"));
+        Assert.Contains(p, x => x.Contains("operação"));
+    }
+}

@@ -239,6 +239,32 @@ public static class LatheJobBuilder
 /// <summary>Textos da árvore do Trabalho de torno e operações novas com valores padrão (os mesmos da tela do torno).</summary>
 public static class LatheJobInfo
 {
+    /// <summary>O que impede de gerar o G-code do torno (vazio = pronto). Não inclui fixação nem colisão, que o app não verifica.</summary>
+    public static IReadOnlyList<string> Pending(LatheJob job, LatheBuild build)
+    {
+        var list = new List<string>();
+        if (job.Profile is null)
+        {
+            list.Add("Falta o perfil da peça (DXF ou pontos)");
+        }
+
+        if (job.Operations.Count == 0)
+        {
+            list.Add("Nenhuma operação");
+        }
+
+        for (int i = 0; i < build.Items.Count; i++)
+        {
+            LatheOpResult r = build.Items[i];
+            if (!r.Ok)
+            {
+                list.Add($"Operação {i + 1}: " + (r.Error ?? "não foi possível gerar"));
+            }
+        }
+
+        return list;
+    }
+
     private static readonly CultureInfo Br = CultureInfo.GetCultureInfo("pt-BR");
 
     private static string N(double v) => v.ToString("0.##", Br);
