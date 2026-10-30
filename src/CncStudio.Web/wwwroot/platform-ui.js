@@ -11,6 +11,7 @@ const LAST_KEY = 'cc.platform.last';
 const MODULES = [
   { id: 'academy', img: 'ic-academy', name: 'Casillas Academy', text: 'Formação profissional', color: '#3ddc84', icon: '<path d="M2 9l10-5 10 5-10 5-10-5zM6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5M22 9v6" />' },
   { id: 'cam', img: 'ic-cam', name: 'Casillas CAM', text: 'Do desenho ao programa 2,5D e 4º eixo', color: '#4d8dff', icon: '<path d="M3 17l6-6 4 4 8-9M15 6h6v6" />' },
+  { id: 'assist', name: 'Casillas Assist', text: 'Sugestões e orçamento a partir do desenho', color: '#ffd24a', desktop: true, icon: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />' },
   { id: 'code', img: 'ic-code', name: 'Casillas Code', text: 'Editor G-code e M-code', color: '#e36bf0', icon: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />' },
   { id: 'biblioteca', img: 'ic-biblioteca', name: 'Casillas Biblioteca CNC', text: 'Banco de dados G-code', color: '#ee5a45', soon: true, icon: '<path d="M4 4h5v16H4zM11 4h5v16h-5zM18 6l3 .8-3.5 13.2L14.5 19" />' },
   { id: 'macro', img: 'ic-macro', name: 'Casillas Macro', text: 'Programação paramétrica e lógica', color: '#9b7bff', icon: '<path d="M4 4h16v16H4zM4 9h16M9 9v11" />' },
@@ -114,6 +115,7 @@ export function openModule(id) {
   const mod = MODULES.find(m => m.id === id);
   if (mod && mod.url) { window.open(mod.url, '_blank', 'noopener'); return; }
   if (mod && mod.soon) { toast(mod.name + ': em breve'); return; }
+  if (mod && mod.desktop) { toast(mod.name + ' está no Casillas Code para Windows'); return; }
   if (GATED.has(id)) { allowed(mod).then(ok => { if (ok) doOpen(id); }); return; }
   doOpen(id);
 }
@@ -197,7 +199,7 @@ function ensureHomeStyle() {
   homeStyle.textContent = [
     // celular em pé: logo grande, 3 colunas de cartões compactos (a última linha fica centralizada)
     '.pl-grid{display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:8px;flex:1;min-height:0}',
-    '.pl-card{flex:0 0 calc((100% - 16px)/3);aspect-ratio:1/1.06;max-height:calc((100% - 8px)/2)}',
+    '.pl-card{flex:0 0 calc((100% - 16px)/3);aspect-ratio:1/0.86;max-height:calc((100% - 8px)/2)}',
     '.pl-logo{width:clamp(120px,24vh,190px)!important;height:clamp(120px,24vh,190px)!important}',
     '.pl-sub{display:none!important}',
     '@media (max-width:599px){.pl-wrap{flex:none!important}.pl-right{flex:none!important}.pl-grid{flex:none!important;align-content:flex-start!important}.pl-card{max-height:none!important}}',
@@ -206,7 +208,7 @@ function ensureHomeStyle() {
     '@media (min-width:600px){.pl-wrap{flex-direction:row!important;align-items:center;gap:14px;max-width:980px!important}',
     '.pl-wrap{align-items:flex-start!important;flex:none!important}.pl-left{flex:0 0 36%;display:flex;flex-direction:column}',
     '.pl-right{flex:1;display:flex;flex-direction:column;min-width:0}',
-    '.pl-grid{flex:none!important;align-content:flex-start!important}.pl-card{flex:0 0 calc((100% - 24px)/4);aspect-ratio:1/1.06;max-height:none!important;height:auto!important}',
+    '.pl-grid{flex:none!important;align-content:flex-start!important}.pl-card{flex:0 0 calc((100% - 32px)/5);aspect-ratio:1/0.95;max-height:none!important;height:auto!important}',
     '}',
     '@media (min-width:600px) and (min-height:700px){.pl-sub{display:-webkit-box!important}}',
   ].join('');
@@ -249,7 +251,7 @@ function showHome() {
   const grid = make('div', null, ''); grid.className = 'pl-grid';
   MODULES.forEach(m => {
     const c = make('button', null, `position:relative;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;min-height:0;min-width:0;border:2px solid ${m.color};border-radius:14px;background:linear-gradient(160deg,${m.color}26,#0f151c 62%);box-shadow:0 0 10px ${m.color}55,inset 0 0 12px ${m.color}14;color:#e6edf3;padding:6px 6px 8px;cursor:pointer;font:inherit;overflow:hidden;${m.soon ? 'opacity:.72' : ''}`);
-    c.type = 'button'; c.className = 'pl-card'; c.dataset.find = (m.name + ' ' + m.text).toLowerCase();
+    c.type = 'button'; c.className = 'pl-card';
     const ic = make('div', null, 'flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center');
     if (m.img) {
       const im = make('img', null, 'max-height:100%;max-width:100%;height:auto;width:auto;aspect-ratio:1;object-fit:contain' + (!m.img.endsWith('.svg') && !m.img.startsWith('ic-') ? ';-webkit-mask-image:radial-gradient(circle at center,#000 58%,transparent 76%);mask-image:radial-gradient(circle at center,#000 58%,transparent 76%)' : ''));
@@ -260,31 +262,16 @@ function showHome() {
     }
     const sub = make('span', m.text, 'color:#9baab9;font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden');
     sub.className = 'pl-sub';
-    c.append(ic, make('strong', m.name, `font-size:12.5px;line-height:1.15;color:${m.color};flex:none`), sub);
-    if (m.soon) c.append(make('span', 'Em breve', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#f3c969;background:rgba(59,47,18,.9);border:1px solid #7a6122;border-radius:999px;padding:0 7px'));
+    c.append(ic, make('strong', m.name, `font-size:12px;line-height:1.15;color:${m.color};flex:none`), sub);
+    if (m.desktop) c.append(make('span', 'Windows', 'position:absolute;top:5px;right:5px;font-size:9.5px;font-weight:700;color:#ffe9a8;background:rgba(70,56,14,.92);border:1px solid #7a6122;border-radius:999px;padding:0 6px'));
+    else if (m.soon) c.append(make('span', 'Em breve', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#f3c969;background:rgba(59,47,18,.9);border:1px solid #7a6122;border-radius:999px;padding:0 7px'));
     else if (GATED.has(m.id) && moduleState(m.id) === 'EXPIRED') c.append(make('span', '🔒 Licença', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#ffd7a8;background:rgba(80,40,10,.92);border:1px solid #a05a1d;border-radius:999px;padding:0 7px'));
     else if (m.id === lastId) c.append(make('span', 'Último', 'position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;color:#0d1117;background:' + m.color + ';border-radius:999px;padding:0 7px'));
     c.addEventListener('click', () => openModule(m.id));
     grid.append(c);
   });
-  const bar = make('div', null, 'display:flex;align-items:center;gap:10px;margin-bottom:8px');
-  bar.append(make('strong', 'Módulos Casillas', 'font-size:16px;color:#e6edf3;white-space:nowrap'));
-  const search = make('input', null, 'flex:1;min-width:0;height:36px;box-sizing:border-box;padding:0 12px;border-radius:12px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;font:14px system-ui,sans-serif');
-  search.type = 'search'; search.placeholder = 'Buscar módulo…'; search.setAttribute('aria-label', 'Buscar módulo');
-  const empty = make('div', 'Nenhum módulo encontrado.', 'display:none;text-align:center;color:#9baab9;font-size:13px;padding:12px');
-  search.addEventListener('input', () => {
-    const q = search.value.trim().toLowerCase();
-    let shown = 0;
-    grid.querySelectorAll('.pl-card').forEach(card => {
-      const hit = !q || (card.dataset.find || '').includes(q);
-      card.style.display = hit ? '' : 'none';
-      if (hit) shown++;
-    });
-    empty.style.display = shown ? 'none' : 'block';
-  });
-  bar.append(search);
-  right.append(bar);
-  right.append(grid, empty);
+  right.append(make('strong', 'Módulos Casillas', 'display:block;font-size:16px;color:#e6edf3;margin-bottom:8px'));
+  right.append(grid);
   const tag = make('div', 'Formação profissional • Gestão de usinagem • Banco de dados G-code • Análise e otimização • Editores avançados • Gestão de ativos', 'text-align:center;color:#c9a96a;font-size:10.5px;font-weight:700;letter-spacing:.2px;margin:8px 6px 0;line-height:1.4;flex:none');
   tag.className = 'pl-tag';
   right.append(tag);
