@@ -104,6 +104,17 @@ public static class AssistPlanner
                 .OrderByDescending(t => t.Diameter).FirstOrDefault();
             CamTool tool = found is not null ? ToolFor(found.Number, found.Diameter, found.Name, found.Teeth, drill) : ToolFor(nextNumber++, diameter, fallbackName, drill ? 2 : 4, drill);
             used[key] = tool;
+            // R-02: o critério de escolha aparece no plano; é regra de geometria, não avaliação de material, rigidez ou balanço
+            if (found is not null && drill)
+            {
+                double diff = found.Diameter - diameter;
+                notes.Add($"Broca para furo Ø{N(diameter)}: T{found.Number} {found.Name} Ø{N(found.Diameter)} ({(Math.Abs(diff) < 0.005 ? "mesmo diâmetro" : $"diferença {(diff >= 0 ? "+" : "")}{N(diff)} mm")}). Critério: broca do banco com Ø a menos de 0,05 mm do furo.");
+            }
+            else if (found is not null)
+            {
+                notes.Add($"Fresa T{found.Number} {found.Name} Ø{N(found.Diameter)}: a maior do banco que cabe na região (limite Ø{N(diameter)}). Critério só de geometria: não avalia material, balanço nem rigidez.");
+            }
+
             return tool;
         }
 

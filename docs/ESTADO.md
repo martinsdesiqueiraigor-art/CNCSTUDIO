@@ -354,3 +354,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **A-06:** a quantidade do lote não é mais arredondada em silêncio (2,5 virava 2; valor enorme dava cast indefinido). `QuoteInput.ParseQuantity` recusa não inteiro, NaN/infinito, zero, negativo e acima de 1 milhão.
 - **A-07:** `QuoteCalculator.Calculate` confere o tempo e todas as parcelas (devolve erro, nunca infinito/NaN nem exceção de `TimeSpan`) e os campos têm limite de plausibilidade (ex.: hora-máquina até R$ 100.000/h; margem até 1000%). Antes, 1e300 de hora-máquina aparecia como preço.
 - 1192 testes (21 novos). Conferido na tela (Xvfb): 2,5 / 0 / lote gigante / hora-máquina absurda recusados; lote 10 calcula. Os limites são de plausibilidade, não regra de negócio: o Igor pode ajustar.
+
+## P1 da auditoria, PR 9: transparência de ferramenta, morsa e corte (R-02, R-03, R-04) (`ajuste-assist-transparencia`)
+- **R-02:** o plano mostra a regra de escolha e a diferença: broca do banco (a menos de 0,05 mm do furo, com a diferença em mm) e fresa (a maior do banco que cabe; critério só de geometria, sem material, balanço ou rigidez). Uma nota por ferramenta; ferramenta nova segue o aviso do A-04.
+- **R-03:** "Morsas que servem" virou "Compatibilidade dimensional preliminar" (abertura, comprimento da mandíbula, pega mínima; altura da mandíbula e do corpo não entram) + "confirme a fixação". Castanhas com o mesmo aviso. Regra de cálculo da morsa **não mudou**.
+- **R-04:** cada operação do plano mostra "rascunho" ou "SEM material: valor genérico" ao lado de rpm e avanço; o teste rápido diz que o valor é de partida da biblioteca, não do fabricante.
+- 1208 testes (4 novos). Só texto e notas, sem mudar cálculo. Conferido na tela (Xvfb).
