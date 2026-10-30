@@ -182,7 +182,7 @@
     <!-- Área principal: editor e backplot -->
     <Grid x:Name="Workspace" Grid.Row="2" ColumnDefinitions="*,6,*" Margin="0,6,0,0">
       <Border x:Name="EditorHost" Grid.Column="0" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,1,1">
-        <Grid RowDefinitions="Auto,*,Auto">
+        <Grid RowDefinitions="Auto,*,Auto,Auto">
           <DockPanel x:Name="EditorHeader" Grid.Row="0" Margin="10,4,6,4">
             <!-- Seta no topo do editor: recolhe o código e deixa o gráfico com a tela toda (só no PC) -->
             <Button x:Name="CollapseEditorButton" DockPanel.Dock="Left" Classes="icon" Margin="0,0,6,0" Background="Transparent" BorderThickness="0"
@@ -190,8 +190,6 @@
             <!-- Celular: edição no editor nativo do aparelho (o teclado virtual funciona direito lá) -->
             <Button x:Name="EditButton" DockPanel.Dock="Right" Classes="bar" Content="Editar" IsVisible="False"
                     ToolTip.Tip="Editar o programa com o teclado do aparelho" />
-            <Button x:Name="ToolsButton" DockPanel.Dock="Right" Classes="bar" Content="Funções" Margin="0,0,6,0"
-                    ToolTip.Tip="Renumerar, remover numeração e desfazer" />
             <Button x:Name="ProblemsButton" DockPanel.Dock="Right" Classes="bar problems" IsVisible="False" Margin="0,0,6,0"
                     ToolTip.Tip="Ir para o próximo erro ou aviso" />
             <TextBlock x:Name="FileNameText" VerticalAlignment="Center" FontWeight="SemiBold" Opacity="0.85" Text="sem título"
@@ -227,6 +225,21 @@
 
           <web:EditorKeyboard x:Name="Keyboard" Grid.Row="2" IsVisible="False"
                               Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" />
+
+          <!-- Faixa de baixo do editor: linha de estado e as funções do texto (renumerar, formatar, desfazer) -->
+          <Border x:Name="EditorActions" Grid.Row="3" Background="{DynamicResource BarBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,1,0,0">
+            <StackPanel Margin="8,4" Spacing="4">
+              <TextBlock x:Name="EditorStatusText" FontSize="11" Opacity="0.75" TextTrimming="CharacterEllipsis" />
+              <Grid ColumnDefinitions="*,6,*,6,*">
+                <Button x:Name="RenumberButton" Grid.Column="0" Classes="bar" Content="Renumerar" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        ToolTip.Tip="Renumerar os blocos (N) ou remover a numeração" />
+                <Button x:Name="FormatButton" Grid.Column="2" Classes="bar" Content="Formatar" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        ToolTip.Tip="Espaçar ou juntar o código e converter para maiúsculas" />
+                <Button x:Name="UndoButton" Grid.Column="4" Classes="bar" Content="Desfazer" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        ToolTip.Tip="Desfazer a última alteração do texto" />
+              </Grid>
+            </StackPanel>
+          </Border>
         </Grid>
       </Border>
       <GridSplitter x:Name="Splitter" Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SubtleBorder}" />
