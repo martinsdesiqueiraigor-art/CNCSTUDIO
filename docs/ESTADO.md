@@ -360,3 +360,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - **R-03:** "Morsas que servem" virou "Compatibilidade dimensional preliminar" (abertura, comprimento da mandíbula, pega mínima; altura da mandíbula e do corpo não entram) + "confirme a fixação". Castanhas com o mesmo aviso. Regra de cálculo da morsa **não mudou**.
 - **R-04:** cada operação do plano mostra "rascunho" ou "SEM material: valor genérico" ao lado de rpm e avanço; o teste rápido diz que o valor é de partida da biblioteca, não do fabricante.
 - 1208 testes (4 novos). Só texto e notas, sem mudar cálculo. Conferido na tela (Xvfb).
+
+## UX, passo 1: árvore do Trabalho com estados (`ajuste-ux-arvore-estados`)
+- Wireframes aprovados pelo Igor (CAM = área de trabalho com árvore/vista/propriedades; Assist em etapas). Este é o primeiro protótipo, só na árvore do Trabalho (fresa): cada operação mostra uma etiqueta **OK / desligada / erro: motivo**; o bruto mostra OK ou "falta definir"; "Fixação" mostra "não verificada" (o app não confere fixação).
+- Core `CamJobInfo.OpState` / `StockState` (testados). Nada de cálculo mudou. Não conferido visualmente: ver no .exe da Prévia.
+- Pendente nos próximos passos: barra de pendências embaixo, etapas do Assist, tema claro.

@@ -370,6 +370,14 @@ public partial class JobView : UserControl
         TreeViewItem? select = null;
         TreeViewItem Node(string text, object? tag = null, string? icon = null) => new() { Header = icon is null ? text : UiKit.IconLabel(icon, text), Tag = tag, IsExpanded = true };
 
+        TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon)
+        {
+            var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8 };
+            row.Children.Add(UiKit.IconLabel(icon, text));
+            row.Children.Add(StateTag(st));
+            return new TreeViewItem { Header = row, IsExpanded = true };
+        }
+
         TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", null, "peca");
         for (int i = 0; i < _job.Contours.Count; i++)
         {
@@ -382,8 +390,8 @@ public partial class JobView : UserControl
         }
 
         Tree.Items.Add(part);
-        Tree.Items.Add(Node(CamJobInfo.StockTitle(_job.Stock), null, "bruto"));
-        Tree.Items.Add(Node("Fixação: em breve", null, "fixacao"));
+        Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), CamJobInfo.StockState(_job.Stock), "bruto"));
+        Tree.Items.Add(NodeState("Fixação: você confirma na máquina", ("pending", "não verificada"), "fixacao"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
         foreach (CamTool t in CamJobInfo.ToolsUsed(_job))
         {
@@ -401,6 +409,7 @@ public partial class JobView : UserControl
             row.Children.Add(check);
             row.Children.Add(UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
             row.Children.Add(new TextBlock { Text = CamJobInfo.OpTitle(i, spec), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center });
+            row.Children.Add(StateTag(CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null)));
             check.IsCheckedChanged += (_, _) =>
             {
                 if (!_busy)
@@ -421,6 +430,25 @@ public partial class JobView : UserControl
         {
             Tree.SelectedItem = select;
         }
+    }
+
+    private static Control StateTag((string Kind, string Text) st)
+    {
+        (string fg, string bg) = st.Kind switch
+        {
+            "ok" => ("#2EE6A6", "#0D2A25"),
+            "bad" => ("#FF6B6B", "#33181D"),
+            "pending" => ("#FFC247", "#2A2314"),
+            _ => ("#A3B1C9", "#18263D"),
+        };
+        return new Border
+        {
+            Background = Avalonia.Media.Brush.Parse(bg),
+            CornerRadius = new Avalonia.CornerRadius(8),
+            Padding = new Avalonia.Thickness(7, 1),
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            Child = new TextBlock { Text = st.Text, FontSize = 11, Foreground = Avalonia.Media.Brush.Parse(fg) },
+        };
     }
 
     private void UpdatePreview()

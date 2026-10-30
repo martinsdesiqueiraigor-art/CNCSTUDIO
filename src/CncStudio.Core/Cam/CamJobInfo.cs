@@ -36,6 +36,25 @@ public static class CamJobInfo
         _ => "Texto no cilindro",
     };
 
+    /// <summary>Estado de uma operação na árvore: "OK", "desligada" ou "erro: motivo".</summary>
+    public static (string Kind, string Text) OpState(JobOpResult? r)
+    {
+        if (r is null)
+        {
+            return ("pending", "a calcular");
+        }
+
+        if (r.Skipped)
+        {
+            return ("off", "desligada");
+        }
+
+        return r.Ok ? ("ok", "OK") : ("bad", "erro: " + (r.Error ?? "não foi possível gerar"));
+    }
+
+    /// <summary>Estado do bruto: definido ou pendente.</summary>
+    public static (string Kind, string Text) StockState(JobStock? s) => s is null ? ("bad", "falta definir") : ("ok", "OK");
+
     /// <summary>Linha da árvore: "3 · Bolsão — T1 Ø10". Usa o nome personalizado, se houver.</summary>
     public static string OpTitle(int index, CamOperationSpec s)
     {
