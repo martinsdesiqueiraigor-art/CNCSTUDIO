@@ -452,6 +452,13 @@ public sealed class Contour
         return new Contour(list);
     }
 
+    /// <summary>Verdadeiro se algum trecho deste contorno cruza algum trecho de <paramref name="other"/> (cruzamento franco; encostar não conta).</summary>
+    public bool CrossesContour(Contour other)
+    {
+        List<Point2> a = Sample(0.005), b = other.Sample(0.005);
+        return PolylinesCross(a, b);
+    }
+
     /// <summary>Verdadeiro se algum trecho cruza outro que não é vizinho dele.</summary>
     public bool SelfIntersects()
     {
