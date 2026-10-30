@@ -19,6 +19,8 @@ public sealed partial class AssistView
     private PlanResult? _plan;
     private readonly StackPanel _planToolsPanel = new() { Spacing = 4 };
     private readonly HashSet<int> _confirmedNewTools = [];
+    private readonly StackPanel _planDepthsPanel = new() { Spacing = 4 };
+    private readonly Dictionary<int, double> _reviewedDepths = [];
 
     /// <summary>Contornos do desenho do Trabalho de fresa e a espessura do bruto, se já definida.</summary>
     public Func<(IReadOnlyList<Contour> Contours, double? Thickness)>? PlanDrawing { get; set; }
@@ -60,15 +62,16 @@ public sealed partial class AssistView
                     return;
                 }
 
-                // E as ferramentas novas (fora do banco) só entram se cada uma foi confirmada
-                if (CheckPlanConfirmed() is { } pending)
+                // E as ferramentas novas (fora do banco) e as profundidades só entram revisadas, uma a uma
+                PlanReviewResult review = ReviewNow();
+                if (!review.Ok)
                 {
-                    _planResult.Text += "\n⚠ " + pending;
+                    _planResult.Text += "\n⚠ " + review.Error;
                     _planApply.IsEnabled = false;
                     return;
                 }
 
-                ApplyPlan(plan.Operations);
+                ApplyPlan(review.Operations!);
                 _planResult.Text += "\n(operações adicionadas ao Trabalho fresa)";
                 _planApply.IsEnabled = false;
                 _plan = null;
@@ -80,6 +83,7 @@ public sealed partial class AssistView
         form.Children.Add(buttons);
         form.Children.Add(_planResult);
         form.Children.Add(_planToolsPanel);
+        form.Children.Add(_planDepthsPanel);
         var tab = new TabItem { Header = "Plano 2D", Content = new Border { Padding = new Thickness(0, 10), Child = form } };
         tab.PropertyChanged += (_, e) =>
         {
@@ -115,18 +119,63 @@ public sealed partial class AssistView
     {
         _confirmedNewTools.Clear();
         _planToolsPanel.Children.Clear();
+        _reviewedDepths.Clear();
+        _planDepthsPanel.Children.Clear();
     }
 
-    /// <summary>Motivo se alguma ferramenta nova (fora do banco) ainda não foi confirmada; null se tudo certo.</summary>
-    private string? CheckPlanConfirmed()
+    private PlanReviewResult ReviewNow()
     {
         if (_plan is not { } plan)
         {
-            return null;
+            return new PlanReviewResult(null, "Não há plano sugerido.");
         }
 
         (PlanInput? input, string? error) = BuildPlanInput();
-        return input is null ? error : PlanValidity.CheckApply(plan, input, _confirmedNewTools);
+        return input is null ? new PlanReviewResult(null, error) : PlanReview.Review(plan, input, _confirmedNewTools, _reviewedDepths);
+    }
+
+    private void RefreshPlanApply() => _planApply.IsEnabled = _plan is { Ok: true } && ReviewNow().Ok;
+
+    /// <summary>Uma caixa de número por profundidade presumida: o Aplicar só liga quando todas tiverem um valor digitado.</summary>
+    private void ShowPlanDepths(PlanResult plan)
+    {
+        IReadOnlyList<PlanDepth> depths = PlanReview.DepthsOf(plan);
+        if (depths.Count == 0)
+        {
+            return;
+        }
+
+        _planDepthsPanel.Children.Add(new TextBlock
+        {
+            Text = "Profundidades presumidas: o desenho 2D não diz a profundidade. Digite o valor de cada operação (mm, positivo) para poder aplicar. O número cinza dentro do campo é só a suposição do plano.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+        });
+        foreach (PlanDepth d in depths)
+        {
+            var status = new TextBlock { Text = "presumida", VerticalAlignment = VerticalAlignment.Center, FontSize = 12, Opacity = 0.8 };
+            var box = new TextBox { Width = 90, Watermark = d.Presumed.ToString("0.##", Br) };
+            int key = d.Key;
+            box.TextChanged += (_, _) =>
+            {
+                if (double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) && v > 0)
+                {
+                    _reviewedDepths[key] = v;
+                    status.Text = "confirmada";
+                }
+                else
+                {
+                    _reviewedDepths.Remove(key);
+                    status.Text = string.IsNullOrWhiteSpace(box.Text) ? "presumida: digite o valor" : "valor inválido";
+                }
+
+                RefreshPlanApply();
+            };
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            row.Children.Add(new TextBlock { Text = $"{d.Label} · profundidade (mm)", Width = 260, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
+            row.Children.Add(box);
+            row.Children.Add(status);
+            _planDepthsPanel.Children.Add(row);
+        }
     }
 
     /// <summary>Uma caixa por ferramenta nova: o botão Aplicar só liga quando todas estiverem marcadas.</summary>
@@ -159,7 +208,7 @@ public sealed partial class AssistView
                     _confirmedNewTools.Remove(number);
                 }
 
-                _planApply.IsEnabled = _plan is { Ok: true } && CheckPlanConfirmed() is null;
+                RefreshPlanApply();
             };
             _planToolsPanel.Children.Add(box);
         }
@@ -266,6 +315,7 @@ public sealed partial class AssistView
         _planResult.Text = string.Join("\n", lines);
         _plan = plan;
         ShowPlanTools(plan, input);
-        _planApply.IsEnabled = plan.Ok && CheckPlanConfirmed() is null;
+        ShowPlanDepths(plan);
+        RefreshPlanApply();
     }
 }
