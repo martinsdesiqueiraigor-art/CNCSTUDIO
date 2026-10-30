@@ -233,7 +233,7 @@ public partial class MainView
         Editor.IsVisible = !_editorCollapsed;
         FileNameText.IsVisible = !_editorCollapsed;
         EditButton.IsVisible = _touch && !_editorCollapsed;
-        ToolsButton.IsVisible = !_editorCollapsed;
+        EditorActions.IsVisible = !_editorCollapsed;
         ProblemsButton.IsVisible = !_editorCollapsed && ((_analysis?.ErrorCount ?? 0) + (_analysis?.WarningCount ?? 0)) > 0;
         CollapseEditorButton.Content = new Avalonia.Controls.PathIcon
         {

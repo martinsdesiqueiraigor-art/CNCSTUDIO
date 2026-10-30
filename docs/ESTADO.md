@@ -397,3 +397,11 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 
 ## Web: Otimizador, aviso de economia (`ajuste-web-otimizador`)
 - `optimizer-ui.js`: o resultado ganha o cartão **economia %** (linhas a menos ÷ linhas antes) e o aviso "Estimativa: é economia de linhas, não de tempo de usinagem". Nenhuma regra do Core mudou. Conferido no Chromium em 360 px (HTML de teste isolado); não testado no aparelho.
+## Web: Casillas Macro renovado (`ajuste-web-macro-form`)
+- `generators-ui.js`: título "Casillas Macro", cartão de descrição, abas **Parâmetros / Código**, campos em cartões com ícone (**Geometria, Profundidade, Condições de corte**) e botões Limpar, Cancelar, **Gerar programa** (abre no editor) e Ver em 3D. Os valores são os mesmos de antes; só mudou a forma.
+- Core: `GeneratorsJson.GroupOf` põe `group` em cada parâmetro (geometry/depth/cutting, por Id e rótulo); 2 testes novos (total 1217 passando).
+- Fora: desenho ao lado dos campos (não há arte por gerador, são 8). Conferido no Chromium (360×800 e 900×700) com HTML de teste isolado; não testado no aparelho.
+## Web: Code com faixa de funções e linha de estado (`ajuste-web-code-barra`)
+- O botão **Funções** do cabeçalho do editor foi desfeito em três botões visíveis numa faixa embaixo do editor: **Renumerar** (início, incremento, todos/só os que têm N, remover numeração), **Formatar** (espaçar, juntar, maiúsculas) e **Desfazer** (direto, sem menu). Mesma lógica de antes (`ApplyRenumber`, `ApplyTextTool`); só mudou onde ficam. Acima deles, a linha de estado **"Ln 10, Col 1 · 36 linha(s) · FANUC"** (atualiza ao mover o cursor, editar o texto e trocar o dialeto). "UTF-8" não entrou: o app não expõe a codificação.
+- Decisões do Igor: sem botão Simular (o Gráfico já tem a simulação) e sem minimapa. Não incluí busca nem os ícones `{}`/FX do desenho: não há função equivalente na web hoje.
+- **Não conferido na tela** (o app web não abre no navegador de teste daqui; só o build passa). Conferir na prévia, no celular em pé e deitado: com o teclado do código aberto a faixa fica embaixo dele (mais altura usada); o editor recolhido esconde a faixa junto.
