@@ -72,6 +72,7 @@ public partial class JobView : UserControl
             _job.Dialect = DialectCombo.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
             Refresh(keep: true);
         };
+        ActualThemeVariantChanged += (_, _) => Refresh(keep: true, props: false);
         Tree.SelectionChanged += (_, _) =>
         {
             if (!_busy)
@@ -324,7 +325,7 @@ public partial class JobView : UserControl
         Output.Text = _build.Ok ? _build.Program : "";
         IReadOnlyList<string> pending = CamJobInfo.Pending(_job, _build);
         PendingTitle.Text = pending.Count == 0 ? "✓ Pronto para gerar o G-code" : $"Pendências ({pending.Count})";
-        PendingTitle.Foreground = Avalonia.Media.Brush.Parse(pending.Count == 0 ? "#2EE6A6" : "#FFC247");
+        PendingTitle.Foreground = UiKit.Status(pending.Count == 0 ? "ok" : "pending").Fg;
         PendingList.Text = string.Join("\n", pending.Select(x => "• " + x));
         OpenButton.IsEnabled = CopyButton.IsEnabled = _build.Ok && _build.Program.Length > 0;
         UpdatePreview();
@@ -395,7 +396,7 @@ public partial class JobView : UserControl
 
         Tree.Items.Add(part);
         Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), CamJobInfo.StockState(_job.Stock), "bruto"));
-        Tree.Items.Add(NodeState("Fixação: você confirma na máquina", ("pending", "não verificada"), "fixacao"));
+        Tree.Items.Add(NodeState("Fixação", ("pending", "não verificada"), "fixacao"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
         foreach (CamTool t in CamJobInfo.ToolsUsed(_job))
         {
@@ -438,20 +439,14 @@ public partial class JobView : UserControl
 
     private static Control StateTag((string Kind, string Text) st)
     {
-        (string fg, string bg) = st.Kind switch
-        {
-            "ok" => ("#2EE6A6", "#0D2A25"),
-            "bad" => ("#FF6B6B", "#33181D"),
-            "pending" => ("#FFC247", "#2A2314"),
-            _ => ("#A3B1C9", "#18263D"),
-        };
+        (Avalonia.Media.IBrush fg, Avalonia.Media.IBrush bg) = UiKit.Status(st.Kind);
         return new Border
         {
-            Background = Avalonia.Media.Brush.Parse(bg),
+            Background = bg,
             CornerRadius = new Avalonia.CornerRadius(8),
             Padding = new Avalonia.Thickness(7, 1),
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            Child = new TextBlock { Text = st.Text, FontSize = 11, Foreground = Avalonia.Media.Brush.Parse(fg) },
+            Child = new TextBlock { Text = st.Text, FontSize = 11, Foreground = fg },
         };
     }
 

@@ -383,3 +383,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 
 ## UX, passo 5: barra de pendências no Trabalho de torno (`ajuste-ux-torno-pendencias`)
 - Mesma barra do Trabalho de fresa no rodapé da vista do torno: "✓ Pronto para gerar" ou "Pendências (n)" (sem perfil, sem operação, operação com erro) + aviso fixo de que fixação e colisões não são verificadas. Core `LatheJobInfo.Pending` (1 teste). Não conferido visualmente.
+
+## UX, passo 6: tema claro das novas etiquetas e ✓ do Orçar (`ajuste-ux-tema-claro-orcar`, em cima de `ajuste-ux-torno-pendencias`)
+- O app já tinha tema claro; as etiquetas e títulos novos (estado da árvore, pendências, "O que falta") usavam cores só do escuro. `UiKit.Status(kind)` devolve texto/fundo legíveis em cada tema; fresa, torno e Assist usam; as telas se atualizam ao trocar de tema. Conferido na tela (Xvfb, tema claro).
+- Etapa **4 Orçar** ganha ✓ quando há programa analisado no Code. Ela **não depende do plano**: o orçamento usa o tempo do programa do Code, não as operações do Assist (por isso continua livre).
+- "Fixação" na árvore virou só o nome + etiqueta "não verificada" (o texto longo não cabia no painel).
+- Fora do escopo, visto no tema claro: o aviso amarelo do topo do Assist ("Os itens iniciais são rascunho…") fica escuro com texto claro (cor fixa, já existia).

@@ -183,7 +183,7 @@ public sealed partial class AssistView
             _planMissing.Children.Add(new TextBlock
             {
                 Text = missing.Count == 0 ? "✓ Nada falta: pode aplicar ao Trabalho" : $"O que falta para aplicar ({missing.Count})",
-                FontWeight = FontWeight.SemiBold, Foreground = Brush.Parse(missing.Count == 0 ? "#2EE6A6" : "#FFC247"),
+                FontWeight = FontWeight.SemiBold, Foreground = UiKit.Status(missing.Count == 0 ? "ok" : "pending").Fg,
             });
             foreach (string m in missing)
             {
