@@ -428,7 +428,8 @@ public sealed partial class AssistView
         {
             CamOperationSpec op = plan.Operations[i];
             string origin = PlanValidity.ToolsOf(plan, input).First(t => t.Number == op.Tool.Number && t.Diameter == op.Tool.Diameter).Origin == ToolOrigin.New ? "NOVA, fora do banco" : "banco";
-            lines.Add(CamJobInfo.OpTitle(i, op) + $" · T{op.Tool.Number} ({origin}) · {op.Tool.SpindleRpm:0} rpm · F{op.Tool.FeedXY:0}");
+            string cutSource = input.Material is null ? " · SEM material: valor genérico" : input.Material.Draft ? " · rascunho" : "";
+            lines.Add(CamJobInfo.OpTitle(i, op) + $" · T{op.Tool.Number} ({origin}) · {op.Tool.SpindleRpm:0} rpm · F{op.Tool.FeedXY:0}{cutSource}");
         }
 
         if (plan.Ok)

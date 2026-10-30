@@ -447,16 +447,16 @@ public sealed partial class AssistView : UserControl
 
         IReadOnlyList<ViseEntry> vises = _lib.FindVises(w, h);
         lines.Add(vises.Count > 0
-            ? "Morsas que servem: " + string.Join("; ", vises.Select(v => v.Name + (v.Draft ? " (rascunho)" : "")))
-            : "Nenhuma morsa da biblioteca serve: " + (_lib.Vises.Count > 0 ? _lib.Vises.OrderByDescending(v => v.MaxOpening).First().Check(w, h).Reason : "biblioteca vazia."));
+            ? "Compatibilidade dimensional preliminar (abertura, comprimento da mandíbula e pega mínima; a altura da mandíbula e do corpo não entram): " + string.Join("; ", vises.Select(v => v.Name + (v.Draft ? " (rascunho)" : ""))) + ". Isso não diz que a peça está segura: confirme a fixação."
+            : "Nenhuma morsa da biblioteca passa na conferência dimensional preliminar: " + (_lib.Vises.Count > 0 ? _lib.Vises.OrderByDescending(v => v.MaxOpening).First().Check(w, h).Reason : "biblioteca vazia."));
         IReadOnlyList<ChuckJawEntry> outer = _lib.FindJaws(d, external: true), inner = _lib.FindJaws(d, external: false);
-        lines.Add("Castanhas por fora: " + (outer.Count > 0 ? string.Join("; ", outer.Select(j => j.Name)) : "nenhuma"));
-        lines.Add("Castanhas por dentro (furo): " + (inner.Count > 0 ? string.Join("; ", inner.Select(j => j.Name)) : "nenhuma"));
+        lines.Add("Castanhas por fora (compatibilidade dimensional; confirme a fixação): " + (outer.Count > 0 ? string.Join("; ", outer.Select(j => j.Name)) : "nenhuma"));
+        lines.Add("Castanhas por dentro, no furo (compatibilidade dimensional; confirme a fixação): " + (inner.Count > 0 ? string.Join("; ", inner.Select(j => j.Name)) : "nenhuma"));
         if (_testMaterial.SelectedIndex >= 0 && _lib.Materials[_testMaterial.SelectedIndex] is { } m)
         {
             (double Rpm, double Feed)? s = m.SuggestMill(tool, teeth);
             lines.Add(s is { } v
-                ? $"{m.Name}, fresa Ø{tool:0.##} Z{teeth}: S{v.Rpm:0} F{v.Feed:0} mm/min, passe ≈ {m.SuggestDepth(tool):0.##} mm" + (m.Draft ? " (rascunho)" : "")
+                ? $"{m.Name}, fresa Ø{tool:0.##} Z{teeth}: S{v.Rpm:0} F{v.Feed:0} mm/min, passe ≈ {m.SuggestDepth(tool):0.##} mm" + (m.Draft ? " · RASCUNHO: valor de partida da biblioteca inicial, não do fabricante; confira no catálogo da ferramenta" : "")
                 : "Dados insuficientes para sugerir o corte.");
         }
 

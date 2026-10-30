@@ -121,3 +121,47 @@ public class AssistPlannerTests
         Assert.Single(plan.Operations);
     }
 }
+
+public class PlanCriteriaNotesTests
+{
+    private static PlanInput Input(IReadOnlyList<Contour> contours, IReadOnlyList<PlanTool> tools) =>
+        new(contours, 10, AssistLibrary.Defaults().Materials[3], tools);
+
+    private static List<Contour> Plate() =>
+    [
+        Contour.Rectangle(0, 0, 100, 60),
+        Contour.Circle(new Point2(15, 15), 4),
+        Contour.Rectangle(30, 20, 40, 20),
+    ];
+
+    [Fact]
+    public void BrocaDoBancoMostraDiferencaECriterio()
+    {
+        PlanResult plan = AssistPlanner.Plan(Input(Plate(), [new PlanTool(1, 10, false, "Fresa 10"), new PlanTool(2, 8.03, true, "Broca 8,03")]));
+        string note = Assert.Single(plan.Notes, n => n.StartsWith("Broca para furo"));
+        Assert.Contains("T2", note);
+        Assert.Contains("+0,03", note);
+        Assert.Contains("0,05", note);
+    }
+
+    [Fact]
+    public void FresaDoBancoMostraQueOCriterioEhSoGeometria()
+    {
+        PlanResult plan = AssistPlanner.Plan(Input(Plate(), [new PlanTool(1, 10, false, "Fresa 10"), new PlanTool(2, 8, true, "Broca 8")]));
+        Assert.Contains(plan.Notes, n => n.StartsWith("Fresa T1") && n.Contains("material") && n.Contains("rigidez"));
+    }
+
+    [Fact]
+    public void CadaFerramentaTemUmaNotaSo()
+    {
+        PlanResult plan = AssistPlanner.Plan(Input(Plate(), [new PlanTool(1, 10, false, "Fresa 10"), new PlanTool(2, 8, true, "Broca 8")]));
+        Assert.Single(plan.Notes, n => n.StartsWith("Fresa T1"));
+    }
+
+    [Fact]
+    public void FerramentaNovaNaoGeraNotaDeBanco()
+    {
+        PlanResult plan = AssistPlanner.Plan(Input(Plate(), []));
+        Assert.DoesNotContain(plan.Notes, n => n.StartsWith("Broca para furo") || n.StartsWith("Fresa T"));
+    }
+}
