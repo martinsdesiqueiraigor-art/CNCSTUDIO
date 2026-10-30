@@ -165,7 +165,7 @@ public class MeshFeaturesTests
         MeshFeatures f = MeshFeatures.Analyze(PocketBlock());
         MeshFace top = Assert.Single(f.Faces, x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99 && Math.Abs(x.Center.Z - 10) < 1e-6);
         Assert.Equal(2, f.BoundaryLoops(top).Count);
-        OperationResult r = FacePocket.Build(f, top, new CamTool(1, 6, 8000, 800, 300, "Topo"), 10, 2, new PocketParams());
+        OperationResult r = FacePocket.Build(f, top, new CamTool(1, 6, 8000, 800, 300, "Topo"), new ModelZ(35, 15), 10, 10, 2, new PocketParams());
         Assert.False(r.Ok);
     }
 
@@ -174,9 +174,99 @@ public class MeshFeaturesTests
     {
         MeshFeatures f = MeshFeatures.Analyze(PocketBlock());
         MeshFace floor = Assert.Single(f.Faces, x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99 && Math.Abs(x.Center.Z - 5) < 1e-6);
-        OperationResult r = FacePocket.Build(f, floor, new CamTool(1, 6, 8000, 800, 300, "Topo"), 10, 2.5, new PocketParams());
+        OperationResult r = FacePocket.Build(f, floor, new CamTool(1, 6, 8000, 800, 300, "Topo"), new ModelZ(35, 15), 5, 10, 2.5, new PocketParams());
         Assert.True(r.Ok, r.Error);
         Assert.Contains(r.Operation!.Moves, m => Math.Abs(m.Z - 5) < 1e-6);
         Assert.DoesNotContain(r.Operation.Moves, m => m.Z < 5 - 1e-6);
     }
+
+    // ---- R-05: alturas Z e fundo informados pelo usuário nas operações 3D
+
+    private static readonly CamTool Drill6 = new(1, 6, 2500, 600, 150, "Broca 6");
+
+    [Fact]
+    public void Furacao_usa_as_alturas_e_o_fundo_do_usuario_e_nao_os_da_malha()
+    {
+        MeshFeatures f = MeshFeatures.Analyze(Washer());
+        MeshFace hole = Assert.Single(f.Faces, x => x.Kind == FaceKind.Hole);
+        Assert.Equal(0, FaceDrilling.MeshBottomZ([hole]), 6); // a malha mostra o furo passante (Z 0)
+        OperationResult r = FaceDrilling.Build([hole], Drill6, new ModelZ(60, 12), 8, 3, 2);
+        Assert.True(r.Ok, r.Error);
+        DrillCycle cycle = r.Operation!.Drill!;
+        Assert.Equal(60, cycle.SafeZ);       // Z seguro do usuário (não 8 + 25)
+        Assert.Equal(12, cycle.RetractZ);    // plano R do usuário (não 8 + 2)
+        Assert.Equal(8, cycle.TopZ);
+        Assert.Equal(3, cycle.BottomZ);      // fundo do usuário (cego), não o da malha
+    }
+
+    [Theory]
+    [InlineData(35, 8)]            // aproximação no topo do furo
+    [InlineData(35, 5)]            // aproximação abaixo do topo
+    [InlineData(12, 12)]           // seguro igual à aproximação
+    [InlineData(10, 12)]           // seguro abaixo da aproximação
+    [InlineData(double.NaN, 12)]
+    [InlineData(35, double.PositiveInfinity)]
+    public void Furacao_recusa_alturas_incoerentes(double safe, double clearance)
+    {
+        MeshFeatures f = MeshFeatures.Analyze(Washer());
+        MeshFace hole = Assert.Single(f.Faces, x => x.Kind == FaceKind.Hole);
+        OperationResult r = FaceDrilling.Build([hole], Drill6, new ModelZ(safe, clearance), 8, 0, 2);
+        Assert.False(r.Ok);
+        Assert.Contains("Alturas Z", r.Error);
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(double.NaN)]
+    public void Furacao_recusa_fundo_no_topo_acima_ou_invalido(double bottom)
+    {
+        MeshFeatures f = MeshFeatures.Analyze(Washer());
+        MeshFace hole = Assert.Single(f.Faces, x => x.Kind == FaceKind.Hole);
+        OperationResult r = FaceDrilling.Build([hole], Drill6, new ModelZ(35, 12), 8, bottom, 2);
+        Assert.False(r.Ok);
+        Assert.Contains("fundo do furo", r.Error);
+    }
+
+    [Fact]
+    public void Furacao_recusa_broca_maior_que_o_furo_e_lista_vazia()
+    {
+        MeshFeatures f = MeshFeatures.Analyze(Washer());
+        MeshFace hole = Assert.Single(f.Faces, x => x.Kind == FaceKind.Hole);
+        Assert.Contains("maior que o menor furo", FaceDrilling.Build([hole], Drill6 with { Diameter = 12 }, new ModelZ(35, 12), 8, 0, 2).Error);
+        Assert.False(FaceDrilling.Build([], Drill6, new ModelZ(35, 12), 8, 0, 2).Ok);
+    }
+
+    [Fact]
+    public void Seguro_precisa_passar_acima_do_ponto_mais_alto_do_modelo()
+    {
+        Assert.Contains("ponto mais alto", new ModelZ(12, 6).Validate(modelTopZ: 20, workTopZ: 5));
+        Assert.Null(new ModelZ(25, 6).Validate(modelTopZ: 20, workTopZ: 5));
+    }
+
+    [Fact]
+    public void Bolsao_usa_alturas_e_fundo_do_usuario()
+    {
+        MeshFeatures f = MeshFeatures.Analyze(PocketBlock());
+        MeshFace floor = Assert.Single(f.Faces, x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99 && Math.Abs(x.Center.Z - 5) < 1e-6);
+        OperationResult r = FacePocket.Build(f, floor, new CamTool(1, 6, 8000, 800, 300, "Topo"), new ModelZ(80, 20), 6, 10, 2, new PocketParams());
+        Assert.True(r.Ok, r.Error);
+        Assert.Contains(r.Operation!.Moves, m => Math.Abs(m.Z - 80) < 1e-6);
+        Assert.DoesNotContain(r.Operation.Moves, m => m.Z > 80 + 1e-6);
+        Assert.Contains(r.Operation.Moves, m => Math.Abs(m.Z - 6) < 1e-6);        // fundo digitado (a malha diz 5)
+        Assert.DoesNotContain(r.Operation.Moves, m => m.Z < 6 - 1e-6);
+    }
+
+    [Fact]
+    public void Bolsao_recusa_alturas_incoerentes_e_fundo_no_topo()
+    {
+        MeshFeatures f = MeshFeatures.Analyze(PocketBlock());
+        MeshFace floor = Assert.Single(f.Faces, x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99 && Math.Abs(x.Center.Z - 5) < 1e-6);
+        var tool = new CamTool(1, 6, 8000, 800, 300, "Topo");
+        Assert.Contains("Alturas Z", FacePocket.Build(f, floor, tool, new ModelZ(10, 10), 5, 10, 2, new PocketParams()).Error);
+        Assert.Contains("Alturas Z", FacePocket.Build(f, floor, tool, new ModelZ(30, 10), 5, 10, 2, new PocketParams()).Error); // aproximação no topo do modelo
+        Assert.Contains("fundo", FacePocket.Build(f, floor, tool, new ModelZ(35, 15), 10, 10, 2, new PocketParams()).Error);
+        Assert.Contains("fundo", FacePocket.Build(f, floor, tool, new ModelZ(35, 15), double.NaN, 10, 2, new PocketParams()).Error);
+    }
 }
+

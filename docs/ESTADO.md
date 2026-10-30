@@ -297,3 +297,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Botão **Gerar furação dos furos escolhidos**: furos verticais viram ciclo G83/bicada (Z do topo ao fundo da parede, centro lido da malha). Furo cego com fundo cônico não é considerado.
 - Limites: são regiões da **malha**, não as faces do CAD (STEP vira malha); malha grossa parte o furo em pedaços; precisa normal para fora. Testado só com placa gerada por mim (STL), nenhum STEP real.
 - **Bolsão pela região escolhida:** Core `Cam3D/FacePocket` (+ `MeshFeatures.BoundaryLoops`): região plana voltada para cima = fundo, borda = contorno, usa o `Pocket` 2,5D existente. Recusa região com ilhas/furos dentro e fundo no topo do modelo. Botão "Gerar bolsão da região escolhida" na aba Modelo 3D (fresa, rpm, avanço, passo Z e lateral). 3 testes novos (1028). Não conferido na tela.
+
+## R-05 — proteção das operações 3D (`ajuste-cam3d-protecao`, em cima da `fase-cam3d-selecao`)
+- Furação, bolsão e varredura do Modelo 3D não usam mais Z fixo (+25/+5) nem a profundidade da parede da malha: **Z seguro, aproximação e fundo do furo/bolsão são digitados** (vazios = bloqueia; a malha aparece só como dica cinza).
+- Core `Cam3D/ModelReview`: `ModelZ` (seguro > aproximação > topo; finito) e `FaceDrilling.Build` (só furo vertical, broca ≤ menor furo, fundo abaixo do topo). `FacePocket.Build` recebe `ModelZ` e fundo digitado.
+- Testes novos em `MeshFeaturesTests` (1042 no total, verdes). Conferido na tela (Xvfb): sem Z → recusa; Z incoerente → erro; fundo acima do topo → erro; completo → gera com "valores seus" e aviso de fixação não verificada.
+- Fora do escopo: `fase-cam3d-desbaste` (desbaste 3D tem Z próprio) e o campo de base da varredura.
