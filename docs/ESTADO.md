@@ -344,3 +344,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Core `Cam3D/ModelZ.cs`: `ModelZ` (seguro > aproximação > topo; finito) e `SurfaceLevels.Build` (fundo digitado, abaixo do topo e não abaixo da base do modelo, pois o bruto é o prisma do modelo). 1171 testes (13 novos).
 - Conferido na tela (Xvfb): sem Z, sem fundo, fundo abaixo da base e seguro < aproximação são recusados; completo gera, com "valores seus" e aviso de fixação não verificada. Nada testado em máquina.
 - **Atenção ao juntar com a `fase-cam3d-selecao`:** ela tem o mesmo `ModelZ` em `ModelReview.cs` (apagar a cópia de lá) e outra versão dos campos Z em `ModelView.cs` (conflito a resolver, mesma ideia).
+
+## P1 da auditoria, PR 8: classificação do contorno da peça (A-03) (`ajuste-assist-classificacao-contorno`)
+- O plano escolhia o contorno de maior área como peça e seguia mesmo com o desenho ambíguo ou com defeito. Novo `Assist/ContourAudit` confere antes e **recusa com o motivo** (nenhuma operação sugerida): contornos que se cruzam (inclui furo que corta a borda), contorno que cruza a si mesmo, contorno aberto que envolve a peça (peça "aberta") e dois contornos grandes separados (o segundo com ≥ 50% da área do maior).
+- **Só avisam:** contornos abertos pequenos (ignorados) e contornos idênticos (duplicados). `Contour.CrossesContour` novo no Core.
+- 1183 testes (12 novos). Conferido na tela (Xvfb): ambíguo e cruzado recusados; placa normal segue igual. O limite de 50% é escolha minha; pode ser ajustado. Risco: um DXF real com contornos que se cruzam de propósito (ex.: sobreposição) passa a ser recusado; teste com DXF seu.

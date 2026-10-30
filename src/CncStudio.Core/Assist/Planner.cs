@@ -61,6 +61,14 @@ public static class AssistPlanner
             return new PlanResult(ops, ["Informe a espessura do bruto."]);
         }
 
+        // A-03: desenho ambíguo ou com defeito é recusado com o motivo, em vez de o plano adivinhar qual contorno é a peça
+        ContourFindings findings = ContourAudit.Check(input.Contours);
+        if (findings.Errors.Count > 0)
+        {
+            return new PlanResult(ops, [.. findings.Errors, "Nenhuma operação foi sugerida."]);
+        }
+
+        notes.AddRange(findings.Warnings);
         Contour outer = closed.OrderByDescending(c => Math.Abs(c.SignedArea)).First();
         List<Contour> inside = CamOperations.FindIslands(outer, closed).ToList();
         int ignored = closed.Count - 1 - inside.Count;
