@@ -308,7 +308,21 @@
             </Grid>
 
             <!-- Informações (toque fora da trajetória esconde/mostra) -->
-            <StackPanel x:Name="GraphInfo" Spacing="1" IsHitTestVisible="False">
+            <StackPanel x:Name="GraphInfo" Spacing="3" IsHitTestVisible="False">
+              <Grid ColumnDefinitions="*,6,*">
+                <Border Grid.Column="0" Classes="hud" Padding="8,3">
+                  <StackPanel>
+                    <TextBlock Text="POSIÇÃO ATUAL" FontSize="9.5" FontWeight="Bold" Opacity="0.6" />
+                    <TextBlock x:Name="SimCoordText" FontFamily="{StaticResource CodeFont}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Classes="hud" Padding="8,3">
+                  <StackPanel>
+                    <TextBlock Text="FERRAMENTA E MOVIMENTO" FontSize="9.5" FontWeight="Bold" Opacity="0.6" />
+                    <TextBlock x:Name="SimToolText" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </Border>
+              </Grid>
               <TextBlock x:Name="SimPositionText" FontSize="11" Opacity="0.95" TextWrapping="Wrap" />
               <TextBlock x:Name="GraphStatusText" FontSize="11" Opacity="0.8" TextTrimming="CharacterEllipsis" />
             </StackPanel>

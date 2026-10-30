@@ -1676,6 +1676,7 @@ public partial class MainView : UserControl
         if (_stepEnds.Length == 0 || _analysis is not { } analysis)
         {
             SimPositionText.Text = "Sem movimentos";
+            SimCoordText.Text = SimToolText.Text = "—";
             return;
         }
 
@@ -1693,6 +1694,8 @@ public partial class MainView : UserControl
         if (visible == 0)
         {
             SimPositionText.Text = $"{step} · {distance}";
+            SimCoordText.Text = "—";
+            SimToolText.Text = "antes do 1º movimento";
         }
         else
         {
@@ -1709,9 +1712,10 @@ public partial class MainView : UserControl
                 CncStudio.Core.Trajectory.MotionMode.CounterClockwiseArc => "G03",
                 _ => "",
             };
-            string tool = m.Tool != 0 ? $" · T{m.Tool}" : "";
             string feed = m.IsRapid ? "" : $" · F{m.Feed.ToString("0.###", culture)}";
-            SimPositionText.Text = $"{pos}{tool} · {g} · L{m.LineNumber}{feed} · {step} · {distance}";
+            SimPositionText.Text = $"L{m.LineNumber} · {step} · {distance}";
+            SimCoordText.Text = pos;
+            SimToolText.Text = $"{(m.Tool != 0 ? $"T{m.Tool} · " : "")}{g}{feed}";
         }
 
         SimPositionText.Text += Progress3D();
