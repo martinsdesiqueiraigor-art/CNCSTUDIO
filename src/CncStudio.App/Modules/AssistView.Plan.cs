@@ -44,14 +44,18 @@ public sealed partial class AssistView
             Text = "Sugere furos, bolsões e o contorno da peça a partir do desenho aberto em CAM › Trabalho fresa. Só sugere o que o CAM sabe gerar; revise, simule e rode a primeira vez no ar.",
             TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8,
         });
-        form.Children.Add(_planDrawing);
+        _secPrepare.Children.Add(new TextBlock { Text = "1 · Preparar: desenho, material e espessura", FontWeight = FontWeight.SemiBold });
+        _secPrepare.Children.Add(_planDrawing);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         row.Children.Add(new TextBlock { Text = "Material", VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
         row.Children.Add(_planMaterial);
         row.Children.Add(new TextBlock { Text = "Espessura do bruto", VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
         row.Children.Add(_planThickness);
         row.Children.Add(new TextBlock { Text = "mm", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.65, FontSize = 11 });
-        form.Children.Add(row);
+        _secPrepare.Children.Add(row);
+        Button toSuggest = new() { Content = "Continuar: Sugerir", Padding = new Thickness(16, 6), HorizontalAlignment = HorizontalAlignment.Left };
+        toSuggest.Click += (_, _) => ShowStep(1);
+        _secPrepare.Children.Add(toSuggest);
         _planMaterial.SelectionChanged += (_, _) => OnPlanInputChanged();
         _planThickness.TextChanged += (_, _) => OnPlanInputChanged();
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -84,22 +88,37 @@ public sealed partial class AssistView
                 ClearPlanTools();
             }
         };
-        buttons.Children.Add(suggest);
-        buttons.Children.Add(_planApply);
-        form.Children.Add(buttons);
-        form.Children.Add(_planResult);
-        form.Children.Add(_planToolsPanel);
-        form.Children.Add(_planDepthsPanel);
-        var tab = new TabItem { Header = "Plano 2D", Content = new Border { Padding = new Thickness(0, 10), Child = form } };
-        tab.PropertyChanged += (_, e) =>
+        Button toReview = new() { Content = "Continuar: Revisar", Padding = new Thickness(16, 6) };
+        toReview.Click += (_, _) =>
         {
-            if (e.Property == TabItem.IsSelectedProperty && tab.IsSelected)
+            if (_plan is { Ok: true })
             {
-                LoadPlan();
+                ShowStep(2);
+            }
+            else
+            {
+                _planResult.Text = "Sugira um plano primeiro.";
             }
         };
-        _tabs.Items.Add(tab);
+        _secSuggest.Children.Add(new TextBlock { Text = "2 · Sugerir: o Assist propõe as operações", FontWeight = FontWeight.SemiBold });
+        buttons.Children.Add(suggest);
+        buttons.Children.Add(toReview);
+        _secSuggest.Children.Add(buttons);
+        _secReview.Children.Add(new TextBlock { Text = "3 · Revisar: ferramentas novas, profundidades, alturas Z e fixação", FontWeight = FontWeight.SemiBold });
+        _secReview.Children.Add(_planToolsPanel);
+        _secReview.Children.Add(_planDepthsPanel);
+        _secReview.Children.Add(_planApply);
+        form.Children.Add(_secPrepare);
+        form.Children.Add(_secSuggest);
+        form.Children.Add(_secReview);
+        form.Children.Add(_planResult);
+        _planPage = new Border { Padding = new Thickness(0, 10), Child = form };
     }
+
+    private readonly StackPanel _secPrepare = new() { Spacing = 8 };
+    private readonly StackPanel _secSuggest = new() { Spacing = 8 };
+    private readonly StackPanel _secReview = new() { Spacing = 8 };
+    private Border _planPage = new();
 
     private bool _loadingPlan;
 

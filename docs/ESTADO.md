@@ -369,3 +369,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## UX, passo 2: barra de pendências no Trabalho (`ajuste-ux-barra-pendencias`)
 - Rodapé da vista central do Trabalho (fresa): "✓ Pronto para gerar" ou "Pendências (n)" com a lista (sem peça, sem bruto, sem operação, operação com erro). Aviso fixo: fixação e colisões não são verificadas; simular e rodar a primeira vez no ar.
 - Core `CamJobInfo.Pending` (teste novo, 1211 no total). Uma execução dos testes falhou uma vez e passou na seguinte sem mudança (possível teste instável; não identificado). Não conferido visualmente: ver no .exe da Prévia.
+
+## UX, passo 3: Assist em etapas, parte 1 (`ajuste-ux-assist-etapas`)
+- `AssistView` troca as abas por uma barra de etapas: **1 Preparar** (desenho, material, espessura) → **2 Sugerir** → **3 Revisar** (ferramentas novas, profundidades, Z, fixação, Aplicar) → **4 Orçar**, mais **Bibliotecas** (materiais, morsas, castanhas, arquivo e teste rápido) à parte. O resultado do plano fica sempre visível embaixo.
+- Só reorganização: mesmos controles e mesma lógica (nenhum cálculo mudou); ao voltar para as etapas 1–3 vindo de fora, o plano é conferido de novo, como antes na aba.
+- Conferido na tela (Xvfb, 1366×768): todas as etapas abrem; Revisar mostra Z, fixação e profundidades; Aplicar segue desligado até tudo ser informado.
+- Parte 2 (próximo PR): bloquear etapas fora de ordem, marcar ✓ e a lista "O que falta para aplicar".

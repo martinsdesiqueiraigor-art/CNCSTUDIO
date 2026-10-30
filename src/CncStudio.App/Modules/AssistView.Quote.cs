@@ -103,16 +103,10 @@ public sealed partial class AssistView
         Grid.SetColumn(result, 2);
         grid.Children.Add(form);
         grid.Children.Add(result);
-        var tab = new TabItem { Header = "Orçamento", Content = new Border { Padding = new Thickness(0, 10), Child = grid } };
-        tab.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == TabItem.IsSelectedProperty && tab.IsSelected)
-            {
-                LoadQuote();
-            }
-        };
-        _tabs.Items.Add(tab);
+        _quotePage = new Border { Padding = new Thickness(0, 10), Child = grid };
     }
+
+    private Border _quotePage = new();
 
     private void Add(StackPanel form, string key, string icon, string label, string unit, Func<QuoteDefaults, double> get)
     {
