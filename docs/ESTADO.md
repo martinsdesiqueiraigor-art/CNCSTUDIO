@@ -375,3 +375,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Só reorganização: mesmos controles e mesma lógica (nenhum cálculo mudou); ao voltar para as etapas 1–3 vindo de fora, o plano é conferido de novo, como antes na aba.
 - Conferido na tela (Xvfb, 1366×768): todas as etapas abrem; Revisar mostra Z, fixação e profundidades; Aplicar segue desligado até tudo ser informado.
 - Parte 2 (próximo PR): bloquear etapas fora de ordem, marcar ✓ e a lista "O que falta para aplicar".
+
+## UX, passo 4: Assist em etapas, parte 2 (`ajuste-ux-assist-pendencias`, em cima de `ajuste-ux-assist-etapas`)
+- **Revisar só abre com plano sugerido** (botão desligado e "Sugira um plano primeiro"); se o plano perde a validade (desenho, material ou espessura mudaram), volta para Sugerir. "✓" em Sugerir (plano pronto) e em Revisar (pode aplicar).
+- Revisar mostra a lista **"O que falta para aplicar (n)"** (fixação, alturas Z, rotação acima do limite, cada profundidade) ou "✓ Nada falta". Core `PlanReview.Missing` lista todos os itens de uma vez (o `Review` continua parando no primeiro); 3 testes novos. Aplicar segue só liberado quando `Review` aprova: a lista é informação, não troca a regra.
+- Conferido na tela (Xvfb): Revisar bloqueada sem plano; com plano mostra 5 pendências. Falta ainda: tema claro; Orçar continua livre (não depende do plano).

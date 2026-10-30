@@ -124,6 +124,61 @@ public static class PlanReview
         DepthsOf(plan).FirstOrDefault(d => !depths.ContainsKey(d.Key))?.Label;
 
     /// <summary>
+    /// Tudo o que ainda falta para aplicar (lista vazia = pode aplicar). Diferente de <see cref="Review"/>, que para no primeiro
+    /// problema, aqui entram todos: rotação, fixação, alturas Z e cada profundidade.
+    /// </summary>
+    public static IReadOnlyList<string> Missing(PlanResult plan, PlanInput current, IReadOnlySet<int>? confirmedNewTools, IReadOnlyDictionary<int, double> depths,
+        ReleaseStrategy release = ReleaseStrategy.NotReviewed, PlanHeights? heights = null, IReadOnlyDictionary<int, double>? rpmAdjust = null)
+    {
+        var list = new List<string>();
+        if (PlanValidity.CheckApply(plan, current, confirmedNewTools) is { } stale)
+        {
+            list.Add(stale);
+            return list;
+        }
+
+        foreach (PlanRpmIssue issue in RpmIssues(plan, current))
+        {
+            if (rpmAdjust is null || !rpmAdjust.TryGetValue(issue.ToolNumber, out double r) || !double.IsFinite(r) || r <= 0 || r > issue.Max + 1e-9)
+            {
+                list.Add($"Rotação de T{issue.ToolNumber} (até {issue.Max:0} rpm)");
+            }
+        }
+
+        if (ReleaseOperationIndex(plan) >= 0 && release == ReleaseStrategy.NotReviewed)
+        {
+            list.Add("Fixação da peça");
+        }
+
+        if (plan.Operations.Count > 0)
+        {
+            if (heights is null)
+            {
+                list.Add("Alturas Z (seguro, aproximação e topo)");
+            }
+            else if (heights.Validate() is { } bad)
+            {
+                list.Add(bad);
+            }
+        }
+
+        foreach (PlanDepth d in DepthsOf(plan))
+        {
+            if (!depths.TryGetValue(d.Key, out double v) || !double.IsFinite(v) || v <= 0)
+            {
+                list.Add($"Profundidade: {d.Label}");
+            }
+        }
+
+        if (list.Count == 0 && Review(plan, current, confirmedNewTools, depths, release, heights, rpmAdjust) is { Ok: false } r2)
+        {
+            list.Add(r2.Error ?? "Revisão incompleta");
+        }
+
+        return list;
+    }
+
+    /// <summary>
     /// Confere o plano (desatualização, ferramentas novas) e as profundidades digitadas e devolve as operações a aplicar, com
     /// as profundidades confirmadas no lugar das presumidas. O plano em si não é alterado.
     /// </summary>
