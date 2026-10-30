@@ -16,7 +16,7 @@ namespace CncStudio.Core.Assist;
 /// Zero negativo vale como zero; NaN e infinitos são diferenciados entre si.
 /// </para>
 /// </summary>
-public sealed record PlanStamp(string Drawing, string Thickness, string Material, string Tools)
+public sealed record PlanStamp(string Drawing, string Thickness, string Material, string Tools, string Spindle = "")
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -100,7 +100,7 @@ public sealed record PlanStamp(string Drawing, string Thickness, string Material
             ? string.Join('|', m.Name, m.Group, N(m.SurfaceSpeed), N(m.FeedPerTooth), N(m.DepthFactor), m.Draft)
             : "(nenhum)";
         string tools = string.Join(';', input.Tools.Select(t => string.Join('|', t.Number, N(t.Diameter), t.IsDrill, t.Name, t.Teeth)));
-        return new PlanStamp(drawing.ToString(), N(input.Thickness), material, tools);
+        return new PlanStamp(drawing.ToString(), N(input.Thickness), material, tools, input.MaxSpindleRpm is { } max ? N(max) : "(não informado)");
     }
 
     /// <summary>Nomes (em português) do que mudou de <paramref name="planned"/> para este registro.</summary>
@@ -125,6 +125,11 @@ public sealed record PlanStamp(string Drawing, string Thickness, string Material
         if (Tools != planned.Tools)
         {
             changed.Add("ferramentas");
+        }
+
+        if (Spindle != planned.Spindle)
+        {
+            changed.Add("limite de rotação da máquina");
         }
 
         return changed;

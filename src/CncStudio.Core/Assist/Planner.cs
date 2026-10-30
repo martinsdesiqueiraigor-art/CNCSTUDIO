@@ -6,8 +6,11 @@ namespace CncStudio.Core.Assist;
 /// <summary>Ferramenta da biblioteca vista pelo planejador (o Core não conhece o cadastro do Code).</summary>
 public sealed record PlanTool(int Number, double Diameter, bool IsDrill, string Name = "", int Teeth = 4);
 
-/// <summary>Dados do plano automático 2D. <see cref="Thickness"/>: espessura do bruto (topo da peça em Z0).</summary>
-public sealed record PlanInput(IReadOnlyList<Contour> Contours, double Thickness, MaterialEntry? Material, IReadOnlyList<PlanTool> Tools, double MaxHoleDrillDiameter = 20);
+/// <summary>
+/// Dados do plano automático 2D. <see cref="Thickness"/>: espessura do bruto (topo da peça em Z0).
+/// <see cref="MaxSpindleRpm"/>: limite do fuso do perfil da máquina ativa; null = não informado (rotação "não verificada").
+/// </summary>
+public sealed record PlanInput(IReadOnlyList<Contour> Contours, double Thickness, MaterialEntry? Material, IReadOnlyList<PlanTool> Tools, double MaxHoleDrillDiameter = 20, double? MaxSpindleRpm = null);
 
 /// <summary>Sugestão de plano: operações para o Trabalho e avisos. É só uma sugestão: o usinador revisa, simula e roda no ar.</summary>
 public sealed record PlanResult(IReadOnlyList<CamOperationSpec> Operations, IReadOnlyList<string> Notes)
