@@ -16,3 +16,16 @@ public class CamJobInfoStateTests
     [Fact]
     public void StockState_sem_bruto_e_pendente() => Assert.Equal("bad", CamJobInfo.StockState(null).Kind);
 }
+
+public class CamJobPendingTests
+{
+    [Fact]
+    public void Pending_job_vazio_lista_peca_bruto_e_operacao()
+    {
+        var job = new CamJob();
+        var p = CamJobInfo.Pending(job, CamJobBuilder.Build(job, null));
+        Assert.Contains(p, x => x.Contains("peça"));
+        Assert.Contains(p, x => x.Contains("Bruto"));
+        Assert.Contains(p, x => x.Contains("operação"));
+    }
+}

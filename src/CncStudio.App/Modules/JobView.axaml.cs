@@ -322,6 +322,10 @@ public partial class JobView : UserControl
         Errors.Text = _build.Errors.Count > 0 && _job.Operations.Count > 0 ? string.Join("\n", _build.Errors.Select(e => "• " + e)) : "";
         Warnings.Text = string.Join("\n", _build.Warnings.Select(w => "• " + w));
         Output.Text = _build.Ok ? _build.Program : "";
+        IReadOnlyList<string> pending = CamJobInfo.Pending(_job, _build);
+        PendingTitle.Text = pending.Count == 0 ? "✓ Pronto para gerar o G-code" : $"Pendências ({pending.Count})";
+        PendingTitle.Foreground = Avalonia.Media.Brush.Parse(pending.Count == 0 ? "#2EE6A6" : "#FFC247");
+        PendingList.Text = string.Join("\n", pending.Select(x => "• " + x));
         OpenButton.IsEnabled = CopyButton.IsEnabled = _build.Ok && _build.Program.Length > 0;
         UpdatePreview();
         Update3D();
