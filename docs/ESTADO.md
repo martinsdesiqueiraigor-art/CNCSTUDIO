@@ -344,3 +344,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Core `Cam3D/ModelZ.cs`: `ModelZ` (seguro > aproximação > topo; finito) e `SurfaceLevels.Build` (fundo digitado, abaixo do topo e não abaixo da base do modelo, pois o bruto é o prisma do modelo). 1171 testes (13 novos).
 - Conferido na tela (Xvfb): sem Z, sem fundo, fundo abaixo da base e seguro < aproximação são recusados; completo gera, com "valores seus" e aviso de fixação não verificada. Nada testado em máquina.
 - **Atenção ao juntar com a `fase-cam3d-selecao`:** ela tem o mesmo `ModelZ` em `ModelReview.cs` (apagar a cópia de lá) e outra versão dos campos Z em `ModelView.cs` (conflito a resolver, mesma ideia).
+
+## P1 da auditoria, PR 7: orçamento do Assist (A-06 e A-07) (`ajuste-assist-orcamento-limites`)
+- **A-06:** a quantidade do lote não é mais arredondada em silêncio (2,5 virava 2; valor enorme dava cast indefinido). `QuoteInput.ParseQuantity` recusa não inteiro, NaN/infinito, zero, negativo e acima de 1 milhão.
+- **A-07:** `QuoteCalculator.Calculate` confere o tempo e todas as parcelas (devolve erro, nunca infinito/NaN nem exceção de `TimeSpan`) e os campos têm limite de plausibilidade (ex.: hora-máquina até R$ 100.000/h; margem até 1000%). Antes, 1e300 de hora-máquina aparecia como preço.
+- 1192 testes (21 novos). Conferido na tela (Xvfb): 2,5 / 0 / lote gigante / hora-máquina absurda recusados; lote 10 calcula. Os limites são de plausibilidade, não regra de negócio: o Igor pode ajustar.
