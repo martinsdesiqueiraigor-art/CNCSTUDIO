@@ -168,7 +168,14 @@ public sealed partial class AssistView
             return;
         }
 
-        var input = new QuoteInput(p.Time, p.ToolChanges, (int)Math.Round(Q("qty")), Q("rate"), Q("setup"), Q("tc"), Q("load"), Q("safety"), Q("mat"), Q("wear"), Q("margin"), Q("tax"));
+        (int quantity, string? quantityError) = QuoteInput.ParseQuantity(Q("qty"));
+        if (quantityError is not null)
+        {
+            _quoteResult.Text = quantityError;
+            return;
+        }
+
+        var input = new QuoteInput(p.Time, p.ToolChanges, quantity, Q("rate"), Q("setup"), Q("tc"), Q("load"), Q("safety"), Q("mat"), Q("wear"), Q("margin"), Q("tax"));
         (QuoteResult? r, string? error) = QuoteCalculator.Calculate(input);
         if (r is null)
         {

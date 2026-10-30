@@ -349,3 +349,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - O plano escolhia o contorno de maior área como peça e seguia mesmo com o desenho ambíguo ou com defeito. Novo `Assist/ContourAudit` confere antes e **recusa com o motivo** (nenhuma operação sugerida): contornos que se cruzam (inclui furo que corta a borda), contorno que cruza a si mesmo, contorno aberto que envolve a peça (peça "aberta") e dois contornos grandes separados (o segundo com ≥ 50% da área do maior).
 - **Só avisam:** contornos abertos pequenos (ignorados) e contornos idênticos (duplicados). `Contour.CrossesContour` novo no Core.
 - 1183 testes (12 novos). Conferido na tela (Xvfb): ambíguo e cruzado recusados; placa normal segue igual. O limite de 50% é escolha minha; pode ser ajustado. Risco: um DXF real com contornos que se cruzam de propósito (ex.: sobreposição) passa a ser recusado; teste com DXF seu.
+
+## P1 da auditoria, PR 7: orçamento do Assist (A-06 e A-07) (`ajuste-assist-orcamento-limites`)
+- **A-06:** a quantidade do lote não é mais arredondada em silêncio (2,5 virava 2; valor enorme dava cast indefinido). `QuoteInput.ParseQuantity` recusa não inteiro, NaN/infinito, zero, negativo e acima de 1 milhão.
+- **A-07:** `QuoteCalculator.Calculate` confere o tempo e todas as parcelas (devolve erro, nunca infinito/NaN nem exceção de `TimeSpan`) e os campos têm limite de plausibilidade (ex.: hora-máquina até R$ 100.000/h; margem até 1000%). Antes, 1e300 de hora-máquina aparecia como preço.
+- 1192 testes (21 novos). Conferido na tela (Xvfb): 2,5 / 0 / lote gigante / hora-máquina absurda recusados; lote 10 calcula. Os limites são de plausibilidade, não regra de negócio: o Igor pode ajustar.
