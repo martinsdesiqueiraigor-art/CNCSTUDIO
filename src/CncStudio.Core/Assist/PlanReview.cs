@@ -24,10 +24,32 @@ public sealed record PlanDepth(int Key, string Label, JobOpKind Kind, double Pre
     public DepthOrigin Origin => DepthOrigin.Presumed;
 }
 
+/// <summary>
+/// Decisão do usuário sobre o contorno externo, que corta a peça por inteiro, sem pontes, e pode soltá-la (auditoria A-02).
+/// Não há valor padrão: <see cref="NotReviewed"/> bloqueia a aplicação. O Assist não verifica fixação nem colisão em nenhuma das opções.
+/// </summary>
+public enum ReleaseStrategy
+{
+    /// <summary>Ainda não escolhido: bloqueia.</summary>
+    NotReviewed,
+
+    /// <summary>O usuário diz que a peça fica presa por outro meio depois do corte (grampos, vácuo, mesa de sacrifício, calço…).</summary>
+    HeldBySetup,
+
+    /// <summary>O contorno externo sai do plano; o usuário faz depois, fora do Assist.</summary>
+    OmitContour,
+
+    /// <summary>O usuário aceita que a peça solte no fim e a retira com a máquina parada.</summary>
+    AcceptRelease,
+}
+
 /// <summary>Resultado da revisão: operações com as profundidades confirmadas, ou o motivo de não poder aplicar.</summary>
 public sealed record PlanReviewResult(IReadOnlyList<CamOperationSpec>? Operations, string? Error)
 {
     public bool Ok => Operations is not null;
+
+    /// <summary>Avisos que acompanham a aplicação (fixação não verificada etc.).</summary>
+    public IReadOnlyList<string> Notes { get; init; } = [];
 }
 
 /// <summary>
@@ -44,6 +66,21 @@ public static class PlanReview
 
     private static double Depth(CamOperationSpec op) => Math.Round(op.Levels.TopZ - op.Levels.BottomZ, 4);
 
+    /// <summary>Índice da operação que corta o contorno externo da peça (contorno por fora), ou -1 se o plano não tem.</summary>
+    public static int ReleaseOperationIndex(PlanResult plan)
+    {
+        for (int i = 0; i < plan.Operations.Count; i++)
+        {
+            CamOperationSpec o = plan.Operations[i];
+            if (o.Kind == JobOpKind.Contour && o.ContourParams is { Side: ContourSide.Outside })
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
     /// <summary>Faltam profundidades: devolve o nome da primeira ainda sem valor, ou null se todas têm.</summary>
     public static string? FirstPending(PlanResult plan, IReadOnlyDictionary<int, double> depths) =>
         DepthsOf(plan).FirstOrDefault(d => !depths.ContainsKey(d.Key))?.Label;
@@ -52,11 +89,18 @@ public static class PlanReview
     /// Confere o plano (desatualização, ferramentas novas) e as profundidades digitadas e devolve as operações a aplicar, com
     /// as profundidades confirmadas no lugar das presumidas. O plano em si não é alterado.
     /// </summary>
-    public static PlanReviewResult Review(PlanResult plan, PlanInput current, IReadOnlySet<int>? confirmedNewTools, IReadOnlyDictionary<int, double> depths)
+    public static PlanReviewResult Review(PlanResult plan, PlanInput current, IReadOnlySet<int>? confirmedNewTools, IReadOnlyDictionary<int, double> depths,
+        ReleaseStrategy release = ReleaseStrategy.NotReviewed)
     {
         if (PlanValidity.CheckApply(plan, current, confirmedNewTools) is { } stale)
         {
             return new PlanReviewResult(null, stale);
+        }
+
+        int releaseIndex = ReleaseOperationIndex(plan);
+        if (releaseIndex >= 0 && release == ReleaseStrategy.NotReviewed)
+        {
+            return new PlanReviewResult(null, "Revise a fixação: o contorno da peça é cortado por inteiro, sem pontes, e a peça pode soltar. Escolha como ela fica presa ou se o contorno sai do plano.");
         }
 
         var ops = new List<CamOperationSpec>(plan.Operations);
@@ -95,6 +139,25 @@ public static class PlanReview
             }
         }
 
-        return new PlanReviewResult(ops, null);
+        var notes = new List<string>();
+        if (releaseIndex >= 0)
+        {
+            string label = ops[releaseIndex].Label;
+            switch (release)
+            {
+                case ReleaseStrategy.OmitContour:
+                    ops.RemoveAt(releaseIndex);
+                    notes.Add($"\"{label}\" ficou fora do plano: faça o contorno depois, com a fixação definida por você.");
+                    break;
+                case ReleaseStrategy.HeldBySetup:
+                    notes.Add("Fixação informada pelo usuário e não verificada: o Assist não confere morsa, grampos, vácuo nem colisão.");
+                    break;
+                default:
+                    notes.Add("O usuário aceitou que a peça solte no fim do contorno, sem pontes. Retire com a máquina parada. Fixação não verificada.");
+                    break;
+            }
+        }
+
+        return new PlanReviewResult(ops, null) { Notes = notes };
     }
 }

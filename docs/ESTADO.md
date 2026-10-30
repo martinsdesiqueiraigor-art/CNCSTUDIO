@@ -305,3 +305,10 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Assist (Plano 2D): um campo por profundidade (o cinza dentro do campo é a suposição, não um valor) com o estado "presumida / confirmada / valor inválido"; o Aplicar só liga com todas digitadas, junto com as ferramentas novas confirmadas; mudar espessura/material/desenho/ferramentas descarta tudo.
 - 14 testes novos no Core. Conferido no app (Xvfb): 3 campos, aplicar bloqueado até todas digitadas, valor inválido e bolsão maior que o bruto bloqueiam, aplicado com fundos -12, -12, -3, -11,5.
 - Fora do escopo: estado "fornecida" (nenhum dado do 2D fornece profundidade hoje), Z seguro/aproximação (PR 5), peça solta (PR 4). A nota "Profundidades supostas…" do plano continua; o texto do 3D (R-05) não mudou.
+
+## Assist — contorno externo que solta a peça exige revisão da fixação (`ajuste-assist-peca-solta`, a partir da `main` com o PR #88; auditoria A-02, Fase 1 / PR 4)
+- Core `PlanReview`: o contorno externo é cortado por inteiro, por último e **sem pontes** (o `Contour` do Core não tem pontes; não implementei). `Review(..., ReleaseStrategy)` não tem valor padrão: `NotReviewed` bloqueia a aplicação. Opções: `HeldBySetup` (presa por outro meio, o usuário confere), `OmitContour` (tira só a operação do contorno do que será aplicado; o plano sugerido não muda) e `AcceptRelease` (aceita que solte e retira com a máquina parada).
+- Nenhuma opção diz "peça segura": o resultado traz avisos ("fixação não verificada: o Assist não confere morsa, grampos, vácuo nem colisão"), mostrados depois de aplicar.
+- Assist (Plano 2D): caixa de seleção sem opção marcada, sob o texto de risco; o Aplicar só liga com a fixação escolhida, as profundidades digitadas e as ferramentas novas confirmadas.
+- 5 testes novos no Core (19 em `PlanReviewTests`). Conferido no app (Xvfb): sem escolher bloqueia; com "presa por outro meio" liga; "tirar o contorno" aplica 3 operações (furos e bolsão), sem o contorno.
+- Fora do escopo: pontes (exige mudar o Core/CAM), checagem de morsa/castanha (os dados da biblioteca não acompanham o setup), Z (PR 5).
