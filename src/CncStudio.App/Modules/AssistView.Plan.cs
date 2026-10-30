@@ -23,11 +23,15 @@ public sealed partial class AssistView
     private readonly Dictionary<int, double> _reviewedDepths = [];
     private ReleaseStrategy _release = ReleaseStrategy.NotReviewed;
     private readonly double?[] _zValues = new double?[3]; // seguro, aproximação, topo da peça
+    private readonly Dictionary<int, double> _rpmAdjust = [];
 
     /// <summary>Contornos do desenho do Trabalho de fresa e a espessura do bruto, se já definida.</summary>
     public Func<(IReadOnlyList<Contour> Contours, double? Thickness)>? PlanDrawing { get; set; }
 
     public Func<IReadOnlyList<PlanTool>>? PlanTools { get; set; }
+
+    /// <summary>Rotação máxima do fuso do perfil de máquina ativo (rpm); null = não informada.</summary>
+    public Func<double?>? PlanMaxRpm { get; set; }
 
     /// <summary>Põe as operações sugeridas no Trabalho de fresa.</summary>
     public Action<IReadOnlyList<CamOperationSpec>>? ApplyPlan { get; set; }
@@ -124,6 +128,7 @@ public sealed partial class AssistView
         _reviewedDepths.Clear();
         _release = ReleaseStrategy.NotReviewed;
         Array.Clear(_zValues);
+        _rpmAdjust.Clear();
         _planDepthsPanel.Children.Clear();
     }
 
@@ -136,10 +141,62 @@ public sealed partial class AssistView
 
         (PlanInput? input, string? error) = BuildPlanInput();
         return input is null ? new PlanReviewResult(null, error) : PlanReview.Review(plan, input, _confirmedNewTools, _reviewedDepths, _release,
-            _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null);
+            _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null, _rpmAdjust);
     }
 
     private void RefreshPlanApply() => _planApply.IsEnabled = _plan is { Ok: true } && ReviewNow().Ok;
+
+    /// <summary>Rotação: sem limite no perfil, avisa "não verificada"; acima do limite, exige uma rotação digitada dentro dele.</summary>
+    private void AddRpmFields(PlanResult plan, PlanInput input)
+    {
+        if (input.MaxSpindleRpm is not { } limit)
+        {
+            _planDepthsPanel.Children.Add(new TextBlock
+            {
+                Text = "Rotação NÃO VERIFICADA: o perfil de máquina ativo não tem a rotação máxima do fuso. Informe em CAM › Máquina para o Assist conferir. Nenhum limite é suposto.",
+                TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+            });
+            return;
+        }
+
+        IReadOnlyList<PlanRpmIssue> issues = PlanReview.RpmIssues(plan, input);
+        if (issues.Count == 0)
+        {
+            return;
+        }
+
+        _planDepthsPanel.Children.Add(new TextBlock
+        {
+            Text = $"Rotação acima do limite do fuso do perfil da máquina ({limit:0} rpm). Digite uma rotação de no máximo {limit:0} para cada ferramenta; o avanço é reduzido na mesma proporção.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+        });
+        foreach (PlanRpmIssue issue in issues)
+        {
+            var status = new TextBlock { Text = "acima do limite: digite o valor", VerticalAlignment = VerticalAlignment.Center, FontSize = 12, Opacity = 0.8 };
+            var box = new TextBox { Width = 90, Watermark = issue.Calculated.ToString("0", Br) };
+            int number = issue.ToolNumber;
+            box.TextChanged += (_, _) =>
+            {
+                if (double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) && v > 0 && v <= issue.Max + 1e-9)
+                {
+                    _rpmAdjust[number] = v;
+                    status.Text = "confirmada";
+                }
+                else
+                {
+                    _rpmAdjust.Remove(number);
+                    status.Text = string.IsNullOrWhiteSpace(box.Text) ? "acima do limite: digite o valor" : $"inválida (máx. {issue.Max:0})";
+                }
+
+                RefreshPlanApply();
+            };
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            row.Children.Add(new TextBlock { Text = $"T{issue.ToolNumber} · Ø{issue.Diameter.ToString("0.##", Br)} · calculada {issue.Calculated:0} rpm", Width = 260, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
+            row.Children.Add(box);
+            row.Children.Add(status);
+            _planDepthsPanel.Children.Add(row);
+        }
+    }
 
     /// <summary>Alturas Z obrigatórias (sem valor padrão): Z seguro, aproximação e topo da peça, na coordenada do Trabalho.</summary>
     private void AddHeightsFields(PlanResult plan)
@@ -198,7 +255,7 @@ public sealed partial class AssistView
     }
 
     /// <summary>Uma caixa de número por profundidade presumida: o Aplicar só liga quando todas tiverem um valor digitado.</summary>
-    private void ShowPlanDepths(PlanResult plan)
+    private void ShowPlanDepths(PlanResult plan, PlanInput input)
     {
         IReadOnlyList<PlanDepth> depths = PlanReview.DepthsOf(plan);
         if (depths.Count == 0)
@@ -206,6 +263,7 @@ public sealed partial class AssistView
             return;
         }
 
+        AddRpmFields(plan, input);
         AddHeightsFields(plan);
         if (PlanReview.ReleaseOperationIndex(plan) >= 0)
         {
@@ -309,7 +367,7 @@ public sealed partial class AssistView
         }
 
         MaterialEntry? material = _planMaterial.SelectedIndex >= 0 && _planMaterial.SelectedIndex < _lib.Materials.Count ? _lib.Materials[_planMaterial.SelectedIndex] : null;
-        return (new PlanInput(drawing.contours, thick, material, PlanTools?.Invoke() ?? []), null);
+        return (new PlanInput(drawing.contours, thick, material, PlanTools?.Invoke() ?? [], MaxSpindleRpm: PlanMaxRpm?.Invoke()), null);
     }
 
     private void LoadPlan()
@@ -382,7 +440,7 @@ public sealed partial class AssistView
         _planResult.Text = string.Join("\n", lines);
         _plan = plan;
         ShowPlanTools(plan, input);
-        ShowPlanDepths(plan);
+        ShowPlanDepths(plan, input);
         RefreshPlanApply();
     }
 }

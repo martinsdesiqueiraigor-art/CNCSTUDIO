@@ -87,6 +87,12 @@ public sealed class MachineProfile
 
     public RotaryOutputMode Mode { get; set; } = RotaryOutputMode.Calculated;
 
+    /// <summary>
+    /// Rotação máxima do fuso (rpm) informada pelo usuário. Null = não informada: nada é suposto pelo modelo da máquina e o Assist
+    /// marca a rotação como "não verificada". Perfis antigos, sem este campo, continuam válidos.
+    /// </summary>
+    public double? MaxSpindleRpm { get; set; }
+
     public List<RotaryAxisConfig> Axes { get; set; } = [];
 
     [JsonIgnore]
@@ -135,6 +141,11 @@ public sealed class MachineProfile
         if (string.IsNullOrWhiteSpace(Name))
         {
             errors.Add("Dê um nome ao perfil da máquina.");
+        }
+
+        if (MaxSpindleRpm is { } rpm && !(double.IsFinite(rpm) && rpm > 0))
+        {
+            errors.Add("A rotação máxima do fuso precisa ser um número maior que zero (ou deixe em branco se não souber).");
         }
 
         if (Axes.Count > MaxRotaryAxes)
