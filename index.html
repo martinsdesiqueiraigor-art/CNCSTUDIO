@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Casillas Code — editor e simulador CNC</title>
+  <meta name="description" content="Casillas CNC: editor e simulador de programas CNC Fanuc e Siemens (torno e fresa) com simulação 3D que roda no seu aparelho, sem enviar o programa a servidor. Na web e no celular: Code, Macro, Otimizador, Academy e CAM básico. No Windows: CAM completo, Trabalho, CAM 3D e Assist." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:site_name" content="Casillas CNC" />
+  <meta property="og:title" content="Casillas CNC — editor, simulador e CAM para Fanuc e Siemens" />
+  <meta property="og:description" content="Simule programas CNC em 3D no celular e no computador, gere programas com Macro e CAM, e aprenda na Academy. Roda no seu aparelho; seu programa não vai para servidor." />
+  <meta property="og:image" content="./icons/icone-512.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Casillas CNC",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Web, Android, iOS, Windows",
+    "inLanguage": "pt-BR",
+    "description": "Plataforma de usinagem CNC em português: edita, simula em 3D e gera programas Fanuc e Siemens, de torno e fresa. Roda no aparelho do usuário.",
+    "featureList": [
+      "Editor de G-code Fanuc e Siemens com ajuda no editor, busca e funções NC",
+      "Simulação 3D com remoção de material (fresa e torno), execução passo a passo e aviso de G00 no material",
+      "Macro: geradores de programa com prévia 3D (furação, bolsões, rasgo, faceamento, rosca helicoidal, texto em gravação)",
+      "Otimizador: encontra repetições e propõe laços Macro B só para simulador",
+      "Academy: aulas, exercícios e quizzes de CNC em português",
+      "Biblioteca de exemplos e glossário Fanuc e Siemens",
+      "Comparar programas, estatísticas de tempo e folha de setup",
+      "CAM na web: contorno, bolsão e texto no cilindro",
+      "Desktop Windows: CAM 2,5D de fresa e torno (rosca, canal, rebaixo), pós Fanuc e Siemens, 4º eixo e face girada",
+      "Desktop Windows: tela Trabalho em árvore com visualização 2D e 3D",
+      "Desktop Windows: CAM 3D com leitura de STL e varredura de acabamento",
+      "Desktop Windows: Casillas Assist com orçamento, tempo de ciclo e plano a partir do DXF"
+    ]
+  }
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1117" />
+  <link rel="icon" type="image/png" href="./icone.png" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/icone-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Casillas Code" />
+  <link rel="stylesheet" href="./app.css" />
+  <script type="module" src="./main.js"></script>
+  <script>
+    // Versão desta publicação (o CI troca o marcador pelo número, ex.: 1.0.150)
+    window.APP_VERSION = '1.0.356';
+
+    // App instalável e funcionamento offline (só em https ou localhost)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+    }
+
+    // Aviso de versão nova: compara a versão desta página com a publicada (version.txt).
+    // Confere ao abrir, ao voltar do segundo plano e a cada 30 min.
+    (function () {
+      function showBanner(newVersion) {
+        if (document.getElementById('update-banner')) return;
+        const b = document.createElement('button');
+        b.id = 'update-banner';
+        b.type = 'button';
+        b.textContent = 'Nova versão disponível (' + newVersion + ') — tocar para atualizar';
+        b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 8px);' +
+          'z-index:10000;max-width:92vw;padding:10px 16px;border:0;border-radius:10px;background:#f0883e;color:#0d1117;' +
+          'font:600 14px system-ui,-apple-system,Roboto,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.45);cursor:pointer';
+        b.addEventListener('click', async () => {
+          b.textContent = 'Atualizando…';
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (const r of regs) await r.update();
+            for (const k of await caches.keys()) await caches.delete(k);
+          } catch (e) { }
+          location.reload();
+        });
+        document.body.appendChild(b);
+      }
+      async function check() {
+        if (window.APP_VERSION.indexOf('__') === 0) return; // sem número (compilação local)
+        try {
+          const r = await fetch('./version.txt?t=' + Date.now(), { cache: 'no-store' });
+          if (!r.ok) return;
+          const v = (await r.text()).trim();
+          if (v && v !== window.APP_VERSION) showBanner(v);
+        } catch (e) { }
+      }
+      window.addEventListener('load', () => setTimeout(check, 3000));
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        check();
+        if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+      });
+      setInterval(check, 30 * 60 * 1000);
+    })();
+  </script>
+</head>
+<body>
+  <div id="out">
+    <div class="avalonia-splash">
+      <img src="./assinatura.svg" alt="Casillas Code" />
+      <div class="bar"></div>
+      <div>Carregando…</div>
+      <div id="splash-version" style="font-size:12px;opacity:.7"></div>
+      <script>
+        document.getElementById('splash-version').textContent =
+          window.APP_VERSION.indexOf('__') === 0 ? 'versão de desenvolvimento' : 'versão ' + window.APP_VERSION;
+      </script>
+    </div>
+  </div>
+</body>
+</html>
