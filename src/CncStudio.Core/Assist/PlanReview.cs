@@ -43,6 +43,31 @@ public enum ReleaseStrategy
     AcceptRelease,
 }
 
+/// <summary>
+/// Alturas Z do plano, informadas pelo usuário (auditoria A-05). Todas na coordenada do Trabalho (a mesma do programa):
+/// <see cref="TopZ"/> é onde fica o topo da peça (referência Z; o plano supõe 0), <see cref="ClearanceZ"/> o plano de aproximação
+/// (rápido até ele, depois avanço) e <see cref="SafeZ"/> a altura de deslocamento entre operações. Precisa valer
+/// <c>SafeZ &gt; ClearanceZ &gt; TopZ</c>. Altura acima da peça não prova ausência de colisão com morsa, grampos ou castanhas.
+/// </summary>
+public sealed record PlanHeights(double SafeZ, double ClearanceZ, double TopZ)
+{
+    /// <summary>Motivo se as alturas são inconsistentes; null se estão coerentes entre si.</summary>
+    public string? Validate()
+    {
+        if (!double.IsFinite(SafeZ) || !double.IsFinite(ClearanceZ) || !double.IsFinite(TopZ))
+        {
+            return "Alturas Z: digite números válidos.";
+        }
+
+        if (ClearanceZ <= TopZ)
+        {
+            return $"Alturas Z: a aproximação ({ClearanceZ:0.##}) precisa ficar acima do topo da peça ({TopZ:0.##}).";
+        }
+
+        return SafeZ <= ClearanceZ ? $"Alturas Z: o Z seguro ({SafeZ:0.##}) precisa ficar acima da aproximação ({ClearanceZ:0.##})." : null;
+    }
+}
+
 /// <summary>Resultado da revisão: operações com as profundidades confirmadas, ou o motivo de não poder aplicar.</summary>
 public sealed record PlanReviewResult(IReadOnlyList<CamOperationSpec>? Operations, string? Error)
 {
@@ -90,7 +115,7 @@ public static class PlanReview
     /// as profundidades confirmadas no lugar das presumidas. O plano em si não é alterado.
     /// </summary>
     public static PlanReviewResult Review(PlanResult plan, PlanInput current, IReadOnlySet<int>? confirmedNewTools, IReadOnlyDictionary<int, double> depths,
-        ReleaseStrategy release = ReleaseStrategy.NotReviewed)
+        ReleaseStrategy release = ReleaseStrategy.NotReviewed, PlanHeights? heights = null)
     {
         if (PlanValidity.CheckApply(plan, current, confirmedNewTools) is { } stale)
         {
@@ -101,6 +126,19 @@ public static class PlanReview
         if (releaseIndex >= 0 && release == ReleaseStrategy.NotReviewed)
         {
             return new PlanReviewResult(null, "Revise a fixação: o contorno da peça é cortado por inteiro, sem pontes, e a peça pode soltar. Escolha como ela fica presa ou se o contorno sai do plano.");
+        }
+
+        if (plan.Operations.Count > 0)
+        {
+            if (heights is null)
+            {
+                return new PlanReviewResult(null, "Faltam as alturas Z: digite o Z seguro, a aproximação e o topo da peça (referência Z do seu zero-peça).");
+            }
+
+            if (heights.Validate() is { } badHeights)
+            {
+                return new PlanReviewResult(null, badHeights);
+            }
         }
 
         var ops = new List<CamOperationSpec>(plan.Operations);
@@ -124,7 +162,7 @@ public static class PlanReview
             foreach (int i in d.OperationIndexes)
             {
                 CamOperationSpec op = ops[i];
-                CamLevels levels = op.Levels with { BottomZ = op.Levels.TopZ - value, StepDown = Math.Min(op.Levels.StepDown, value) };
+                CamLevels levels = new(heights!.SafeZ, heights.ClearanceZ, heights.TopZ, heights.TopZ - value, Math.Min(op.Levels.StepDown, value));
                 if (levels.Validate() is { } invalid)
                 {
                     return new PlanReviewResult(null, $"\"{d.Label}\": {invalid}");
@@ -140,6 +178,11 @@ public static class PlanReview
         }
 
         var notes = new List<string>();
+        if (heights is not null && ops.Count > 0)
+        {
+            notes.Add($"Alturas Z informadas pelo usuário (seguro {heights.SafeZ:0.##}, aproximação {heights.ClearanceZ:0.##}, topo da peça {heights.TopZ:0.##}). Estar acima da peça não garante estar livre de morsa, grampos ou castanhas: não verificado.");
+        }
+
         if (releaseIndex >= 0)
         {
             string label = ops[releaseIndex].Label;

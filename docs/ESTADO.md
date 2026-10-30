@@ -312,3 +312,10 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Assist (Plano 2D): caixa de seleção sem opção marcada, sob o texto de risco; o Aplicar só liga com a fixação escolhida, as profundidades digitadas e as ferramentas novas confirmadas.
 - 5 testes novos no Core (19 em `PlanReviewTests`). Conferido no app (Xvfb): sem escolher bloqueia; com "presa por outro meio" liga; "tirar o contorno" aplica 3 operações (furos e bolsão), sem o contorno.
 - Fora do escopo: pontes (exige mudar o Core/CAM), checagem de morsa/castanha (os dados da biblioteca não acompanham o setup), Z (PR 5).
+
+## Assist — alturas Z configuráveis (`ajuste-assist-alturas-z`, a partir da `main` com o PR #89; auditoria A-05, Fase 1 / PR 5)
+- Core `PlanHeights(SafeZ, ClearanceZ, TopZ)`: Z seguro, plano de aproximação e topo da peça (referência Z do zero-peça), na coordenada do Trabalho. `Validate`: finitos e `Z seguro > aproximação > topo`. `PlanReview.Review(..., heights)` não tem padrão: sem alturas bloqueia a aplicação. As alturas digitadas vão para todas as operações e o fundo acompanha o topo (`fundo = topo − profundidade`); topo negativo vale. O plano sugerido (50 / 2 / 0 supostos) não muda.
+- Aviso após aplicar: "Alturas Z informadas pelo usuário… estar acima da peça não garante estar livre de morsa, grampos ou castanhas: não verificado". Sem detecção de colisão e sem promessa de segurança.
+- Assist (Plano 2D): três campos (Z seguro, Aproximação, Topo da peça), sem valor preenchido (o cinza é a suposição do plano), com o texto explicando cada coordenada; o Aplicar só liga junto das profundidades, fixação e ferramentas novas.
+- 12 testes novos no Core (1122 no total). Conferido no app (Xvfb): sem Z, só 2 de 3, aproximação = topo (recusa) e 80/5/0 (aplica; operações com níveis 80, 5, 0 e fundos -12, -12, -3, -11,5).
+- Fora do escopo: conferência de morsa/castanha/grampos (sem dados do setup), Z do 3D (R-05), rpm (PR 6). Origem/zero-peça continua a definição do usuário no Trabalho.

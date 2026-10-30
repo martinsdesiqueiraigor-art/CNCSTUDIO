@@ -22,6 +22,7 @@ public sealed partial class AssistView
     private readonly StackPanel _planDepthsPanel = new() { Spacing = 4 };
     private readonly Dictionary<int, double> _reviewedDepths = [];
     private ReleaseStrategy _release = ReleaseStrategy.NotReviewed;
+    private readonly double?[] _zValues = new double?[3]; // seguro, aproximação, topo da peça
 
     /// <summary>Contornos do desenho do Trabalho de fresa e a espessura do bruto, se já definida.</summary>
     public Func<(IReadOnlyList<Contour> Contours, double? Thickness)>? PlanDrawing { get; set; }
@@ -122,6 +123,7 @@ public sealed partial class AssistView
         _planToolsPanel.Children.Clear();
         _reviewedDepths.Clear();
         _release = ReleaseStrategy.NotReviewed;
+        Array.Clear(_zValues);
         _planDepthsPanel.Children.Clear();
     }
 
@@ -133,10 +135,39 @@ public sealed partial class AssistView
         }
 
         (PlanInput? input, string? error) = BuildPlanInput();
-        return input is null ? new PlanReviewResult(null, error) : PlanReview.Review(plan, input, _confirmedNewTools, _reviewedDepths, _release);
+        return input is null ? new PlanReviewResult(null, error) : PlanReview.Review(plan, input, _confirmedNewTools, _reviewedDepths, _release,
+            _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null);
     }
 
     private void RefreshPlanApply() => _planApply.IsEnabled = _plan is { Ok: true } && ReviewNow().Ok;
+
+    /// <summary>Alturas Z obrigatórias (sem valor padrão): Z seguro, aproximação e topo da peça, na coordenada do Trabalho.</summary>
+    private void AddHeightsFields(PlanResult plan)
+    {
+        _planDepthsPanel.Children.Add(new TextBlock
+        {
+            Text = "Alturas Z (mm, na coordenada do seu zero-peça, a mesma do programa): topo da peça = onde fica a face de cima; aproximação = acima do topo, onde o rápido termina e começa o avanço; Z seguro = altura de deslocamento entre operações, acima da aproximação. Estar acima da peça não garante estar livre de morsa, grampos ou castanhas: o Assist não verifica isso.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+        });
+        PlanResult p = plan;
+        CamLevels sample = p.Operations[0].Levels;
+        (string Name, double Presumed)[] fields = [("Z seguro", sample.SafeZ), ("Aproximação", sample.ClearanceZ), ("Topo da peça (referência Z)", sample.TopZ)];
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        for (int i = 0; i < fields.Length; i++)
+        {
+            int index = i;
+            row.Children.Add(new TextBlock { Text = fields[i].Name, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
+            var box = new TextBox { Width = 80, Watermark = fields[i].Presumed.ToString("0.##", Br) };
+            box.TextChanged += (_, _) =>
+            {
+                _zValues[index] = double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) ? v : null;
+                RefreshPlanApply();
+            };
+            row.Children.Add(box);
+        }
+
+        _planDepthsPanel.Children.Add(row);
+    }
 
     /// <summary>Escolha obrigatória (sem valor padrão) de como a peça fica presa quando o contorno externo a libera.</summary>
     private void AddReleaseChoice()
@@ -175,6 +206,7 @@ public sealed partial class AssistView
             return;
         }
 
+        AddHeightsFields(plan);
         if (PlanReview.ReleaseOperationIndex(plan) >= 0)
         {
             AddReleaseChoice();
