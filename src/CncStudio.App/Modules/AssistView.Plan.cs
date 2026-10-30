@@ -21,6 +21,7 @@ public sealed partial class AssistView
     private readonly HashSet<int> _confirmedNewTools = [];
     private readonly StackPanel _planDepthsPanel = new() { Spacing = 4 };
     private readonly Dictionary<int, double> _reviewedDepths = [];
+    private ReleaseStrategy _release = ReleaseStrategy.NotReviewed;
 
     /// <summary>Contornos do desenho do Trabalho de fresa e a espessura do bruto, se já definida.</summary>
     public Func<(IReadOnlyList<Contour> Contours, double? Thickness)>? PlanDrawing { get; set; }
@@ -72,7 +73,7 @@ public sealed partial class AssistView
                 }
 
                 ApplyPlan(review.Operations!);
-                _planResult.Text += "\n(operações adicionadas ao Trabalho fresa)";
+                _planResult.Text += "\n(operações adicionadas ao Trabalho fresa)" + string.Concat(review.Notes.Select(n => "\n• " + n));
                 _planApply.IsEnabled = false;
                 _plan = null;
                 ClearPlanTools();
@@ -120,6 +121,7 @@ public sealed partial class AssistView
         _confirmedNewTools.Clear();
         _planToolsPanel.Children.Clear();
         _reviewedDepths.Clear();
+        _release = ReleaseStrategy.NotReviewed;
         _planDepthsPanel.Children.Clear();
     }
 
@@ -131,10 +133,38 @@ public sealed partial class AssistView
         }
 
         (PlanInput? input, string? error) = BuildPlanInput();
-        return input is null ? new PlanReviewResult(null, error) : PlanReview.Review(plan, input, _confirmedNewTools, _reviewedDepths);
+        return input is null ? new PlanReviewResult(null, error) : PlanReview.Review(plan, input, _confirmedNewTools, _reviewedDepths, _release);
     }
 
     private void RefreshPlanApply() => _planApply.IsEnabled = _plan is { Ok: true } && ReviewNow().Ok;
+
+    /// <summary>Escolha obrigatória (sem valor padrão) de como a peça fica presa quando o contorno externo a libera.</summary>
+    private void AddReleaseChoice()
+    {
+        _planDepthsPanel.Children.Add(new TextBlock
+        {
+            Text = "Fixação: o contorno da peça é cortado por inteiro, por último e sem pontes (o CAM ainda não gera pontes), então a peça pode soltar. O Assist não verifica fixação nem colisão. Escolha uma opção para poder aplicar.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+        });
+        (string Text, ReleaseStrategy Value)[] options =
+        [
+            ("Presa por outro meio depois do corte (grampos, vácuo, mesa de sacrifício, calço…): eu confiro", ReleaseStrategy.HeldBySetup),
+            ("Tirar o contorno deste plano (faço depois, fora do Assist)", ReleaseStrategy.OmitContour),
+            ("Aceito que a peça solte no fim; vou retirar com a máquina parada", ReleaseStrategy.AcceptRelease),
+        ];
+        var combo = new ComboBox { MinWidth = 520, PlaceholderText = "Escolha a estratégia de fixação…" };
+        foreach ((string text, _) in options)
+        {
+            combo.Items.Add(text);
+        }
+
+        combo.SelectionChanged += (_, _) =>
+        {
+            _release = combo.SelectedIndex >= 0 ? options[combo.SelectedIndex].Value : ReleaseStrategy.NotReviewed;
+            RefreshPlanApply();
+        };
+        _planDepthsPanel.Children.Add(combo);
+    }
 
     /// <summary>Uma caixa de número por profundidade presumida: o Aplicar só liga quando todas tiverem um valor digitado.</summary>
     private void ShowPlanDepths(PlanResult plan)
@@ -143,6 +173,11 @@ public sealed partial class AssistView
         if (depths.Count == 0)
         {
             return;
+        }
+
+        if (PlanReview.ReleaseOperationIndex(plan) >= 0)
+        {
+            AddReleaseChoice();
         }
 
         _planDepthsPanel.Children.Add(new TextBlock
