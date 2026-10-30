@@ -72,6 +72,7 @@ public partial class MainView : UserControl
         Editor.Options.HighlightCurrentLine = true;
         Editor.TextChanged += (_, _) =>
         {
+            UpdateEditorStatus();
             ScheduleAnalysis();
             if (!_loading && !_dirty)
             {
@@ -275,6 +276,7 @@ public partial class MainView : UserControl
         Wire3D();
         DialectCombo.SelectionChanged += (_, _) =>
         {
+            UpdateEditorStatus();
             if (!_loading)
             {
                 Analyze(keepView: true);
@@ -1126,7 +1128,6 @@ public partial class MainView : UserControl
 
         var renumber = new Button { Content = "Renumerar", Classes = { "bar", "primary" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
         var remove = new Button { Content = "Remover numeração", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
-        var undo = new Button { Content = "Desfazer", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
         var insertSpaces = new Button { Content = "Espaçar código (N10 G01 X10)", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
         var removeSpaces = new Button { Content = "Juntar código (N10G01X10)", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
         var uppercase = new Button { Content = "Letras maiúsculas", Classes = { "bar" }, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
@@ -1140,29 +1141,30 @@ public partial class MainView : UserControl
             return grid;
         }
 
-        var panel = new StackPanel { Spacing = 6, Margin = new Thickness(6), MinWidth = 260 };
-        panel.Children.Add(new TextBlock { Text = "Renumerar blocos (N)", FontWeight = FontWeight.Bold });
-        panel.Children.Add(Row("Começar em N", start));
-        panel.Children.Add(Row("Incremento", increment));
-        panel.Children.Add(all);
-        panel.Children.Add(existing);
-        panel.Children.Add(renumber);
-        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
-        panel.Children.Add(remove);
-        panel.Children.Add(new TextBlock
+        var renumPanel = new StackPanel { Spacing = 6, Margin = new Thickness(6), MinWidth = 260 };
+        renumPanel.Children.Add(new TextBlock { Text = "Renumerar blocos (N)", FontWeight = FontWeight.Bold });
+        renumPanel.Children.Add(Row("Começar em N", start));
+        renumPanel.Children.Add(Row("Incremento", increment));
+        renumPanel.Children.Add(all);
+        renumPanel.Children.Add(existing);
+        renumPanel.Children.Add(renumber);
+        renumPanel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
+        renumPanel.Children.Add(remove);
+        renumPanel.Children.Add(new TextBlock
         {
-            Text = "P/Q do G70–G73, GOTO e M99 P acompanham a nova numeração.",
+            Text = "P/Q do G70–G73, GOTO e M99 P acompanham a nova numeração. Dá para desfazer.",
             FontSize = 12,
             Opacity = 0.7,
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = 260,
         });
-        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
-        panel.Children.Add(new TextBlock { Text = "Formatar o programa", FontWeight = FontWeight.Bold });
-        panel.Children.Add(insertSpaces);
-        panel.Children.Add(removeSpaces);
-        panel.Children.Add(uppercase);
-        panel.Children.Add(new TextBlock
+
+        var formatPanel = new StackPanel { Spacing = 6, Margin = new Thickness(6), MinWidth = 260 };
+        formatPanel.Children.Add(new TextBlock { Text = "Formatar o programa", FontWeight = FontWeight.Bold });
+        formatPanel.Children.Add(insertSpaces);
+        formatPanel.Children.Add(removeSpaces);
+        formatPanel.Children.Add(uppercase);
+        formatPanel.Children.Add(new TextBlock
         {
             Text = "Comentários e textos ficam como estão. Dá para desfazer.",
             FontSize = 12,
@@ -1170,13 +1172,22 @@ public partial class MainView : UserControl
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = 260,
         });
-        panel.Children.Add(new Separator { Margin = new Thickness(0, 4) });
-        panel.Children.Add(undo);
 
-        var flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedRight };
-        flyout.Opened += (_, _) => undo.IsEnabled = Editor.CanUndo;
-        Hide3DWhileOpen(flyout);
-        ToolsButton.Flyout = flyout;
+        var renumFlyout = new Flyout { Content = renumPanel, Placement = PlacementMode.TopEdgeAlignedLeft };
+        var formatFlyout = new Flyout { Content = formatPanel, Placement = PlacementMode.TopEdgeAlignedRight };
+        Hide3DWhileOpen(renumFlyout);
+        Hide3DWhileOpen(formatFlyout);
+        RenumberButton.Flyout = renumFlyout;
+        FormatButton.Flyout = formatFlyout;
+        UndoButton.Click += (_, _) =>
+        {
+            if (Editor.CanUndo)
+            {
+                StopSimulation();
+                Editor.Undo();
+                _statusNote = "Desfeito";
+            }
+        };
 
         renumber.Click += (_, _) =>
         {
@@ -1186,38 +1197,28 @@ public partial class MainView : UserControl
             Store("cc.rn.start", first.ToString(System.Globalization.CultureInfo.InvariantCulture));
             Store("cc.rn.step", step.ToString(System.Globalization.CultureInfo.InvariantCulture));
             Store("cc.rn.mode", mode == RenumberMode.ExistingOnly ? "existing" : "all");
-            flyout.Hide();
+            renumFlyout.Hide();
             ApplyRenumber(new RenumberOptions(first, step, mode));
         };
         remove.Click += (_, _) =>
         {
-            flyout.Hide();
+            renumFlyout.Hide();
             ApplyRenumber(new RenumberOptions(Mode: RenumberMode.Remove));
         };
         insertSpaces.Click += (_, _) =>
         {
-            flyout.Hide();
+            formatFlyout.Hide();
             ApplyTextTool(text => NcTextTools.InsertSpaces(text, CurrentDialect), "Código espaçado", "O código já está espaçado.");
         };
         removeSpaces.Click += (_, _) =>
         {
-            flyout.Hide();
+            formatFlyout.Hide();
             ApplyTextTool(text => NcTextTools.RemoveSpaces(text, CurrentDialect), "Espaços removidos", "Não há espaços para remover.");
         };
         uppercase.Click += (_, _) =>
         {
-            flyout.Hide();
+            formatFlyout.Hide();
             ApplyTextTool(text => NcTextTools.ToUpperOutsideComments(text, CurrentDialect), "Convertido para maiúsculas", "O programa já está em maiúsculas.");
-        };
-        undo.Click += (_, _) =>
-        {
-            flyout.Hide();
-            if (Editor.CanUndo)
-            {
-                StopSimulation();
-                Editor.Undo();
-                _statusNote = "Desfeito";
-            }
         };
     }
 
@@ -1413,8 +1414,22 @@ public partial class MainView : UserControl
 
     // ───────────────────────── Editor ↔ gráfico ─────────────────────────
 
+    /// <summary>Linha de estado do editor: "Ln 10, Col 1 · 36 linhas · FANUC".</summary>
+    private void UpdateEditorStatus()
+    {
+        if (Editor.Document is null)
+        {
+            return;
+        }
+
+        var caret = Editor.TextArea.Caret;
+        string dialect = DialectCombo.SelectedIndex == 1 ? "SIEMENS" : "FANUC";
+        EditorStatusText.Text = $"Ln {caret.Line}, Col {caret.Column} · {Editor.Document.LineCount} linha(s) · {dialect}";
+    }
+
     private void OnCaretMoved()
     {
+        UpdateEditorStatus();
         if (!_loading)
         {
             ScheduleSave();
@@ -1902,7 +1917,7 @@ public partial class MainView : UserControl
                 _editorCollapsed = false;
                 Editor.IsVisible = true;
                 FileNameText.IsVisible = true;
-                ToolsButton.IsVisible = true;
+                EditorActions.IsVisible = true;
                 EditButton.IsVisible = _touch;
                 UpdateProblemsButton();
             }
