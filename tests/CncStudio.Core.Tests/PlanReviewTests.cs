@@ -19,8 +19,10 @@ public class PlanReviewTests
     private static PlanInput Input() => new(Plate(), 10, Steel, [new PlanTool(1, 10, false, "Fresa 10"), new PlanTool(2, 8, true, "Broca 8")]);
 
     /// <summary>Review com a fixação já escolhida: os testes de profundidade não tratam da estratégia de fixação.</summary>
-    private static PlanReviewResult Rev(PlanResult plan, PlanInput input, IReadOnlySet<int>? tools, IReadOnlyDictionary<int, double> depths, ReleaseStrategy release = ReleaseStrategy.HeldBySetup) =>
-        PlanReview.Review(plan, input, tools, depths, release);
+    private static PlanReviewResult Rev(PlanResult plan, PlanInput input, IReadOnlySet<int>? tools, IReadOnlyDictionary<int, double> depths, ReleaseStrategy release = ReleaseStrategy.HeldBySetup, PlanHeights? heights = null) =>
+        PlanReview.Review(plan, input, tools, depths, release, heights ?? new PlanHeights(50, 2, 0));
+
+    private static readonly PlanHeights Std = new(50, 2, 0);
 
     private static Dictionary<int, double> All(PlanResult plan, double? value = null) =>
         PlanReview.DepthsOf(plan).ToDictionary(d => d.Key, d => value ?? d.Presumed);
@@ -169,11 +171,11 @@ public class PlanReviewTests
         PlanInput input = Input();
         PlanResult plan = AssistPlanner.Plan(input);
         Assert.True(PlanReview.ReleaseOperationIndex(plan) >= 0);
-        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan));
+        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.NotReviewed, Std);
         Assert.False(r.Ok);
         Assert.Contains("Revise a fixação", r.Error);
         Assert.Contains("sem pontes", r.Error);
-        Assert.False(PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.NotReviewed).Ok);
+        Assert.False(PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.NotReviewed, Std).Ok);
     }
 
     [Fact]
@@ -181,7 +183,7 @@ public class PlanReviewTests
     {
         PlanInput input = Input();
         PlanResult plan = AssistPlanner.Plan(input);
-        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.HeldBySetup);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.HeldBySetup, Std);
         Assert.True(r.Ok, r.Error);
         Assert.Equal(plan.Operations.Count, r.Operations!.Count);
         Assert.Contains(r.Notes, n => n.Contains("não verificada"));
@@ -193,7 +195,7 @@ public class PlanReviewTests
     {
         PlanInput input = Input();
         PlanResult plan = AssistPlanner.Plan(input);
-        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.AcceptRelease);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.AcceptRelease, Std);
         Assert.True(r.Ok, r.Error);
         Assert.Equal(plan.Operations.Count, r.Operations!.Count);
         Assert.Contains(r.Notes, n => n.Contains("solte") && n.Contains("não verificada"));
@@ -204,7 +206,7 @@ public class PlanReviewTests
     {
         PlanInput input = Input();
         PlanResult plan = AssistPlanner.Plan(input);
-        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.OmitContour);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.OmitContour, Std);
         Assert.True(r.Ok, r.Error);
         Assert.Equal(plan.Operations.Count - 1, r.Operations!.Count);
         Assert.DoesNotContain(r.Operations!, o => o.Kind == JobOpKind.Contour);
@@ -219,5 +221,68 @@ public class PlanReviewTests
     {
         PlanResult plan = AssistPlanner.Plan(new PlanInput([], 10, Steel, []));
         Assert.Equal(-1, PlanReview.ReleaseOperationIndex(plan));
+    }
+
+    [Fact]
+    public void Sem_as_alturas_Z_nao_aplica()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.HeldBySetup, null);
+        Assert.False(r.Ok);
+        Assert.Contains("Faltam as alturas Z", r.Error);
+    }
+
+    [Theory]
+    [InlineData(50, 2, 2)]   // aproximação no topo
+    [InlineData(50, 0, 0)]   // aproximação no topo (igual)
+    [InlineData(50, -1, 0)]  // aproximação abaixo do topo
+    [InlineData(2, 2, 0)]    // seguro igual à aproximação
+    [InlineData(1, 2, 0)]    // seguro abaixo da aproximação
+    [InlineData(double.NaN, 2, 0)]
+    [InlineData(50, double.PositiveInfinity, 0)]
+    [InlineData(50, 2, double.NaN)]
+    public void Alturas_incoerentes_sao_recusadas(double safe, double clearance, double top)
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.HeldBySetup, new PlanHeights(safe, clearance, top));
+        Assert.False(r.Ok);
+        Assert.Contains("Alturas Z", r.Error);
+    }
+
+    [Fact]
+    public void Alturas_do_usuario_vao_para_todas_as_operacoes_e_o_fundo_acompanha_o_topo()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        Dictionary<int, double> depths = PlanReview.DepthsOf(plan).ToDictionary(d => d.Key, d => d.Kind == JobOpKind.Pocket ? 4.0 : 10.0);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, depths, ReleaseStrategy.HeldBySetup, new PlanHeights(120, 30, 25));
+        Assert.True(r.Ok, r.Error);
+        Assert.All(r.Operations!, o => { Assert.Equal(120, o.Levels.SafeZ); Assert.Equal(30, o.Levels.ClearanceZ); Assert.Equal(25, o.Levels.TopZ); Assert.Null(o.Levels.Validate()); });
+        Assert.Equal(15, r.Operations!.Single(o => o.Kind == JobOpKind.Contour).Levels.BottomZ);   // 25 - 10
+        Assert.Equal(21, r.Operations!.Single(o => o.Kind == JobOpKind.Pocket).Levels.BottomZ);    // 25 - 4
+        Assert.Contains(r.Notes, n => n.Contains("não verificado") && n.Contains("120"));
+        Assert.Equal(0, plan.Operations[0].Levels.TopZ); // o plano sugerido não muda
+    }
+
+    [Fact]
+    public void Topo_negativo_com_seguro_e_aproximacao_coerentes_vale()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.HeldBySetup, new PlanHeights(10, -10, -20));
+        Assert.True(r.Ok, r.Error);
+        Assert.Equal(-30, r.Operations!.Single(o => o.Kind == JobOpKind.Contour).Levels.BottomZ); // -20 - 10
+    }
+
+    [Fact]
+    public void Plano_sem_operacoes_nao_exige_alturas()
+    {
+        PlanInput input = new([], 10, Steel, []);
+        PlanResult plan = AssistPlanner.Plan(input);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, new Dictionary<int, double>(), ReleaseStrategy.NotReviewed, null);
+        Assert.True(r.Ok);
+        Assert.Empty(r.Operations!);
     }
 }
