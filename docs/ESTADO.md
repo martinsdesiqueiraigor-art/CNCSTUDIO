@@ -395,6 +395,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - A tela agora rola em vez de espremer os cartões. Conferido no Chromium (360×780, 360×640, 900×420, 900×1100); não testado no aparelho nem o Consultor aberto de verdade (só o endereço, lido no código do app Casillas). A página real depende do .NET; a verificação foi num HTML de teste isolado (removido).
 - Próximos da lista: Simulação 3D, Code, Macro, Otimizador, Loja.
 
+## Web: Otimizador, aviso de economia (`ajuste-web-otimizador`)
+- `optimizer-ui.js`: o resultado ganha o cartão **economia %** (linhas a menos ÷ linhas antes) e o aviso "Estimativa: é economia de linhas, não de tempo de usinagem". Nenhuma regra do Core mudou. Conferido no Chromium em 360 px (HTML de teste isolado); não testado no aparelho.
 ## Web: Casillas Macro renovado (`ajuste-web-macro-form`)
 - `generators-ui.js`: título "Casillas Macro", cartão de descrição, abas **Parâmetros / Código**, campos em cartões com ícone (**Geometria, Profundidade, Condições de corte**) e botões Limpar, Cancelar, **Gerar programa** (abre no editor) e Ver em 3D. Os valores são os mesmos de antes; só mudou a forma.
 - Core: `GeneratorsJson.GroupOf` põe `group` em cada parâmetro (geometry/depth/cutting, por Id e rótulo); 2 testes novos (total 1217 passando).
