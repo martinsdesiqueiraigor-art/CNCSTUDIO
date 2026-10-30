@@ -59,6 +59,24 @@ public static class UiKit
         };
     }
 
+    /// <summary>Cores de estado ("ok", "bad", "pending", outro = neutro) legíveis no tema atual: texto e fundo da etiqueta.</summary>
+    public static (IBrush Fg, IBrush Bg) Status(string kind)
+    {
+        bool light = Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Light;
+        (string fg, string bg) = (kind, light) switch
+        {
+            ("ok", false) => ("#2EE6A6", "#0D2A25"),
+            ("bad", false) => ("#FF6B6B", "#33181D"),
+            ("pending", false) => ("#FFC247", "#2A2314"),
+            (_, false) => ("#A3B1C9", "#18263D"),
+            ("ok", true) => ("#0E7A55", "#DDF4EA"),
+            ("bad", true) => ("#B3261E", "#FBE3E1"),
+            ("pending", true) => ("#8A5A00", "#FFEFCC"),
+            _ => ("#4A5668", "#E6EAF1"),
+        };
+        return (Brush.Parse(fg), Brush.Parse(bg));
+    }
+
     /// <summary>Define o fundo do bloco pelo recurso do tema (claro ou escuro).</summary>
     public static T Themed<T>(this T border, string resourceKey = "CardBackground")
         where T : Border

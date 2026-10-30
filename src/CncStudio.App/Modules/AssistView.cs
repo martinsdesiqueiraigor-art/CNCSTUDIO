@@ -46,6 +46,8 @@ public sealed partial class AssistView : UserControl
         _stepButtons[1].Content = (planOk ? "✓ " : "") + "2 Sugerir";
         _stepButtons[2].IsEnabled = planOk;
         _stepButtons[2].Content = (_planApply.IsEnabled ? "✓ " : "") + "3 Revisar";
+        // O orçamento usa o tempo do programa analisado no Code (não o plano): ✓ quando há programa com corte
+        _stepButtons[3].Content = (ProgramSource?.Invoke() is { } p && p.Time > TimeSpan.Zero ? "✓ " : "") + "4 Orçar";
     }
 
     /// <summary>Mostra uma etapa: 0 Preparar, 1 Sugerir, 2 Revisar (plano 2D), 3 Orçar, 4 Bibliotecas.</summary>

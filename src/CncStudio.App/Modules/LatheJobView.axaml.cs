@@ -79,6 +79,7 @@ public partial class LatheJobView : UserControl
                 Refresh(keep: true, props: false);
             }
         };
+        ActualThemeVariantChanged += (_, _) => Refresh(keep: true, props: false);
         Tree.SelectionChanged += (_, _) =>
         {
             if (!_busy)
@@ -309,7 +310,7 @@ public partial class LatheJobView : UserControl
         Output.Text = _build.Ok ? _build.Program : "";
         IReadOnlyList<string> pending = LatheJobInfo.Pending(_job, _build);
         PendingTitle.Text = pending.Count == 0 ? "✓ Pronto para gerar o G-code" : $"Pendências ({pending.Count})";
-        PendingTitle.Foreground = Avalonia.Media.Brush.Parse(pending.Count == 0 ? "#2EE6A6" : "#FFC247");
+        PendingTitle.Foreground = UiKit.Status(pending.Count == 0 ? "ok" : "pending").Fg;
         PendingList.Text = string.Join("\n", pending.Select(x => "• " + x));
         OpenButton.IsEnabled = CopyButton.IsEnabled = _build.Ok && _build.Program.Length > 0;
         UpdatePreview();
