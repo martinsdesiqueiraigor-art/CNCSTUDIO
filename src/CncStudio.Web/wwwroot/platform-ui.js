@@ -270,7 +270,6 @@ function showHome() {
     c.addEventListener('click', () => openModule(m.id));
     grid.append(c);
   });
-  right.append(make('strong', 'Módulos Casillas', 'display:block;font-size:16px;color:#e6edf3;margin-bottom:8px'));
   right.append(grid);
   const tag = make('div', 'Formação profissional • Gestão de usinagem • Banco de dados G-code • Análise e otimização • Editores avançados • Gestão de ativos', 'text-align:center;color:#c9a96a;font-size:10.5px;font-weight:700;letter-spacing:.2px;margin:8px 6px 0;line-height:1.4;flex:none');
   tag.className = 'pl-tag';
