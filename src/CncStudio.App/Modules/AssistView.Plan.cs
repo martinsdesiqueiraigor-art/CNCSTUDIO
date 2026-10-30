@@ -86,6 +86,7 @@ public sealed partial class AssistView
                 _planApply.IsEnabled = false;
                 _plan = null;
                 ClearPlanTools();
+                RefreshPlanApply();
             }
         };
         Button toReview = new() { Content = "Continuar: Revisar", Padding = new Thickness(16, 6) };
@@ -105,6 +106,7 @@ public sealed partial class AssistView
         buttons.Children.Add(toReview);
         _secSuggest.Children.Add(buttons);
         _secReview.Children.Add(new TextBlock { Text = "3 · Revisar: ferramentas novas, profundidades, alturas Z e fixação", FontWeight = FontWeight.SemiBold });
+        _secReview.Children.Add(_planMissing);
         _secReview.Children.Add(_planToolsPanel);
         _secReview.Children.Add(_planDepthsPanel);
         _secReview.Children.Add(_planApply);
@@ -138,6 +140,11 @@ public sealed partial class AssistView
         _planApply.IsEnabled = false;
         ClearPlanTools();
         _planResult.Text = "⚠ " + reason;
+        RefreshPlanApply();
+        if (_step == 2)
+        {
+            ShowStep(1);
+        }
     }
 
     private void ClearPlanTools()
@@ -163,7 +170,33 @@ public sealed partial class AssistView
             _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null, _rpmAdjust);
     }
 
-    private void RefreshPlanApply() => _planApply.IsEnabled = _plan is { Ok: true } && ReviewNow().Ok;
+    private readonly StackPanel _planMissing = new() { Spacing = 3 };
+
+    private void RefreshPlanApply()
+    {
+        _planApply.IsEnabled = _plan is { Ok: true } && ReviewNow().Ok;
+        _planMissing.Children.Clear();
+        if (_plan is { Ok: true } plan && BuildPlanInput().Input is { } input)
+        {
+            IReadOnlyList<string> missing = PlanReview.Missing(plan, input, _confirmedNewTools, _reviewedDepths, _release,
+                _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null, _rpmAdjust);
+            _planMissing.Children.Add(new TextBlock
+            {
+                Text = missing.Count == 0 ? "✓ Nada falta: pode aplicar ao Trabalho" : $"O que falta para aplicar ({missing.Count})",
+                FontWeight = FontWeight.SemiBold, Foreground = Brush.Parse(missing.Count == 0 ? "#2EE6A6" : "#FFC247"),
+            });
+            foreach (string m in missing)
+            {
+                _planMissing.Children.Add(new TextBlock { Text = "• " + m, FontSize = 12, TextWrapping = TextWrapping.Wrap });
+            }
+        }
+        else
+        {
+            _planMissing.Children.Add(new TextBlock { Text = "Ainda não há plano sugerido.", FontSize = 12, Opacity = 0.7 });
+        }
+
+        UpdateSteps();
+    }
 
     /// <summary>Rotação: sem limite no perfil, avisa "não verificada"; acima do limite, exige uma rotação digitada dentro dele.</summary>
     private void AddRpmFields(PlanResult plan, PlanInput input)
@@ -438,6 +471,7 @@ public sealed partial class AssistView
         if (input is null)
         {
             _planResult.Text = error is not null && error.StartsWith("O desenho", StringComparison.Ordinal) ? "Abra um DXF em CAM › Trabalho fresa primeiro." : error;
+            RefreshPlanApply();
             return;
         }
 

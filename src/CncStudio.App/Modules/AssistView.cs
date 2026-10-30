@@ -34,9 +34,29 @@ public sealed partial class AssistView : UserControl
     private StackPanel _libPage = new();
     private int _step = -1;
 
+    /// <summary>Marca ✓ nas etapas concluídas e só libera Revisar com um plano sugerido.</summary>
+    private void UpdateSteps()
+    {
+        if (_stepButtons.Count < 5)
+        {
+            return;
+        }
+
+        bool planOk = _plan is { Ok: true };
+        _stepButtons[1].Content = (planOk ? "✓ " : "") + "2 Sugerir";
+        _stepButtons[2].IsEnabled = planOk;
+        _stepButtons[2].Content = (_planApply.IsEnabled ? "✓ " : "") + "3 Revisar";
+    }
+
     /// <summary>Mostra uma etapa: 0 Preparar, 1 Sugerir, 2 Revisar (plano 2D), 3 Orçar, 4 Bibliotecas.</summary>
     private void ShowStep(int step)
     {
+        if (step == 2 && _plan is not { Ok: true })
+        {
+            step = 1;
+            _planResult.Text = "Sugira um plano primeiro.";
+        }
+
         bool wasPlan = _step is >= 0 and <= 2;
         _step = step;
         for (int i = 0; i < _stepButtons.Count; i++)
@@ -50,6 +70,7 @@ public sealed partial class AssistView : UserControl
         _secReview.IsVisible = step == 2;
         _quotePage.IsVisible = step == 3;
         _libPage.IsVisible = step == 4;
+        UpdateSteps();
         if (step <= 2 && !wasPlan)
         {
             LoadPlan();
