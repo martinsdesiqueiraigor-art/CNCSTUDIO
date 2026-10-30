@@ -131,15 +131,43 @@ public sealed record PlanStamp(string Drawing, string Thickness, string Material
     }
 }
 
+/// <summary>De onde vem a ferramenta de uma operação do plano.</summary>
+public enum ToolOrigin
+{
+    /// <summary>Está no banco de ferramentas do usuário (número e diâmetro iguais).</summary>
+    Bank,
+
+    /// <summary>Não está no banco: o planejador inventou um número e um diâmetro. Precisa de confirmação antes de aplicar.</summary>
+    New,
+}
+
+/// <summary>Ferramenta usada pelo plano, com a procedência.</summary>
+public sealed record PlannedTool(int Number, double Diameter, string Name, ToolOrigin Origin);
+
 /// <summary>Confere se um plano sugerido ainda pode ser aplicado ao Trabalho.</summary>
 public static class PlanValidity
 {
+    /// <summary>
+    /// Ferramentas distintas das operações do plano (por número e diâmetro), em ordem de número, com a procedência:
+    /// <see cref="ToolOrigin.Bank"/> se o banco atual tem uma ferramenta com o mesmo número e diâmetro; senão <see cref="ToolOrigin.New"/>.
+    /// Calculado a cada chamada, sem estado guardado: não há como a procedência ficar velha.
+    /// </summary>
+    public static IReadOnlyList<PlannedTool> ToolsOf(PlanResult plan, PlanInput current) =>
+        plan.Operations.Select(o => o.Tool).DistinctBy(t => (t.Number, t.Diameter)).OrderBy(t => t.Number)
+            .Select(t => new PlannedTool(t.Number, t.Diameter, t.Name,
+                current.Tools.Any(b => b.Number == t.Number && b.Diameter == t.Diameter) ? ToolOrigin.Bank : ToolOrigin.New))
+            .ToList();
+
+    /// <summary>Números das ferramentas novas (fora do banco) do plano.</summary>
+    public static IReadOnlySet<int> NewToolNumbers(PlanResult plan, PlanInput current) =>
+        ToolsOf(plan, current).Where(t => t.Origin == ToolOrigin.New).Select(t => t.Number).ToHashSet();
+
     /// <summary>
     /// Mensagem do motivo para recusar a aplicação, ou null se o plano ainda vale. Compara o registro do plano com os
     /// dados de agora, confere se cada operação aponta para um contorno que existe (0 ≤ índice &lt; quantidade, vale para furo,
     /// bolsão e contorno) e se as operações continuam as mesmas da sugestão.
     /// </summary>
-    public static string? CheckApply(PlanResult plan, PlanInput current)
+    public static string? CheckApply(PlanResult plan, PlanInput current, IReadOnlySet<int>? confirmedNewTools = null)
     {
         if (plan.Stamp is not { } planned)
         {
@@ -164,6 +192,13 @@ public static class PlanValidity
         if (plan.OperationsStamp != PlanStamp.OfOperations(plan.Operations))
         {
             return "As operações do plano foram alteradas depois da sugestão. Sugira o plano de novo.";
+        }
+
+        // Ferramenta que o planejador criou (não está no banco) só vale com confirmação explícita, uma a uma
+        List<PlannedTool> pending = ToolsOf(plan, current).Where(t => t.Origin == ToolOrigin.New && confirmedNewTools?.Contains(t.Number) != true).ToList();
+        if (pending.Count > 0)
+        {
+            return "Há ferramenta nova, que não está no banco, sem confirmação: " + string.Join(", ", pending.Select(t => "T" + t.Number)) + ". Confirme ou cadastre no banco.";
         }
 
         return null;

@@ -17,6 +17,8 @@ public sealed partial class AssistView
     private readonly TextBlock _planResult = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
     private readonly Button _planApply = new() { Content = "Aplicar ao Trabalho (CAM)", Padding = new Thickness(16, 6), IsEnabled = false };
     private PlanResult? _plan;
+    private readonly StackPanel _planToolsPanel = new() { Spacing = 4 };
+    private readonly HashSet<int> _confirmedNewTools = [];
 
     /// <summary>Contornos do desenho do Trabalho de fresa e a espessura do bruto, se já definida.</summary>
     public Func<(IReadOnlyList<Contour> Contours, double? Thickness)>? PlanDrawing { get; set; }
@@ -58,16 +60,26 @@ public sealed partial class AssistView
                     return;
                 }
 
+                // E as ferramentas novas (fora do banco) só entram se cada uma foi confirmada
+                if (CheckPlanConfirmed() is { } pending)
+                {
+                    _planResult.Text += "\n⚠ " + pending;
+                    _planApply.IsEnabled = false;
+                    return;
+                }
+
                 ApplyPlan(plan.Operations);
                 _planResult.Text += "\n(operações adicionadas ao Trabalho fresa)";
                 _planApply.IsEnabled = false;
                 _plan = null;
+                ClearPlanTools();
             }
         };
         buttons.Children.Add(suggest);
         buttons.Children.Add(_planApply);
         form.Children.Add(buttons);
         form.Children.Add(_planResult);
+        form.Children.Add(_planToolsPanel);
         var tab = new TabItem { Header = "Plano 2D", Content = new Border { Padding = new Thickness(0, 10), Child = form } };
         tab.PropertyChanged += (_, e) =>
         {
@@ -95,7 +107,62 @@ public sealed partial class AssistView
     {
         _plan = null;
         _planApply.IsEnabled = false;
+        ClearPlanTools();
         _planResult.Text = "⚠ " + reason;
+    }
+
+    private void ClearPlanTools()
+    {
+        _confirmedNewTools.Clear();
+        _planToolsPanel.Children.Clear();
+    }
+
+    /// <summary>Motivo se alguma ferramenta nova (fora do banco) ainda não foi confirmada; null se tudo certo.</summary>
+    private string? CheckPlanConfirmed()
+    {
+        if (_plan is not { } plan)
+        {
+            return null;
+        }
+
+        (PlanInput? input, string? error) = BuildPlanInput();
+        return input is null ? error : PlanValidity.CheckApply(plan, input, _confirmedNewTools);
+    }
+
+    /// <summary>Uma caixa por ferramenta nova: o botão Aplicar só liga quando todas estiverem marcadas.</summary>
+    private void ShowPlanTools(PlanResult plan, PlanInput input)
+    {
+        ClearPlanTools();
+        List<PlannedTool> news = PlanValidity.ToolsOf(plan, input).Where(t => t.Origin == ToolOrigin.New).ToList();
+        if (news.Count == 0)
+        {
+            return;
+        }
+
+        _planToolsPanel.Children.Add(new TextBlock
+        {
+            Text = "Ferramentas novas: não estão no banco de ferramentas. O programa usaria estes números e diâmetros inventados pelo plano. Confira na máquina e confirme cada uma (ou cadastre no banco e sugira de novo).",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold,
+        });
+        foreach (PlannedTool t in news)
+        {
+            var box = new CheckBox { Content = $"Confirmo T{t.Number} · Ø{t.Diameter.ToString("0.##", Br)} mm · {t.Name}" };
+            int number = t.Number;
+            box.IsCheckedChanged += (_, _) =>
+            {
+                if (box.IsChecked == true)
+                {
+                    _confirmedNewTools.Add(number);
+                }
+                else
+                {
+                    _confirmedNewTools.Remove(number);
+                }
+
+                _planApply.IsEnabled = _plan is { Ok: true } && CheckPlanConfirmed() is null;
+            };
+            _planToolsPanel.Children.Add(box);
+        }
     }
 
     /// <summary>Mensagem do motivo se o plano guardado não vale mais; null se vale (ou se não há plano).</summary>
@@ -106,8 +173,9 @@ public sealed partial class AssistView
             return null;
         }
 
+        // Só desatualização: a falta de confirmação das ferramentas novas não descarta o plano (por isso conta todas como confirmadas aqui)
         (PlanInput? input, string? error) = BuildPlanInput();
-        return input is null ? error : PlanValidity.CheckApply(plan, input);
+        return input is null ? error : PlanValidity.CheckApply(plan, input, PlanValidity.NewToolNumbers(plan, input));
     }
 
     /// <summary>Monta os dados do plano com o que está na tela agora (desenho do Trabalho, espessura, material e ferramentas).</summary>
@@ -172,6 +240,7 @@ public sealed partial class AssistView
     {
         _plan = null;
         _planApply.IsEnabled = false;
+        ClearPlanTools();
         (PlanInput? input, string? error) = BuildPlanInput();
         if (input is null)
         {
@@ -183,7 +252,9 @@ public sealed partial class AssistView
         var lines = new List<string>();
         for (int i = 0; i < plan.Operations.Count; i++)
         {
-            lines.Add(CamJobInfo.OpTitle(i, plan.Operations[i]) + $" · {plan.Operations[i].Tool.SpindleRpm:0} rpm · F{plan.Operations[i].Tool.FeedXY:0}");
+            CamOperationSpec op = plan.Operations[i];
+            string origin = PlanValidity.ToolsOf(plan, input).First(t => t.Number == op.Tool.Number && t.Diameter == op.Tool.Diameter).Origin == ToolOrigin.New ? "NOVA, fora do banco" : "banco";
+            lines.Add(CamJobInfo.OpTitle(i, op) + $" · T{op.Tool.Number} ({origin}) · {op.Tool.SpindleRpm:0} rpm · F{op.Tool.FeedXY:0}");
         }
 
         if (plan.Ok)
@@ -194,6 +265,7 @@ public sealed partial class AssistView
         lines.AddRange(plan.Notes.Select(n => "• " + n));
         _planResult.Text = string.Join("\n", lines);
         _plan = plan;
-        _planApply.IsEnabled = plan.Ok;
+        ShowPlanTools(plan, input);
+        _planApply.IsEnabled = plan.Ok && CheckPlanConfirmed() is null;
     }
 }
