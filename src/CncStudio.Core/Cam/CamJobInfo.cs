@@ -52,6 +52,37 @@ public static class CamJobInfo
         return r.Ok ? ("ok", "OK") : ("bad", "erro: " + (r.Error ?? "não foi possível gerar"));
     }
 
+    /// <summary>O que impede de gerar o G-code (vazio = pronto). Não inclui a fixação, que o app nunca verifica.</summary>
+    public static IReadOnlyList<string> Pending(CamJob job, JobBuild build)
+    {
+        var list = new List<string>();
+        if (job.Contours.Count == 0)
+        {
+            list.Add("Falta a peça (abra um DXF)");
+        }
+
+        if (job.Stock is null)
+        {
+            list.Add("Bruto não definido");
+        }
+
+        if (job.Operations.Count == 0)
+        {
+            list.Add("Nenhuma operação");
+        }
+
+        for (int i = 0; i < build.Items.Count; i++)
+        {
+            JobOpResult r = build.Items[i];
+            if (!r.Ok)
+            {
+                list.Add($"Operação {i + 1}: " + (r.Error ?? "não foi possível gerar"));
+            }
+        }
+
+        return list;
+    }
+
     /// <summary>Estado do bruto: definido ou pendente.</summary>
     public static (string Kind, string Text) StockState(JobStock? s) => s is null ? ("bad", "falta definir") : ("ok", "OK");
 

@@ -38,8 +38,15 @@
         <TreeView x:Name="Tree" Margin="0,8,0,0" />
       </DockPanel>
     </Border>
-    <Grid Grid.Column="1">
-      <Border Margin="12" CornerRadius="8" ClipToBounds="True" Background="#0B1216" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
+    <Grid Grid.Column="1" RowDefinitions="*,Auto">
+      <Border Grid.Row="1" Margin="12,0,12,12" CornerRadius="10" Padding="12,8" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
+        <StackPanel Spacing="3">
+          <TextBlock x:Name="PendingTitle" FontWeight="Bold" />
+          <TextBlock x:Name="PendingList" TextWrapping="Wrap" FontSize="12" Opacity="0.85" />
+          <TextBlock Text="Fixação e colisões: o app não verifica. Simule e rode a primeira vez no ar." FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+      <Border Margin="12,12,12,8" CornerRadius="8" ClipToBounds="True" Background="#0B1216" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
         <Grid>
           <modules:CamPreview x:Name="Preview" />
           <modules:JobSceneView x:Name="Scene3D" IsVisible="False" />

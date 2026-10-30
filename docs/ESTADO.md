@@ -365,3 +365,7 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Wireframes aprovados pelo Igor (CAM = área de trabalho com árvore/vista/propriedades; Assist em etapas). Este é o primeiro protótipo, só na árvore do Trabalho (fresa): cada operação mostra uma etiqueta **OK / desligada / erro: motivo**; o bruto mostra OK ou "falta definir"; "Fixação" mostra "não verificada" (o app não confere fixação).
 - Core `CamJobInfo.OpState` / `StockState` (testados). Nada de cálculo mudou. Não conferido visualmente: ver no .exe da Prévia.
 - Pendente nos próximos passos: barra de pendências embaixo, etapas do Assist, tema claro.
+
+## UX, passo 2: barra de pendências no Trabalho (`ajuste-ux-barra-pendencias`)
+- Rodapé da vista central do Trabalho (fresa): "✓ Pronto para gerar" ou "Pendências (n)" com a lista (sem peça, sem bruto, sem operação, operação com erro). Aviso fixo: fixação e colisões não são verificadas; simular e rodar a primeira vez no ar.
+- Core `CamJobInfo.Pending` (teste novo, 1211 no total). Uma execução dos testes falhou uma vez e passou na seguinte sem mudança (possível teste instável; não identificado). Não conferido visualmente: ver no .exe da Prévia.
