@@ -6,8 +6,11 @@ using Avalonia.Media;
 
 namespace CncStudio.App.Modules;
 
-/// <summary>Item da barra de pendências: "pending" (âmbar) ou "bad" (vermelho), texto e para onde o clique leva.</summary>
-public sealed record JobBarItem(string Kind, string Text, Action Go);
+/// <summary>
+/// Item da barra de pendências: "pending" (âmbar) ou "bad" (vermelho), texto e para onde o clique leva. <see cref="Blocking"/> falso
+/// = aviso: tira o "Pronto para gerar", mas não desliga os botões (ex.: fixação não definida).
+/// </summary>
+public sealed record JobBarItem(string Kind, string Text, Action Go, bool Blocking = true);
 
 /// <summary>
 /// Barra inferior dos Trabalhos (fresa e torno, UX-01): resumo do que falta, itens clicáveis, estado da trajetória, do G-code e da
@@ -71,16 +74,18 @@ public sealed class JobBar : Border
     {
         IReadOnlyList<JobBarItem> items = _last;
         bool ok = items.Count == 0;
+        int blocking = items.Count(x => x.Blocking);
         string worst = ok ? "ok" : items.Any(x => x.Kind == "bad") ? "bad" : "pending";
+        string title = ok
+            ? "Pronto para gerar."
+            : blocking > 0
+                ? $"Não dá para gerar o G-code: {blocking} {(blocking == 1 ? "item" : "itens")}."
+                : $"G-code gerado, com {items.Count} {(items.Count == 1 ? "aviso" : "avisos")}.";
         _summary.Inlines!.Clear();
-        _summary.Inlines.Add(new Run(ok ? "Pronto para gerar." : $"Não dá para gerar o G-code: {items.Count} {(items.Count == 1 ? "item" : "itens")}.")
-        {
-            FontWeight = FontWeight.Bold,
-            Foreground = UiKit.Status(worst).Fg,
-        });
+        _summary.Inlines.Add(new Run(title) { FontWeight = FontWeight.Bold, Foreground = UiKit.Status(worst).Fg });
         _summary.Inlines.Add(new Run(ok
             ? $" {_state.Ready} {(_state.Ready == 1 ? "operação em dia" : "operações em dia")}, nenhuma pendência. Primeira execução no ar."
-            : " Clique para ir ao item."));
+            : blocking > 0 ? " Clique para ir ao item." : " Confira antes de rodar; clique para ir ao item."));
 
         _items.Children.Clear();
         _items.IsVisible = !ok;
@@ -94,11 +99,12 @@ public sealed class JobBar : Border
         _chips.Children.Add(UiKit.StateTag(_state.GCode ? ("ok", "G-code ✓") : ("pending", "G-code: não gerado")));
         _chips.Children.Add(UiKit.StateTag(("pending", "Simulado: não verificado")));
 
-        bool can = ok && _state.GCode;
+        // só o que trava desliga os botões; aviso (Blocking falso) deixa gerar e enviar
+        bool can = blocking == 0 && _state.GCode;
         SendButton.IsEnabled = GenerateButton.IsEnabled = can;
         _reason.Text = can
             ? "Simule no Code antes de rodar na máquina."
-            : ok ? "Sem G-code para enviar: gere o programa primeiro." : "Botões desligados: resolva os itens à esquerda.";
+            : blocking == 0 ? "Sem G-code para enviar: gere o programa primeiro." : "Botões desligados: resolva os itens à esquerda.";
     }
 
     /// <summary>Item clicável com a mesma redação e as mesmas cores do Modelo 3D ("pendente: …", "✕ inválido: …").</summary>

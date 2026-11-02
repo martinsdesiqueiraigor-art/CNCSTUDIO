@@ -7,6 +7,9 @@ namespace CncStudio.Core.Cam;
 public sealed record JobLoadResult(CamJob? Job, string? Error)
 {
     public bool Ok => Job is not null;
+
+    /// <summary>Avisos de um Job que abriu (ex.: fixação inválida, que fica "não definida").</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
 /// <summary>
@@ -34,6 +37,12 @@ public static class CamJobJson
         if (job.Stock is { } st)
         {
             root["stock"] = new JsonObject { ["x"] = st.X, ["y"] = st.Y, ["width"] = st.Width, ["length"] = st.Length, ["thickness"] = st.Thickness };
+        }
+
+        // campo opcional: versões antigas do app ignoram; sem ele, a fixação abre como "não definida"
+        if (job.Fixture is { } fx)
+        {
+            root["fixture"] = new JsonObject { ["kind"] = fx.Kind, ["description"] = fx.Description };
         }
 
         var contours = new JsonArray();
@@ -210,8 +219,28 @@ public static class CamJobJson
                 job.Operations.Add(OpFrom(on as JsonObject ?? throw new FormatException("Operação inválida.")));
             }
 
+            var warnings = new List<string>();
+            if (root["fixture"] is JsonObject fx)
+            {
+                string Text(string key) => fx[key] is JsonValue v && v.TryGetValue(out string? s) ? s ?? "" : "";
+                var fixture = new JobFixture(Text("kind"), Text("description").Trim());
+                if (fixture.Validate() is { } bad)
+                {
+                    // arquivo com fixação estragada abre mesmo assim, sem inventar: fica "não definida"
+                    warnings.Add($"Fixação do arquivo ignorada ({bad}): ficou como não definida.");
+                }
+                else
+                {
+                    job.Fixture = fixture;
+                }
+            }
+            else if (root["fixture"] is not null)
+            {
+                warnings.Add("Fixação do arquivo ignorada (formato inválido): ficou como não definida.");
+            }
+
             IReadOnlyList<string> problems = job.Validate();
-            return problems.Count > 0 ? new JobLoadResult(null, problems[0]) : new JobLoadResult(job, null);
+            return problems.Count > 0 ? new JobLoadResult(null, problems[0]) : new JobLoadResult(job, null) { Warnings = warnings };
         }
         catch (JsonException)
         {
