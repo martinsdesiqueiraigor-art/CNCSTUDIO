@@ -40,6 +40,8 @@ public sealed class ModelView : Grid
     private readonly ComboBox _dialect = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBlock _result = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
     private readonly Button _openEditor = new() { Content = "Abrir no editor (simular no Code)", Padding = new Thickness(12, 6), IsEnabled = false };
+    private readonly Button _generate = new() { Content = "Gerar varredura", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold, IsEnabled = false };
+    private bool _glFailed;
     private TriangleMesh? _current;
     private string _program = "";
     private TriangleMesh? _raw;
@@ -96,9 +98,8 @@ public sealed class ModelView : Grid
         _dialect.Items.Add(new ComboBoxItem { Content = "Siemens" });
         _dialect.SelectedIndex = 0;
         panel.Children.Add(_dialect);
-        Button generate = new() { Content = "Gerar varredura", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold };
-        generate.Click += async (_, _) => await Generate();
-        panel.Children.Add(generate);
+        _generate.Click += async (_, _) => await Generate();
+        panel.Children.Add(_generate);
         _openEditor.Click += (_, _) => OpenInEditor?.Invoke(_program, Path.GetFileNameWithoutExtension(_fileName) + "-varredura.nc");
         panel.Children.Add(_openEditor);
         panel.Children.Add(_result);
@@ -123,6 +124,7 @@ public sealed class ModelView : Grid
         Children.Add(frame);
         _gl.Failed += (_, message) =>
         {
+            _glFailed = true;
             _gl.IsVisible = false;
             _hint.Text = "3D pela placa de vídeo indisponível (" + message + ").";
             _hint.IsVisible = true;
@@ -196,7 +198,7 @@ public sealed class ModelView : Grid
             StepResult step = await Task.Run(() => StepMeshReader.Read(file.Data));
             if (!step.Ok)
             {
-                _info.Text = "• " + step.Error;
+                Clear(step.Error!);
                 return;
             }
 
@@ -204,14 +206,15 @@ public sealed class ModelView : Grid
             _fileName = file.Name;
             _unit.SelectedIndex = 0; // o OpenCASCADE já entrega em milímetros
             _unit.IsEnabled = false;
-            Show(0, $"STEP lido em milímetros (malha de 0,05 mm de desvio; {step.Orientation!.FlippedTriangles:N0} triângulos reorientados).");
+            string collapsed = step.Collapsed > 0 ? $"; {step.Collapsed:N0} triângulos sem área descartados" : "";
+            Show(0, $"STEP lido em milímetros (malha de 0,05 mm de desvio; {step.Orientation!.FlippedTriangles:N0} triângulos reorientados{collapsed}).");
             return;
         }
 
         StlResult r = await Task.Run(() => StlReader.Read(file.Data));
         if (!r.Ok)
         {
-            _info.Text = "• " + r.Error;
+            Clear(r.Error!);
             return;
         }
 
@@ -219,6 +222,28 @@ public sealed class ModelView : Grid
         _fileName = file.Name;
         _unit.IsEnabled = true;
         Show(r.Skipped);
+    }
+
+    // Leitura falhou: nada do modelo anterior fica na tela nem vai para a varredura
+    private void Clear(string error)
+    {
+        _raw = null;
+        _current = null;
+        _fileName = "";
+        _sourceNote = "";
+        _program = "";
+        _unit.IsEnabled = true;
+        _generate.IsEnabled = false;
+        _openEditor.IsEnabled = false;
+        _result.Text = "";
+        _info.Text = "• " + error;
+        _gl.IsVisible = false;
+        if (!_glFailed)
+        {
+            _hint.Text = "Abra um arquivo STL ou STEP para ver o modelo.";
+        }
+
+        _hint.IsVisible = true;
     }
 
     private string _sourceNote = "";
@@ -247,9 +272,10 @@ public sealed class ModelView : Grid
 
         _current = mesh;
         _openEditor.IsEnabled = false;
+        _generate.IsEnabled = true;
 
         var size = mesh.Size;
-        bool closed = mesh.IsClosed;
+        MeshCheck check = MeshCheck.Of(mesh);
         string F(double v) => v.ToString("0.##", Pt);
         _info.Text =
             $"{_fileName}\n" + (_sourceNote.Length > 0 ? _sourceNote + "\n" : "") +
@@ -257,9 +283,11 @@ public sealed class ModelView : Grid
             $"Tamanho: X {F(size.X)} × Y {F(size.Y)} × Z {F(size.Z)} mm\n" +
             $"Z: de {F(mesh.Bounds.Min.Z)} a {F(mesh.Bounds.Max.Z)} mm\n" +
             $"Área da superfície: {F(mesh.SurfaceArea / 100)} cm²\n" +
-            (closed
+            (check.IsClosed
                 ? $"Malha fechada. Volume: {F(mesh.Volume / 1000)} cm³ (peso e custo dependem do material)."
-                : "⚠ Malha aberta (furos na superfície): dá para ver, mas o volume e o CAM 3D ficam incertos. Repare o modelo no CAD.") +
+                : $"⚠ Malha aberta: {check.BorderEdges:N0} arestas de borda ({F(check.BorderLength)} mm no total), " +
+                  $"{check.NonManifoldEdges:N0} arestas com mais de 2 triângulos, {check.Pieces:N0} pedaço(s). " +
+                  "Pode ser defeito do próprio arquivo; o volume é só estimativa. Confira o modelo no CAD.") +
             "\nConfira as medidas: se o tamanho está 25× ou 1000× fora, troque a unidade.";
 
         _hint.IsVisible = false;
