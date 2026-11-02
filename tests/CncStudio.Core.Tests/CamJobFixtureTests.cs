@@ -71,6 +71,20 @@ public class CamJobFixtureTests
     }
 
     [Fact]
+    public void Fixacao_nao_definida_avisa_mas_nao_trava()
+    {
+        CamJob job = Job();
+        IReadOnlyList<string> pending = CamJobInfo.Pending(job, CamJobBuilder.Build(job, null));
+        Assert.Equal([CamJobInfo.FixtureMissing], pending);
+        Assert.False(CamJobInfo.Blocks(pending[0]));
+
+        job.Stock = null;
+        job.Operations.Clear();
+        Assert.All(CamJobInfo.Pending(job, CamJobBuilder.Build(job, null)).Where(p => p != CamJobInfo.FixtureMissing), p => Assert.True(CamJobInfo.Blocks(p)));
+        Assert.True(CamJobInfo.Blocks("rotação acima do fuso na operação 1"));
+    }
+
+    [Fact]
     public void Fixacao_nao_muda_o_programa()
     {
         CamJob job = Job();

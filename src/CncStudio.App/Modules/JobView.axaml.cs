@@ -401,10 +401,11 @@ public partial class JobView : UserControl
             targets.Add(("pending", () => GoToTree(t => t.Kind == "op" && t.Index == index)));
         }
 
-        // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho)
+        // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho).
+        // O Core diz o que trava: a fixação não definida só avisa (os botões continuam ligados).
         return texts.Select((text, k) => k < targets.Count && texts.Count == targets.Count
-            ? new JobBarItem(targets[k].Kind, text, targets[k].Go)
-            : new JobBarItem("pending", text, () => { })).ToList();
+            ? new JobBarItem(targets[k].Kind, text, targets[k].Go, CamJobInfo.Blocks(text))
+            : new JobBarItem("pending", text, () => { }, CamJobInfo.Blocks(text))).ToList();
     }
 
     /// <summary>Seleciona e foca o item da árvore (as propriedades acompanham a seleção).</summary>

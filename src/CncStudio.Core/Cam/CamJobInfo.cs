@@ -83,7 +83,7 @@ public static class CamJobInfo
 
         if (job.Fixture is null)
         {
-            list.Add("Fixação não definida");
+            list.Add(FixtureMissing);
         }
 
         if (job.Operations.Count == 0)
@@ -107,6 +107,15 @@ public static class CamJobInfo
 
         return list;
     }
+
+    /// <summary>Pendência da fixação: aparece na barra, mas só avisa (não impede gerar nem enviar ao Code).</summary>
+    public const string FixtureMissing = "Fixação não definida";
+
+    /// <summary>
+    /// Se a pendência impede gerar e enviar o G-code. Só a fixação não definida é aviso (decisão do Igor, 02/11); o resto trava,
+    /// como antes.
+    /// </summary>
+    public static bool Blocks(string pending) => pending != FixtureMissing;
 
     /// <summary>Linha "Fixação" da árvore: "Fixação: não definida" ou "Fixação: Morsa · descrição".</summary>
     public static string FixtureTitle(JobFixture? f) => f is null
