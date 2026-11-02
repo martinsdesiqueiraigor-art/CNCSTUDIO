@@ -191,6 +191,39 @@ public class PlanReviewTests
     }
 
     [Fact]
+    public void Fixacao_do_Trabalho_entra_como_nota_nao_verificada()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.HeldBySetup, Std, fixture: new JobFixture("morsa", "mordente liso"));
+        Assert.True(r.Ok, r.Error);
+        Assert.Contains(r.Notes, n => n.Contains("Fixação: Morsa · mordente liso") && n.Contains("não verificada"));
+        Assert.DoesNotContain(r.Notes, n => n.Contains("segura", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Sem_fixacao_no_Trabalho_aplica_igual_e_avisa_que_nao_foi_definida()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        PlanReviewResult r = PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.HeldBySetup, Std);
+        Assert.True(r.Ok, r.Error);
+        Assert.Contains(r.Notes, n => n.Contains("não definida"));
+        Assert.Empty(PlanReview.Missing(plan, input, null, All(plan), ReleaseStrategy.HeldBySetup, Std));
+    }
+
+    [Fact]
+    public void Fixacao_definida_nao_afrouxa_as_travas_do_Aplicar()
+    {
+        PlanInput input = Input();
+        PlanResult plan = AssistPlanner.Plan(input);
+        var fx = new JobFixture("grampos");
+        Assert.False(PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.NotReviewed, Std, fixture: fx).Ok);
+        Assert.False(PlanReview.Review(plan, input, null, All(plan), ReleaseStrategy.HeldBySetup, null, fixture: fx).Ok);
+        Assert.False(PlanReview.Review(plan, input, null, new Dictionary<int, double>(), ReleaseStrategy.HeldBySetup, Std, fixture: fx).Ok);
+    }
+
+    [Fact]
     public void Aceitar_que_solte_aplica_tudo_e_avisa()
     {
         PlanInput input = Input();

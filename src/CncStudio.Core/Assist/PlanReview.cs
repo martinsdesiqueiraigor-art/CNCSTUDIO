@@ -119,6 +119,14 @@ public static class PlanReview
             : plan.Operations.Select(o => o.Tool).Where(t => t.SpindleRpm > max + 1e-9).DistinctBy(t => t.Number).OrderBy(t => t.Number)
                 .Select(t => new PlanRpmIssue(t.Number, t.Name, t.Diameter, t.SpindleRpm, max)).ToList();
 
+    /// <summary>
+    /// Nota da fixação lida do Trabalho fresa (fonte única; o Assist não guarda cópia). Só informa: não trava o Aplicar e
+    /// nunca diz que a peça está segura.
+    /// </summary>
+    public static string FixtureNote(JobFixture? fixture) => fixture is null
+        ? "Fixação do Trabalho fresa: não definida. Defina no item \"Fixação\" do Trabalho fresa antes de cortar; o Assist não verifica fixação nem colisão."
+        : CamJobInfo.FixtureTitle(fixture) + " (do Trabalho fresa; informada por você, não verificada: o Assist não confere fixação nem colisão).";
+
     /// <summary>Faltam profundidades: devolve o nome da primeira ainda sem valor, ou null se todas têm.</summary>
     public static string? FirstPending(PlanResult plan, IReadOnlyDictionary<int, double> depths) =>
         DepthsOf(plan).FirstOrDefault(d => !depths.ContainsKey(d.Key))?.Label;
@@ -184,7 +192,7 @@ public static class PlanReview
     /// </summary>
     public static PlanReviewResult Review(PlanResult plan, PlanInput current, IReadOnlySet<int>? confirmedNewTools, IReadOnlyDictionary<int, double> depths,
         ReleaseStrategy release = ReleaseStrategy.NotReviewed, PlanHeights? heights = null,
-        IReadOnlyDictionary<int, double>? rpmAdjust = null)
+        IReadOnlyDictionary<int, double>? rpmAdjust = null, JobFixture? fixture = null)
     {
         if (PlanValidity.CheckApply(plan, current, confirmedNewTools) is { } stale)
         {
@@ -298,6 +306,11 @@ public static class PlanReview
         if (heights is not null && ops.Count > 0)
         {
             notes.Add($"Alturas Z informadas pelo usuário (seguro {heights.SafeZ:0.##}, aproximação {heights.ClearanceZ:0.##}, topo da peça {heights.TopZ:0.##}). Estar acima da peça não garante estar livre de morsa, grampos ou castanhas: não verificado.");
+        }
+
+        if (ops.Count > 0)
+        {
+            notes.Add(FixtureNote(fixture));
         }
 
         if (releaseIndex >= 0)

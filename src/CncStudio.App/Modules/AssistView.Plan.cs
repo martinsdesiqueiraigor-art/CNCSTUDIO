@@ -184,7 +184,7 @@ public sealed partial class AssistView
 
         (PlanInput? input, string? error) = BuildPlanInput();
         return input is null ? new PlanReviewResult(null, error) : PlanReview.Review(plan, input, _confirmedNewTools, _reviewedDepths, _release,
-            _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null, _rpmAdjust);
+            _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null, _rpmAdjust, PlanFixture?.Invoke());
     }
 
     private readonly StackPanel _planMissing = new() { Spacing = 3 };
