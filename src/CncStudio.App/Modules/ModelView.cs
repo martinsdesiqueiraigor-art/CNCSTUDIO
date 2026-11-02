@@ -42,6 +42,17 @@ public sealed class ModelView : Grid
     private readonly Button _openEditor = new() { Content = "Abrir no editor (simular no Code)", Padding = new Thickness(12, 6), IsEnabled = false };
     private readonly Button _generate = new() { Content = "Gerar varredura", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold, IsEnabled = false };
     private bool _glFailed;
+
+    // Giros pedidos para o modelo aberto (voltam a zero ao abrir outro arquivo); o arquivo e _raw não mudam
+    private readonly List<ModelTurn> _turns = [];
+    private readonly List<Button> _turnButtons = [];
+    private readonly TextBlock _turnInfo = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75 };
+
+    private static readonly (string Label, ModelTurn? Turn)[] TurnButtons =
+    [
+        ("X +90°", ModelTurn.XPlus90), ("X −90°", ModelTurn.XMinus90), ("Y +90°", ModelTurn.YPlus90), ("Y −90°", ModelTurn.YMinus90),
+        ("Virar", ModelTurn.Flip), ("Zerar orientação", null),
+    ];
     private TriangleMesh? _current;
     private string _program = "";
     private TriangleMesh? _raw;
@@ -79,6 +90,24 @@ public sealed class ModelView : Grid
         panel.Children.Add(_unit);
         panel.Children.Add(_top);
         panel.Children.Add(_info);
+
+        panel.Children.Add(new TextBlock { Text = "Orientação da peça", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
+        var turns = new WrapPanel();
+        foreach ((string label, ModelTurn? turn) in TurnButtons)
+        {
+            var button = new Button { Content = label, Padding = new Thickness(10, 5), Margin = new Thickness(0, 0, 6, 6), IsEnabled = false };
+            button.Click += (_, _) => Turn(turn);
+            _turnButtons.Add(button);
+            turns.Children.Add(button);
+        }
+
+        panel.Children.Add(turns);
+        panel.Children.Add(_turnInfo);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Confira a orientação: o Z+ é o lado de cima da usinagem.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold,
+        });
 
         panel.Children.Add(new TextBlock { Text = "Varredura de acabamento (fresa esférica)", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
         panel.Children.Add(new TextBlock
@@ -202,6 +231,7 @@ public sealed class ModelView : Grid
                 return;
             }
 
+            _turns.Clear(); // arquivo novo começa como veio
             _raw = step.Mesh;
             _fileName = file.Name;
             _unit.SelectedIndex = 0; // o OpenCASCADE já entrega em milímetros
@@ -218,11 +248,43 @@ public sealed class ModelView : Grid
             return;
         }
 
+        _turns.Clear();
         _raw = r.Mesh;
         _fileName = file.Name;
         _unit.IsEnabled = true;
         Show(r.Skipped);
     }
+
+    // Botão de orientação: null = zerar. O programa gerado antes era do modelo na posição antiga: descarta
+    private void Turn(ModelTurn? turn)
+    {
+        if (_raw is null)
+        {
+            return;
+        }
+
+        if (turn is { } t)
+        {
+            _turns.Add(t);
+        }
+        else
+        {
+            _turns.Clear();
+        }
+
+        _program = "";
+        _result.Text = "";
+        Show();
+    }
+
+    private static string TurnName(ModelTurn turn) => turn switch
+    {
+        ModelTurn.XPlus90 => "X +90°",
+        ModelTurn.XMinus90 => "X −90°",
+        ModelTurn.YPlus90 => "Y +90°",
+        ModelTurn.YMinus90 => "Y −90°",
+        _ => "virada",
+    };
 
     // Leitura falhou: nada do modelo anterior fica na tela nem vai para a varredura
     private void Clear(string error)
@@ -236,6 +298,9 @@ public sealed class ModelView : Grid
         _generate.IsEnabled = false;
         _openEditor.IsEnabled = false;
         _result.Text = "";
+        _turns.Clear();
+        _turnInfo.Text = "";
+        _turnButtons.ForEach(b => b.IsEnabled = false);
         _info.Text = "• " + error;
         _gl.IsVisible = false;
         if (!_glFailed)
@@ -265,6 +330,13 @@ public sealed class ModelView : Grid
         _lastSkipped = skipped ?? _lastSkipped;
         double factor = Units[Math.Max(0, _unit.SelectedIndex)].Factor;
         TriangleMesh mesh = _raw.Scaled(factor);
+        foreach (ModelTurn turn in _turns)
+        {
+            mesh = mesh.Turned(turn);
+        }
+
+        _turnInfo.Text = _turns.Count == 0 ? "Orientação: como veio no arquivo." : "Orientação: " + string.Join(", ", _turns.Select(TurnName)) + ".";
+        _turnButtons.ForEach(b => b.IsEnabled = true);
         if (_top.IsChecked == true)
         {
             mesh = mesh.PlacedTopAtZero();
