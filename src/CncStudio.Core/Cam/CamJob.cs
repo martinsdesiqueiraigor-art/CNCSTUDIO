@@ -278,9 +278,9 @@ public static class CamJobBuilder
             return new JobBuild("", ops, items, errors, []);
         }
 
-        var warnings = new List<string>(CamPost.Check(ops));
+        var warnings = new List<string>(CamPost.Check(ops, machine));
         warnings.AddRange(ops.SelectMany(o => o.Warnings));
-        string program = CamPost.Generate(ops, new PostOptions(job.Dialect, job.Name, job.ProgramNumber, job.WorkOffset, job.Coolant));
+        string program = CamPost.Generate(ops, new PostOptions(job.Dialect, job.Name, job.ProgramNumber, job.WorkOffset, job.Coolant, machine));
         return new JobBuild(program, ops, items, errors, warnings);
     }
 
