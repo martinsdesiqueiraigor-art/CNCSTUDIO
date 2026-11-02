@@ -7,6 +7,9 @@ namespace CncStudio.Core.Cam;
 public sealed record LatheLoadResult(LatheJob? Job, string? Error)
 {
     public bool Ok => Job is not null;
+
+    /// <summary>Avisos de um trabalho que abriu (ex.: fixação inválida, que fica "não informada"), como na fresa.</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
 /// <summary>Salvar e abrir o <see cref="LatheJob"/> em JSON com versão (mesmo cuidado do <see cref="CamJobJson"/>: sem reflexão, números com ponto).</summary>
@@ -203,9 +206,18 @@ public static class LatheJobJson
                     ?? throw new CamJobJson.FormatException(error ?? "Perfil inválido no arquivo.");
             }
 
+            // fixação estragada não impede de abrir (igual à fresa): fica "não informada" e vira aviso
+            var warnings = new List<string>();
             if (root["fixation"] is not null)
             {
-                job.Fixation = FixationFrom(root["fixation"] as JsonObject ?? throw new CamJobJson.FormatException("Fixação inválida no arquivo."));
+                try
+                {
+                    job.Fixation = FixationFrom(root["fixation"] as JsonObject ?? throw new CamJobJson.FormatException("formato inválido"));
+                }
+                catch (CamJobJson.FormatException ex)
+                {
+                    warnings.Add($"Fixação do arquivo ignorada ({ex.Message.TrimEnd('.')}): ficou como não informada.");
+                }
             }
 
             foreach (JsonNode? on in CamJobJson.Arr(root, "operations"))
@@ -214,7 +226,7 @@ public static class LatheJobJson
             }
 
             IReadOnlyList<string> problems = job.Validate();
-            return problems.Count > 0 ? new LatheLoadResult(null, problems[0]) : new LatheLoadResult(job, null);
+            return problems.Count > 0 ? new LatheLoadResult(null, problems[0]) : new LatheLoadResult(job, null) { Warnings = warnings };
         }
         catch (JsonException)
         {

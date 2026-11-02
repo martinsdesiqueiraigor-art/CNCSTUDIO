@@ -50,12 +50,24 @@ public class LatheFixationTests
     }
 
     [Fact]
-    public void Fixacao_desconhecida_ou_invalida_no_arquivo_da_erro()
+    public void Fixacao_desconhecida_ou_invalida_abre_com_aviso_como_na_fresa()
     {
+        // decisão do Igor (02/11): igual à fresa; o trabalho abre e a fixação fica "não informada", com aviso legível
         string json = LatheJobJson.ToJson(new LatheJob { Fixation = new LatheFixation(LatheFixationKind.Jaws) });
-        Assert.False(LatheJobJson.FromJson(json.Replace("\"castanhas\"", "\"morsa\"")).Ok);
+        LatheLoadResult unknown = LatheJobJson.FromJson(json.Replace("\"castanhas\"", "\"morsa\""));
+        Assert.True(unknown.Ok);
+        Assert.Null(unknown.Job!.Fixation);
+        Assert.Contains("morsa", Assert.Single(unknown.Warnings));
+
         string bad = LatheJobJson.ToJson(new LatheJob { Fixation = new LatheFixation(LatheFixationKind.Jaws, GripDiameter: -1) });
-        Assert.False(LatheJobJson.FromJson(bad).Ok);
+        LatheLoadResult invalid = LatheJobJson.FromJson(bad);
+        Assert.True(invalid.Ok);
+        Assert.Null(invalid.Job!.Fixation);
+        Assert.Contains("não informada", Assert.Single(invalid.Warnings));
+
+        LatheLoadResult good = LatheJobJson.FromJson(json);
+        Assert.Empty(good.Warnings);
+        Assert.NotNull(good.Job!.Fixation);
     }
 
     [Fact]

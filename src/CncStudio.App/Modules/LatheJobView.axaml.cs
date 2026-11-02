@@ -222,10 +222,13 @@ public partial class LatheJobView : UserControl
         _job.WorkOffset = j.WorkOffset;
         _job.Coolant = j.Coolant;
         _job.Profile = j.Profile;
+        _job.Fixation = j.Fixation;
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
         Refresh();
+        // avisos do arquivo (ex.: fixação inválida, que abre como "não informada")
+        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
     }
 
     // ---------------------------------------------------------------- operações
