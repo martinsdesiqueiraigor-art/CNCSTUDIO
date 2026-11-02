@@ -74,6 +74,7 @@ public partial class JobView
 
         Section("Ferramenta");
         BankPicker(i);
+        BankButtons(i);
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Fresa topo Z4", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
         Num(i, "Ferramenta (T)", "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } });
         Num(i, "Diâmetro", "mm", s.Tool.Diameter, (x, v) => x with { Tool = x.Tool with { Diameter = v } });
@@ -339,6 +340,84 @@ public partial class JobView
     }
 
     // ---------------------------------------------------------------- banco de ferramentas
+
+    /// <summary>
+    /// Salvar e excluir a ferramenta da operação no banco (migrado da aba Fresa antiga). Salvar grava ou atualiza pelo T; excluir pede
+    /// confirmação na própria tela (a aba antiga apagava direto). Ferramenta de torno com o mesmo T não é tocada.
+    /// </summary>
+    private void BankButtons(int i)
+    {
+        List<ToolEntry>? bank = ToolsSource?.Invoke();
+        if (bank is null)
+        {
+            return;
+        }
+
+        CamTool tool = _job.Operations[i].Tool;
+        ToolEntry? existing = bank.FirstOrDefault(t => t.Number == tool.Number);
+        var message = new ContentControl();
+        var row = new WrapPanel();
+        var save = new Button { Content = existing is null ? $"Salvar T{tool.Number} no banco" : $"Atualizar T{tool.Number} no banco", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 0, 6, 6), FontSize = 12 };
+        save.Click += (_, _) =>
+        {
+            if (CamJobInfo.BankToolError(tool.Number, tool.Diameter) is { } bad)
+            {
+                message.Content = UiKit.StatusNote("✕ inválido: " + bad, "bad");
+                return;
+            }
+
+            ToolEntry? entry = bank.FirstOrDefault(t => t.Number == tool.Number);
+            if (entry is not null && !IsMillTool(entry))
+            {
+                message.Content = UiKit.StatusNote($"✕ inválido: T{tool.Number} do banco é ferramenta de torno; use outro número.", "bad");
+                return;
+            }
+
+            if (entry is null)
+            {
+                entry = new ToolEntry { Number = tool.Number };
+                bank.Add(entry);
+            }
+
+            entry.Diameter = tool.Diameter;
+            entry.Description = tool.Name.Trim();
+            entry.SpindleRpm = Math.Max(0, tool.SpindleRpm);
+            entry.FeedXY = Math.Max(0, tool.FeedXY);
+            entry.FeedZ = Math.Max(0, tool.FeedZ);
+            SaveTools?.Invoke();
+            BuildProps();
+        };
+        row.Children.Add(save);
+
+        if (existing is not null && IsMillTool(existing))
+        {
+            var delete = new Button { Content = $"Excluir T{tool.Number} do banco…", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 0, 6, 6), FontSize = 12 };
+            delete.Click += (_, _) =>
+            {
+                // confirmação na tela: diz o que sai e que a operação continua com a ferramenta
+                var confirm = new Button { Content = $"Sim, excluir T{tool.Number}", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 6, 6, 0) };
+                var cancel = new Button { Content = "Cancelar", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 6, 0, 0) };
+                var panel = new StackPanel();
+                panel.Children.Add(UiKit.StatusNote($"Excluir T{tool.Number} (Ø{Fmt(existing.Diameter)}) do banco? A operação continua com a ferramenta; o simulador do Code deixa de achar T{tool.Number} no banco.", "pending"));
+                var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+                buttons.Children.Add(confirm);
+                buttons.Children.Add(cancel);
+                panel.Children.Add(buttons);
+                message.Content = panel;
+                cancel.Click += (_, _) => message.Content = null;
+                confirm.Click += (_, _) =>
+                {
+                    bank.RemoveAll(t => t.Number == tool.Number && IsMillTool(t));
+                    SaveTools?.Invoke();
+                    BuildProps();
+                };
+            };
+            row.Children.Add(delete);
+        }
+
+        PropsPanel.Children.Add(row);
+        PropsPanel.Children.Add(message);
+    }
 
     private static bool IsMillTool(ToolEntry e) =>
         !(Enum.TryParse(e.Kind, out ToolKind kind) && new SetupTool { Kind = kind }.IsLathe);

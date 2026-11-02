@@ -445,3 +445,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Logo do topo de 64 → 132 px (com margem negativa, a imagem tem borda transparente) e título maior; cartões com o nome sem "Casillas" (fonte maior; 11,5 px na tela larga); texto de áreas abaixo dos cartões removido.
 - Sino ao lado da engrenagem abre "Novidades" (lista vazia por enquanto; aviso real de versão é a etapa 2). Engrenagem agora abre "Configurações" com Tema (padrão/CMYK) e "Conta e licença" (o painel de conta não foi alterado).
 - Barra inferior só aparece dentro dos módulos, com "Início" e o módulo atual (`--dock-h` vira 0 no Início). Só JS (`platform-ui.js`); conferido em Chromium sem tela (360×760, 320×640, 800×400).
+## T4b: salvar e excluir ferramenta no banco pelo Trabalho fresa (`ajuste-fresa-ferramentas`, HANDOFF-22)
+- Propriedades da operação: "Salvar Tn no banco" (ou "Atualizar", se o T já existe) grava diâmetro, nome, rotação e avanços; "Excluir Tn do banco…" pede confirmação na tela (diz o que sai e que a operação continua com a ferramenta). Regra do T e do diâmetro no Core (`BankToolError`, mesma da aba antiga).
+- Diferenças da aba antiga: lá excluía sem confirmar e salvava por cima de qualquer T; aqui não grava por cima de ferramenta de torno com o mesmo T. Aba antiga sem mudança. **Testes:** 1235. Conferido sem tela (salvar, cancelar, excluir).

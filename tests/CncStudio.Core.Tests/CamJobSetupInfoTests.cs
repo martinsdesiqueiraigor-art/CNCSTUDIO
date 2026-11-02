@@ -7,6 +7,17 @@ namespace CncStudio.Core.Tests;
 public class CamJobSetupInfoTests
 {
     [Fact]
+    public void BankToolError_mesma_regra_da_aba_antiga()
+    {
+        Assert.Null(CamJobInfo.BankToolError(1, 10));
+        Assert.Null(CamJobInfo.BankToolError(9999, 0.5));
+        Assert.Contains("1 a 9999", CamJobInfo.BankToolError(0, 10));
+        Assert.Contains("1 a 9999", CamJobInfo.BankToolError(10000, 10));
+        Assert.Contains("diâmetro", CamJobInfo.BankToolError(3, 0));
+        Assert.Contains("diâmetro", CamJobInfo.BankToolError(3, double.NaN));
+    }
+
+    [Fact]
     public void StockError_pede_as_tres_medidas_maiores_que_zero()
     {
         Assert.Null(CamJobInfo.StockError(100, 60, 10));
