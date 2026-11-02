@@ -169,6 +169,26 @@ public static class CamJobInfo
         number is < 1 or > 9999 ? "o T precisa ser de 1 a 9999 para ir ao banco."
             : !double.IsFinite(diameter) || diameter <= 0 ? "o diâmetro precisa ser maior que zero para ir ao banco." : null;
 
+    /// <summary>
+    /// Ferramentas do programa cujo T está no banco do Code com outro diâmetro (o simulador do Code usa o do banco).
+    /// Um aviso por T, na ordem do programa; T fora do banco não avisa (entra no banco ao abrir no Code).
+    /// </summary>
+    public static IReadOnlyList<string> BankDiameterWarnings(IEnumerable<CamTool> used, IEnumerable<(int Number, double Diameter)> bank)
+    {
+        var list = bank.ToList();
+        var warnings = new List<string>();
+        foreach (CamTool t in used.GroupBy(t => t.Number).Select(g => g.First()))
+        {
+            int at = list.FindIndex(e => e.Number == t.Number);
+            if (at >= 0 && Math.Abs(list[at].Diameter - t.Diameter) > 1e-6)
+            {
+                warnings.Add($"T{t.Number} no banco do Code tem Ø{list[at].Diameter.ToString("0.###", Br)}, mas o CAM usou Ø{t.Diameter.ToString("0.###", Br)}: o simulador do Code usa o do banco.");
+            }
+        }
+
+        return warnings;
+    }
+
     /// <summary>Bruto digitado na tela: as três medidas precisam ser números maiores que zero (null = válido).</summary>
     public static string? StockError(double width, double length, double thickness)
     {
