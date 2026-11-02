@@ -445,3 +445,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Logo do topo de 64 → 132 px (com margem negativa, a imagem tem borda transparente) e título maior; cartões com o nome sem "Casillas" (fonte maior; 11,5 px na tela larga); texto de áreas abaixo dos cartões removido.
 - Sino ao lado da engrenagem abre "Novidades" (lista vazia por enquanto; aviso real de versão é a etapa 2). Engrenagem agora abre "Configurações" com Tema (padrão/CMYK) e "Conta e licença" (o painel de conta não foi alterado).
 - Barra inferior só aparece dentro dos módulos, com "Início" e o módulo atual (`--dock-h` vira 0 no Início). Só JS (`platform-ui.js`); conferido em Chromium sem tela (360×760, 320×640, 800×400).
+## CAM-02 · rotativo a zero no fim (`ajuste-cam02-rotativo-zero`, T7b)
+- `CamPost`: se o programa termina com A/B/C fora de 0°, depois de Z na referência (G28/G53) sai comentário "NAO VERIFICADO EM MAQUINA" e `G0 A0` antes do M30. Só com perfil da máquina (`PostOptions.Machine`) e 0° dentro do curso; senão comentário "CONFIRA: … NAO VOLTA A ZERO". `CamPost.Check(ops, machine)` avisa nos dois casos. Trabalho fresa, CAM antigo e CAM web passam o perfil.
+- Programa sem rotativo fica idêntico (teste). 11 testes novos (**1245**); Release 0 avisos. Não rodou em máquina; colisão no giro final não verificada.

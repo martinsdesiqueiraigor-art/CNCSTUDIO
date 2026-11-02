@@ -150,6 +150,7 @@ public static class CamQuickJson
                 return Result(false, "", [result.Error ?? "Não foi possível gerar a operação."], []);
             }
 
+            MachineProfile? machine = null;
             if (Chk("ROT"))
             {
                 double[] r = [Num("ANG"), Num("DIST"), Num("PIVH"), Num("PIVZ"), Num("MINA"), Num("MAXA")];
@@ -170,7 +171,7 @@ public static class CamQuickJson
                     PivotX = letter == "B" ? r[2] : 0,
                     PivotZ = r[3],
                 };
-                var machine = new MachineProfile { Name = "Web", Controller = Sel("dialect") == 1 ? CamDialect.Siemens : CamDialect.Fanuc, Axes = [axis] };
+                machine = new MachineProfile { Name = "Web", Controller = Sel("dialect") == 1 ? CamDialect.Siemens : CamDialect.Fanuc, Axes = [axis] };
                 List<string> problems = machine.Validate();
                 if (problems.Count > 0)
                 {
@@ -186,9 +187,9 @@ public static class CamQuickJson
 
             CamOperation operation = result.Operation!;
             CamDialect dialect = Sel("dialect") == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
-            string program = CamPost.Generate([operation], new PostOptions(dialect, ProgramName: "CASILLAS CAM"));
+            string program = CamPost.Generate([operation], new PostOptions(dialect, ProgramName: "CASILLAS CAM", Machine: machine));
             var warnings = operation.Warnings.ToList();
-            warnings.AddRange(CamPost.Check([operation]));
+            warnings.AddRange(CamPost.Check([operation], machine));
             return Result(true, program, [], warnings);
         }
         catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or FormatException)
@@ -261,9 +262,9 @@ public static class CamQuickJson
         }
 
         CamOperation operation = result.Operation!;
-        string program = CamPost.Generate([operation], new PostOptions(dialect, ProgramName: "CASILLAS CAM"));
+        string program = CamPost.Generate([operation], new PostOptions(dialect, ProgramName: "CASILLAS CAM", Machine: machine));
         var warnings = operation.Warnings.ToList();
-        warnings.AddRange(CamPost.Check([operation]));
+        warnings.AddRange(CamPost.Check([operation], machine));
         return Result(true, program, [], warnings);
     }
 
