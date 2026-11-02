@@ -4,6 +4,9 @@ using Xunit;
 
 namespace CncStudio.Core.Tests;
 
+// As classes que trocam a biblioteca estática do AcademyJson (UseLibrary) ficam na mesma coleção: o xUnit as roda
+// uma de cada vez. Em paralelo, uma trocava a biblioteca no meio do teste da outra (falha intermitente).
+[Collection("AcademyJson")]
 public class AcademyTests
 {
     private const string Program = "%\nO1001\n(SIMULE ANTES DE RODAR NA MAQUINA)\nG21 G90 G17\nG54\nG00 X0.0 Y0.0\nG01 X10.0 F100.\nM30\n%\n";
@@ -262,6 +265,7 @@ public class AcademyTests
     }
 }
 
+[Collection("AcademyJson")]
 public class AcademyEmbeddedTests
 {
     [Fact]
@@ -277,6 +281,7 @@ public class AcademyEmbeddedTests
     }
 }
 
+[Collection("AcademyJson")]
 public class WalkthroughTests
 {
     private const string Prog = "%\nO1002\n(BRUTO: BLOCO 80 X 60 X 20 MM)\nG21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y10.0\nG01 X40.0 Y10.0 Z15.0 F120.0\nX40.0 Y30.0\nM30\n%\n";
@@ -327,6 +332,7 @@ public class WalkthroughTests
     }
 }
 
+[Collection("AcademyJson")]
 public class ExerciseTests
 {
     private static ExerciseEditor Editor(params ExerciseCheck[] checks) => new ExerciseEditor("G21 G90 G17\nG00 X10.0 Y10.0", "", checks);
@@ -404,6 +410,7 @@ public class ExerciseTests
 }
 
 
+[Collection("AcademyJson")]
 public class AcademyExtrasTests
 {
     [Fact]
