@@ -11,7 +11,7 @@ namespace CncStudio.App.Modules;
 /// <summary>Aba Plano 2D do Assist: sugere furos, bolsões e contorno a partir do desenho do Trabalho de fresa.</summary>
 public sealed partial class AssistView
 {
-    private readonly ComboBox _planMaterial = new() { MinWidth = 220 };
+    private readonly ComboBox _planMaterial = new() { MinWidth = 220, PlaceholderText = "Escolha o material…" };
     private readonly TextBox _planThickness = new() { Width = 80, Text = "10" };
     private readonly TextBlock _planDrawing = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
     private readonly TextBlock _planResult = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
@@ -493,7 +493,8 @@ public sealed partial class AssistView
             _planMaterial.Items.Add(m.Name);
         }
 
-        _planMaterial.SelectedIndex = Math.Clamp(keep, _lib.Materials.Count > 0 ? 0 : -1, _lib.Materials.Count - 1);
+        // Sem material pré-escolhido: o usinador escolhe (o plano não sugere sem material)
+        _planMaterial.SelectedIndex = keep >= 0 && keep < _lib.Materials.Count ? keep : -1;
         (IReadOnlyList<Contour> contours, double? thickness)? d = PlanDrawing?.Invoke();
         RefreshDrawingText();
         if (d?.thickness is { } t && t > 0)
@@ -524,14 +525,21 @@ public sealed partial class AssistView
             return;
         }
 
+        if (input.Material is null)
+        {
+            _planResult.Text = "⚠ " + AssistPlanner.MissingMaterial;
+            RefreshPlanApply();
+            return;
+        }
+
         PlanResult plan = AssistPlanner.Plan(input);
         var lines = new List<string>();
         for (int i = 0; i < plan.Operations.Count; i++)
         {
             CamOperationSpec op = plan.Operations[i];
             string origin = PlanValidity.ToolsOf(plan, input).First(t => t.Number == op.Tool.Number && t.Diameter == op.Tool.Diameter).Origin == ToolOrigin.New ? "NOVA, fora do banco" : "banco";
-            // de onde vêm rotação e avanço: sugestão da biblioteca (rascunho) ou valor genérico sem material
-            string cutSource = input.Material is null ? " · dados de corte: SEM material (valor genérico)" : input.Material.Draft ? " · dados de corte: rascunho" : "";
+            // de onde vêm rotação e avanço (sem material, a sugestão já parou acima)
+            string cutSource = input.Material.Draft ? " · dados de corte: rascunho" : "";
             lines.Add(CamJobInfo.OpTitle(i, op) + $" · T{op.Tool.Number} ({origin}) · {op.Tool.SpindleRpm:0} rpm · F{op.Tool.FeedXY:0}{cutSource}");
         }
 

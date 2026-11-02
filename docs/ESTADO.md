@@ -448,3 +448,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## UX-01 PR5: "digitado" e "dados de corte: rascunho" no Assist (`ajuste-ux01-r3-digitado`, HANDOFF-22 T3, opção A)
 - Revisão do Plano 2D: cada valor que você preenche (profundidades, alturas Z, rotação ajustada) mostra "digitado" (verde com texto), "pendente" (âmbar) ou "✕ inválido" (vermelho); a lista do plano diz "dados de corte: rascunho" ou "dados de corte: SEM material (valor genérico)". Só interface: regra do Aplicar, G-code e arquivo sem mudança.
 - Fora: marcar a origem no Trabalho fresa (opção C, precisa de campo no arquivo: PR à parte com autorização). T2 (pontes) pulada a pedido. Conferido headless 1280×720, escuro e claro.
+## Assist: material obrigatório antes de sugerir (`ajuste-assist-material`, T8a)
+- Core: `AssistPlanner.Plan` sem material não sugere nada (nota `MissingMaterial`); antes sugeria com 3000 rpm/F500 genéricos. Tela: o combo não pré-escolhe o 1º material ("Escolha o material…") e "Sugerir plano" mostra o motivo em ⚠. Travas do Aplicar sem mudança.
+- 1 teste novo (**1235** passando); Release 0 avisos. Não conferido na tela (sem roteiro headless até o Assist com DXF).

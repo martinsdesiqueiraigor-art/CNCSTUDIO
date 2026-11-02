@@ -37,6 +37,9 @@ public static class AssistPlanner
 
     private static bool IsCircle(Contour c) => c.Segments.Count == 1 && c.Segments[0].IsArc && c.Segments[0].Start.DistanceTo(c.Segments[0].End) < 1e-6;
 
+    /// <summary>Motivo do bloqueio quando não há material escolhido.</summary>
+    public const string MissingMaterial = "Escolha o material antes de sugerir: sem material o Assist não calcula rotação nem avanço. Nenhuma operação foi sugerida.";
+
     public static PlanResult Plan(PlanInput input) => Seal(PlanCore(input), input);
 
     private static PlanResult Seal(PlanResult plan, PlanInput input)
@@ -59,6 +62,12 @@ public static class AssistPlanner
         if (!(input.Thickness > 0))
         {
             return new PlanResult(ops, ["Informe a espessura do bruto."]);
+        }
+
+        // Sem material não há rotação nem avanço confiáveis: o plano não sugere com valor genérico
+        if (input.Material is null)
+        {
+            return new PlanResult(ops, [MissingMaterial]);
         }
 
         // A-03: desenho ambíguo ou com defeito é recusado com o motivo, em vez de o plano adivinhar qual contorno é a peça
