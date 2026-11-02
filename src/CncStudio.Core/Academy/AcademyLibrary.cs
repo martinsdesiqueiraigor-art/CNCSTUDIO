@@ -1,26 +1,83 @@
 using System.Reflection;
+using System.Text.Json.Nodes;
 
 namespace CncStudio.Core.Academy;
 
-/// <summary>Módulo previsto no piloto (existe mesmo sem conteúdo; aparece como "em breve").</summary>
-public sealed record PlannedModule(string Id, string Title, string Track, string Level);
+/// <summary>Módulo previsto no plano (existe mesmo sem conteúdo; aparece como "em breve").</summary>
+public sealed record PlannedModule(string Id, string Title, string Track, string Level, string Description = "", bool Soon = false);
 
-/// <summary>Plano do piloto (ficha ACAD-01), o conteúdo carregado e o acesso às aulas.</summary>
+/// <summary>Plano da Academy: trilhas, níveis e módulos, lido de academy-plano.json (módulo novo entra só no JSON).</summary>
+public sealed record AcademyPlan(IReadOnlyList<string> Tracks, IReadOnlyList<string> Levels, IReadOnlyList<PlannedModule> Modules)
+{
+    /// <summary>Lê o plano; devolve null e o motivo se o JSON estiver quebrado ou incompleto.</summary>
+    public static AcademyPlan? FromJson(string json, out string error)
+    {
+        error = "";
+        JsonObject? o;
+        try
+        {
+            o = JsonNode.Parse(json) as JsonObject;
+        }
+        catch (System.Text.Json.JsonException e)
+        {
+            error = "JSON inválido: " + e.Message;
+            return null;
+        }
+
+        List<string> Strings(string key) => o?[key] is JsonArray a ? [.. a.Select(n => n is JsonValue v && v.TryGetValue(out string? s) ? s ?? "" : "").Where(s => s.Length > 0)] : [];
+        string Str(JsonObject m, string key) => m[key] is JsonValue v && v.TryGetValue(out string? s) ? s ?? "" : "";
+        List<string> tracks = Strings("trilhas"), levels = Strings("niveis");
+        List<PlannedModule> modules = [];
+        if (o?["modulos"] is JsonArray list)
+        {
+            foreach (JsonObject m in list.OfType<JsonObject>())
+            {
+                modules.Add(new PlannedModule(Str(m, "id"), Str(m, "titulo"), Str(m, "trilha"), Str(m, "nivel"), Str(m, "descricao"),
+                    m["em_breve"] is JsonValue sv && sv.TryGetValue(out bool soon) && soon));
+            }
+        }
+
+        if (tracks.Count == 0 || levels.Count == 0)
+        {
+            error = "O plano precisa de \"trilhas\" e \"niveis\".";
+            return null;
+        }
+
+        if (modules.FirstOrDefault(m => m.Id.Length == 0 || m.Title.Length == 0 || !tracks.Contains(m.Track) || !levels.Contains(m.Level)) is { } bad)
+        {
+            error = $"Módulo \"{bad.Id}\": precisa de id, titulo, uma trilha e um nível do plano.";
+            return null;
+        }
+
+        if (modules.GroupBy(m => m.Id).FirstOrDefault(g => g.Count() > 1) is { } dup)
+        {
+            error = $"Módulo \"{dup.Key}\" repetido.";
+            return null;
+        }
+
+        return new AcademyPlan(tracks, levels, modules);
+    }
+
+    /// <summary>O plano embutido no Core (academy-plano.json).</summary>
+    public static AcademyPlan Embedded()
+    {
+        using Stream s = typeof(AcademyPlan).Assembly.GetManifestResourceStream("AcademyPlan.json")
+            ?? throw new InvalidOperationException("academy-plano.json não embutido no Core.");
+        using StreamReader reader = new(s);
+        return FromJson(reader.ReadToEnd(), out string error) ?? throw new InvalidOperationException("academy-plano.json: " + error);
+    }
+}
+
+/// <summary>Plano do piloto, o conteúdo carregado e o acesso às aulas.</summary>
 public sealed class AcademyLibrary
 {
-    public static readonly IReadOnlyList<string> Tracks = ["Comum", "Fresa", "Torno"];
-    public static readonly IReadOnlyList<string> Levels = ["Introdução", "Iniciante", "Básico", "Intermediário", "Avançado", "Especialista"];
+    private static readonly AcademyPlan EmbeddedPlan = AcademyPlan.Embedded();
 
-    public static readonly IReadOnlyList<PlannedModule> Plan =
-    [
-        new("acad-m1", "Introdução ao CNC", "Comum", "Introdução"),
-        new("acad-m2", "Fresa: primeiros movimentos", "Fresa", "Iniciante"),
-        new("acad-m3", "Fresa: ciclos, subprogramas e compensação", "Fresa", "Básico"),
-        new("acad-m4", "Fresa: macro", "Fresa", "Avançado"),
-        new("acad-m5", "Fresa: apalpador e ciclos próprios", "Fresa", "Especialista"),
-        new("acad-m6", "Torno: primeiros movimentos", "Torno", "Iniciante"),
-        new("acad-m7", "Torno: G71", "Torno", "Intermediário"),
-    ];
+    public static IReadOnlyList<string> Tracks => EmbeddedPlan.Tracks;
+
+    public static IReadOnlyList<string> Levels => EmbeddedPlan.Levels;
+
+    public static IReadOnlyList<PlannedModule> Plan => EmbeddedPlan.Modules;
 
     private readonly Dictionary<string, AcademyModule> _modules = [];
     private readonly Dictionary<string, string> _programs = [];
