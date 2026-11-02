@@ -1,0 +1,171 @@
+/* Casillas Academy: visual da tela (academy-ui.js). Cores = as do app (App.axaml): escuro, claro e CMYK.
+   Destaque = laranja Casillas (--cc-accent; o tema CMYK troca para ciano). Painéis de código e 3D ficam escuros nos dois temas. */
+.acad {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2738; --border: #30363d; --text: #e6edf3;
+  --link: #58a6ff; --ok: #6fd39b; --bad: #ff9a83; --code-bg: #0a0f14; --code-border: #30445a;
+  --accent: var(--cc-accent, #f0883e); --on-accent: #1a0d02;
+  --muted: color-mix(in srgb, var(--text) 64%, var(--bg));
+  --tint: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --warn: color-mix(in srgb, var(--accent) 55%, var(--text));
+  --radius: 14px;
+  color-scheme: dark;
+}
+.acad[data-theme="light"] {
+  --bg: #ffffff; --surface: #f3f4f6; --surface2: #e3ebf5; --border: #d0d7de; --text: #1f2328;
+  --link: #0969da; --ok: #16a34a; --bad: #d62828;
+  --muted: color-mix(in srgb, var(--text) 70%, var(--bg));
+  --warn: color-mix(in srgb, var(--accent) 45%, var(--text));
+  color-scheme: light;
+}
+html[data-cc-cmyk] .acad:not([data-theme="light"]) { --bg: #0b1418; --surface: #13242b; --surface2: #10303b; --border: #24414c; --link: #ec008c; }
+
+.acad, .acad * { box-sizing: border-box; }
+.acad-root {
+  position: fixed; left: 0; right: 0; top: 0; bottom: var(--dock-h, 0px); z-index: 10030;
+  background: var(--bg); color: var(--text); overflow-y: auto; overscroll-behavior: contain;
+  font: 15px/1.5 system-ui, -apple-system, Roboto, sans-serif; padding: 0 16px 84px;
+}
+.ac-wrap { max-width: 680px; margin: 0 auto; padding-top: 12px; }
+:where(.acad) button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.acad :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.acad h2, .acad h3 { margin: 0; }
+
+/* Botões (alvo de toque de 44 px no mínimo) */
+.ac-btn { flex: 1; min-width: 104px; min-height: 46px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-weight: 700; font-size: 15px; padding: 0 14px; }
+a.ac-btn { color: var(--text); }
+.ac-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.ac-btn.ok { background: var(--ok); border-color: var(--ok); color: #06140c; }
+.ac-btn.ghost { background: none; border-color: transparent; color: var(--link); flex: none; min-width: 0; padding: 0 6px; }
+.ac-btn:disabled { opacity: .5; cursor: default; }
+.ac-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.ac-link { background: none; border: none; color: var(--link); font-size: 14px; padding: 10px 0; min-height: 44px; text-align: left; }
+
+/* Cabeçalho das telas */
+.ac-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 48px; }
+.ac-top .ac-btn { flex: none; min-width: 0; }
+.ac-top h2 { flex: 1; min-width: 0; font-size: 19px; line-height: 1.25; }
+.ac-brand { font-size: 12px; font-weight: 800; letter-spacing: .12em; color: var(--accent); text-transform: uppercase; }
+.ac-badge { display: inline-block; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 2px 9px; margin-left: 6px; vertical-align: middle; border: 1px solid; }
+.ac-badge.draft { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.ac-badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+
+/* Cartões */
+.ac-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+.ac-card.tint { background: var(--tint); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.ac-card.click { cursor: pointer; }
+.ac-card.off { opacity: .55; }
+.ac-hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.ac-muted { color: var(--muted); font-size: 13px; }
+.ac-label { color: var(--accent); font-weight: 700; font-size: 13px; }
+.ac-section { font-size: 17px; font-weight: 700; margin: 18px 0 10px; }
+.ac-bar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--text) 14%, var(--bg)); overflow: hidden; margin-top: 6px; }
+.ac-bar > div { height: 100%; background: var(--accent); border-radius: 4px; }
+
+/* Início */
+.ac-hero { display: flex; gap: 14px; align-items: center; }
+.ac-ring { position: relative; width: 92px; height: 92px; flex: none; }
+.ac-ring span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; }
+.ac-streak { color: var(--accent); font-weight: 700; margin-top: 6px; }
+.ac-tracks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ac-track { display: flex; flex-direction: column; gap: 4px; min-height: 104px; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.ac-track:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.ac-track .ic { font-size: 22px; line-height: 1; }
+.ac-track strong { font-size: 16px; }
+
+/* Barra inferior da Academy: Início, Trilhas, Conquistas */
+.ac-nav { position: fixed; left: 0; right: 0; bottom: var(--dock-h, 0px); z-index: 10031; background: var(--bg); border-top: 1px solid var(--border); display: flex; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); }
+.ac-nav button { flex: 1; min-height: 52px; border: none; background: none; color: var(--muted); font-size: 12px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.ac-nav button[aria-current="page"] { color: var(--accent); }
+.ac-nav .ic { font-size: 20px; }
+
+/* Trilhas: linha do tempo de 6 níveis */
+.ac-seg { display: flex; gap: 6px; margin-bottom: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px; }
+.ac-seg button { flex: 1; min-height: 44px; border: none; border-radius: 9px; background: none; font-weight: 700; color: var(--muted); }
+.ac-seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.ac-timeline { position: relative; padding-left: 36px; }
+.ac-timeline::before { content: ""; position: absolute; left: 13px; top: 12px; bottom: 12px; width: 3px; background: var(--border); }
+.ac-node { position: relative; margin-bottom: 12px; }
+.ac-dot { position: absolute; left: -36px; top: 12px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; background: var(--bg); border: 3px solid var(--lc); }
+.ac-dot.done { background: var(--ok); border-color: var(--ok); color: #06140c; }
+.ac-dot.now { background: var(--lc); border-color: var(--text); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lc) 35%, transparent); }
+.ac-dot.soon { border-style: dashed; border-color: var(--border); }
+.ac-node .ac-card { margin-bottom: 0; border-left: 6px solid var(--lc); }
+.ac-node-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ac-node-head strong { font-size: 16px; }
+
+/* Conquistas */
+.ac-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.ac-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; text-align: center; }
+.ac-stat b { display: block; font-size: 24px; color: var(--accent); }
+.ac-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; }
+.ac-medal { text-align: center; padding: 10px 6px; border-radius: 12px; border: 2px solid var(--border); }
+.ac-medal.got { border-color: var(--lc); background: var(--surface2); }
+.ac-medal:not(.got) { opacity: .5; filter: grayscale(1); }
+
+/* Módulo: lista de aulas */
+.ac-lesson-item { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; min-height: 56px; }
+.ac-num { min-width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; background: var(--surface2); }
+.ac-num.done { background: var(--ok); color: #06140c; }
+
+/* Aula: cabeçalho fixo e abas */
+.ac-lesson-head { position: sticky; top: 0; z-index: 2; background: var(--bg); margin: 0 -16px; padding: 10px 16px 8px; border-bottom: 1px solid var(--border); }
+.ac-lesson-head .ac-top { margin-bottom: 4px; }
+.ac-progress { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.ac-progress .ac-bar { flex: 1; margin-top: 0; }
+.ac-tabs { display: flex; gap: 4px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
+.ac-tabs::-webkit-scrollbar { display: none; }
+.ac-tab { flex: 1 1 0; min-width: 0; min-height: 52px; border: 1px solid transparent; border-radius: 12px; background: none; color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1.15; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 2px; }
+.ac-tab .ic { font-size: 18px; line-height: 1.1; }
+.ac-tab[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
+.ac-panel { padding-top: 14px; }
+.ac-panel[hidden] { display: none; }
+.ac-next-tab { margin: 6px 0 16px; }
+
+/* Texto em cartões (Visão geral) */
+.ac-reader { border-left: 6px solid var(--kind, var(--border)); }
+.ac-reader-body { min-height: 120px; }
+.ac-reader-body p { margin: 0 0 8px; font-size: 16px; line-height: 1.6; }
+.ac-kind { font-weight: 700; font-size: 13px; margin-bottom: 6px; color: var(--kind); }
+.ac-dots { display: flex; gap: 6px; justify-content: center; margin: 10px 0; }
+.ac-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.ac-dots span.past { background: var(--muted); }
+.ac-dots span.now { background: var(--accent); }
+.ac-strong { color: var(--accent); }
+.ac-callout { border-left: 6px solid var(--kind, var(--accent)); }
+
+/* Quiz */
+.ac-q { font-weight: 600; margin-bottom: 8px; white-space: pre-wrap; }
+.ac-opt { display: block; width: 100%; text-align: left; min-height: 44px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 14px; padding: 8px 10px; white-space: normal; }
+.ac-opt.picked { border-color: var(--accent); background: var(--tint); }
+.ac-opt.right { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 22%, var(--bg)); }
+.ac-opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 20%, var(--bg)); }
+.ac-explain { margin-top: 8px; padding: 10px; border-radius: 10px; background: var(--surface2); font-size: 13px; white-space: pre-wrap; }
+.ac-result { margin: 10px 0; font-weight: 700; font-size: 16px; }
+.ac-good { color: var(--ok); }
+.ac-badt { color: var(--bad); }
+
+/* Código, 3D e diagramas: painel escuro nos dois temas */
+.ac-code { background: var(--code-bg); border: 1px solid var(--code-border); border-radius: 10px; color: #c9d6e2; font: 12.5px/1.5 ui-monospace, Consolas, monospace; }
+.ac-code-lines { max-height: 320px; overflow: auto; padding: 6px 0; }
+.ac-code-lines > div { padding: 2px 10px; white-space: pre; }
+.ac-walk-list { max-height: 210px; overflow: auto; margin: 8px 0; }
+.ac-walk-list > div { padding: 5px 10px; white-space: pre; cursor: pointer; border-left: 3px solid transparent; min-height: 28px; }
+.ac-walk-list > div.sel { background: #2d4a63; border-left-color: #ffb454; }
+.ac-canvas { width: 100%; display: block; background: var(--code-bg); border: 1px solid var(--code-border); border-radius: 10px; }
+.ac-explain-line { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-size: 14px; margin-bottom: 8px; }
+.ac-textarea { width: 100%; min-height: 84px; background: var(--code-bg); color: #e6edf3; border: 1px solid var(--code-border); border-radius: 10px; padding: 8px 10px; font: 14px/1.45 ui-monospace, Consolas, monospace; margin-bottom: 8px; }
+.ac-prefix { margin: 8px 0 0; padding: 8px 10px; border-bottom: none; border-radius: 10px 10px 0 0; color: #8b9aa9; white-space: pre; }
+.ac-prefix + .ac-textarea { border-radius: 0 0 10px 10px; }
+.ac-field { min-width: 0; width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; min-height: 44px; padding: 8px; font-size: 17px; }
+.ac-slider { display: grid; grid-template-columns: 118px 1fr 40px; align-items: center; gap: 8px; min-height: 44px; }
+.ac-slider input { width: 100%; accent-color: var(--accent); }
+.ac-warning { color: var(--warn); font-size: 13px; font-weight: 600; margin: 8px 0; }
+
+/* Atalho "Voltar à aula" sobre o Code */
+.acad-return { position: fixed; left: 12px; bottom: calc(var(--dock-h, 0px) + 44px); z-index: 10020; display: flex; align-items: stretch; border-radius: 999px; background: var(--accent); color: var(--on-accent); box-shadow: 0 4px 14px rgba(0, 0, 0, .35); font: 700 14px system-ui, sans-serif; overflow: hidden; }
+.acad-return button { border: none; background: none; color: inherit; min-height: 44px; padding: 0 14px; font: inherit; cursor: pointer; }
+.acad-return button + button { padding: 0 12px; border-left: 1px solid color-mix(in srgb, var(--on-accent) 25%, transparent); min-width: 44px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .acad *, .acad-return { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
