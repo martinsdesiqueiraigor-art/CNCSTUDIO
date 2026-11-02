@@ -445,3 +445,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Logo do topo de 64 → 132 px (com margem negativa, a imagem tem borda transparente) e título maior; cartões com o nome sem "Casillas" (fonte maior; 11,5 px na tela larga); texto de áreas abaixo dos cartões removido.
 - Sino ao lado da engrenagem abre "Novidades" (lista vazia por enquanto; aviso real de versão é a etapa 2). Engrenagem agora abre "Configurações" com Tema (padrão/CMYK) e "Conta e licença" (o painel de conta não foi alterado).
 - Barra inferior só aparece dentro dos módulos, com "Início" e o módulo atual (`--dock-h` vira 0 no Início). Só JS (`platform-ui.js`); conferido em Chromium sem tela (360×760, 320×640, 800×400).
+## UX-01 PR5: "digitado" e "dados de corte: rascunho" no Assist (`ajuste-ux01-r3-digitado`, HANDOFF-22 T3, opção A)
+- Revisão do Plano 2D: cada valor que você preenche (profundidades, alturas Z, rotação ajustada) mostra "digitado" (verde com texto), "pendente" (âmbar) ou "✕ inválido" (vermelho); a lista do plano diz "dados de corte: rascunho" ou "dados de corte: SEM material (valor genérico)". Só interface: regra do Aplicar, G-code e arquivo sem mudança.
+- Fora: marcar a origem no Trabalho fresa (opção C, precisa de campo no arquivo: PR à parte com autorização). T2 (pontes) pulada a pedido. Conferido headless 1280×720, escuro e claro.
