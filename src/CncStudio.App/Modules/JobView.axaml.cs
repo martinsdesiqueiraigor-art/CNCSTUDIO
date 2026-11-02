@@ -453,7 +453,14 @@ public partial class JobView : UserControl
         }
 
         Tree.Items.Add(part);
-        Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), CamJobInfo.StockState(_job.Stock), "bruto", new TreeTag("stock", 0)));
+        // bruto ausente é pendência (âmbar, como na barra); o texto continua o do Core
+        (string Kind, string Text) stock = CamJobInfo.StockState(_job.Stock);
+        if (_job.Stock is null)
+        {
+            stock = ("pending", stock.Text);
+        }
+
+        Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), stock, "bruto", new TreeTag("stock", 0)));
         Tree.Items.Add(NodeState("Fixação", ("pending", "não verificada"), "fixacao"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
         foreach (CamTool t in CamJobInfo.ToolsUsed(_job))
