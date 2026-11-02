@@ -161,10 +161,13 @@ a.ac-btn { color: var(--text); }
 .ac-slider input { width: 100%; accent-color: var(--accent); }
 .ac-warning { color: var(--warn); font-size: 13px; font-weight: 600; margin: 8px 0; }
 
-/* Atalho "Voltar à aula" sobre o Code */
-.acad-return { position: fixed; left: 12px; bottom: calc(var(--dock-h, 0px) + 44px); z-index: 10020; display: flex; align-items: stretch; border-radius: 999px; background: var(--accent); color: var(--on-accent); box-shadow: 0 4px 14px rgba(0, 0, 0, .35); font: 700 14px system-ui, sans-serif; overflow: hidden; }
-.acad-return button { border: none; background: none; color: inherit; min-height: 44px; padding: 0 14px; font: inherit; cursor: pointer; }
-.acad-return button + button { padding: 0 12px; border-left: 1px solid color-mix(in srgb, var(--on-accent) 25%, transparent); min-width: 44px; }
+/* Faixa "Voltar à aula": acima do Code, em fluxo normal; o #out perde a mesma altura (não cobre controles) */
+.acad-return { display: flex; align-items: stretch; height: 44px; background: var(--surface); color: var(--text); border-bottom: 2px solid var(--accent); font: 700 14px system-ui, sans-serif; }
+.acad-return button { border: none; background: none; color: inherit; height: 44px; min-height: 44px; font: inherit; cursor: pointer; }
+.acad-return .back { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0 12px; text-align: left; color: var(--accent); white-space: nowrap; }
+.acad-return .back span { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-weight: 600; }
+.acad-return .close { flex: none; width: 48px; font-size: 20px; color: var(--muted); }
+html.acad-ret #out { height: calc(100vh - var(--dock-h, 0px) - 44px) !important; height: calc(100dvh - var(--dock-h, 0px) - 44px) !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .acad *, .acad-return { transition: none !important; animation: none !important; scroll-behavior: auto !important; }

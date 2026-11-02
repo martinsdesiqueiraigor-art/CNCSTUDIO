@@ -28,27 +28,44 @@ const loadCss = () => cssReady || (cssReady = new Promise(done => {
   setTimeout(done, 1500);
 }));
 
-// ---------- Atalho "Voltar à aula" na tela do Code (enquanto o programa veio da Academy) ----------
+// ---------- Faixa "Voltar à aula" acima do Code (enquanto o programa veio da Academy) ----------
+// Fica numa faixa própria no topo e encolhe a área do app (#out) na mesma altura: não cobre nenhum controle do Code.
+let returnProgram = '';
+const onProgramLoaded = e => {
+  const name = String((e.detail && e.detail.name) || '').toUpperCase();
+  if (name !== returnProgram) removeReturn();
+};
 function removeReturn() {
   const el = document.getElementById('acad-return');
   if (el) el.remove();
+  document.documentElement.classList.remove('acad-ret');
   window.removeEventListener('casillas:close-overlays', removeReturn);
+  window.removeEventListener('casillas:program-loaded', onProgramLoaded);
+  if (el) window.dispatchEvent(new Event('resize'));
 }
-function showReturn(lessonTitle) {
+function showReturn(lessonTitle, programName) {
   removeReturn();
+  returnProgram = String(programName || '').toUpperCase();
   const el = document.createElement('div');
   el.id = 'acad-return'; el.className = 'acad acad-return'; el.dataset.theme = theme();
   el.setAttribute('role', 'region'); el.setAttribute('aria-label', 'Academy');
   const back = document.createElement('button');
-  back.type = 'button'; back.textContent = '‹ Voltar à aula'; back.title = lessonTitle;
+  back.type = 'button'; back.className = 'back';
+  const label = document.createElement('span');
+  label.textContent = lessonTitle;
+  back.append('‹ Voltar à aula', label);
   back.addEventListener('click', () => { removeReturn(); openModule('academy'); });
   const close = document.createElement('button');
-  close.type = 'button'; close.textContent = '×'; close.setAttribute('aria-label', 'Fechar o atalho Voltar à aula');
+  close.type = 'button'; close.className = 'close'; close.textContent = '×'; close.setAttribute('aria-label', 'Fechar a faixa Voltar à aula');
   close.addEventListener('click', removeReturn);
   el.append(back, close);
-  document.body.append(el);
-  // outro módulo aberto pela barra inferior: o atalho sai
+  const out = document.getElementById('out');
+  if (out && out.parentNode) out.parentNode.insertBefore(el, out); else document.body.prepend(el);
+  document.documentElement.classList.add('acad-ret');
+  window.dispatchEvent(new Event('resize'));
+  // outro módulo aberto pela barra inferior ou outro programa no editor: a faixa sai
   window.addEventListener('casillas:close-overlays', removeReturn);
+  window.addEventListener('casillas:program-loaded', onProgramLoaded);
 }
 
 export function openAcademy(call) {
@@ -875,7 +892,9 @@ export function openAcademy(call) {
           a.textContent = 'Abrir canal no YouTube'; a.href = CHANNEL_URL;
         }
         v.append(a); out.push(v);
-        if (l.text) out.push(cardReader(l.text, l.quiz && l.quiz.length ? l.quiz[0] : null, l.opening));
+        // [atenção] e [exemplo] ficam só nas abas Cuidados e Exemplo
+        const readerText = paragraphs(l.text).filter(s => !['atenção', 'exemplo'].includes(parseKind(s).tag)).join('\n\n');
+        if (readerText) out.push(cardReader(readerText, l.quiz && l.quiz.length ? l.quiz[0] : null, l.opening));
         (l.diagrams || []).forEach(d => { const f = DIAGRAMS[d]; if (!f) return; const c = card(); c.append(f()); out.push(c); });
         if (l.summary && l.summary.length) {
           const c = card('ac-callout');
@@ -904,7 +923,7 @@ export function openAcademy(call) {
         const row = make('div', null, 'ac-row');
         const open = view3d => {
           ui.tabs[l.id] = current; ui.last = { mod: fresh.id, lesson: l.id }; saveUi();
-          showReturn(l.title);
+          showReturn(l.title, l.programName);
           finish(JSON.stringify({ name: l.programName.toUpperCase(), text: l.program, view3d }));
         };
         row.append(btn('Abrir no editor', 'primary', () => open(false)), btn('Ver em 3D', '', () => open(true)));
@@ -936,7 +955,7 @@ export function openAcademy(call) {
         }
         const foot = make('div', null, 'ac-row', 'margin:16px 0 24px');
         const nextLabel = next ? 'Próxima aula ›' : (fresh.hasFinal ? 'Teste final ›' : null);
-        const goNext = () => next ? lessonScreen(next.id, fresh) : finalScreen(fresh);
+        const goNext = () => next ? lessonScreen(next.id, fresh, 'visao') : finalScreen(fresh);
         const drawFoot = passed => {
           foot.replaceChildren(btn('‹ Voltar ao módulo', '', () => moduleScreen(fresh)));
           if (nextLabel) foot.append(btn(nextLabel, passed ? 'ok' : 'primary', goNext));

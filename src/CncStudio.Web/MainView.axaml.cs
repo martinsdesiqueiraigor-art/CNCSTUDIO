@@ -1307,6 +1307,14 @@ public partial class MainView : UserControl
         LoadMachiningSetup();
         _dirty = false;
         UpdateTitle();
+        try
+        {
+            WebInterop.ProgramLoaded(fileName);
+        }
+        catch
+        {
+        }
+
         DialectCombo.SelectedIndex = DialectDetector.FromFileName(fileName) == Dialect.Siemens ? 1 : 0;
         Editor.Document = new TextDocument(text);
         Editor.ScrollToHome();
