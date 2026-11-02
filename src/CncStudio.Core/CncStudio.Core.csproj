@@ -16,6 +16,8 @@
     <EmbeddedResource Include="..\..\samples\macros\geradores\*_macro.nc" LogicalName="Macro.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\content\academy\*.json" LogicalName="Academy.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\samples\academy\*.nc" LogicalName="AcademyProgram.%(Filename)%(Extension)" />
+    <!-- Plano da Academy (trilhas, níveis e módulos): módulo novo entra só neste JSON, sem mexer na lógica -->
+    <EmbeddedResource Include="Academy\academy-plano.json" LogicalName="AcademyPlan.json" />
   </ItemGroup>
 
   <ItemGroup>

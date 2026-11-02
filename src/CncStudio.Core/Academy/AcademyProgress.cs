@@ -2,12 +2,33 @@ using System.Text.Json.Nodes;
 
 namespace CncStudio.Core.Academy;
 
-/// <summary>Progresso do aluno guardado no aparelho (sem login no piloto): aulas concluídas e melhor nota de cada quiz.</summary>
+/// <summary>
+/// Progresso do aluno guardado no aparelho (sem login no piloto): aulas concluídas, melhor nota de cada quiz, dias de estudo e a
+/// aba vista por aula. <see cref="CurrentVersion"/> vai no JSON ("versao"); o progresso antigo (sem versão) é lido igual e
+/// regravado na versão atual, sem perder aulas nem notas.
+/// </summary>
 public sealed class AcademyProgress
 {
+    public const int CurrentVersion = 2;
+
     private readonly HashSet<string> _done = [];
     private readonly Dictionary<string, int> _best = [];
     private readonly SortedSet<string> _days = new(StringComparer.Ordinal);
+    private readonly SortedDictionary<string, string> _tabs = new(StringComparer.Ordinal);
+
+    /// <summary>Versão em que o progresso foi lido (1 = antigo, sem o campo).</summary>
+    public int LoadedVersion { get; private set; } = CurrentVersion;
+
+    /// <summary>Aba vista por aula (id da aula → nome da aba). A tela atual guarda isso em cc.academy.ui; aqui fica pronto para o v2.</summary>
+    public IReadOnlyDictionary<string, string> Tabs => _tabs;
+
+    public void SetTab(string lessonId, string tab)
+    {
+        if (lessonId.Length > 0 && tab.Length > 0)
+        {
+            _tabs[lessonId] = tab;
+        }
+    }
 
     public IReadOnlyCollection<string> CompletedLessons => _done;
 
@@ -81,7 +102,19 @@ public sealed class AcademyProgress
             days.Add(JsonValue.Create(d));
         }
 
-        return new JsonObject { ["done"] = done, ["scores"] = scores, ["days"] = days }.ToJsonString();
+        var o = new JsonObject { ["versao"] = CurrentVersion, ["done"] = done, ["scores"] = scores, ["days"] = days };
+        if (_tabs.Count > 0)
+        {
+            var tabs = new JsonObject();
+            foreach ((string k, string v) in _tabs)
+            {
+                tabs[k] = v;
+            }
+
+            o["tabs"] = tabs;
+        }
+
+        return o.ToJsonString();
     }
 
     /// <summary>Lê o progresso salvo; texto vazio ou quebrado vira progresso vazio.</summary>
@@ -97,6 +130,15 @@ public sealed class AcademyProgress
         {
             if (JsonNode.Parse(json) is JsonObject o)
             {
+                progress.LoadedVersion = o["versao"] is JsonValue ver && ver.TryGetValue(out int version) ? version : 1;
+                if (o["tabs"] is JsonObject tabs)
+                {
+                    foreach ((string k, JsonNode? t) in tabs)
+                    {
+                        progress.SetTab(k, t is JsonValue tv && tv.TryGetValue(out string? s) ? s ?? "" : "");
+                    }
+                }
+
                 if (o["done"] is JsonArray done)
                 {
                     foreach (JsonNode? n in done)
