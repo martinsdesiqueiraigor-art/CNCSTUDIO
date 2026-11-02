@@ -44,6 +44,11 @@ public partial class LatheJobView
         Num(i, "Velocidade de corte (G96)", "m/min", s.Tool.SurfaceSpeed, (x, v) => x with { Tool = x.Tool with { SurfaceSpeed = v } });
         Num(i, "Rotação máxima", "rpm", s.Tool.MaxRpm, (x, v) => x with { Tool = x.Tool with { MaxRpm = v } });
         Num(i, "Rotação fixa (0 = G96)", "rpm", s.Tool.Rpm, (x, v) => x with { Tool = x.Tool with { Rpm = v } });
+        if (LatheJobInfo.SpindleWarning(s.Tool, MachineSource?.Invoke()?.MaxSpindleRpm) is { } spindle)
+        {
+            // só conferência: a rotação e o programa continuam os digitados
+            PropsPanel.Children.Add(UiKit.StatusNote(spindle, "pending"));
+        }
 
         Section("Segurança");
         Num(i, "Z seguro", "mm", s.SafeZ, (x, v) => x with { SafeZ = v });

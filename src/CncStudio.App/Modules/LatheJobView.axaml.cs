@@ -123,6 +123,9 @@ public partial class LatheJobView : UserControl
 
     public Func<List<ToolEntry>>? ToolsSource { get; set; }
 
+    /// <summary>Perfil da máquina ativa (o mesmo da fresa), para o limite do fuso.</summary>
+    public Func<MachineProfile?>? MachineSource { get; set; }
+
     public Action? SaveTools { get; set; }
 
     public Func<string, Task>? CopyText { get; set; }
@@ -332,7 +335,8 @@ public partial class LatheJobView : UserControl
     /// </summary>
     private List<JobBarItem> PendingItems()
     {
-        IReadOnlyList<string> texts = LatheJobInfo.Pending(_job, _build);
+        double? maxRpm = MachineSource?.Invoke()?.MaxSpindleRpm;
+        IReadOnlyList<string> texts = LatheJobInfo.Pending(_job, _build, maxRpm);
         var targets = new List<(string Kind, Action Go)>();
         if (_job.Profile is null)
         {
@@ -360,6 +364,11 @@ public partial class LatheJobView : UserControl
             {
                 targets.Add(("bad", () => GoToOp(index)));
             }
+        }
+
+        foreach (int index in LatheJobInfo.OverSpindle(_job, maxRpm))
+        {
+            targets.Add(("pending", () => GoToOp(index)));
         }
 
         // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho)
@@ -413,7 +422,10 @@ public partial class LatheJobView : UserControl
 
         // perfil ausente é pendência (âmbar, como na barra)
         Tree.Items.Add(NodeState(LatheJobInfo.ProfileTitle(_job.Profile), _job.Profile is null ? ("pending", "falta definir") : ("ok", "OK"), "perfil"));
+        Tree.Items.Add(NodeState(LatheJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "preparo"));
         Tree.Items.Add(NodeState("Fixação (castanhas)", ("pending", "não verificada"), "fixacao"));
+        MachineProfile? machine = MachineSource?.Invoke();
+        Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
         TreeViewItem tools = Node("Ferramentas", "ferramentas");
         foreach (LatheTool t in LatheJobInfo.ToolsUsed(_job))
         {
@@ -428,7 +440,7 @@ public partial class LatheJobView : UserControl
             LatheOperationSpec spec = _job.Operations[i];
             var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
             // título com reticências: a etiqueta de estado (texto) nunca sai da árvore
-            DockPanel row = UiKit.StateRow(LatheJobInfo.OpTitle(i, spec), OpState(i < _build.Items.Count ? _build.Items[i] : null), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
+            DockPanel row = UiKit.StateRow(LatheJobInfo.OpTitle(i, spec), LatheJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
             row.Opacity = spec.Enabled ? 1 : 0.5;
             check.IsCheckedChanged += (_, _) =>
             {
@@ -450,22 +462,6 @@ public partial class LatheJobView : UserControl
         {
             Tree.SelectedItem = select;
         }
-    }
-
-    /// <summary>Estado de uma operação na árvore (o mesmo texto da fresa): "OK", "desligada" ou "erro: motivo".</summary>
-    private static (string Kind, string Text) OpState(LatheOpResult? r)
-    {
-        if (r is null)
-        {
-            return ("pending", "a calcular");
-        }
-
-        if (r.Skipped)
-        {
-            return ("off", "desligada");
-        }
-
-        return r.Ok ? ("ok", "OK") : ("bad", "erro: " + (r.Error ?? "não foi possível gerar"));
     }
 
     private void UpdatePreview()

@@ -445,3 +445,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Logo do topo de 64 → 132 px (com margem negativa, a imagem tem borda transparente) e título maior; cartões com o nome sem "Casillas" (fonte maior; 11,5 px na tela larga); texto de áreas abaixo dos cartões removido.
 - Sino ao lado da engrenagem abre "Novidades" (lista vazia por enquanto; aviso real de versão é a etapa 2). Engrenagem agora abre "Configurações" com Tema (padrão/CMYK) e "Conta e licença" (o painel de conta não foi alterado).
 - Barra inferior só aparece dentro dos módulos, com "Início" e o módulo atual (`--dock-h` vira 0 no Início). Só JS (`platform-ui.js`); conferido em Chromium sem tela (360×760, 320×640, 800×400).
+
+## T6 torno: Origem e Máquina (ajuste-torno-origem-fixacao)
+- Árvore do Trabalho torno ganha "Origem G54: X0 no centro da peça, Z0 do perfil" (sempre "não verificada") e "Máquina" (perfil ativo e fuso), como na fresa. Core: `LatheJobInfo.OriginTitle/SpindleRpm/SpindleWarning/OverSpindle/OpState`.
+- Rotação acima do fuso (fixa ou G50 em G96): operação "aviso: acima do fuso" (âmbar), pendência na barra e nota nas propriedades; só confere, o programa não muda. **Testes:** 1240.
+- Fixação do torno (castanhas/placa/ponto) ainda sem campo no `LatheJob`: formato proposto aguarda decisão do Igor; arquivo não mudou.

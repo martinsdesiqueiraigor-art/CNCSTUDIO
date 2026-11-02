@@ -219,6 +219,7 @@ public partial class CamView : UserControl
         LatheJobTab.Click += (_, _) => ShowMachine(lathe: false, latheJob: true);
         ModelTab.Click += (_, _) => ShowMachine(lathe: false, model: true);
         JobPanel.MachineSource = () => MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
+        LatheJobPanel.MachineSource = JobPanel.MachineSource;
         RefreshPreview();
     }
 
