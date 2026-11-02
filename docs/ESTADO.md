@@ -431,6 +431,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Core: `CamJobInfo.StockError/DrawingBox/OriginTitle/OriginState/MachineTitle/MachineState/SpindleWarning` com 6 testes (**1223**). Conferido headless 1280×720 e 1366×768, 2 temas; não testado no Windows real.
 - A definir: rotação acima do fuso deve virar pendência na barra (hoje só aviso)? Origem/Máquina no torno.
 - HANDOFF-16b: rotação acima do fuso (perfil com rpm máximo) vira pendência clicável na barra ("rotação acima do fuso na operação N", leva à operação) e "aviso: acima do fuso" âmbar na árvore; mesma conferência do aviso (`SpindleWarning` → `OverSpindle`/`Pending`/`OpState`). Sem rpm máximo, nada muda. Editor do Bruto avisa que o bruto ainda não altera o programa. **Testes:** 1224.
+## Assist: relê o desenho ao abrir o módulo (`ajuste-assist-releitura`, HANDOFF-16 A)
+- Abrir o Assist relê só o texto do desenho do Trabalho fresa (`RefreshDrawingText` em `Reload`); antes ficava "Nenhum desenho…" até trocar de passo. Plano, orçamento, espessura e regra do Aplicar sem mudança. Conferido headless (o Core não tem esta tela).
 ## Tela inicial web, etapa 1 (`ajuste-web-inicio`)
 - Logo do topo de 64 → 132 px (com margem negativa, a imagem tem borda transparente) e título maior; cartões com o nome sem "Casillas" (fonte maior; 11,5 px na tela larga); texto de áreas abaixo dos cartões removido.
 - Sino ao lado da engrenagem abre "Novidades" (lista vazia por enquanto; aviso real de versão é a etapa 2). Engrenagem agora abre "Configurações" com Tema (padrão/CMYK) e "Conta e licença" (o painel de conta não foi alterado).

@@ -452,14 +452,20 @@ public sealed partial class AssistView
 
         _planMaterial.SelectedIndex = Math.Clamp(keep, _lib.Materials.Count > 0 ? 0 : -1, _lib.Materials.Count - 1);
         (IReadOnlyList<Contour> contours, double? thickness)? d = PlanDrawing?.Invoke();
-        int n = d?.contours.Count ?? 0;
-        _planDrawing.Text = n > 0
-            ? $"Desenho do Trabalho fresa: {n} contorno(s)."
-            : "Nenhum desenho no Trabalho fresa. Abra um DXF em CAM › Trabalho fresa e volte aqui.";
+        RefreshDrawingText();
         if (d?.thickness is { } t && t > 0)
         {
             _planThickness.Text = t.ToString("0.##", Br);
         }
+    }
+
+    /// <summary>Relê só o texto do desenho do Trabalho fresa (não mexe no plano, nos campos nem no Aplicar).</summary>
+    private void RefreshDrawingText()
+    {
+        int n = PlanDrawing?.Invoke().Contours.Count ?? 0;
+        _planDrawing.Text = n > 0
+            ? $"Desenho do Trabalho fresa: {n} contorno(s)."
+            : "Nenhum desenho no Trabalho fresa. Abra um DXF em CAM › Trabalho fresa e volte aqui.";
     }
 
     private void SuggestPlan()
