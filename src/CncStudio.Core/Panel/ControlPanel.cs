@@ -104,6 +104,10 @@ public static class ControlPanel
             RotaryAngles nextAngles = executedMoves < moves.Count ? ModalOf(path, moves[executedMoves]).Rotary : modal.Rotary;
             axes.Add(new PanelAxis("A", modal.Rotary.A, nextAngles.A - modal.Rotary.A));
             axes.Add(new PanelAxis("B", modal.Rotary.B, nextAngles.B - modal.Rotary.B));
+            if (path.Modals.Any(m => Math.Abs(m.Rotary.C) > 1e-9))
+            {
+                axes.Add(new PanelAxis("C", modal.Rotary.C, nextAngles.C - modal.Rotary.C));
+            }
         }
 
         double? feed = reference.IsRapid || executedMoves == 0 ? null : reference.Feed * scale;
