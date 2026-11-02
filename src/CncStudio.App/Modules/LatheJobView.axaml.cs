@@ -87,13 +87,20 @@ public partial class LatheJobView : UserControl
                 BuildProps();
             }
         };
-        OpenButton.Click += (_, _) =>
+        // Barra inferior: as mesmas ações de antes (abrir no Code; o programa já é gerado a cada mudança)
+        Bar.SendButton.Click += (_, _) =>
         {
             if (_build.Ok && _build.Program.Length > 0)
             {
                 EnsureToolsInBank();
                 OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
             }
+        };
+        Bar.GenerateButton.Click += (_, _) =>
+        {
+            Refresh(keep: true, props: false);
+            Output.CaretIndex = 0;
+            Output.Focus();
         };
         CopyButton.Click += async (_, _) =>
         {
@@ -305,16 +312,71 @@ public partial class LatheJobView : UserControl
             BuildProps();
         }
 
-        Errors.Text = _build.Errors.Count > 0 && _job.Operations.Count > 0 ? string.Join("\n", _build.Errors.Select(e => "• " + e)) : "";
+        Errors.Text = ""; // os erros de geração ficam na barra inferior (clicáveis); aqui só os avisos ao abrir arquivo
         Warnings.Text = string.Join("\n", _build.Warnings.Select(w => "⚠ " + w));
         Output.Text = _build.Ok ? _build.Program : "";
-        IReadOnlyList<string> pending = LatheJobInfo.Pending(_job, _build);
-        PendingTitle.Text = pending.Count == 0 ? "✓ Pronto para gerar o G-code" : $"Pendências ({pending.Count})";
-        PendingTitle.Foreground = UiKit.Status(pending.Count == 0 ? "ok" : "pending").Fg;
-        PendingList.Text = string.Join("\n", pending.Select(x => "• " + x));
-        OpenButton.IsEnabled = CopyButton.IsEnabled = _build.Ok && _build.Program.Length > 0;
+        Warnings.Foreground = UiKit.Status("pending").Fg;
+        bool gcode = _build.Ok && _build.Program.Length > 0;
+        int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
+        CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
+        Bar.Update(PendingItems(), ready, gcode && ready > 0, gcode);
+        CopyButton.IsEnabled = gcode;
         UpdatePreview();
         Update3D();
+    }
+
+    /// <summary>
+    /// Pendências do Core (<see cref="LatheJobInfo.Pending"/>, mesmo texto e mesma ordem) com o lugar aonde cada uma leva. Erro de
+    /// operação é "inválido" (vermelho); o resto é "pendente" (âmbar).
+    /// </summary>
+    private List<JobBarItem> PendingItems()
+    {
+        IReadOnlyList<string> texts = LatheJobInfo.Pending(_job, _build);
+        var targets = new List<(string Kind, Action Go)>();
+        if (_job.Profile is null)
+        {
+            targets.Add(("pending", () =>
+            {
+                if (PointsBox.Parent?.Parent is Expander e)
+                {
+                    e.IsExpanded = true;
+                }
+
+                PointsBox.BringIntoView();
+                PointsBox.Focus();
+            }));
+        }
+
+        if (_job.Operations.Count == 0)
+        {
+            targets.Add(("pending", () => KindCombo.Focus()));
+        }
+
+        for (int i = 0; i < _build.Items.Count; i++)
+        {
+            int index = i;
+            if (!_build.Items[i].Ok)
+            {
+                targets.Add(("bad", () => GoToOp(index)));
+            }
+        }
+
+        // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho)
+        return texts.Select((text, k) => k < targets.Count && texts.Count == targets.Count
+            ? new JobBarItem(targets[k].Kind, text, targets[k].Go)
+            : new JobBarItem("pending", text, () => { })).ToList();
+    }
+
+    /// <summary>Seleciona e foca a operação na árvore (as propriedades acompanham a seleção).</summary>
+    private void GoToOp(int index)
+    {
+        IEnumerable<TreeViewItem> All(ItemsControl parent) => parent.Items.OfType<TreeViewItem>().SelectMany(x => All(x).Prepend(x));
+        if (All(Tree).FirstOrDefault(x => x.Tag is TreeTag { Kind: "op" } t && t.Index == index) is { } item)
+        {
+            Tree.SelectedItem = item;
+            item.BringIntoView();
+            item.Focus();
+        }
     }
 
     /// <summary>Alterna 2D/3D e, no 3D, simula o programa atual.</summary>

@@ -80,7 +80,9 @@ public static class UiKit
     /// <summary>Etiqueta de estado da árvore ("OK", "desligada", "erro: motivo", "não verificada"): sempre com texto, nunca só cor.</summary>
     public static Border StateTag((string Kind, string Text) st)
     {
-        var text = new TextBlock { Text = st.Text, FontSize = 11 };
+        // texto longo ("erro: motivo…") com reticências; o começo fica sempre visível e o texto inteiro vai na dica
+        var text = new TextBlock { Text = st.Text, FontSize = 11, MaxWidth = 160, TextTrimming = TextTrimming.CharacterEllipsis };
+        ToolTip.SetTip(text, st.Text);
         var tag = new Border
         {
             CornerRadius = new CornerRadius(8),
