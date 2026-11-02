@@ -445,3 +445,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Logo do topo de 64 → 132 px (com margem negativa, a imagem tem borda transparente) e título maior; cartões com o nome sem "Casillas" (fonte maior; 11,5 px na tela larga); texto de áreas abaixo dos cartões removido.
 - Sino ao lado da engrenagem abre "Novidades" (lista vazia por enquanto; aviso real de versão é a etapa 2). Engrenagem agora abre "Configurações" com Tema (padrão/CMYK) e "Conta e licença" (o painel de conta não foi alterado).
 - Barra inferior só aparece dentro dos módulos, com "Início" e o módulo atual (`--dock-h` vira 0 no Início). Só JS (`platform-ui.js`); conferido em Chromium sem tela (360×760, 320×640, 800×400).
+## Assist: material obrigatório antes de sugerir (`ajuste-assist-material`, T8a)
+- Core: `AssistPlanner.Plan` sem material não sugere nada (nota `MissingMaterial`); antes sugeria com 3000 rpm/F500 genéricos. Tela: o combo não pré-escolhe o 1º material ("Escolha o material…") e "Sugerir plano" mostra o motivo em ⚠. Travas do Aplicar sem mudança.
+- 1 teste novo (**1235** passando); Release 0 avisos. Não conferido na tela (sem roteiro headless até o Assist com DXF).
