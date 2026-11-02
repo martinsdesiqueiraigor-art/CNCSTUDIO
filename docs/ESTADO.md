@@ -427,3 +427,7 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 - Pendências (fora do HANDOFF-15): menu lateral pouco legível no tema claro; botão 3D do torno sobre fundo escuro; campo para definir o Bruto no Trabalho fresa (PR 3); Assist só relê o desenho ao trocar de passo (abrir o módulo não atualiza "Nenhum desenho…").
 ## Assist: relê o desenho ao abrir o módulo (`ajuste-assist-releitura`, HANDOFF-16 A)
 - Abrir o Assist relê só o texto do desenho do Trabalho fresa (`RefreshDrawingText` em `Reload`); antes ficava "Nenhum desenho…" até trocar de passo. Plano, orçamento, espessura e regra do Aplicar sem mudança. Conferido headless (o Core não tem esta tela).
+## Tela inicial web, etapa 1 (`ajuste-web-inicio`)
+- Logo do topo de 64 → 132 px (com margem negativa, a imagem tem borda transparente) e título maior; cartões com o nome sem "Casillas" (fonte maior; 11,5 px na tela larga); texto de áreas abaixo dos cartões removido.
+- Sino ao lado da engrenagem abre "Novidades" (lista vazia por enquanto; aviso real de versão é a etapa 2). Engrenagem agora abre "Configurações" com Tema (padrão/CMYK) e "Conta e licença" (o painel de conta não foi alterado).
+- Barra inferior só aparece dentro dos módulos, com "Início" e o módulo atual (`--dock-h` vira 0 no Início). Só JS (`platform-ui.js`); conferido em Chromium sem tela (360×760, 320×640, 800×400).
