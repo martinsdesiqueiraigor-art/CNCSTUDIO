@@ -63,7 +63,7 @@
           <modules:CamPreview x:Name="Preview" />
           <modules:JobSceneView x:Name="Scene3D" IsVisible="False" />
           <ToggleButton x:Name="View3DButton" Content="3D" Padding="12,4" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" />
-          <TextBlock x:Name="PreviewHint" Text="Abra um DXF ou um trabalho salvo para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
+          <TextBlock x:Name="PreviewHint" Text="Abra um DXF, um trabalho salvo ou desenhe uma forma (item Peça) para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
         </Grid>
       </Border>
     </Grid>

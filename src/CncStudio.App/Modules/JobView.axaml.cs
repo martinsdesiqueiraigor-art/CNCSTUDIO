@@ -244,7 +244,7 @@ public partial class JobView : UserControl
 
         if (kind is not (JobOpKind.Drilling or JobOpKind.WrapText) && contour < 0)
         {
-            Errors.Text = "• Abra um DXF ou um trabalho com desenho antes de adicionar operações.";
+            Errors.Text = "• Abra um DXF, um trabalho com desenho ou desenhe uma forma (item Peça) antes de adicionar operações.";
             return;
         }
 
@@ -316,11 +316,12 @@ public partial class JobView : UserControl
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
             _build = CamJobBuilder.Build(_job, MachineSource?.Invoke());
-            bool keepStock = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" };
+            // peça e bruto: o item continua selecionado depois de refazer a árvore (o editor fica aberto)
+            string? keepItem = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" or "part" } kt ? kt.Kind : null;
             BuildTree(keepOp, keepContour);
-            if (keepStock)
+            if (keepItem is not null)
             {
-                Tree.SelectedItem = Tree.Items.OfType<TreeViewItem>().FirstOrDefault(x => x.Tag is TreeTag { Kind: "stock" });
+                Tree.SelectedItem = Tree.Items.OfType<TreeViewItem>().FirstOrDefault(x => x.Tag is TreeTag t && t.Kind == keepItem);
             }
         }
         finally
@@ -357,7 +358,8 @@ public partial class JobView : UserControl
         var targets = new List<(string Kind, Action Go)>();
         if (_job.Contours.Count == 0)
         {
-            targets.Add(("pending", () => OpenDxfButton.Focus(NavigationMethod.Tab)));
+            // leva ao item Peça: lá dá para desenhar uma forma; o "Abrir DXF…" fica logo acima da árvore
+            targets.Add(("pending", () => GoToTree(t => t.Kind == "part")));
         }
 
         if (_job.Stock is null)
@@ -448,7 +450,7 @@ public partial class JobView : UserControl
         TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon, TreeTag? tag = null) =>
             UiKit.StateItem(UiKit.StateRow(text, st, UiKit.Icon(icon, "#8FB4FF", 15)), tag);
 
-        TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", null, "peca");
+        TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", new TreeTag("part", 0), "peca");
         for (int i = 0; i < _job.Contours.Count; i++)
         {
             TreeViewItem c = Node(CamJobInfo.ContourTitle(_job.Contours[i], i), new TreeTag("contour", i), "contorno");
