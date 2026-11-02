@@ -42,6 +42,12 @@ public static class CamPost
         var last = new Dictionary<string, double>();
         foreach (CamOperation op in operations)
         {
+            // 3+2 na furação: o segundo eixo (giratório) gira antes do primeiro, e também precisa voltar a zero
+            if (op.Drill is { RotaryLetter2: { } drillLetter2 } d2)
+            {
+                last[drillLetter2] = Math.Round(d2.RotaryAngle2, 3);
+            }
+
             if (op.Drill is { RotaryLetter: { } drillLetter } d)
             {
                 last[drillLetter] = Math.Round(d.RotaryAngle, 3);
@@ -354,20 +360,31 @@ public static class CamPost
             _z = z;
         }
 
+        // Gira um eixo rotativo em rápido, numa linha própria, só quando o ângulo muda
+        private void Rotate(string letter, double angle)
+        {
+            angle = Math.Round(angle, 3);
+            if (!_rot.TryGetValue(letter, out double current) || Math.Abs(current - angle) > 1e-9)
+            {
+                Line($"G0 {letter}{N(angle)}");
+                _rot[letter] = angle;
+            }
+        }
+
         private void Drilling(CamTool tool, DrillCycle d)
         {
             ChangeTool(tool, d.SafeZ);
             Point2 first = d.Points[0];
             LengthOffset(tool, first, d.SafeZ);
+            // Na altura segura (acima do cilindro), gira a face para cima antes de descer (3+2: o giratório antes do basculante)
+            if (d.RotaryLetter2 is { } letter2)
+            {
+                Rotate(letter2, d.RotaryAngle2);
+            }
+
             if (d.RotaryLetter is { } letter)
             {
-                // Na altura segura (acima do cilindro), gira a face para cima antes de descer
-                double angle = Math.Round(d.RotaryAngle, 3);
-                if (!_rot.TryGetValue(letter, out double current) || Math.Abs(current - angle) > 1e-9)
-                {
-                    Line($"G0 {letter}{N(angle)}");
-                    _rot[letter] = angle;
-                }
+                Rotate(letter, d.RotaryAngle);
             }
 
             if (_fanuc)

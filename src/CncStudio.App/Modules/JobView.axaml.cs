@@ -2,6 +2,7 @@ using CncStudio.Core.Dialects;
 using Avalonia.Controls;
 using Avalonia.Input;
 using CncStudio.App.Settings;
+using CncStudio.Core;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Setup;
 
@@ -16,6 +17,9 @@ public partial class JobView : UserControl
 {
     private readonly CamJob _job = new() { Name = "TRABALHO" };
     private JobBuild _build = new("", [], [], [], []);
+
+    /// <summary>Perfil da máquina com que <see cref="_build"/> foi feito (o Trabalho refaz a cada mudança dele mesmo, não do perfil).</summary>
+    private DataStamp? _builtWith;
     private bool _busy;
     private readonly UndoStack<CamOperationSpec> _undo = new();
 
@@ -92,7 +96,7 @@ public partial class JobView : UserControl
         // Barra inferior: as mesmas ações de antes (abrir no Code; o programa já é gerado a cada mudança)
         Bar.SendButton.Click += (_, _) =>
         {
-            if (_build.Ok && _build.Program.Length > 0)
+            if (!CheckFresh() && _build.Ok && _build.Program.Length > 0)
             {
                 EnsureToolsInBank();
                 OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
@@ -106,7 +110,7 @@ public partial class JobView : UserControl
         };
         CopyButton.Click += async (_, _) =>
         {
-            if (_build.Ok && _build.Program.Length > 0 && CopyText is not null)
+            if (!CheckFresh() && _build.Ok && _build.Program.Length > 0 && CopyText is not null)
             {
                 await CopyText(_build.Program);
             }
@@ -206,13 +210,19 @@ public partial class JobView : UserControl
         _job.WorkOffset = j.WorkOffset;
         _job.Coolant = j.Coolant;
         _job.Stock = j.Stock;
+        _job.Fixture = j.Fixture;
         _job.Contours.Clear();
         _job.Contours.AddRange(j.Contours);
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
         Refresh();
+        // avisos do arquivo (ex.: fixação inválida, que abre como "não definida")
+        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
     }
+
+    /// <summary>Fixação do Trabalho aberto: o Assist lê daqui (fonte única).</summary>
+    public JobFixture? Fixture => _job.Fixture;
 
     private async Task SaveJob()
     {
@@ -244,7 +254,7 @@ public partial class JobView : UserControl
 
         if (kind is not (JobOpKind.Drilling or JobOpKind.WrapText) && contour < 0)
         {
-            Errors.Text = "• Abra um DXF ou um trabalho com desenho antes de adicionar operações.";
+            Errors.Text = "• Abra um DXF, um trabalho com desenho ou desenhe uma forma (item Peça) antes de adicionar operações.";
             return;
         }
 
@@ -315,12 +325,15 @@ public partial class JobView : UserControl
         {
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
-            _build = CamJobBuilder.Build(_job, MachineSource?.Invoke());
-            bool keepStock = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" };
+            MachineProfile? machine = MachineSource?.Invoke();
+            _build = CamJobBuilder.Build(_job, machine);
+            _builtWith = DataStamp.OfMachine(machine);
+            // peça, bruto e fixação: o item continua selecionado depois de refazer a árvore (o editor fica aberto)
+            string? keepItem = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" or "part" or "fixture" } kt ? kt.Kind : null;
             BuildTree(keepOp, keepContour);
-            if (keepStock)
+            if (keepItem is not null)
             {
-                Tree.SelectedItem = Tree.Items.OfType<TreeViewItem>().FirstOrDefault(x => x.Tag is TreeTag { Kind: "stock" });
+                Tree.SelectedItem = Tree.Items.OfType<TreeViewItem>().FirstOrDefault(x => x.Tag is TreeTag t && t.Kind == keepItem);
             }
         }
         finally
@@ -339,11 +352,35 @@ public partial class JobView : UserControl
         Warnings.Foreground = UiKit.Status("pending").Fg;
         bool gcode = _build.Ok && _build.Program.Length > 0;
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
+        CodeTitle.ClearValue(Avalonia.Controls.TextBlock.ForegroundProperty);
         CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
         Bar.Update(PendingItems(), ready, gcode && ready > 0, gcode);
         CopyButton.IsEnabled = gcode;
         UpdatePreview();
         Update3D();
+    }
+
+    /// <summary>
+    /// Confere se o perfil da máquina mudou depois do último programa (a aba Máquina não avisa o Trabalho). Se mudou, o programa e a
+    /// vista ficam como estão, marcados "desatualizado" com o motivo; a barra ganha o item (clique refaz) e Enviar, Gerar e Copiar
+    /// desligam. Devolve true se está desatualizado.
+    /// </summary>
+    public bool CheckFresh()
+    {
+        if (DataStamp.StaleMessage(_builtWith, DataStamp.OfMachine(MachineSource?.Invoke())) is not { } stale)
+        {
+            return false;
+        }
+
+        bool gcode = _build.Ok && _build.Program.Length > 0;
+        int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
+        var items = new List<JobBarItem> { new("pending", stale + " Clique aqui para refazer o programa.", () => Refresh(keep: true)) };
+        items.AddRange(PendingItems());
+        Bar.Update(items, ready, gcode && ready > 0, gcode);
+        CopyButton.IsEnabled = false;
+        CodeTitle.Text = "Código CNC · " + stale.ToLowerInvariant() + " Não use este código: refaça pela barra.";
+        CodeTitle.Foreground = UiKit.Status("pending").Fg;
+        return true;
     }
 
     /// <summary>
@@ -357,12 +394,23 @@ public partial class JobView : UserControl
         var targets = new List<(string Kind, Action Go)>();
         if (_job.Contours.Count == 0)
         {
-            targets.Add(("pending", () => OpenDxfButton.Focus(NavigationMethod.Tab)));
+            // leva ao item Peça: lá dá para desenhar uma forma; o "Abrir DXF…" fica logo acima da árvore
+            targets.Add(("pending", () => GoToTree(t => t.Kind == "part")));
         }
 
         if (_job.Stock is null)
         {
             targets.Add(("pending", () => GoToTree(t => t.Kind == "stock")));
+        }
+
+        if (_job.Fixture is null)
+        {
+            // leva ao item da árvore e ao campo do tipo, nas propriedades
+            targets.Add(("pending", () =>
+            {
+                GoToTree(t => t.Kind == "fixture");
+                _fixtureKind?.Focus(NavigationMethod.Tab);
+            }));
         }
 
         if (_job.Operations.Count == 0)
@@ -384,10 +432,11 @@ public partial class JobView : UserControl
             targets.Add(("pending", () => GoToTree(t => t.Kind == "op" && t.Index == index)));
         }
 
-        // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho)
+        // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho).
+        // O Core diz o que trava: a fixação não definida só avisa (os botões continuam ligados).
         return texts.Select((text, k) => k < targets.Count && texts.Count == targets.Count
-            ? new JobBarItem(targets[k].Kind, text, targets[k].Go)
-            : new JobBarItem("pending", text, () => { })).ToList();
+            ? new JobBarItem(targets[k].Kind, text, targets[k].Go, CamJobInfo.Blocks(text))
+            : new JobBarItem("pending", text, () => { }, CamJobInfo.Blocks(text))).ToList();
     }
 
     /// <summary>Seleciona e foca o item da árvore (as propriedades acompanham a seleção).</summary>
@@ -448,7 +497,7 @@ public partial class JobView : UserControl
         TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon, TreeTag? tag = null) =>
             UiKit.StateItem(UiKit.StateRow(text, st, UiKit.Icon(icon, "#8FB4FF", 15)), tag);
 
-        TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", null, "peca");
+        TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", new TreeTag("part", 0), "peca");
         for (int i = 0; i < _job.Contours.Count; i++)
         {
             TreeViewItem c = Node(CamJobInfo.ContourTitle(_job.Contours[i], i), new TreeTag("contour", i), "contorno");
@@ -469,7 +518,7 @@ public partial class JobView : UserControl
 
         Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), stock, "bruto", new TreeTag("stock", 0)));
         Tree.Items.Add(NodeState(CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "preparo"));
-        Tree.Items.Add(NodeState("Fixação", ("pending", "não verificada"), "fixacao"));
+        Tree.Items.Add(NodeState(CamJobInfo.FixtureTitle(_job.Fixture), CamJobInfo.FixtureState(_job.Fixture), "fixacao", new TreeTag("fixture", 0)));
         MachineProfile? machine = MachineSource?.Invoke();
         Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");

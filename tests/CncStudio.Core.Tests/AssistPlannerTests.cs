@@ -113,6 +113,15 @@ public class AssistPlannerTests
     }
 
     [Fact]
+    public void Sem_material_nao_sugere_com_valor_generico()
+    {
+        PlanResult plan = AssistPlanner.Plan(new PlanInput(Plate(), 10, null, [new PlanTool(1, 10, false, "Fresa 10")]));
+        Assert.False(plan.Ok);
+        Assert.Empty(plan.Operations);
+        Assert.Equal([AssistPlanner.MissingMaterial], plan.Notes);
+    }
+
+    [Fact]
     public void Contornos_fora_da_peca_sao_ignorados_com_aviso()
     {
         var contours = new List<Contour> { Contour.Rectangle(0, 0, 100, 60), Contour.Circle(new Point2(200, 200), 5) };

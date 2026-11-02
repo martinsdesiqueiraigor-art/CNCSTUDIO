@@ -5,8 +5,18 @@ namespace CncStudio.Core.Cam;
 /// <summary>Tipo da operação de fresa guardada no Job.</summary>
 public enum JobOpKind { Contour, Pocket, Facing, Drilling, WrapText }
 
-/// <summary>Face girada no 4º eixo (mesa): letra do eixo (A ou B), ângulo e distância do centro do eixo até a face virada para cima.</summary>
-public sealed record RotaryFaceSpec(string Axis, double Angle, double AxisToFace);
+/// <summary>
+/// Face girada no 4º eixo (mesa): letra do eixo (A ou B), ângulo e distância do centro do eixo até a face virada para cima.
+/// 3+2 na mesa dupla: <see cref="Axis"/> é o basculante e <see cref="Axis2"/>/<see cref="Angle2"/> o giratório (null = um eixo só).
+/// </summary>
+public sealed record RotaryFaceSpec(string Axis, double Angle, double AxisToFace)
+{
+    /// <summary>3+2: letra do segundo eixo da mesa (o giratório, ex.: C). Null = face de um eixo só (4º eixo).</summary>
+    public string? Axis2 { get; init; }
+
+    /// <summary>3+2: ângulo do segundo eixo, em graus.</summary>
+    public double Angle2 { get; init; }
+}
 
 /// <summary>Furação pelos círculos do desenho: tipo de ciclo, bicada e pausa.</summary>
 public sealed record DrillSpec(DrillCycleKind Cycle = DrillCycleKind.Drill, double Peck = 0, double DwellSeconds = 0);
@@ -16,6 +26,45 @@ public sealed record WrapSpec(string Text, double LetterHeight, string Axis, Wra
 
 /// <summary>Bruto retangular da peça (canto, tamanho; o topo fica em Z 0). Fica guardado no Job; as operações ainda não o usam.</summary>
 public sealed record JobStock(double X, double Y, double Width, double Length, double Thickness);
+
+/// <summary>
+/// Fixação da peça informada pelo usuário: tipo (<see cref="Kinds"/>) e descrição curta opcional. Só registro: o app não
+/// verifica fixação nem colisão, e nada é suposto quando falta.
+/// </summary>
+public sealed record JobFixture(string Kind, string Description = "")
+{
+    public const int MaxDescription = 80;
+
+    /// <summary>Tipos aceitos (código guardado no arquivo → nome mostrado).</summary>
+    public static readonly IReadOnlyList<(string Code, string Name)> Kinds =
+    [
+        ("morsa", "Morsa"),
+        ("grampos", "Grampos"),
+        ("placa", "Placa (castanhas)"),
+        ("vacuo", "Vácuo"),
+        ("dispositivo", "Dispositivo próprio"),
+        ("outro", "Outro"),
+    ];
+
+    /// <summary>Nome do tipo, ou null se o código não existe.</summary>
+    public static string? NameOf(string code) => Kinds.FirstOrDefault(k => k.Code == code).Name;
+
+    /// <summary>Motivo se a fixação é inválida (tipo desconhecido, descrição longa); null se está boa.</summary>
+    public string? Validate()
+    {
+        if (NameOf(Kind) is null)
+        {
+            return $"tipo \"{Kind}\" desconhecido (use: {string.Join(", ", Kinds.Select(k => k.Code))})";
+        }
+
+        if (Kind == "outro" && string.IsNullOrWhiteSpace(Description))
+        {
+            return "no tipo \"outro\", descreva a fixação";
+        }
+
+        return Description.Length > MaxDescription ? $"descrição com mais de {MaxDescription} letras" : null;
+    }
+}
 
 /// <summary>
 /// Uma operação do Job: os <b>parâmetros</b> (não o percurso). O percurso é gerado de novo, sempre com o mesmo código do CAM,
@@ -68,6 +117,9 @@ public sealed class CamJob
     public bool Coolant { get; set; } = true;
 
     public JobStock? Stock { get; set; }
+
+    /// <summary>Fixação informada pelo usuário; null = "não definida" (arquivos antigos abrem assim). Fonte única: o Assist lê daqui.</summary>
+    public JobFixture? Fixture { get; set; }
 
     public List<Contour> Contours { get; } = [];
 
@@ -157,6 +209,11 @@ public sealed class CamJob
             if (s.Face is { } f && f.Axis is not ("A" or "B"))
             {
                 errors.Add(at + "o eixo da face girada deve ser A ou B.");
+            }
+
+            if (s.Face is { Axis2: { } a2 } f2 && (a2 is not ("A" or "B" or "C") || a2 == f2.Axis))
+            {
+                errors.Add(at + "o segundo eixo da face 3+2 deve ser A, B ou C e diferente do primeiro.");
             }
 
             if (s.Wrap is { } w && w.Axis is not ("A" or "B"))
@@ -261,7 +318,8 @@ public static class CamJobBuilder
                 return new OperationResult(null, "Face girada: escolha o perfil da máquina (aba Máquina).");
             }
 
-            result = RotaryIndexing.Place(result.Operation!, machine, face.Axis, new IndexedFace(face.Angle, face.AxisToFace));
+            result = face.Axis2 is { } axis2 ? PlaceTilted(result.Operation!, machine, face, axis2)
+                : RotaryIndexing.Place(result.Operation!, machine, face.Axis, new IndexedFace(face.Angle, face.AxisToFace));
             if (!result.Ok)
             {
                 return result;
@@ -269,6 +327,18 @@ public static class CamJobBuilder
         }
 
         return s.Label.Length > 0 ? new OperationResult(result.Operation! with { Name = s.Label }, null) : result;
+    }
+
+    // 3+2: os eixos guardados na operação têm de ser os do perfil, na mesma ordem (basculante e depois giratório)
+    private static OperationResult PlaceTilted(CamOperation op, MachineProfile machine, RotaryFaceSpec face, string axis2)
+    {
+        if (machine.Axes.Count != 2 || machine.Axes[0].Letter != face.Axis || machine.Axes[1].Letter != axis2)
+        {
+            string profile = machine.Axes.Count == 0 ? "sem eixo rotativo" : string.Join(" + ", machine.Axes.Select(a => a.Letter));
+            return new OperationResult(null, $"Face 3+2 usa {face.Axis} + {axis2}, mas o perfil da máquina tem {profile}.");
+        }
+
+        return RotaryIndexing.PlaceTilted(op, machine, new TiltedFace(face.Angle, face.Angle2, face.AxisToFace));
     }
 
     private static OperationResult Plain(CamJob job, CamOperationSpec s)

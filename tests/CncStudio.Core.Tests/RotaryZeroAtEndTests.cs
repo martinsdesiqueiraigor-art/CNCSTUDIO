@@ -111,6 +111,15 @@ public class RotaryZeroAtEndTests
     }
 
     [Fact]
+    public void Furacao_3mais2_volta_os_dois_eixos()
+    {
+        // junção do 3+2 (#124) com o retorno a zero (#125): o segundo eixo da furação também conta
+        CamOperation holes = CamOperations.Drilling(Tool, 20, [new Point2(10, 5)], DrillCycleKind.Drill, 0, -5, 2).Operation!;
+        CamOperation placed = holes with { Drill = holes.Drill! with { RotaryLetter = "A", RotaryAngle = -45, RotaryLetter2 = "C", RotaryAngle2 = 90 } };
+        Assert.Equal([("C", 90.0), ("A", -45.0)], CamPost.RotaryAtEnd([placed]));
+    }
+
+    [Fact]
     public void Trabalho_usa_o_perfil_da_maquina_para_o_retorno()
     {
         var job = new CamJob { Name = "PECA", Dialect = CamDialect.Fanuc, Stock = new JobStock(-5, -5, 70, 50, 20) };

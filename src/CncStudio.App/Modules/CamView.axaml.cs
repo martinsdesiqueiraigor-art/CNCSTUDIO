@@ -62,6 +62,9 @@ public partial class CamView : UserControl
 
     public JobStock? JobStockInfo => JobPanel.Stock;
 
+    /// <summary>Fixação do Trabalho fresa (fonte única; o Assist lê daqui).</summary>
+    public JobFixture? JobFixtureInfo => JobPanel.Fixture;
+
     /// <summary>Põe as operações sugeridas no Trabalho de fresa e mostra essa aba.</summary>
     public void ApplyPlan(IEnumerable<CamOperationSpec> operations)
     {
@@ -222,6 +225,9 @@ public partial class CamView : UserControl
         RefreshPreview();
     }
 
+    /// <summary>Ao abrir o módulo: marca o programa do Trabalho fresa como desatualizado se o perfil da máquina mudou.</summary>
+    public void CheckJobFresh() => JobPanel.CheckFresh();
+
     private void ShowMachine(bool lathe, bool profile = false, bool job = false, bool latheJob = false, bool model = false)
     {
         MillTab.IsChecked = !lathe && !profile && !job && !latheJob && !model;
@@ -239,6 +245,11 @@ public partial class CamView : UserControl
         if (profile)
         {
             MachinePanel.Refresh();
+        }
+
+        if (job)
+        {
+            JobPanel.CheckFresh(); // o perfil pode ter mudado na aba Máquina
         }
     }
 

@@ -7,6 +7,9 @@ namespace CncStudio.Core.Cam;
 public sealed record JobLoadResult(CamJob? Job, string? Error)
 {
     public bool Ok => Job is not null;
+
+    /// <summary>Avisos de um Job que abriu (ex.: fixação inválida, que fica "não definida").</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
 /// <summary>
@@ -34,6 +37,12 @@ public static class CamJobJson
         if (job.Stock is { } st)
         {
             root["stock"] = new JsonObject { ["x"] = st.X, ["y"] = st.Y, ["width"] = st.Width, ["length"] = st.Length, ["thickness"] = st.Thickness };
+        }
+
+        // campo opcional: versões antigas do app ignoram; sem ele, a fixação abre como "não definida"
+        if (job.Fixture is { } fx)
+        {
+            root["fixture"] = new JsonObject { ["kind"] = fx.Kind, ["description"] = fx.Description };
         }
 
         var contours = new JsonArray();
@@ -143,7 +152,15 @@ public static class CamJobJson
 
         if (s.Face is { } f)
         {
-            o["face"] = new JsonObject { ["axis"] = f.Axis, ["angle"] = f.Angle, ["axisToFace"] = f.AxisToFace };
+            var face = new JsonObject { ["axis"] = f.Axis, ["angle"] = f.Angle, ["axisToFace"] = f.AxisToFace };
+            if (f.Axis2 is { } axis2)
+            {
+                // 3+2: campos opcionais (arquivos sem eles continuam abrindo como face de um eixo)
+                face["axis2"] = axis2;
+                face["angle2"] = f.Angle2;
+            }
+
+            o["face"] = face;
         }
 
         return o;
@@ -202,8 +219,28 @@ public static class CamJobJson
                 job.Operations.Add(OpFrom(on as JsonObject ?? throw new FormatException("Operação inválida.")));
             }
 
+            var warnings = new List<string>();
+            if (root["fixture"] is JsonObject fx)
+            {
+                string Text(string key) => fx[key] is JsonValue v && v.TryGetValue(out string? s) ? s ?? "" : "";
+                var fixture = new JobFixture(Text("kind"), Text("description").Trim());
+                if (fixture.Validate() is { } bad)
+                {
+                    // arquivo com fixação estragada abre mesmo assim, sem inventar: fica "não definida"
+                    warnings.Add($"Fixação do arquivo ignorada ({bad}): ficou como não definida.");
+                }
+                else
+                {
+                    job.Fixture = fixture;
+                }
+            }
+            else if (root["fixture"] is not null)
+            {
+                warnings.Add("Fixação do arquivo ignorada (formato inválido): ficou como não definida.");
+            }
+
             IReadOnlyList<string> problems = job.Validate();
-            return problems.Count > 0 ? new JobLoadResult(null, problems[0]) : new JobLoadResult(job, null);
+            return problems.Count > 0 ? new JobLoadResult(null, problems[0]) : new JobLoadResult(job, null) { Warnings = warnings };
         }
         catch (JsonException)
         {
@@ -281,7 +318,8 @@ public static class CamJobJson
 
         if (o["face"] is JsonObject f)
         {
-            spec = spec with { Face = new RotaryFaceSpec(Str(f, "axis"), Num(f, "angle"), Num(f, "axisToFace")) };
+            var face = new RotaryFaceSpec(Str(f, "axis"), Num(f, "angle"), Num(f, "axisToFace"));
+            spec = spec with { Face = f["axis2"] is null ? face : face with { Axis2 = Str(f, "axis2"), Angle2 = Num(f, "angle2") } };
         }
 
         return spec;
