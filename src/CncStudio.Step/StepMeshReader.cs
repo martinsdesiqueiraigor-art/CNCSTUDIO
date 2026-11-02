@@ -4,8 +4,11 @@ using OcctNet.Wrapper;
 
 namespace CncStudio.Step;
 
-/// <summary>Resultado da leitura de um STEP: a malha (em mm, com os triângulos orientados) ou o erro em português.</summary>
-public sealed record StepResult(TriangleMesh? Mesh, string? Error, MeshOrientationResult? Orientation = null)
+/// <summary>
+/// Resultado da leitura de um STEP: a malha (em mm, com os triângulos orientados) ou o erro em português.
+/// <paramref name="Collapsed"/>: triângulos colapsados (dois vértices no mesmo ponto) descartados da triangulação.
+/// </summary>
+public sealed record StepResult(TriangleMesh? Mesh, string? Error, MeshOrientationResult? Orientation = null, int Collapsed = 0)
 {
     public bool Ok => Mesh is not null;
 }
@@ -59,8 +62,16 @@ public static class StepMeshReader
                 triangles.Add((P(ix[i]), P(ix[i + 1]), P(ix[i + 2])));
             }
 
-            MeshOrientationResult oriented = MeshOrientation.MakeConsistent(new TriangleMesh(triangles));
-            return new StepResult(oriented.Mesh, null, oriented);
+            // O OpenCASCADE às vezes gera triângulos com dois vértices no mesmo ponto: sem área, mas faziam a
+            // malha fechada parecer aberta e em pedaços. Saem antes de orientar (diagnóstico CAM-08-T2)
+            TriangleMesh clean = new TriangleMesh(triangles).WithoutCollapsed(out int collapsed);
+            if (clean.TriangleCount == 0)
+            {
+                return new StepResult(null, "O STEP foi lido, mas não gerou triângulos (só curvas ou pontos?).");
+            }
+
+            MeshOrientationResult oriented = MeshOrientation.MakeConsistent(clean);
+            return new StepResult(oriented.Mesh, null, oriented, collapsed);
         }
         catch (OcctException)
         {
