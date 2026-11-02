@@ -1,6 +1,7 @@
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Setup;
+using System.Text.Json;
 
 namespace CncStudio.Web;
 
@@ -13,13 +14,17 @@ public partial class MainView
     // a versão do formato fica dentro do próprio JSON (SchemaVersion) e é migrada na leitura.
     private string SetupKey => "cc.setup.v1." + Uri.EscapeDataString(_libraryPath ?? _fileName);
 
+    // "Minhas ferramentas": lista guardada neste aparelho; programa sem setup salvo começa com ela.
+    private const string MyToolsKey = "cc.mytools.v1";
+
     private void LoadMachiningSetup()
     {
         var key = _libraryPath ?? _fileName;
-        (MachiningSetup setup, string? warning) = SetupJson.LoadOrDefault(Stored(SetupKey), key);
+        (MachiningSetup setup, string? warning, bool fromMine) = SetupJson.LoadOrDefault(Stored(SetupKey), key, Stored(MyToolsKey));
         _machiningSetup = setup;
         Backplot.SetMachiningSetup(setup);
         if (warning is not null) SetStatus(warning);
+        else if (fromMine) SetStatus($"Programa sem setup: usando minhas ferramentas ({setup.Tools.Count}). Confira no Setup.");
     }
 
     /// <summary>
@@ -34,7 +39,7 @@ public partial class MainView
         {
             MachiningSetup draft = _machiningSetup.Clone();
             draft.Stock ??= SuggestedSetupStock();
-            string? edited = await WebInterop.EditMachiningSetupAsync(SetupJson.Serialize(draft));
+            string? edited = await WebInterop.EditMachiningSetupAsync(SetupJson.Serialize(draft), Stored(MyToolsKey) is not null);
             if (edited is null) return;
             if (SetupJson.Parse(edited).Setup is not { } parsed)
             {
@@ -47,11 +52,33 @@ public partial class MainView
             _machiningSetup = parsed;
             Backplot.SetMachiningSetup(parsed);
             OnMachiningSetupChanged();
-            SetStatus("Setup salvo neste aparelho para " + parsed.ProjectKey);
+            if (SaveAsMyTools(edited))
+            {
+                Store(MyToolsKey, SetupJson.SerializeMyTools(parsed));
+                SetStatus($"Setup salvo para {parsed.ProjectKey}; {parsed.Tools.Count} ferramenta(s) guardada(s) como minhas ferramentas.");
+            }
+            else
+            {
+                SetStatus("Setup salvo neste aparelho para " + parsed.ProjectKey);
+            }
         }
         finally
         {
             _editingSetup = false;
+        }
+    }
+
+    /// <summary>O editor marca "SaveAsMyTools" quando a caixa "Guardar como minhas ferramentas" está ligada.</summary>
+    private static bool SaveAsMyTools(string json)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("SaveAsMyTools", out JsonElement v) && v.ValueKind == JsonValueKind.True;
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 

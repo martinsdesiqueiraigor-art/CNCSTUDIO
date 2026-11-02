@@ -12,7 +12,7 @@ internal static partial class WebInterop
 
     [JSImport("editMachiningSetup", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
-    public static partial Task<string?> EditMachiningSetupAsync([JSMarshalAs<JSType.String>] string json);
+    public static partial Task<string?> EditMachiningSetupAsync([JSMarshalAs<JSType.String>] string json, [JSMarshalAs<JSType.Boolean>] bool hasMyTools);
 
     [JSImport("isTouch", Module)]
     [return: JSMarshalAs<JSType.Boolean>]
