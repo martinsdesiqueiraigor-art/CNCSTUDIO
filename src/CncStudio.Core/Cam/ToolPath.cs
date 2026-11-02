@@ -90,6 +90,12 @@ public sealed record DrillCycle(DrillCycleKind Kind, IReadOnlyList<Point2> Point
 
     /// <summary>Ângulo do eixo rotativo na máquina, em graus.</summary>
     public double RotaryAngle { get; init; }
+
+    /// <summary>3+2: segundo eixo rotativo (o giratório da mesa dupla), girado antes de <see cref="RotaryLetter"/>. Null = só um eixo.</summary>
+    public string? RotaryLetter2 { get; init; }
+
+    /// <summary>Ângulo do segundo eixo rotativo na máquina, em graus.</summary>
+    public double RotaryAngle2 { get; init; }
 }
 
 /// <summary>Furo achado no desenho: centro e diâmetro.</summary>

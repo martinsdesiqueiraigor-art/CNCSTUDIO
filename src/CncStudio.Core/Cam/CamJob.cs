@@ -5,8 +5,18 @@ namespace CncStudio.Core.Cam;
 /// <summary>Tipo da operação de fresa guardada no Job.</summary>
 public enum JobOpKind { Contour, Pocket, Facing, Drilling, WrapText }
 
-/// <summary>Face girada no 4º eixo (mesa): letra do eixo (A ou B), ângulo e distância do centro do eixo até a face virada para cima.</summary>
-public sealed record RotaryFaceSpec(string Axis, double Angle, double AxisToFace);
+/// <summary>
+/// Face girada no 4º eixo (mesa): letra do eixo (A ou B), ângulo e distância do centro do eixo até a face virada para cima.
+/// 3+2 na mesa dupla: <see cref="Axis"/> é o basculante e <see cref="Axis2"/>/<see cref="Angle2"/> o giratório (null = um eixo só).
+/// </summary>
+public sealed record RotaryFaceSpec(string Axis, double Angle, double AxisToFace)
+{
+    /// <summary>3+2: letra do segundo eixo da mesa (o giratório, ex.: C). Null = face de um eixo só (4º eixo).</summary>
+    public string? Axis2 { get; init; }
+
+    /// <summary>3+2: ângulo do segundo eixo, em graus.</summary>
+    public double Angle2 { get; init; }
+}
 
 /// <summary>Furação pelos círculos do desenho: tipo de ciclo, bicada e pausa.</summary>
 public sealed record DrillSpec(DrillCycleKind Cycle = DrillCycleKind.Drill, double Peck = 0, double DwellSeconds = 0);
@@ -201,6 +211,11 @@ public sealed class CamJob
                 errors.Add(at + "o eixo da face girada deve ser A ou B.");
             }
 
+            if (s.Face is { Axis2: { } a2 } f2 && (a2 is not ("A" or "B" or "C") || a2 == f2.Axis))
+            {
+                errors.Add(at + "o segundo eixo da face 3+2 deve ser A, B ou C e diferente do primeiro.");
+            }
+
             if (s.Wrap is { } w && w.Axis is not ("A" or "B"))
             {
                 errors.Add(at + "o eixo do texto no cilindro deve ser A ou B.");
@@ -303,7 +318,8 @@ public static class CamJobBuilder
                 return new OperationResult(null, "Face girada: escolha o perfil da máquina (aba Máquina).");
             }
 
-            result = RotaryIndexing.Place(result.Operation!, machine, face.Axis, new IndexedFace(face.Angle, face.AxisToFace));
+            result = face.Axis2 is { } axis2 ? PlaceTilted(result.Operation!, machine, face, axis2)
+                : RotaryIndexing.Place(result.Operation!, machine, face.Axis, new IndexedFace(face.Angle, face.AxisToFace));
             if (!result.Ok)
             {
                 return result;
@@ -311,6 +327,18 @@ public static class CamJobBuilder
         }
 
         return s.Label.Length > 0 ? new OperationResult(result.Operation! with { Name = s.Label }, null) : result;
+    }
+
+    // 3+2: os eixos guardados na operação têm de ser os do perfil, na mesma ordem (basculante e depois giratório)
+    private static OperationResult PlaceTilted(CamOperation op, MachineProfile machine, RotaryFaceSpec face, string axis2)
+    {
+        if (machine.Axes.Count != 2 || machine.Axes[0].Letter != face.Axis || machine.Axes[1].Letter != axis2)
+        {
+            string profile = machine.Axes.Count == 0 ? "sem eixo rotativo" : string.Join(" + ", machine.Axes.Select(a => a.Letter));
+            return new OperationResult(null, $"Face 3+2 usa {face.Axis} + {axis2}, mas o perfil da máquina tem {profile}.");
+        }
+
+        return RotaryIndexing.PlaceTilted(op, machine, new TiltedFace(face.Angle, face.Angle2, face.AxisToFace));
     }
 
     private static OperationResult Plain(CamJob job, CamOperationSpec s)

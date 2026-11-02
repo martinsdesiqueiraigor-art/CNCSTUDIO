@@ -295,20 +295,31 @@ public static class CamPost
             _z = z;
         }
 
+        // Gira um eixo rotativo em rápido, numa linha própria, só quando o ângulo muda
+        private void Rotate(string letter, double angle)
+        {
+            angle = Math.Round(angle, 3);
+            if (!_rot.TryGetValue(letter, out double current) || Math.Abs(current - angle) > 1e-9)
+            {
+                Line($"G0 {letter}{N(angle)}");
+                _rot[letter] = angle;
+            }
+        }
+
         private void Drilling(CamTool tool, DrillCycle d)
         {
             ChangeTool(tool, d.SafeZ);
             Point2 first = d.Points[0];
             LengthOffset(tool, first, d.SafeZ);
+            // Na altura segura (acima do cilindro), gira a face para cima antes de descer (3+2: o giratório antes do basculante)
+            if (d.RotaryLetter2 is { } letter2)
+            {
+                Rotate(letter2, d.RotaryAngle2);
+            }
+
             if (d.RotaryLetter is { } letter)
             {
-                // Na altura segura (acima do cilindro), gira a face para cima antes de descer
-                double angle = Math.Round(d.RotaryAngle, 3);
-                if (!_rot.TryGetValue(letter, out double current) || Math.Abs(current - angle) > 1e-9)
-                {
-                    Line($"G0 {letter}{N(angle)}");
-                    _rot[letter] = angle;
-                }
+                Rotate(letter, d.RotaryAngle);
             }
 
             if (_fanuc)
