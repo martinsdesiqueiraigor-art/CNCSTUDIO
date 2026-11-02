@@ -73,12 +73,17 @@ public static class CamJobInfo
         var list = new List<string>();
         if (job.Contours.Count == 0)
         {
-            list.Add("Falta a peça (abra um DXF)");
+            list.Add("Falta a peça (abra um DXF ou desenhe uma forma)");
         }
 
         if (job.Stock is null)
         {
             list.Add("Bruto não definido");
+        }
+
+        if (job.Fixture is null)
+        {
+            list.Add(FixtureMissing);
         }
 
         if (job.Operations.Count == 0)
@@ -103,6 +108,26 @@ public static class CamJobInfo
         return list;
     }
 
+    /// <summary>Pendência da fixação: aparece na barra, mas só avisa (não impede gerar nem enviar ao Code).</summary>
+    public const string FixtureMissing = "Fixação não definida";
+
+    /// <summary>
+    /// Se a pendência impede gerar e enviar o G-code. Só a fixação não definida é aviso (decisão do Igor, 02/11); o resto trava,
+    /// como antes.
+    /// </summary>
+    public static bool Blocks(string pending) => pending != FixtureMissing;
+
+    /// <summary>Linha "Fixação" da árvore: "Fixação: não definida" ou "Fixação: Morsa · descrição".</summary>
+    public static string FixtureTitle(JobFixture? f) => f is null
+        ? "Fixação: não definida"
+        : "Fixação: " + (JobFixture.NameOf(f.Kind) ?? f.Kind) + (f.Description.Length > 0 ? " · " + f.Description : "");
+
+    /// <summary>
+    /// Estado da fixação: pendente sem ela; definida pelo usuário continua "não verificada" (o app nunca confere fixação nem colisão).
+    /// </summary>
+    public static (string Kind, string Text) FixtureState(JobFixture? f) =>
+        f is null ? ("pending", "não definida") : ("neutral", "informada · não verificada");
+
     /// <summary>Estado do bruto: definido ou pendente.</summary>
     public static (string Kind, string Text) StockState(JobStock? s) => s is null ? ("bad", "falta definir") : ("ok", "OK");
 
@@ -126,6 +151,23 @@ public static class CamJobInfo
 
     /// <summary>Resumo do bruto para a árvore.</summary>
     public static string StockTitle(JobStock? s) => s is null ? "Bruto: não definido" : $"Bruto {N(s.Width)} × {N(s.Length)} × {N(s.Thickness)} mm";
+
+    /// <summary>Retângulo desenhado sem DXF (canto X, Y, largura, altura): números válidos e medidas maiores que zero (null = válido).</summary>
+    public static string? RectangleError(double x, double y, double width, double height) =>
+        !double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(width) || !double.IsFinite(height)
+            ? "Retângulo: digite números válidos em X, Y, largura e altura."
+            : width <= 0 || height <= 0 ? "Retângulo: largura e altura precisam ser maiores que zero." : null;
+
+    /// <summary>Círculo desenhado sem DXF (centro X, Y, diâmetro): números válidos e diâmetro maior que zero (null = válido).</summary>
+    public static string? CircleError(double cx, double cy, double diameter) =>
+        !double.IsFinite(cx) || !double.IsFinite(cy) || !double.IsFinite(diameter)
+            ? "Círculo: digite números válidos no centro e no diâmetro."
+            : diameter <= 0 ? "Círculo: o diâmetro precisa ser maior que zero." : null;
+
+    /// <summary>Ferramenta que vai para o banco: T inteiro de 1 a 9999 e diâmetro maior que zero (mesma regra da aba Fresa antiga).</summary>
+    public static string? BankToolError(int number, double diameter) =>
+        number is < 1 or > 9999 ? "o T precisa ser de 1 a 9999 para ir ao banco."
+            : !double.IsFinite(diameter) || diameter <= 0 ? "o diâmetro precisa ser maior que zero para ir ao banco." : null;
 
     /// <summary>Bruto digitado na tela: as três medidas precisam ser números maiores que zero (null = válido).</summary>
     public static string? StockError(double width, double length, double thickness)
