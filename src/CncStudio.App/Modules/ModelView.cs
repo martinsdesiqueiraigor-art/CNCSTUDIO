@@ -239,24 +239,11 @@ public sealed class ModelView : Grid
         _pendingItems.Children.Clear();
         foreach ((string kind, string text, Control target) in items)
         {
-            (IBrush fg, IBrush bg) = UiKit.Status(kind);
-            var go = new Button
-            {
-                Content = new TextBlock { Text = (kind == "bad" ? "✕ inválido: " : "pendente: ") + text, TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = fg, MaxWidth = 560 },
-                Background = bg,
-                Padding = new Thickness(8, 3),
-                Margin = new Thickness(0, 2, 6, 2),
-                CornerRadius = new CornerRadius(8),
-                MinHeight = 26,
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
-            };
-            ToolTip.SetTip(go, "Ir ao campo");
-            go.Click += (_, _) =>
+            _pendingItems.Children.Add(JobBar.ItemButton(new JobBarItem(kind, text, () =>
             {
                 target.BringIntoView();
                 target.Focus();
-            };
-            _pendingItems.Children.Add(go);
+            })));
         }
     }
 

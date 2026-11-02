@@ -1,5 +1,6 @@
 using CncStudio.Core.Dialects;
 using Avalonia.Controls;
+using Avalonia.Input;
 using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Setup;
@@ -88,13 +89,20 @@ public partial class JobView : UserControl
                 SelectContourInTree(index);
             }
         };
-        OpenButton.Click += (_, _) =>
+        // Barra inferior: as mesmas ações de antes (abrir no Code; o programa já é gerado a cada mudança)
+        Bar.SendButton.Click += (_, _) =>
         {
             if (_build.Ok && _build.Program.Length > 0)
             {
                 EnsureToolsInBank();
                 OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
             }
+        };
+        Bar.GenerateButton.Click += (_, _) =>
+        {
+            Refresh(keep: true, props: false);
+            Output.CaretIndex = 0;
+            Output.Focus();
         };
         CopyButton.Click += async (_, _) =>
         {
@@ -320,16 +328,67 @@ public partial class JobView : UserControl
             BuildProps();
         }
 
-        Errors.Text = _build.Errors.Count > 0 && _job.Operations.Count > 0 ? string.Join("\n", _build.Errors.Select(e => "• " + e)) : "";
+        Errors.Text = ""; // os erros de geração ficam na barra inferior (clicáveis); aqui só os avisos ao abrir arquivo
         Warnings.Text = string.Join("\n", _build.Warnings.Select(w => "• " + w));
         Output.Text = _build.Ok ? _build.Program : "";
-        IReadOnlyList<string> pending = CamJobInfo.Pending(_job, _build);
-        PendingTitle.Text = pending.Count == 0 ? "✓ Pronto para gerar o G-code" : $"Pendências ({pending.Count})";
-        PendingTitle.Foreground = UiKit.Status(pending.Count == 0 ? "ok" : "pending").Fg;
-        PendingList.Text = string.Join("\n", pending.Select(x => "• " + x));
-        OpenButton.IsEnabled = CopyButton.IsEnabled = _build.Ok && _build.Program.Length > 0;
+        Warnings.Foreground = UiKit.Status("pending").Fg;
+        bool gcode = _build.Ok && _build.Program.Length > 0;
+        int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
+        CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
+        Bar.Update(PendingItems(), ready, gcode && ready > 0, gcode);
+        CopyButton.IsEnabled = gcode;
         UpdatePreview();
         Update3D();
+    }
+
+    /// <summary>
+    /// Pendências do Core (<see cref="CamJobInfo.Pending"/>, mesmo texto e mesma ordem) com o lugar aonde cada uma leva. Erro de operação
+    /// é "inválido" (vermelho); o resto é "pendente" (âmbar).
+    /// </summary>
+    private List<JobBarItem> PendingItems()
+    {
+        IReadOnlyList<string> texts = CamJobInfo.Pending(_job, _build);
+        var targets = new List<(string Kind, Action Go)>();
+        if (_job.Contours.Count == 0)
+        {
+            targets.Add(("pending", () => OpenDxfButton.Focus(NavigationMethod.Tab)));
+        }
+
+        if (_job.Stock is null)
+        {
+            targets.Add(("pending", () => GoToTree(t => t.Kind == "stock")));
+        }
+
+        if (_job.Operations.Count == 0)
+        {
+            targets.Add(("pending", () => KindCombo.Focus(NavigationMethod.Tab)));
+        }
+
+        for (int i = 0; i < _build.Items.Count; i++)
+        {
+            int index = i;
+            if (!_build.Items[i].Ok)
+            {
+                targets.Add(("bad", () => GoToTree(t => t.Kind == "op" && t.Index == index)));
+            }
+        }
+
+        // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho)
+        return texts.Select((text, k) => k < targets.Count && texts.Count == targets.Count
+            ? new JobBarItem(targets[k].Kind, text, targets[k].Go)
+            : new JobBarItem("pending", text, () => { })).ToList();
+    }
+
+    /// <summary>Seleciona e foca o item da árvore (as propriedades acompanham a seleção).</summary>
+    private void GoToTree(Func<TreeTag, bool> match)
+    {
+        IEnumerable<TreeViewItem> All(ItemsControl parent) => parent.Items.OfType<TreeViewItem>().SelectMany(x => All(x).Prepend(x));
+        if (All(Tree).FirstOrDefault(x => x.Tag is TreeTag t && match(t)) is { } item)
+        {
+            Tree.SelectedItem = item;
+            item.BringIntoView();
+            item.Focus(NavigationMethod.Tab);
+        }
     }
 
     /// <summary>Alterna 2D/3D e, no 3D, simula o programa atual.</summary>
@@ -375,13 +434,8 @@ public partial class JobView : UserControl
         TreeViewItem? select = null;
         TreeViewItem Node(string text, object? tag = null, string? icon = null) => new() { Header = icon is null ? text : UiKit.IconLabel(icon, text), Tag = tag, IsExpanded = true };
 
-        TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon)
-        {
-            var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8 };
-            row.Children.Add(UiKit.IconLabel(icon, text));
-            row.Children.Add(StateTag(st));
-            return new TreeViewItem { Header = row, IsExpanded = true };
-        }
+        TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon, TreeTag? tag = null) =>
+            UiKit.StateItem(UiKit.StateRow(text, st, UiKit.Icon(icon, "#8FB4FF", 15)), tag);
 
         TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", null, "peca");
         for (int i = 0; i < _job.Contours.Count; i++)
@@ -395,7 +449,14 @@ public partial class JobView : UserControl
         }
 
         Tree.Items.Add(part);
-        Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), CamJobInfo.StockState(_job.Stock), "bruto"));
+        // bruto ausente é pendência (âmbar, como na barra); o texto continua o do Core
+        (string Kind, string Text) stock = CamJobInfo.StockState(_job.Stock);
+        if (_job.Stock is null)
+        {
+            stock = ("pending", stock.Text);
+        }
+
+        Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), stock, "bruto", new TreeTag("stock", 0)));
         Tree.Items.Add(NodeState("Fixação", ("pending", "não verificada"), "fixacao"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
         foreach (CamTool t in CamJobInfo.ToolsUsed(_job))
@@ -410,11 +471,9 @@ public partial class JobView : UserControl
             int index = i;
             CamOperationSpec spec = _job.Operations[i];
             var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
-            var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6, Opacity = spec.Enabled ? 1 : 0.5 };
-            row.Children.Add(check);
-            row.Children.Add(UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
-            row.Children.Add(new TextBlock { Text = CamJobInfo.OpTitle(i, spec), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center });
-            row.Children.Add(StateTag(CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null)));
+            // título com reticências: a etiqueta de estado (texto) nunca sai da árvore
+            DockPanel row = UiKit.StateRow(CamJobInfo.OpTitle(i, spec), CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
+            row.Opacity = spec.Enabled ? 1 : 0.5;
             check.IsCheckedChanged += (_, _) =>
             {
                 if (!_busy)
@@ -422,7 +481,7 @@ public partial class JobView : UserControl
                     SetEnabled(index, check.IsChecked == true);
                 }
             };
-            var item = new TreeViewItem { Header = row, Tag = new TreeTag("op", i), IsExpanded = true };
+            TreeViewItem item = UiKit.StateItem(row, new TreeTag("op", i));
             ops.Items.Add(item);
             if (selectOp == i)
             {
@@ -436,8 +495,6 @@ public partial class JobView : UserControl
             Tree.SelectedItem = select;
         }
     }
-
-    private static Control StateTag((string Kind, string Text) st) => UiKit.StateTag(st);
 
     private void UpdatePreview()
     {

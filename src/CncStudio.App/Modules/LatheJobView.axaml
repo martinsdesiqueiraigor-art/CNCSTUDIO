@@ -2,21 +2,22 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:modules="using:CncStudio.App.Modules"
              x:Class="CncStudio.App.Modules.LatheJobView">
+  <Grid RowDefinitions="*,Auto">
   <Grid ColumnDefinitions="330,*,330">
+    <!-- Coluna compacta (UX-01, mínimo 1280×720): botões em uma linha cada, para a árvore ter ~8 linhas -->
     <Border Grid.Column="0" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,1,0">
-      <DockPanel Margin="14,12">
+      <DockPanel Margin="10,10">
         <StackPanel DockPanel.Dock="Top" Spacing="6">
-          <TextBlock Text="Trabalho (torno)" FontSize="20" FontWeight="Bold" />
-          <TextBlock Text="Perfil, operações e programa num lugar só. Mude a ordem, desligue ou duplique operações." Opacity="0.75" TextWrapping="Wrap" FontSize="12" />
-          <WrapPanel>
-            <Button x:Name="OpenJobButton" Content="Abrir trabalho…" Padding="10,5" Margin="0,0,6,6" />
-            <Button x:Name="SaveJobButton" Content="Salvar trabalho…" Padding="10,5" Margin="0,0,6,6" />
-          </WrapPanel>
-          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="6" ColumnSpacing="8">
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Nome" VerticalAlignment="Center" />
-            <TextBox Grid.Row="0" Grid.Column="1" x:Name="NameBox" MinHeight="26" />
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Comando" VerticalAlignment="Center" />
-            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="DialectCombo" SelectedIndex="0" MinWidth="120">
+          <TextBlock Text="Trabalho (torno)" FontSize="18" FontWeight="Bold"
+                     ToolTip.Tip="Perfil, operações e programa num lugar só. Mude a ordem, desligue ou duplique operações." />
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <Button x:Name="OpenJobButton" Content="Abrir trabalho…" Padding="6,4" FontSize="12" />
+            <Button x:Name="SaveJobButton" Content="Salvar trabalho…" Padding="6,4" FontSize="12" />
+          </StackPanel>
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+            <TextBlock Text="Nome" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" x:Name="NameBox" MinHeight="26" />
+            <ComboBox Grid.Column="2" x:Name="DialectCombo" SelectedIndex="0" MinWidth="96" ToolTip.Tip="Comando (dialeto do programa)">
               <ComboBoxItem Content="Fanuc" />
               <ComboBoxItem Content="Siemens" />
             </ComboBox>
@@ -32,27 +33,38 @@
           </Expander>
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
-          <ComboBox x:Name="KindCombo" HorizontalAlignment="Stretch" />
-          <Button x:Name="AddButton" Content="Adicionar operação" Padding="12,7" FontWeight="SemiBold" HorizontalAlignment="Stretch" />
-          <WrapPanel>
-            <Button x:Name="UpButton" Content="Subir" Padding="10,5" Margin="0,0,6,0" />
-            <Button x:Name="DownButton" Content="Descer" Padding="10,5" Margin="0,0,6,0" />
-            <Button x:Name="DuplicateButton" Content="Duplicar" Padding="10,5" Margin="0,0,6,0" />
-            <Button x:Name="RemoveButton" Content="Remover" Padding="10,5" Margin="0,0,6,0" />
-            <Button x:Name="UndoButton" Content="Desfazer" Padding="10,5" IsEnabled="False" />
-          </WrapPanel>
-          <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="#FF9A83" FontSize="12" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+            <ComboBox x:Name="KindCombo" HorizontalAlignment="Stretch" />
+            <Button Grid.Column="1" x:Name="AddButton" Content="Adicionar" Padding="10,5" FontWeight="SemiBold" ToolTip.Tip="Adicionar operação" />
+          </Grid>
+          <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="4">
+            <Button x:Name="UpButton" Content="Subir" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Column="1" x:Name="DownButton" Content="Descer" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Column="2" x:Name="DuplicateButton" Content="Duplicar" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Column="3" x:Name="RemoveButton" Content="Remover" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Column="4" x:Name="UndoButton" Content="Desfazer" Padding="2,4" FontSize="12" IsEnabled="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          </Grid>
+          <ScrollViewer MaxHeight="40" HorizontalScrollBarVisibility="Disabled">
+            <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="#FF9A83" FontSize="12" />
+          </ScrollViewer>
         </StackPanel>
-        <TreeView x:Name="Tree" Margin="0,8,0,0" />
+        <TreeView x:Name="Tree" Margin="0,8,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
       </DockPanel>
     </Border>
-    <Grid Grid.Column="1" RowDefinitions="*,Auto">
-      <Border Grid.Row="1" Margin="12,0,12,12" CornerRadius="10" Padding="12,8" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
-        <StackPanel Spacing="3">
-          <TextBlock x:Name="PendingTitle" FontWeight="Bold" />
-          <TextBlock x:Name="PendingList" TextWrapping="Wrap" FontSize="12" Opacity="0.85" />
-          <TextBlock Text="Fixação e colisões: o app não verifica. Simule e rode a primeira vez no ar." FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
-        </StackPanel>
+    <Grid Grid.Column="1" RowDefinitions="*,190">
+      <!-- Código CNC embaixo da vista (UX-01): o mesmo campo de antes, que ficava na aba Código -->
+      <Border Grid.Row="1" Margin="12,0,12,10" CornerRadius="8" Padding="10,6" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
+        <DockPanel>
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+            <Button x:Name="CopyButton" DockPanel.Dock="Right" Content="Copiar" Padding="10,3" IsEnabled="False" />
+            <TextBlock x:Name="CodeTitle" Text="Código CNC" FontSize="12" Opacity="0.8" VerticalAlignment="Center" />
+          </DockPanel>
+          <ScrollViewer DockPanel.Dock="Top" MaxHeight="48" HorizontalScrollBarVisibility="Disabled">
+            <TextBlock x:Name="Warnings" TextWrapping="Wrap" Foreground="#F2C45A" FontSize="12" />
+          </ScrollViewer>
+          <TextBox x:Name="Output" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                   FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="12" />
+        </DockPanel>
       </Border>
       <Border Margin="12,12,12,8" CornerRadius="8" ClipToBounds="True" Background="#0B1216" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
         <Grid>
@@ -70,19 +82,10 @@
         <StackPanel x:Name="PropsPanel" Margin="14,12" Spacing="6" />
       </ScrollViewer>
         </TabItem>
-        <TabItem Header="Código">
-      <DockPanel Margin="12">
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
-          <Button x:Name="OpenButton" Content="Abrir no editor (simular no Code)" Padding="12,6" IsEnabled="False" />
-          <Button x:Name="CopyButton" Content="Copiar" Padding="12,6" IsEnabled="False" />
-          <TextBlock Text="Simule antes de rodar na máquina." VerticalAlignment="Center" Opacity="0.6" FontSize="12" />
-        </StackPanel>
-        <TextBlock x:Name="Warnings" DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="#F2C45A" FontSize="12" />
-        <TextBox x:Name="Output" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
-                 FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="12" />
-      </DockPanel>
-        </TabItem>
       </TabControl>
     </Border>
+  </Grid>
+  <!-- Barra por último no XAML: no Tab ela vem depois da coluna da esquerda e da árvore -->
+  <modules:JobBar x:Name="Bar" Grid.Row="1" />
   </Grid>
 </UserControl>
