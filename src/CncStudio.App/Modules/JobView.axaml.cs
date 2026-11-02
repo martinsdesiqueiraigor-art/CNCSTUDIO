@@ -206,13 +206,19 @@ public partial class JobView : UserControl
         _job.WorkOffset = j.WorkOffset;
         _job.Coolant = j.Coolant;
         _job.Stock = j.Stock;
+        _job.Fixture = j.Fixture;
         _job.Contours.Clear();
         _job.Contours.AddRange(j.Contours);
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
         Refresh();
+        // avisos do arquivo (ex.: fixação inválida, que abre como "não definida")
+        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
     }
+
+    /// <summary>Fixação do Trabalho aberto: o Assist lê daqui (fonte única).</summary>
+    public JobFixture? Fixture => _job.Fixture;
 
     private async Task SaveJob()
     {
@@ -316,11 +322,12 @@ public partial class JobView : UserControl
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
             _build = CamJobBuilder.Build(_job, MachineSource?.Invoke());
-            bool keepStock = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" };
+            // bruto e fixação: o item continua selecionado depois de refazer a árvore (o editor fica aberto)
+            string? keepItem = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" or "fixture" } kt ? kt.Kind : null;
             BuildTree(keepOp, keepContour);
-            if (keepStock)
+            if (keepItem is not null)
             {
-                Tree.SelectedItem = Tree.Items.OfType<TreeViewItem>().FirstOrDefault(x => x.Tag is TreeTag { Kind: "stock" });
+                Tree.SelectedItem = Tree.Items.OfType<TreeViewItem>().FirstOrDefault(x => x.Tag is TreeTag t && t.Kind == keepItem);
             }
         }
         finally
@@ -363,6 +370,16 @@ public partial class JobView : UserControl
         if (_job.Stock is null)
         {
             targets.Add(("pending", () => GoToTree(t => t.Kind == "stock")));
+        }
+
+        if (_job.Fixture is null)
+        {
+            // leva ao item da árvore e ao campo do tipo, nas propriedades
+            targets.Add(("pending", () =>
+            {
+                GoToTree(t => t.Kind == "fixture");
+                _fixtureKind?.Focus(NavigationMethod.Tab);
+            }));
         }
 
         if (_job.Operations.Count == 0)
@@ -469,7 +486,7 @@ public partial class JobView : UserControl
 
         Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), stock, "bruto", new TreeTag("stock", 0)));
         Tree.Items.Add(NodeState(CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "preparo"));
-        Tree.Items.Add(NodeState("Fixação", ("pending", "não verificada"), "fixacao"));
+        Tree.Items.Add(NodeState(CamJobInfo.FixtureTitle(_job.Fixture), CamJobInfo.FixtureState(_job.Fixture), "fixacao", new TreeTag("fixture", 0)));
         MachineProfile? machine = MachineSource?.Invoke();
         Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");

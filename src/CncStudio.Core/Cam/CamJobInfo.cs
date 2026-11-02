@@ -81,6 +81,11 @@ public static class CamJobInfo
             list.Add("Bruto não definido");
         }
 
+        if (job.Fixture is null)
+        {
+            list.Add("Fixação não definida");
+        }
+
         if (job.Operations.Count == 0)
         {
             list.Add("Nenhuma operação");
@@ -102,6 +107,17 @@ public static class CamJobInfo
 
         return list;
     }
+
+    /// <summary>Linha "Fixação" da árvore: "Fixação: não definida" ou "Fixação: Morsa · descrição".</summary>
+    public static string FixtureTitle(JobFixture? f) => f is null
+        ? "Fixação: não definida"
+        : "Fixação: " + (JobFixture.NameOf(f.Kind) ?? f.Kind) + (f.Description.Length > 0 ? " · " + f.Description : "");
+
+    /// <summary>
+    /// Estado da fixação: pendente sem ela; definida pelo usuário continua "não verificada" (o app nunca confere fixação nem colisão).
+    /// </summary>
+    public static (string Kind, string Text) FixtureState(JobFixture? f) =>
+        f is null ? ("pending", "não definida") : ("neutral", "informada · não verificada");
 
     /// <summary>Estado do bruto: definido ou pendente.</summary>
     public static (string Kind, string Text) StockState(JobStock? s) => s is null ? ("bad", "falta definir") : ("ok", "OK");
