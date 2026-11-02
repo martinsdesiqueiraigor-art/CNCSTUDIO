@@ -316,6 +316,18 @@ public partial class JobView : UserControl
     // ---------------------------------------------------------------- tela
 
     /// <summary>Refaz a árvore, o programa e a vista. <paramref name="op"/>: operação a deixar selecionada; <paramref name="keep"/>: manter a seleção atual.</summary>
+    /// <summary>Ao abrir o módulo: o banco pode ter mudado no Code; refaz só os avisos (o programa não muda).</summary>
+    public void RefreshBank() => ShowWarnings();
+
+    // Avisos do programa e da ferramenta com outro diâmetro no banco (o simulador do Code usa o do banco)
+    private void ShowWarnings()
+    {
+        var bank = (ToolsSource?.Invoke() ?? []).Select(e => (e.Number, e.Diameter));
+        IEnumerable<string> lines = _build.Warnings.Concat(CamJobInfo.BankDiameterWarnings(_build.Operations.Select(o => o.Tool), bank));
+        Warnings.Text = string.Join("\n", lines.Distinct().Select(w => "• " + w));
+        Warnings.Foreground = UiKit.Status("pending").Fg;
+    }
+
     private void Refresh(int? op = null, bool keep = false, bool props = true)
     {
         int? keepOp = keep ? SelectedOp() : op;
@@ -347,9 +359,8 @@ public partial class JobView : UserControl
         }
 
         Errors.Text = ""; // os erros de geração ficam na barra inferior (clicáveis); aqui só os avisos ao abrir arquivo
-        Warnings.Text = string.Join("\n", _build.Warnings.Select(w => "• " + w));
+        ShowWarnings();
         Output.Text = _build.Ok ? _build.Program : "";
-        Warnings.Foreground = UiKit.Status("pending").Fg;
         bool gcode = _build.Ok && _build.Program.Length > 0;
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
         CodeTitle.ClearValue(Avalonia.Controls.TextBlock.ForegroundProperty);

@@ -18,6 +18,19 @@ public class CamJobSetupInfoTests
     }
 
     [Fact]
+    public void BankDiameterWarnings_avisa_so_o_T_do_banco_com_outro_diametro()
+    {
+        CamTool[] used = [new(1, 10, 3000, 500, 200), new(1, 10, 3000, 500, 200), new(2, 6, 3000, 500, 200), new(3, 4.5, 3000, 500, 200)];
+        IReadOnlyList<string> w = CamJobInfo.BankDiameterWarnings(used, [(1, 12), (2, 6), (9, 3)]);
+
+        // T1 com outro Ø avisa uma vez; T2 igual e T3 fora do banco não avisam
+        string only = Assert.Single(w);
+        Assert.Equal("T1 no banco do Code tem Ø12, mas o CAM usou Ø10: o simulador do Code usa o do banco.", only);
+        Assert.Contains("Ø4,5", CamJobInfo.BankDiameterWarnings(used, [(3, 4)])[0]);
+        Assert.Empty(CamJobInfo.BankDiameterWarnings(used, []));
+    }
+
+    [Fact]
     public void StockError_pede_as_tres_medidas_maiores_que_zero()
     {
         Assert.Null(CamJobInfo.StockError(100, 60, 10));
