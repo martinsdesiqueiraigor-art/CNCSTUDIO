@@ -449,4 +449,4 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## T6 torno: Origem e Máquina (ajuste-torno-origem-fixacao)
 - Árvore do Trabalho torno ganha "Origem G54: X0 no centro da peça, Z0 do perfil" (sempre "não verificada") e "Máquina" (perfil ativo e fuso), como na fresa. Core: `LatheJobInfo.OriginTitle/SpindleRpm/SpindleWarning/OverSpindle/OpState`.
 - Rotação acima do fuso (fixa ou G50 em G96): operação "aviso: acima do fuso" (âmbar), pendência na barra e nota nas propriedades; só confere, o programa não muda. **Testes:** 1240.
-- Fixação do torno (castanhas/placa/ponto) ainda sem campo no `LatheJob`: formato proposto aguarda decisão do Igor; arquivo não mudou.
+- Fixação do torno (opção A do Igor): `LatheJob.Fixation` (`LatheFixation`: tipo castanhas/placa/ponto + Ø de fixação, comprimento preso e balanço opcionais), campo `fixation` opcional no JSON (versão continua 1; arquivo antigo abre como "não informada"); nó da árvore editável, sempre "não verificada", medida ≤ 0 em vermelho. Não entra no programa. **Testes:** 1246.

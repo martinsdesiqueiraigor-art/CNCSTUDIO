@@ -234,6 +234,8 @@ public partial class LatheJobView : UserControl
 
     private int? SelectedOp() => (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "op" } t ? t.Index : null;
 
+    private bool FixationSelected() => (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "fixation" };
+
     private void AddOperation()
     {
         Errors.Text = "";
@@ -298,13 +300,14 @@ public partial class LatheJobView : UserControl
     private void Refresh(int? op = null, bool keep = false, bool props = true)
     {
         int? keepOp = keep ? SelectedOp() : op;
+        bool keepFixation = keep && FixationSelected();
         _busy = true;
         try
         {
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
             _build = LatheJobBuilder.Build(_job);
-            BuildTree(keepOp);
+            BuildTree(keepOp, keepFixation);
         }
         finally
         {
@@ -410,7 +413,7 @@ public partial class LatheJobView : UserControl
         }
     }
 
-    private void BuildTree(int? selectOp)
+    private void BuildTree(int? selectOp, bool selectFixation = false)
     {
         Tree.Items.Clear();
         TreeViewItem? select = null;
@@ -423,7 +426,13 @@ public partial class LatheJobView : UserControl
         // perfil ausente é pendência (âmbar, como na barra)
         Tree.Items.Add(NodeState(LatheJobInfo.ProfileTitle(_job.Profile), _job.Profile is null ? ("pending", "falta definir") : ("ok", "OK"), "perfil"));
         Tree.Items.Add(NodeState(LatheJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "preparo"));
-        Tree.Items.Add(NodeState("Fixação (castanhas)", ("pending", "não verificada"), "fixacao"));
+        TreeViewItem fixation = UiKit.StateItem(UiKit.StateRow(LatheFixation.Title(_job.Fixation), LatheFixation.State(_job.Fixation), UiKit.Icon("fixacao", "#8FB4FF", 15)), new TreeTag("fixation", 0));
+        Tree.Items.Add(fixation);
+        if (selectFixation)
+        {
+            select = fixation;
+        }
+
         MachineProfile? machine = MachineSource?.Invoke();
         Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
         TreeViewItem tools = Node("Ferramentas", "ferramentas");

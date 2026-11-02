@@ -31,6 +31,28 @@ public static class LatheJobJson
             root["profile"] = CamJobJson.SegmentsToJson(p.Segments);
         }
 
+        // campo opcional: arquivo sem ele (antigo ou sem fixação) abre com a fixação "não informada"
+        if (job.Fixation is { } fx)
+        {
+            var o = new JsonObject { ["kind"] = LatheFixation.FileName(fx.Kind) };
+            if (fx.GripDiameter is { } d)
+            {
+                o["gripDiameter"] = d;
+            }
+
+            if (fx.GripLength is { } l)
+            {
+                o["gripLength"] = l;
+            }
+
+            if (fx.StickOut is { } s)
+            {
+                o["stickOut"] = s;
+            }
+
+            root["fixation"] = o;
+        }
+
         var ops = new JsonArray();
         foreach (LatheOperationSpec s in job.Operations)
         {
@@ -181,6 +203,11 @@ public static class LatheJobJson
                     ?? throw new CamJobJson.FormatException(error ?? "Perfil inválido no arquivo.");
             }
 
+            if (root["fixation"] is not null)
+            {
+                job.Fixation = FixationFrom(root["fixation"] as JsonObject ?? throw new CamJobJson.FormatException("Fixação inválida no arquivo."));
+            }
+
             foreach (JsonNode? on in CamJobJson.Arr(root, "operations"))
             {
                 job.Operations.Add(OpFrom(on as JsonObject ?? throw new CamJobJson.FormatException("Operação inválida.")));
@@ -197,6 +224,15 @@ public static class LatheJobJson
         {
             return new LatheLoadResult(null, ex.Message);
         }
+    }
+
+    private static LatheFixation FixationFrom(JsonObject o)
+    {
+        string name = CamJobJson.Str(o, "kind");
+        LatheFixationKind kind = LatheFixation.FromFileName(name) ?? throw new CamJobJson.FormatException($"Valor desconhecido de fixação: \"{name}\".");
+        double? Opt(string key) => o[key] is null ? null : CamJobJson.Num(o, key);
+        var f = new LatheFixation(kind, Opt("gripDiameter"), Opt("gripLength"), Opt("stickOut"));
+        return f.Validate() is { } error ? throw new CamJobJson.FormatException(error) : f;
     }
 
     private static LatheOperationSpec OpFrom(JsonObject o)

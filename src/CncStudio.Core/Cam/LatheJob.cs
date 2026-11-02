@@ -69,6 +69,9 @@ public sealed class LatheJob
     /// <summary>Perfil da peça (null = ainda não definido).</summary>
     public LatheProfile? Profile { get; set; }
 
+    /// <summary>Fixação da peça (null = não informada). Só informativa: não entra no programa.</summary>
+    public LatheFixation? Fixation { get; set; }
+
     public List<LatheOperationSpec> Operations { get; } = [];
 
     public bool MoveOperation(int from, int to)
