@@ -333,6 +333,7 @@ public partial class MainWindow
         if (id == "cam")
         {
             Cam.RefreshBank();
+            Cam.CheckJobFresh();
         }
 
         if (id == "otimizador")

@@ -2,6 +2,7 @@ using CncStudio.Core.Dialects;
 using Avalonia.Controls;
 using Avalonia.Input;
 using CncStudio.App.Settings;
+using CncStudio.Core;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Setup;
 
@@ -16,6 +17,9 @@ public partial class JobView : UserControl
 {
     private readonly CamJob _job = new() { Name = "TRABALHO" };
     private JobBuild _build = new("", [], [], [], []);
+
+    /// <summary>Perfil da máquina com que <see cref="_build"/> foi feito (o Trabalho refaz a cada mudança dele mesmo, não do perfil).</summary>
+    private DataStamp? _builtWith;
     private bool _busy;
     private readonly UndoStack<CamOperationSpec> _undo = new();
 
@@ -92,7 +96,7 @@ public partial class JobView : UserControl
         // Barra inferior: as mesmas ações de antes (abrir no Code; o programa já é gerado a cada mudança)
         Bar.SendButton.Click += (_, _) =>
         {
-            if (_build.Ok && _build.Program.Length > 0)
+            if (!CheckFresh() && _build.Ok && _build.Program.Length > 0)
             {
                 EnsureToolsInBank();
                 OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
@@ -106,7 +110,7 @@ public partial class JobView : UserControl
         };
         CopyButton.Click += async (_, _) =>
         {
-            if (_build.Ok && _build.Program.Length > 0 && CopyText is not null)
+            if (!CheckFresh() && _build.Ok && _build.Program.Length > 0 && CopyText is not null)
             {
                 await CopyText(_build.Program);
             }
@@ -321,7 +325,9 @@ public partial class JobView : UserControl
         {
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
-            _build = CamJobBuilder.Build(_job, MachineSource?.Invoke());
+            MachineProfile? machine = MachineSource?.Invoke();
+            _build = CamJobBuilder.Build(_job, machine);
+            _builtWith = DataStamp.OfMachine(machine);
             // peça, bruto e fixação: o item continua selecionado depois de refazer a árvore (o editor fica aberto)
             string? keepItem = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" or "part" or "fixture" } kt ? kt.Kind : null;
             BuildTree(keepOp, keepContour);
@@ -346,11 +352,35 @@ public partial class JobView : UserControl
         Warnings.Foreground = UiKit.Status("pending").Fg;
         bool gcode = _build.Ok && _build.Program.Length > 0;
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
+        CodeTitle.ClearValue(Avalonia.Controls.TextBlock.ForegroundProperty);
         CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
         Bar.Update(PendingItems(), ready, gcode && ready > 0, gcode);
         CopyButton.IsEnabled = gcode;
         UpdatePreview();
         Update3D();
+    }
+
+    /// <summary>
+    /// Confere se o perfil da máquina mudou depois do último programa (a aba Máquina não avisa o Trabalho). Se mudou, o programa e a
+    /// vista ficam como estão, marcados "desatualizado" com o motivo; a barra ganha o item (clique refaz) e Enviar, Gerar e Copiar
+    /// desligam. Devolve true se está desatualizado.
+    /// </summary>
+    public bool CheckFresh()
+    {
+        if (DataStamp.StaleMessage(_builtWith, DataStamp.OfMachine(MachineSource?.Invoke())) is not { } stale)
+        {
+            return false;
+        }
+
+        bool gcode = _build.Ok && _build.Program.Length > 0;
+        int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
+        var items = new List<JobBarItem> { new("pending", stale + " Clique aqui para refazer o programa.", () => Refresh(keep: true)) };
+        items.AddRange(PendingItems());
+        Bar.Update(items, ready, gcode && ready > 0, gcode);
+        CopyButton.IsEnabled = false;
+        CodeTitle.Text = "Código CNC · " + stale.ToLowerInvariant() + " Não use este código: refaça pela barra.";
+        CodeTitle.Foreground = UiKit.Status("pending").Fg;
+        return true;
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using CncStudio.App.Settings;
+using CncStudio.Core;
 using CncStudio.Core.Assist;
 using CncStudio.Core.Statistics;
 
@@ -19,6 +20,13 @@ public sealed partial class AssistView
     private readonly TextBox _company = new() { Watermark = "seu nome e contato (cabeçalho da proposta)", MinHeight = 26 };
     private string _lastProposal = "";
     private string _lastHtml = "";
+
+    /// <summary>Dados com que o resultado à vista foi calculado (null: nenhum resultado). Ver <see cref="CheckQuoteFresh"/>.</summary>
+    private DataStamp? _quoteStamp;
+    private readonly Dictionary<string, string> _quoteLabels = [];
+    private readonly Border _quoteStale = new() { IsVisible = false };
+    private readonly Button _quoteCopy = new() { Content = "Copiar proposta", Padding = new Thickness(16, 8), IsEnabled = false };
+    private readonly Button _quoteFile = new() { Content = "Salvar proposta (HTML)…", Padding = new Thickness(16, 8), IsEnabled = false };
 
     /// <summary>Valores guardados do orçamento (nas configurações).</summary>
     public Func<QuoteDefaults>? QuoteSource { get; set; }
@@ -65,12 +73,11 @@ public sealed partial class AssistView
             calc.Resources["ButtonForeground" + state] = Brushes.Black;
         }
 
-        Button copy = new() { Content = "Copiar proposta", Padding = new Thickness(16, 8) };
-        Button file = new() { Content = "Salvar proposta (HTML)…", Padding = new Thickness(16, 8) };
+        Button copy = _quoteCopy, file = _quoteFile;
         calc.Click += (_, _) => CalculateQuote();
         copy.Click += async (_, _) =>
         {
-            if (_lastProposal.Length > 0 && CopyText is not null)
+            if (!CheckQuoteFresh() && _lastProposal.Length > 0 && CopyText is not null)
             {
                 await CopyText(_lastProposal);
                 _quoteResult.Text += "\n(proposta copiada)";
@@ -78,7 +85,7 @@ public sealed partial class AssistView
         };
         file.Click += async (_, _) =>
         {
-            if (_lastHtml.Length > 0 && SaveProposal is not null)
+            if (!CheckQuoteFresh() && _lastHtml.Length > 0 && SaveProposal is not null)
             {
                 await SaveProposal("proposta.html", _lastHtml);
                 _quoteResult.Text += "\n(abra o arquivo no navegador e use Imprimir › Salvar como PDF)";
@@ -93,6 +100,7 @@ public sealed partial class AssistView
         // Resultado ao lado do formulário: sempre à vista, sem rolar
         var result = new StackPanel { Spacing = 10 };
         result.Children.Add(new TextBlock { Text = "Resultado da estimativa", FontSize = 16, FontWeight = FontWeight.SemiBold });
+        result.Children.Add(_quoteStale);
         result.Children.Add(UiKit.ResultCard("Tempo de ciclo por peça", "relogio", accent, _cardTime));
         result.Children.Add(UiKit.ResultCard("Preço por peça", "moeda", "#F5C542", _cardPrice));
         result.Children.Add(UiKit.ResultCard("Total do lote", "lote", "#3DDC97", _cardTotal));
@@ -104,6 +112,10 @@ public sealed partial class AssistView
         grid.Children.Add(form);
         grid.Children.Add(result);
         _quotePage = new Border { Padding = new Thickness(0, 10), Child = grid };
+        foreach (TextBox box in _quoteBoxes.Values.Append(_partName).Append(_company))
+        {
+            box.TextChanged += (_, _) => CheckQuoteFresh();
+        }
     }
 
     private Border _quotePage = new();
@@ -112,6 +124,7 @@ public sealed partial class AssistView
     {
         var box = new TextBox { MinHeight = 26 };
         _quoteBoxes[key] = box;
+        _quoteLabels[key] = label;
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("28,240,*,56") };
         var ic = UiKit.Icon(icon, "#FF9A3D", 17);
         var l = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
@@ -146,6 +159,8 @@ public sealed partial class AssistView
         {
             _partName.Text = Path.GetFileNameWithoutExtension(prog.Name);
         }
+
+        CheckQuoteFresh(); // o programa do Code pode ter mudado desde o cálculo
     }
 
     private double Q(string key) =>
@@ -155,6 +170,8 @@ public sealed partial class AssistView
     {
         _lastProposal = "";
         _lastHtml = "";
+        _quoteStamp = null;
+        CheckQuoteFresh();
         _cardTime.Text = _cardPrice.Text = _cardTotal.Text = "—";
         if (ProgramSource?.Invoke() is not { } p || p.Time <= TimeSpan.Zero)
         {
@@ -194,6 +211,7 @@ public sealed partial class AssistView
         string M(double v) => "R$ " + v.ToString("N2", Br);
         _lastProposal = r.ToText(_partName.Text ?? "");
         _lastHtml = r.ToHtml(_partName.Text ?? "", _company.Text ?? "");
+        _quoteStamp = QuoteNow();
         _cardTime.Text = DurationFormat.Format(r.CycleTime, Br);
         _cardPrice.Text = M(r.PricePerPart);
         _cardTotal.Text = M(r.Total);
@@ -203,5 +221,28 @@ public sealed partial class AssistView
             $"Custo por peça {M(r.CostPerPart)} · Margem {M(r.MarginPerPart)} · Impostos {M(r.TaxPerPart)}",
             $"Lote de {r.Quantity} peça(s).",
             "Estimativa: confira com a primeira peça cortada.");
+    }
+
+    private DataStamp QuoteNow() =>
+        DataStamp.OfQuote(ProgramSource?.Invoke(), _quoteLabels.Select(kv => (kv.Value, _quoteBoxes[kv.Key].Text ?? "")), _partName.Text ?? "", _company.Text ?? "");
+
+    /// <summary>
+    /// Confere se o programa do Code, um campo, o nome da peça ou o cabeçalho mudou depois do cálculo. Se mudou, os valores ficam à
+    /// vista, riscados, com o aviso "desatualizado: mudou X" em âmbar, e Copiar/Salvar proposta desligam até calcular de novo.
+    /// Devolve true se está desatualizado.
+    /// </summary>
+    private bool CheckQuoteFresh()
+    {
+        string? stale = DataStamp.StaleMessage(_quoteStamp, QuoteNow());
+        TextDecorationCollection? strike = stale is null ? null : TextDecorations.Strikethrough;
+        foreach (TextBlock card in new[] { _cardTime, _cardPrice, _cardTotal, _quoteResult })
+        {
+            card.TextDecorations = strike;
+        }
+
+        _quoteStale.Child = stale is null ? null : UiKit.StatusNote(stale + " Os valores abaixo são do cálculo anterior: clique em Calcular.");
+        _quoteStale.IsVisible = stale is not null;
+        _quoteCopy.IsEnabled = _quoteFile.IsEnabled = _quoteStamp is not null && stale is null;
+        return stale is not null;
     }
 }

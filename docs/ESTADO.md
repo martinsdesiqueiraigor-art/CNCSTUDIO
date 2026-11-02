@@ -462,3 +462,7 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## T4b: salvar e excluir ferramenta no banco pelo Trabalho fresa (`ajuste-fresa-ferramentas`, HANDOFF-22)
 - Propriedades da operação: "Salvar Tn no banco" (ou "Atualizar", se o T já existe) grava diâmetro, nome, rotação e avanços; "Excluir Tn do banco…" pede confirmação na tela (diz o que sai e que a operação continua com a ferramenta). Regra do T e do diâmetro no Core (`BankToolError`, mesma da aba antiga).
 - Diferenças da aba antiga: lá excluía sem confirmar e salvava por cima de qualquer T; aqui não grava por cima de ferramenta de torno com o mesmo T. Aba antiga sem mudança. **Testes:** 1235. Conferido sem tela (salvar, cancelar, excluir).
+## T5 · UX-01 PR 6: "desatualizado" por dependência (`ajuste-ux01-r3-desatualizado`)
+- Core `DataStamp`: registro dos dados de que um resultado depende; diz o que mudou ("Desatualizado: mudou X."). Tabela: perfil da máquina → programa do Trabalho fresa; programa do Code e campos/nome/cabeçalho → orçamento. O plano do Assist já tinha a mesma regra (`PlanStamp`), sem mudança.
+- Trabalho fresa: trocar o perfil na aba Máquina mantém o código à vista, título "desatualizado… não use", item âmbar na barra (clique refaz) e desliga Enviar/Gerar/Copiar. Orçamento: valores ficam riscados, com aviso âmbar; Copiar/Salvar proposta só com cálculo em dia. **Testes:** 1243 (+9).
+- Não coberto: programa já enviado ao Code não é avisado quando o Trabalho muda; tela não conferida (sem teste de tela no repositório).
