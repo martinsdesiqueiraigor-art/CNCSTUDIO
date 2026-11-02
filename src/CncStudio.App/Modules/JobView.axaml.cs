@@ -548,6 +548,11 @@ public partial class JobView : UserControl
             // título com reticências: a etiqueta de estado (texto) nunca sai da árvore
             DockPanel row = UiKit.StateRow(CamJobInfo.OpTitle(i, spec), CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
             row.Opacity = spec.Enabled ? 1 : 0.5;
+            if (OpOrigin.Describe(spec.Origin) is { } origin)
+            {
+                ToolTip.SetTip(row, origin.Text);
+            }
+
             check.IsCheckedChanged += (_, _) =>
             {
                 if (!_busy)

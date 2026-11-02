@@ -293,6 +293,26 @@ public static class PlanReview
             }
         }
 
+        // Marca de origem (missão 11): o que veio do Assist, se os dados de corte são rascunho e o que você digitou
+        var depthOps = DepthsOf(plan).SelectMany(d => d.OperationIndexes).ToHashSet();
+        string? cut = current.Material is null ? null : current.Material.Draft ? OpOrigin.Draft : OpOrigin.Reviewed;
+        for (int i = 0; i < ops.Count; i++)
+        {
+            var typed = new List<string>();
+            if (depthOps.Contains(i))
+            {
+                typed.AddRange(["depth", "heights"]);
+            }
+
+            bool rpmTyped = rpmFor.ContainsKey(ops[i].Tool.Number);
+            if (rpmTyped)
+            {
+                typed.Add("rpm");
+            }
+
+            ops[i] = ops[i] with { Origin = new OpOrigin(OpOrigin.Assist, rpmTyped ? null : cut, []).WithTyped([.. typed]) };
+        }
+
         var notes = new List<string>();
         if (ops.Count > 0)
         {

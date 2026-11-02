@@ -484,3 +484,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## T8b: fixação do Trabalho no plano do Assist (`ajuste-assist-fixacao`, opção A do Igor)
 - Core `PlanReview.Review(..., fixture)` + `FixtureNote`: ao aplicar, a fixação lida do Trabalho fresa (fonte única, sem cópia) entra nas notas, sempre "não verificada"; sem ela, nota "não definida". Só nota: nenhuma trava nova nem afrouxada (estratégia de soltura igual).
 - 3 testes novos (**1311**); Release 0 avisos. Tela sem mudança visual (a nota aparece no texto do Aplicar); não conferida na tela.
+## Missão 11 · T3-C: marca de origem por operação no Trabalho fresa (`ajuste-ux01-origem-valores`)
+- Core `OpOrigin` + `CamOperationSpec.Origin`, campo opcional `origin` por operação no .casillas-job (`source: assist`, `cutData: draft|reviewed`, `typed: depth|heights|rpm|feed`); versão do arquivo igual, arquivo antigo abre sem marca, marca inválida abre sem marca e com aviso. Só o Aplicar do Assist marca (`PlanReview.Review`).
+- Trabalho fresa: propriedades mostram "do Assist · dados de corte: rascunho · digitado: …" (âmbar com rascunho), dica na árvore; editar rotação/avanço tira o rascunho e vira digitado (decisão do Igor), fundo/passe e alturas idem (`OpOrigin.Track`). **Testes:** 1323 (+12); Release 0 avisos. Tela não conferida.
