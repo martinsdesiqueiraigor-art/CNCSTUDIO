@@ -40,6 +40,10 @@ public sealed class ModelView : Grid
     private readonly ComboBox _dialect = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBlock _result = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
     private readonly Button _openEditor = new() { Content = "Abrir no editor (simular no Code)", Padding = new Thickness(12, 6), IsEnabled = false };
+    private readonly Dictionary<string, string> _labels = [];
+    private readonly TextBlock _pendingTitle = new() { FontWeight = FontWeight.Bold };
+    private readonly WrapPanel _pendingItems = new();
+    private Button? _openButton;
     private TriangleMesh? _current;
     private string _program = "";
     private string _programSuffix = "-varredura";
@@ -138,11 +142,32 @@ public sealed class ModelView : Grid
         var view = new Grid { Margin = new Thickness(12) };
         view.Children.Add(_gl);
         view.Children.Add(_hint);
-        var frame = new Border { Margin = new Thickness(12), CornerRadius = new CornerRadius(8), ClipToBounds = true, Background = new SolidColorBrush(Color.Parse("#0B1216")), Child = view };
-        SetColumn(frame, 1);
+        var frame = new Border { Margin = new Thickness(12, 12, 12, 8), CornerRadius = new CornerRadius(8), ClipToBounds = true, Background = new SolidColorBrush(Color.Parse("#0B1216")), Child = view };
+
+        // Barra de pendências: as mesmas regras da fresa e do torno; tocar num item leva ao campo
+        _openButton = open;
+        var bar = new StackPanel { Spacing = 3 };
+        bar.Children.Add(_pendingTitle);
+        bar.Children.Add(_pendingItems);
+        bar.Children.Add(new TextBlock { Text = "Fixação e colisões: o app não verifica. Simule e rode a primeira vez no ar.", FontSize = 11, Opacity = 0.6, TextWrapping = TextWrapping.Wrap });
+        var barBorder = new Border { Margin = new Thickness(12, 0, 12, 12), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), BorderThickness = new Thickness(1), Child = bar };
+        barBorder.Bind(Border.BackgroundProperty, barBorder.GetResourceObservable("CardBackground"));
+        barBorder.Bind(Border.BorderBrushProperty, barBorder.GetResourceObservable("SubtleBorder"));
+        var right = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
+        right.Children.Add(frame);
+        Grid.SetRow(barBorder, 1);
+        right.Children.Add(barBorder);
+        SetColumn(right, 1);
 
         Children.Add(left);
-        Children.Add(frame);
+        Children.Add(right);
+        foreach (TextBox box in _f.Values)
+        {
+            box.TextChanged += (_, _) => UpdatePending();
+        }
+
+        UpdatePending();
+        ActualThemeVariantChanged += (_, _) => UpdatePending();
         _gl.Failed += (_, message) =>
         {
             _gl.IsVisible = false;
@@ -156,7 +181,83 @@ public sealed class ModelView : Grid
         panel.Children.Add(new TextBlock { Text = label, Opacity = 0.75, FontSize = 12 });
         var box = new TextBox { Text = value };
         _f[id] = box;
+        _labels[id] = label;
         panel.Children.Add(box);
+    }
+
+    /// <summary>
+    /// Pendências (âmbar, "pendente: …") e valores inválidos (vermelho, "inválido: …") antes de gerar, sempre com texto.
+    /// As alturas usam a mesma conferência do Core que a geração usa; nada é calculado de novo aqui.
+    /// </summary>
+    private void UpdatePending()
+    {
+        var items = new List<(string Kind, string Text, Control Target)>();
+        if (_current is null && _openButton is not null)
+        {
+            items.Add(("pending", "abra um modelo STL", _openButton));
+        }
+
+        foreach (string id in new[] { "D", "S", "FXY", "FZ", "TN", "STEP", "TOL", "RZ", "RSTEP", "RAX", "RRAD" })
+        {
+            if (double.IsNaN(Num(id)))
+            {
+                items.Add(("pending", "preencha " + _labels[id], _f[id]));
+            }
+        }
+
+        double zs = Num("ZS"), za = Num("ZA"), bottom = Num("BOT");
+        if (double.IsNaN(zs))
+        {
+            items.Add(("pending", "digite o Z seguro", _f["ZS"]));
+        }
+
+        if (double.IsNaN(za))
+        {
+            items.Add(("pending", "digite o Z de aproximação", _f["ZA"]));
+        }
+
+        if (double.IsNaN(bottom))
+        {
+            items.Add(("pending", "digite o Z do fundo", _f["BOT"]));
+        }
+
+        if (_current is { } model && !double.IsNaN(zs) && !double.IsNaN(za))
+        {
+            double top = model.Bounds.Max.Z;
+            if (new ModelZ(zs, za).Validate(top, top) is { } zError)
+            {
+                items.Add(("bad", zError, za <= top ? _f["ZA"] : _f["ZS"]));
+            }
+            else if (!double.IsNaN(bottom) && SurfaceLevels.Build(model, new ModelZ(zs, za), bottom, 1).Error is { } bottomError)
+            {
+                items.Add(("bad", bottomError, _f["BOT"]));
+            }
+        }
+
+        _pendingTitle.Text = items.Count == 0 ? "✓ Pronto para gerar o G-code" : $"Pendências ({items.Count})";
+        _pendingTitle.Foreground = UiKit.Status(items.Count == 0 ? "ok" : items.Any(x => x.Kind == "bad") ? "bad" : "pending").Fg;
+        _pendingItems.Children.Clear();
+        foreach ((string kind, string text, Control target) in items)
+        {
+            (IBrush fg, IBrush bg) = UiKit.Status(kind);
+            var go = new Button
+            {
+                Content = new TextBlock { Text = (kind == "bad" ? "✕ inválido: " : "pendente: ") + text, TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = fg, MaxWidth = 560 },
+                Background = bg,
+                Padding = new Thickness(8, 3),
+                Margin = new Thickness(0, 2, 6, 2),
+                CornerRadius = new CornerRadius(8),
+                MinHeight = 26,
+                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+            };
+            ToolTip.SetTip(go, "Ir ao campo");
+            go.Click += (_, _) =>
+            {
+                target.BringIntoView();
+                target.Focus();
+            };
+            _pendingItems.Children.Add(go);
+        }
     }
 
     private double Num(string id) =>
@@ -329,6 +430,7 @@ public sealed class ModelView : Grid
                 : "⚠ Malha aberta (furos na superfície): dá para ver, mas o volume e o CAM 3D ficam incertos. Repare o modelo no CAD.") +
             "\nConfira as medidas: se o tamanho está 25× ou 1000× fora, troque a unidade.";
 
+        UpdatePending();
         _hint.IsVisible = false;
         _gl.IsVisible = true;
         _gl.Show(mesh.ToSnapshot());

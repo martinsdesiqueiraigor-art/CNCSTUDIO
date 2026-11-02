@@ -77,6 +77,52 @@ public static class UiKit
         return (Brush.Parse(fg), Brush.Parse(bg));
     }
 
+    /// <summary>Etiqueta de estado da árvore ("OK", "desligada", "erro: motivo", "não verificada"): sempre com texto, nunca só cor.</summary>
+    public static Border StateTag((string Kind, string Text) st)
+    {
+        var text = new TextBlock { Text = st.Text, FontSize = 11 };
+        var tag = new Border
+        {
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(7, 1),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = text,
+        };
+        return FollowTheme(tag, st.Kind, text);
+    }
+
+    /// <summary>Aviso em bloco com as cores de estado do tema (claro, escuro e CMYK); acompanha a troca de tema.</summary>
+    public static Border StatusNote(string text, string kind = "pending")
+    {
+        var label = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        var note = new Border
+        {
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12),
+            Child = label,
+        };
+        return FollowTheme(note, kind, label);
+    }
+
+    private static Border FollowTheme(Border border, string kind, TextBlock text)
+    {
+        void Apply()
+        {
+            (IBrush fg, IBrush bg) = Status(kind);
+            border.Background = bg;
+            text.Foreground = fg;
+            if (border.BorderThickness != default && fg is ISolidColorBrush s)
+            {
+                border.BorderBrush = new SolidColorBrush(s.Color, 0.55);
+            }
+        }
+
+        Apply();
+        border.ActualThemeVariantChanged += (_, _) => Apply();
+        return border;
+    }
+
     /// <summary>Define o fundo do bloco pelo recurso do tema (claro ou escuro).</summary>
     public static T Themed<T>(this T border, string resourceKey = "CardBackground")
         where T : Border

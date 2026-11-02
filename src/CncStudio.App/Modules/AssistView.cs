@@ -435,15 +435,8 @@ public sealed partial class AssistView : UserControl
         return candidate;
     }
 
-    private static Border Note(string text) => new()
-    {
-        Background = new SolidColorBrush(Color.Parse("#3B2F12")),
-        BorderBrush = new SolidColorBrush(Color.Parse("#7A6122")),
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(8),
-        Padding = new Thickness(12),
-        Child = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 12 },
-    };
+    // Cor de estado "pendente" do tema (UiKit.Status): legível no escuro, no claro e no CMYK
+    private static Border Note(string text) => UiKit.StatusNote(text, "pending");
 
     // ---------------------------------------------------------------- teste rápido
 

@@ -437,18 +437,7 @@ public partial class JobView : UserControl
         }
     }
 
-    private static Control StateTag((string Kind, string Text) st)
-    {
-        (Avalonia.Media.IBrush fg, Avalonia.Media.IBrush bg) = UiKit.Status(st.Kind);
-        return new Border
-        {
-            Background = bg,
-            CornerRadius = new Avalonia.CornerRadius(8),
-            Padding = new Avalonia.Thickness(7, 1),
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            Child = new TextBlock { Text = st.Text, FontSize = 11, Foreground = fg },
-        };
-    }
+    private static Control StateTag((string Kind, string Text) st) => UiKit.StateTag(st);
 
     private void UpdatePreview()
     {

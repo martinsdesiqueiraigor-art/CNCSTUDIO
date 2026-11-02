@@ -344,7 +344,17 @@ public partial class LatheJobView : UserControl
         TreeViewItem? select = null;
         TreeViewItem Node(string text, string? icon = null) => new() { Header = icon is null ? text : UiKit.IconLabel(icon, text), IsExpanded = true };
 
-        Tree.Items.Add(Node(LatheJobInfo.ProfileTitle(_job.Profile), "perfil"));
+        // Mesma tabela de estados da fresa: OK, desligada, erro com motivo, não verificada
+        TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon)
+        {
+            var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8 };
+            row.Children.Add(UiKit.IconLabel(icon, text));
+            row.Children.Add(UiKit.StateTag(st));
+            return new TreeViewItem { Header = row, IsExpanded = true };
+        }
+
+        Tree.Items.Add(NodeState(LatheJobInfo.ProfileTitle(_job.Profile), _job.Profile is null ? ("bad", "falta definir") : ("ok", "OK"), "perfil"));
+        Tree.Items.Add(NodeState("Fixação (castanhas)", ("pending", "não verificada"), "fixacao"));
         TreeViewItem tools = Node("Ferramentas", "ferramentas");
         foreach (LatheTool t in LatheJobInfo.ToolsUsed(_job))
         {
@@ -361,7 +371,12 @@ public partial class LatheJobView : UserControl
             var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6, Opacity = spec.Enabled ? 1 : 0.5 };
             row.Children.Add(check);
             row.Children.Add(UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
-            row.Children.Add(new TextBlock { Text = LatheJobInfo.OpTitle(i, spec), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center });
+            // título com reticências: a etiqueta de estado (texto) nunca sai da árvore
+            string title = LatheJobInfo.OpTitle(i, spec);
+            var titleBlock = new TextBlock { Text = title, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, MaxWidth = 165, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis };
+            ToolTip.SetTip(titleBlock, title);
+            row.Children.Add(titleBlock);
+            row.Children.Add(UiKit.StateTag(OpState(i < _build.Items.Count ? _build.Items[i] : null)));
             check.IsCheckedChanged += (_, _) =>
             {
                 if (!_busy)
@@ -382,6 +397,22 @@ public partial class LatheJobView : UserControl
         {
             Tree.SelectedItem = select;
         }
+    }
+
+    /// <summary>Estado de uma operação na árvore (o mesmo texto da fresa): "OK", "desligada" ou "erro: motivo".</summary>
+    private static (string Kind, string Text) OpState(LatheOpResult? r)
+    {
+        if (r is null)
+        {
+            return ("pending", "a calcular");
+        }
+
+        if (r.Skipped)
+        {
+            return ("off", "desligada");
+        }
+
+        return r.Ok ? ("ok", "OK") : ("bad", "erro: " + (r.Error ?? "não foi possível gerar"));
     }
 
     private void UpdatePreview()
