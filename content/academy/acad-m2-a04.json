@@ -1,0 +1,100 @@
+{
+  "id": "acad-m2-a04",
+  "modulo": "acad-m2",
+  "titulo": "Arcos G02/G03 com raio R",
+  "nivel": "Iniciante",
+  "caminho": "Fresa",
+  "status": "rascunho",
+  "objetivo": "Programar e interpretar arcos horários e anti-horários utilizando o endereço R.",
+  "pre_requisito": "acad-m2-a03",
+  "texto": "[conceito] G02 e G03 são funções de interpolação circular. No plano G17, que corresponde ao plano XY, G02 representa um movimento circular horário e G03 representa um movimento circular anti-horário, considerando a orientação convencional de observação do plano. Para interpretar um arco, precisamos conhecer o ponto inicial, o ponto final, o plano selecionado e a informação que define sua geometria. Nesta aula, essa informação será fornecida pelo endereço R.\n\n[conceito] Em um bloco como G03 X30.0 Y30.0 R10.0, os endereços X e Y indicam o destino e R informa o raio programado. O ponto inicial não aparece necessariamente no mesmo bloco: ele é a posição atual da ferramenta. Portanto, a mesma linha pode representar trajetórias diferentes dependendo de onde a ferramenta começa. Também é necessário verificar se o raio informado permite uma solução geométrica para os pontos inicial e final.\n\n[exemplo] Imagine a ferramenta inicialmente em X10.0 Y20.0, com G17 e G90 ativos. O bloco G03 X30.0 Y20.0 R10.0 descreve um semicírculo anti-horário entre os dois pontos, com raio de 10 milímetros. O bloco seguinte pode retornar pelo semicírculo oposto usando G03 X10.0 Y20.0 R10.0. Nesse caso, os dois arcos formam uma circunferência completa dividida em dois movimentos. Os valores são geométricos e exclusivamente didáticos; a ferramenta permanece acima da peça.\n\n[dica] Para interpretar o sentido, desenhe o ponto inicial e o ponto final, localize o centro possível e acompanhe o percurso solicitado. Não determine o sentido olhando apenas para o sinal de X ou Y. O arco depende do plano selecionado e da orientação geométrica. Para arcos menores que uma volta completa, o endereço R oferece uma escrita compacta, mas pode apresentar ambiguidades em algumas configurações e geometrias.\n\n[atenção] Erro comum no chão de fábrica: informar um raio incompatível com a distância entre os pontos. Outro erro é trocar G02 por G03 sem conferir o lado do arco. Um programa pode ter coordenadas aparentemente corretas e ainda representar uma curva diferente da desejada. Também não se deve presumir que o mesmo formato de R seja interpretado identicamente em todos os controles ou configurações.\n\n[exemplo] O programa desta aula apresenta dois semicírculos com R10.0 no plano XY. Não existe rotação do spindle, compensação de ferramenta nem contato com o bruto. O aluno deverá identificar os pontos inicial e final, o sentido de cada arco e a razão pela qual a geometria é possível. A execução no simulador precisa ser conferida antes da aprovação do conteúdo. O exemplo ensina a interpretação da trajetória, não parâmetros para fresamento real.",
+  "erro_comum": "Descrito no texto da aula.",
+  "programa": "samples/academy/acad-m2-a04.nc",
+  "aviso": "Simule antes de rodar na máquina",
+  "exercicio": {
+    "tipo": "complete/corrija",
+    "enunciado": "Complete o arco anti-horário de X10.0 Y20.0 até X30.0 Y20.0 com raio R10.0: ____ X30.0 Y20.0 R10.0",
+    "gabarito": "G03",
+    "editor": {
+      "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y20.0",
+      "inicial": "____ X30.0 Y20.0 R10.0 F120.0",
+      "solucao": "G03 X30.0 Y20.0 R10.0 F120.0",
+      "checagens": [
+        {
+          "tipo": "contem",
+          "texto": "G03",
+          "dica": "Identifique o código ou parâmetro correto."
+        },
+        {
+          "tipo": "posicao_final",
+          "x": 30,
+          "y": 20
+        },
+        {
+          "tipo": "sem_erros"
+        }
+      ]
+    }
+  },
+  "quiz": [
+    {
+      "id": "acad-m2-a04-q01",
+      "enunciado": "No plano G17, qual código representa interpolação circular horária?",
+      "alternativas": [
+        "G02",
+        "G00",
+        "G01",
+        "G90"
+      ],
+      "correta": "A",
+      "explicacao": "A: G02 programa arco horário. B: G00 solicita movimento rápido. C: G01 realiza movimento linear. D: G90 estabelece coordenadas absolutas.",
+      "dica": "Compare os dois códigos de interpolação circular."
+    },
+    {
+      "id": "acad-m2-a04-q02",
+      "enunciado": "Em G03 X30.0 Y20.0 R10.0, o que R10.0 informa?",
+      "alternativas": [
+        "A rotação do spindle",
+        "O raio do arco",
+        "O avanço de trabalho",
+        "A altura Z"
+      ],
+      "correta": "B",
+      "explicacao": "A: Rotação é programada com S. B: R fornece o raio da geometria circular. C: Avanço utiliza F. D: Altura é representada por Z.",
+      "dica": "R está associado à geometria do arco."
+    },
+    {
+      "id": "acad-m2-a04-q03",
+      "enunciado": "O que é necessário para interpretar um arco com R?",
+      "alternativas": [
+        "Somente o número do programa",
+        "Somente o avanço F",
+        "Ponto inicial, destino, plano, sentido e raio",
+        "Somente a ferramenta selecionada"
+      ],
+      "correta": "C",
+      "explicacao": "A: O número identifica o programa, não a curva. B: F não determina o centro. C: Esses elementos permitem interpretar a geometria. D: A ferramenta não determina sozinha a trajetória circular.",
+      "dica": "Desenhe os pontos e procure o centro possível."
+    },
+    {
+      "id": "acad-m2-a04-q04",
+      "enunciado": "Qual problema pode impedir a execução de um arco?",
+      "alternativas": [
+        "Um comentário explicativo",
+        "A existência de G90",
+        "A seleção do plano XY",
+        "Um raio incompatível com os pontos"
+      ],
+      "correta": "D",
+      "explicacao": "A: Comentários válidos não impedem a geometria. B: G90 é um modo de coordenadas. C: G17 define o plano de trabalho. D: Um raio impossível não permite construir o arco solicitado.",
+      "dica": "Compare a distância entre os pontos com o diâmetro possível."
+    }
+  ],
+  "observacoes": "Arcos no plano G17, com raio positivo e sem corte. Interpretação de outras variantes de R: A definir.",
+  "abertura": "Como transformar dois pontos e um raio em uma trajetória circular?",
+  "resumo": [
+    "G02 e G03 representam arcos horários e anti-horários no plano selecionado.",
+    "R define o raio e X/Y informam o destino do arco.",
+    "A geometria deve ser compatível com o ponto inicial e o ponto final."
+  ]
+}

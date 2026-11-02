@@ -159,14 +159,22 @@ function ensureFileInput(id, multiple) {
 /** Posiciona o campo de arquivo "id" sobre um botão (coordenadas da tela do Avalonia, em px CSS). */
 export function placeFileInput(id, multiple, x, y, width, height, visible) {
     const input = ensureFileInput(id, multiple);
-    const host = document.getElementById('out');
-    const r = host ? host.getBoundingClientRect() : { left: 0, top: 0 };
-    input.style.left = (r.left + x) + 'px';
-    input.style.top = (r.top + y) + 'px';
+    input.ccPlace = [x, y];
+    offsetFileInput(input);
     input.style.width = Math.max(0, width) + 'px';
     input.style.height = Math.max(0, height) + 'px';
     input.style.display = visible ? 'block' : 'none';
 }
+
+function offsetFileInput(input) {
+    const host = document.getElementById('out');
+    const r = host ? host.getBoundingClientRect() : { left: 0, top: 0 };
+    input.style.left = (r.left + input.ccPlace[0]) + 'px';
+    input.style.top = (r.top + input.ccPlace[1]) + 'px';
+}
+
+// A tela do app pode mudar de lugar sem o botão mudar (ex.: faixa "Voltar à aula" da Academy no topo): reposiciona
+window.addEventListener('resize', () => Object.values(fileInputs).forEach(i => { if (i.ccPlace) offsetFileInput(i); }));
 
 /** Espera a próxima escolha no campo "id": JSON [{name, text}]. */
 export function nextPickedFiles(id) {
@@ -430,6 +438,8 @@ export function onPlatform(callback) {
     waiting.forEach(id => callback(id));
 }
 export function openOptimizer(call, programText, programName) { return import('./optimizer-ui.js').then(m => m.openOptimizer(call, programText, programName)); }
+/** Um programa entrou no editor: avisa as telas em HTML (a Academy usa para tirar a faixa "Voltar à aula"). */
+export function programLoaded(name) { window.dispatchEvent(new CustomEvent('casillas:program-loaded', { detail: { name } })); }
 export function openAcademy(call) { return import('./academy-ui.js').then(m => m.openAcademy(call)); }
 
 /** Tema CMYK: cor de destaque dos elementos HTML (painel, barra de simulação). */

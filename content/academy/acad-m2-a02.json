@@ -1,0 +1,100 @@
+{
+  "id": "acad-m2-a02",
+  "modulo": "acad-m2",
+  "titulo": "Movimento linear G01 e avanço F",
+  "nivel": "Iniciante",
+  "caminho": "Fresa",
+  "status": "rascunho",
+  "objetivo": "Interpretar e programar movimentos lineares com avanço definido em F.",
+  "pre_requisito": "acad-m2-a01",
+  "texto": "[conceito] G01 é a função de interpolação linear. Ela solicita que a ferramenta se desloque em uma trajetória reta até o destino programado, respeitando o modo de avanço ativo. Diferentemente de G00, que realiza posicionamento rápido, G01 utiliza o avanço de trabalho. Em uma fresadora, podemos empregar esse movimento para representar trajetórias de usinagem, aproximações controladas ou deslocamentos didáticos sem contato com material. A presença de G01 não significa, por si só, que exista corte.\n\n[conceito] A letra F informa o avanço programado. No modo G94, comum em fresamento, F representa avanço por minuto, considerando a unidade selecionada. Com G21 e G94, F120.0 representa 120 milímetros por minuto. Esse número aparece aqui apenas como exemplo didático de sintaxe e movimentação, não como recomendação para uma ferramenta ou material. A escolha real do avanço depende da ferramenta, do material, da operação, da máquina e de outras condições: A definir.\n\n[exemplo] Considere G01 X30.0 Y10.0 F120.0. Com G90 ativo, o destino é a coordenada absoluta X30.0 Y10.0. Se a ferramenta estava em X10.0 Y10.0, o deslocamento solicitado ocorre ao longo de X, mantendo Y. Se o bloco seguinte for Y30.0, G01 permanece modal e o avanço anterior pode continuar ativo. Essa persistência torna importante ler a sequência completa, e não apenas uma linha isolada.\n\n[dica] Quando X e Y aparecem juntos em um bloco G01, o comando coordena os movimentos para seguir uma reta entre o ponto inicial e o destino. O valor F refere-se ao avanço ao longo da trajetória, conforme o modo ativo. Não se deve interpretar o mesmo F como uma velocidade independente aplicada integralmente a cada eixo. Para compreender a geometria, marque o ponto inicial, marque o ponto final e trace a linha que os une.\n\n[atenção] Erro comum no chão de fábrica: esquecer que G01 permaneceu ativo e programar um deslocamento imaginando que seria rápido. Outro erro é utilizar um valor F sem verificar se G94 está selecionado. Um programa pode apresentar uma trajetória geometricamente correta e ainda ter condições inadequadas para execução real. A simulação ajuda a conferir movimentos, mas não substitui a seleção técnica de parâmetros nem a preparação da máquina.\n\n[exemplo] O arquivo desta aula utiliza uma ferramenta didática posicionada acima do bruto. Após um movimento rápido de aproximação, o programa seleciona G01 e descreve dois segmentos retos. Não existe rotação do spindle, contato com a peça ou remoção de material. O exercício permite comparar G00 e G01, identificar o destino de cada bloco e observar a continuidade modal do avanço. Antes de executar qualquer programa em máquina física, devem ser confirmados os parâmetros e as condições de segurança.",
+  "erro_comum": "Descrito no texto da aula.",
+  "programa": "samples/academy/acad-m2-a02.nc",
+  "aviso": "Simule antes de rodar na máquina",
+  "exercicio": {
+    "tipo": "complete/corrija",
+    "enunciado": "Complete o movimento linear para X30.0 Y10.0 com avanço didático F120.0: ____ X30.0 Y10.0 F120.0",
+    "gabarito": "G01",
+    "editor": {
+      "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y10.0",
+      "inicial": "____ X30.0 Y10.0 F120.0",
+      "solucao": "G01 X30.0 Y10.0 F120.0",
+      "checagens": [
+        {
+          "tipo": "contem",
+          "texto": "G01",
+          "dica": "Identifique o código ou parâmetro correto."
+        },
+        {
+          "tipo": "posicao_final",
+          "x": 30,
+          "y": 10
+        },
+        {
+          "tipo": "sem_erros"
+        }
+      ]
+    }
+  },
+  "quiz": [
+    {
+      "id": "acad-m2-a02-q01",
+      "enunciado": "Qual movimento G01 solicita?",
+      "alternativas": [
+        "Uma trajetória linear com avanço",
+        "Uma rotação do spindle",
+        "Uma interpolação circular obrigatória",
+        "Uma troca automática de ferramenta"
+      ],
+      "correta": "A",
+      "explicacao": "A: G01 realiza interpolação linear. B: Rotação utiliza funções próprias. C: Arcos são programados com G02 ou G03. D: Troca de ferramenta é outra operação.",
+      "dica": "Associe G01 à geometria de uma reta."
+    },
+    {
+      "id": "acad-m2-a02-q02",
+      "enunciado": "Com G21 G94, o que representa F120.0?",
+      "alternativas": [
+        "120 rotações por minuto",
+        "120 milímetros por minuto",
+        "120 milímetros por volta",
+        "120 segundos de movimento"
+      ],
+      "correta": "B",
+      "explicacao": "A: Rotação é representada por S. B: G94 e G21 estabelecem avanço em milímetros por minuto. C: Avanço por volta utiliza outro modo. D: F não especifica diretamente a duração.",
+      "dica": "Relacione G94 ao avanço por minuto."
+    },
+    {
+      "id": "acad-m2-a02-q03",
+      "enunciado": "Após G01 X30.0 Y10.0 F120.0, o bloco Y30.0 mantém qual movimento?",
+      "alternativas": [
+        "G00",
+        "G03",
+        "G01",
+        "G02"
+      ],
+      "correta": "C",
+      "explicacao": "A: G00 não foi selecionado novamente. B: G03 representa arco anti-horário. C: G01 permanece modal no bloco seguinte. D: G02 representa arco horário.",
+      "dica": "Identifique o último movimento modal."
+    },
+    {
+      "id": "acad-m2-a02-q04",
+      "enunciado": "O que deve ser verificado antes de usar F em uma operação real?",
+      "alternativas": [
+        "Somente o nome do programa",
+        "Apenas o número da linha",
+        "Somente a cor da ferramenta",
+        "Modo de avanço e condições de usinagem"
+      ],
+      "correta": "D",
+      "explicacao": "A: O nome não define parâmetros de corte. B: A numeração não valida o avanço. C: A cor não determina a condição de usinagem. D: Modo, ferramenta, material e operação precisam ser avaliados.",
+      "dica": "Diferencie sintaxe correta de parâmetro adequado."
+    }
+  ],
+  "observacoes": "F120.0 é exclusivamente didático. Avanço real: A definir. Sem rotação, corte ou compensação.",
+  "abertura": "Qual é a diferença entre chegar rapidamente a um ponto e percorrer uma reta com avanço controlado?",
+  "resumo": [
+    "G01 programa deslocamento linear até o destino informado.",
+    "No modo G94 com G21, F representa milímetros por minuto.",
+    "G01 e o avanço são modais; a sequência anterior deve ser considerada."
+  ]
+}
