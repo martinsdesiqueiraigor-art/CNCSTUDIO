@@ -32,6 +32,12 @@ public partial class JobView
             return;
         }
 
+        if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "part" })
+        {
+            PartProps();
+            return;
+        }
+
         if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "fixture" })
         {
             FixtureProps();
@@ -289,6 +295,83 @@ public partial class JobView
             }
         };
         PropsPanel.Children.Add(box);
+    }
+
+    // ---------------------------------------------------------------- peça (forma sem DXF)
+
+    private readonly Dictionary<string, string> _shapeText = [];
+
+    /// <summary>
+    /// Desenhar forma sem DXF (migrado da aba Fresa antiga): retângulo e círculo, com os mesmos campos e valores iniciais de lá.
+    /// Cada forma entra no fim da lista de contornos, então as operações que já apontam para contornos não mudam.
+    /// </summary>
+    private void PartProps()
+    {
+        PropsPanel.Children.Add(new TextBlock { Text = "Peça", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        PropsPanel.Children.Add(new TextBlock
+        {
+            Text = _job.Contours.Count == 0
+                ? "Sem desenho. Abra um DXF ou desenhe uma forma abaixo."
+                : $"{_job.Contours.Count} contorno(s). A forma desenhada entra no fim da lista.",
+            Opacity = 0.75, FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        });
+        var error = new ContentControl();
+
+        // os campos guardam o último valor digitado (como na aba antiga), mesmo depois de refazer o painel
+        var fields = new List<(string Label, TextBox Box)>();
+        TextBox Field(string label, double value)
+        {
+            var b = new TextBox { Text = _shapeText.GetValueOrDefault(label, Fmt(value)), MinHeight = 26 };
+            fields.Add((label, b));
+            PropsPanel.Children.Add(Row(label, b, "mm"));
+            return b;
+        }
+
+        // o Desfazer cobre só operações: a forma fica (como na aba antiga, que também não desfazia)
+        void Added()
+        {
+            foreach ((string label, TextBox box) in fields)
+            {
+                _shapeText[label] = box.Text ?? "";
+            }
+
+            Refresh(keep: true);
+        }
+
+        PropsPanel.Children.Add(new TextBlock { Text = "Retângulo", FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
+        TextBox rx = Field("Canto X", 0), ry = Field("Canto Y", 0), rw = Field("Largura", 60), rh = Field("Altura", 40);
+        var addRect = new Button { Content = "Adicionar retângulo", Padding = new Avalonia.Thickness(10, 5) };
+        addRect.Click += (_, _) =>
+        {
+            double x = ParseNum(rx.Text), y = ParseNum(ry.Text), w = ParseNum(rw.Text), h = ParseNum(rh.Text);
+            if (CamJobInfo.RectangleError(x, y, w, h) is { } bad)
+            {
+                error.Content = UiKit.StatusNote("✕ inválido: " + bad, "bad");
+                return;
+            }
+
+            _job.Contours.Add(Contour.Rectangle(x, y, w, h));
+            Added();
+        };
+        PropsPanel.Children.Add(addRect);
+
+        PropsPanel.Children.Add(new TextBlock { Text = "Círculo", FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
+        TextBox cx = Field("Centro X", 30), cy = Field("Centro Y", 20), cd = Field("Diâmetro", 20);
+        var addCircle = new Button { Content = "Adicionar círculo", Padding = new Avalonia.Thickness(10, 5) };
+        addCircle.Click += (_, _) =>
+        {
+            double x = ParseNum(cx.Text), y = ParseNum(cy.Text), d = ParseNum(cd.Text);
+            if (CamJobInfo.CircleError(x, y, d) is { } bad)
+            {
+                error.Content = UiKit.StatusNote("✕ inválido: " + bad, "bad");
+                return;
+            }
+
+            _job.Contours.Add(Contour.Circle(new Point2(x, y), d / 2));
+            Added();
+        };
+        PropsPanel.Children.Add(addCircle);
+        PropsPanel.Children.Add(error);
     }
 
     // ---------------------------------------------------------------- bruto

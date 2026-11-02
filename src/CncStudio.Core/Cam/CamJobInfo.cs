@@ -73,7 +73,7 @@ public static class CamJobInfo
         var list = new List<string>();
         if (job.Contours.Count == 0)
         {
-            list.Add("Falta a peça (abra um DXF)");
+            list.Add("Falta a peça (abra um DXF ou desenhe uma forma)");
         }
 
         if (job.Stock is null)
@@ -151,6 +151,18 @@ public static class CamJobInfo
 
     /// <summary>Resumo do bruto para a árvore.</summary>
     public static string StockTitle(JobStock? s) => s is null ? "Bruto: não definido" : $"Bruto {N(s.Width)} × {N(s.Length)} × {N(s.Thickness)} mm";
+
+    /// <summary>Retângulo desenhado sem DXF (canto X, Y, largura, altura): números válidos e medidas maiores que zero (null = válido).</summary>
+    public static string? RectangleError(double x, double y, double width, double height) =>
+        !double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(width) || !double.IsFinite(height)
+            ? "Retângulo: digite números válidos em X, Y, largura e altura."
+            : width <= 0 || height <= 0 ? "Retângulo: largura e altura precisam ser maiores que zero." : null;
+
+    /// <summary>Círculo desenhado sem DXF (centro X, Y, diâmetro): números válidos e diâmetro maior que zero (null = válido).</summary>
+    public static string? CircleError(double cx, double cy, double diameter) =>
+        !double.IsFinite(cx) || !double.IsFinite(cy) || !double.IsFinite(diameter)
+            ? "Círculo: digite números válidos no centro e no diâmetro."
+            : diameter <= 0 ? "Círculo: o diâmetro precisa ser maior que zero." : null;
 
     /// <summary>Bruto digitado na tela: as três medidas precisam ser números maiores que zero (null = válido).</summary>
     public static string? StockError(double width, double length, double thickness)
