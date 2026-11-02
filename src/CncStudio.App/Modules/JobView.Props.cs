@@ -25,6 +25,7 @@ public partial class JobView
     private void BuildProps()
     {
         PropsPanel.Children.Clear();
+        _fixtureKind = null;
         if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" })
         {
             StockProps();
@@ -34,6 +35,12 @@ public partial class JobView
         if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "part" })
         {
             PartProps();
+            return;
+        }
+
+        if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "fixture" })
+        {
+            FixtureProps();
             return;
         }
 
@@ -418,6 +425,82 @@ public partial class JobView
             Refresh(keep: true);
         };
         PropsPanel.Children.Add(apply);
+        PropsPanel.Children.Add(error);
+    }
+
+    // ---------------------------------------------------------------- fixação
+
+    /// <summary>Campo do tipo de fixação aberto nas propriedades (a barra leva o foco até ele).</summary>
+    private ComboBox? _fixtureKind;
+
+    /// <summary>
+    /// Editor da fixação (UX-01 rodada 3): tipo e descrição curta. É só registro do que o usuário informa; o app não confere
+    /// fixação nem colisão. Fonte única: o Assist lê daqui.
+    /// </summary>
+    private void FixtureProps()
+    {
+        PropsPanel.Children.Add(new TextBlock { Text = "Fixação", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        JobFixture? fx = _job.Fixture;
+        PropsPanel.Children.Add(UiKit.StatusNote(
+            fx is null
+                ? "Fixação não definida. Escolha como a peça fica presa e clique em Definir fixação."
+                : "Fixação informada por você e não verificada: o app não confere morsa, grampos, vácuo nem colisão.",
+            fx is null ? "pending" : "neutral"));
+
+        var kind = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Escolha o tipo…" };
+        foreach ((_, string name) in JobFixture.Kinds)
+        {
+            kind.Items.Add(new ComboBoxItem { Content = name });
+        }
+
+        kind.SelectedIndex = fx is null ? -1 : JobFixture.Kinds.ToList().FindIndex(k => k.Code == fx.Kind);
+        _fixtureKind = kind;
+        // rótulo em cima e campo na largura toda: o nome do tipo e a descrição não cabem na coluna estreita dos números
+        PropsPanel.Children.Add(new TextBlock { Text = "Tipo", FontSize = 12 });
+        PropsPanel.Children.Add(kind);
+        var description = new TextBox { Text = fx?.Description ?? "", Watermark = "ex.: morsa de 150 mm, mordente liso", MinHeight = 26, MaxLength = JobFixture.MaxDescription };
+        PropsPanel.Children.Add(new TextBlock { Text = "Descrição", FontSize = 12 });
+        PropsPanel.Children.Add(description);
+        PropsPanel.Children.Add(new TextBlock
+        {
+            Text = "Opcional, até " + JobFixture.MaxDescription + " letras (obrigatória no tipo \"Outro\").",
+            Opacity = 0.7, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        });
+
+        var error = new ContentControl();
+        var apply = new Button { Content = "Definir fixação", Padding = new Avalonia.Thickness(12, 5), FontWeight = Avalonia.Media.FontWeight.SemiBold };
+        apply.Click += (_, _) =>
+        {
+            if (kind.SelectedIndex < 0)
+            {
+                error.Content = UiKit.StatusNote("✕ inválido: escolha o tipo de fixação.", "bad");
+                return;
+            }
+
+            var chosen = new JobFixture(JobFixture.Kinds[kind.SelectedIndex].Code, (description.Text ?? "").Trim());
+            if (chosen.Validate() is { } problem)
+            {
+                error.Content = UiKit.StatusNote("✕ inválido: " + problem + ".", "bad");
+                return;
+            }
+
+            _job.Fixture = chosen;
+            Refresh(keep: true);
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        row.Children.Add(apply);
+        if (fx is not null)
+        {
+            var clear = new Button { Content = "Limpar", Padding = new Avalonia.Thickness(12, 5) };
+            clear.Click += (_, _) =>
+            {
+                _job.Fixture = null;
+                Refresh(keep: true);
+            };
+            row.Children.Add(clear);
+        }
+
+        PropsPanel.Children.Add(row);
         PropsPanel.Children.Add(error);
     }
 
