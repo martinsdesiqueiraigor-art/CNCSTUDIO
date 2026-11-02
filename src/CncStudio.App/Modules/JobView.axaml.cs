@@ -316,7 +316,12 @@ public partial class JobView : UserControl
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
             _build = CamJobBuilder.Build(_job, MachineSource?.Invoke());
+            bool keepStock = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" };
             BuildTree(keepOp, keepContour);
+            if (keepStock)
+            {
+                Tree.SelectedItem = Tree.Items.OfType<TreeViewItem>().FirstOrDefault(x => x.Tag is TreeTag { Kind: "stock" });
+            }
         }
         finally
         {
@@ -457,7 +462,10 @@ public partial class JobView : UserControl
         }
 
         Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), stock, "bruto", new TreeTag("stock", 0)));
+        Tree.Items.Add(NodeState(CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "preparo"));
         Tree.Items.Add(NodeState("Fixação", ("pending", "não verificada"), "fixacao"));
+        MachineProfile? machine = MachineSource?.Invoke();
+        Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
         foreach (CamTool t in CamJobInfo.ToolsUsed(_job))
         {

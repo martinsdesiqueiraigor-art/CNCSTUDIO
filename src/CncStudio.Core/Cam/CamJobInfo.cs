@@ -107,6 +107,72 @@ public static class CamJobInfo
     /// <summary>Resumo do bruto para a árvore.</summary>
     public static string StockTitle(JobStock? s) => s is null ? "Bruto: não definido" : $"Bruto {N(s.Width)} × {N(s.Length)} × {N(s.Thickness)} mm";
 
+    /// <summary>Bruto digitado na tela: as três medidas precisam ser números maiores que zero (null = válido).</summary>
+    public static string? StockError(double width, double length, double thickness)
+    {
+        bool Bad(double v) => !double.IsFinite(v) || v <= 0;
+        if (Bad(width) || Bad(length))
+        {
+            return "Comprimento e largura do bruto precisam ser maiores que zero.";
+        }
+
+        return Bad(thickness) ? "A altura do bruto precisa ser maior que zero." : null;
+    }
+
+    /// <summary>Retângulo que envolve todos os contornos do desenho (canto e medidas em X e Y), para preencher o bruto; null sem desenho.</summary>
+    public static (double X, double Y, double Width, double Length)? DrawingBox(IReadOnlyList<Contour> contours)
+    {
+        if (contours.Count == 0)
+        {
+            return null;
+        }
+
+        var b = contours.Select(c => c.BoundsXY()).ToList();
+        double x0 = b.Min(x => x.MinX), y0 = b.Min(x => x.MinY), x1 = b.Max(x => x.MaxX), y1 = b.Max(x => x.MaxY);
+        return (x0, y0, x1 - x0, y1 - y0);
+    }
+
+    /// <summary>
+    /// Linha "Origem" da árvore: o deslocamento de trabalho, X0 Y0 do desenho e o Z topo das operações ligadas
+    /// ("topo Z0", "topo Z2" ou "topo Z varia por operação"). Sem operação ligada vale o padrão das operações novas (Z0).
+    /// </summary>
+    public static string OriginTitle(CamJob job)
+    {
+        List<double> tops = job.Operations.Where(o => o.Enabled && o.Kind != JobOpKind.WrapText).Select(o => o.Levels.TopZ).Distinct().ToList();
+        string top = tops.Count switch
+        {
+            0 => "topo Z0",
+            1 => "topo Z" + N(tops[0]),
+            _ => "topo Z varia por operação",
+        };
+        return $"Origem G{job.WorkOffset}: X0 Y0 do desenho, {top}";
+    }
+
+    /// <summary>A origem na máquina nunca é conferida pelo app: fica sempre "não verificada".</summary>
+    public static (string Kind, string Text) OriginState() => ("pending", "não verificada");
+
+    /// <summary>Linha "Máquina" da árvore: perfil ativo e rotação máxima do fuso informada nele.</summary>
+    public static string MachineTitle(MachineProfile? m) => m is null
+        ? "Máquina: sem perfil ativo"
+        : m.MaxSpindleRpm is { } rpm ? $"Máquina: {m.Name} · fuso até {N(rpm)} rpm" : $"Máquina: {m.Name} · fuso não informado";
+
+    /// <summary>Estado da máquina: OK só com a rotação máxima do fuso informada; sem ela, nada é suposto.</summary>
+    public static (string Kind, string Text) MachineState(MachineProfile? m) => m switch
+    {
+        null => ("pending", "sem perfil"),
+        { MaxSpindleRpm: > 0 } => ("ok", "OK"),
+        _ => ("pending", "fuso não informado"),
+    };
+
+    /// <summary>
+    /// Aviso de rotação acima do limite do fuso do perfil da máquina (null = dentro do limite ou limite não informado).
+    /// Só confere: não muda a rotação nem o programa.
+    /// </summary>
+    public static string? SpindleWarning(double rpm, double? maxRpm) =>
+        maxRpm is { } max && max > 0 && rpm > max + 1e-9
+            ? $"Acima do limite do fuso ({N(max)} rpm). Digite até {N(max)}; o avanço cai na mesma proporção."
+            : null;
+
     /// <summary>Ferramentas distintas usadas pelas operações, em ordem de T.</summary>
     public static IReadOnlyList<CamTool> ToolsUsed(CamJob job) =>
         job.Operations.Select(o => o.Tool).GroupBy(t => (t.Number, t.Diameter)).Select(g => g.First()).OrderBy(t => t.Number).ToList();
