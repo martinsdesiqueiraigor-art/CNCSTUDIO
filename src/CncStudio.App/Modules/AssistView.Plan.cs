@@ -198,6 +198,17 @@ public sealed partial class AssistView
         UpdateSteps();
     }
 
+    /// <summary>
+    /// Estado de um valor da revisão (UX-01 PR5), sempre com texto: "digitado" (informado por você, ok), pendente (âmbar) ou
+    /// inválido (vermelho). Só mostra; quem decide o Aplicar continua sendo o <see cref="PlanReview"/>.
+    /// </summary>
+    private static void Mark(TextBlock status, string text, string kind)
+    {
+        status.Text = text;
+        status.Foreground = UiKit.Status(kind).Fg;
+        status.Opacity = 1;
+    }
+
     /// <summary>Rotação: sem limite no perfil, avisa "não verificada"; acima do limite, exige uma rotação digitada dentro dele.</summary>
     private void AddRpmFields(PlanResult plan, PlanInput input)
     {
@@ -224,7 +235,8 @@ public sealed partial class AssistView
         });
         foreach (PlanRpmIssue issue in issues)
         {
-            var status = new TextBlock { Text = "acima do limite: digite o valor", VerticalAlignment = VerticalAlignment.Center, FontSize = 12, Opacity = 0.8 };
+            var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+            Mark(status, "pendente: acima do limite, digite o valor", "pending");
             var box = new TextBox { Width = 90, Watermark = issue.Calculated.ToString("0", Br) };
             int number = issue.ToolNumber;
             box.TextChanged += (_, _) =>
@@ -232,12 +244,19 @@ public sealed partial class AssistView
                 if (double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) && v > 0 && v <= issue.Max + 1e-9)
                 {
                     _rpmAdjust[number] = v;
-                    status.Text = "confirmada";
+                    Mark(status, "digitado", "ok");
                 }
                 else
                 {
                     _rpmAdjust.Remove(number);
-                    status.Text = string.IsNullOrWhiteSpace(box.Text) ? "acima do limite: digite o valor" : $"inválida (máx. {issue.Max:0})";
+                    if (string.IsNullOrWhiteSpace(box.Text))
+                    {
+                        Mark(status, "pendente: acima do limite, digite o valor", "pending");
+                    }
+                    else
+                    {
+                        Mark(status, $"✕ inválido (máx. {issue.Max:0})", "bad");
+                    }
                 }
 
                 RefreshPlanApply();
@@ -267,12 +286,28 @@ public sealed partial class AssistView
             int index = i;
             row.Children.Add(new TextBlock { Text = fields[i].Name, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
             var box = new TextBox { Width = 80, Watermark = fields[i].Presumed.ToString("0.##", Br) };
+            var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 11, Margin = new Thickness(0, 0, 8, 0) };
+            Mark(status, "pendente", "pending");
             box.TextChanged += (_, _) =>
             {
                 _zValues[index] = double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) ? v : null;
+                if (_zValues[index] is not null)
+                {
+                    Mark(status, "digitado", "ok");
+                }
+                else if (string.IsNullOrWhiteSpace(box.Text))
+                {
+                    Mark(status, "pendente", "pending");
+                }
+                else
+                {
+                    Mark(status, "✕ inválido", "bad");
+                }
+
                 RefreshPlanApply();
             };
             row.Children.Add(box);
+            row.Children.Add(status);
         }
 
         _planDepthsPanel.Children.Add(row);
@@ -329,7 +364,8 @@ public sealed partial class AssistView
         });
         foreach (PlanDepth d in depths)
         {
-            var status = new TextBlock { Text = "presumida", VerticalAlignment = VerticalAlignment.Center, FontSize = 12, Opacity = 0.8 };
+            var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+            Mark(status, "pendente: presumida, digite o valor", "pending");
             var box = new TextBox { Width = 90, Watermark = d.Presumed.ToString("0.##", Br) };
             int key = d.Key;
             box.TextChanged += (_, _) =>
@@ -337,12 +373,19 @@ public sealed partial class AssistView
                 if (double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) && v > 0)
                 {
                     _reviewedDepths[key] = v;
-                    status.Text = "confirmada";
+                    Mark(status, "digitado", "ok");
                 }
                 else
                 {
                     _reviewedDepths.Remove(key);
-                    status.Text = string.IsNullOrWhiteSpace(box.Text) ? "presumida: digite o valor" : "valor inválido";
+                    if (string.IsNullOrWhiteSpace(box.Text))
+                    {
+                        Mark(status, "pendente: presumida, digite o valor", "pending");
+                    }
+                    else
+                    {
+                        Mark(status, "✕ inválido", "bad");
+                    }
                 }
 
                 RefreshPlanApply();
@@ -487,7 +530,8 @@ public sealed partial class AssistView
         {
             CamOperationSpec op = plan.Operations[i];
             string origin = PlanValidity.ToolsOf(plan, input).First(t => t.Number == op.Tool.Number && t.Diameter == op.Tool.Diameter).Origin == ToolOrigin.New ? "NOVA, fora do banco" : "banco";
-            string cutSource = input.Material is null ? " · SEM material: valor genérico" : input.Material.Draft ? " · rascunho" : "";
+            // de onde vêm rotação e avanço: sugestão da biblioteca (rascunho) ou valor genérico sem material
+            string cutSource = input.Material is null ? " · dados de corte: SEM material (valor genérico)" : input.Material.Draft ? " · dados de corte: rascunho" : "";
             lines.Add(CamJobInfo.OpTitle(i, op) + $" · T{op.Tool.Number} ({origin}) · {op.Tool.SpindleRpm:0} rpm · F{op.Tool.FeedXY:0}{cutSource}");
         }
 
