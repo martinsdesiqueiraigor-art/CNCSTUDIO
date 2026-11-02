@@ -296,7 +296,7 @@ public sealed class SimulationScene
             RotaryAngles now = end;
             Move m = _path.Moves[moveIndex];
             double length = m.Start.DistanceTo(m.End);
-            if (length > 1e-9 && (Math.Abs(end.A - start.A) > 1e-9 || Math.Abs(end.B - start.B) > 1e-9))
+            if (length > 1e-9 && (Math.Abs(end.A - start.A) > 1e-9 || Math.Abs(end.B - start.B) > 1e-9 || Math.Abs(end.C - start.C) > 1e-9))
             {
                 now = RotaryAngles.Lerp(start, end, Math.Clamp(m.Start.DistanceTo(tip) / length, 0, 1));
             }

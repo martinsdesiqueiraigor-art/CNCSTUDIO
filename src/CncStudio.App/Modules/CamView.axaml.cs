@@ -62,6 +62,9 @@ public partial class CamView : UserControl
 
     public JobStock? JobStockInfo => JobPanel.Stock;
 
+    /// <summary>Fixação do Trabalho fresa (fonte única; o Assist lê daqui).</summary>
+    public JobFixture? JobFixtureInfo => JobPanel.Fixture;
+
     /// <summary>Põe as operações sugeridas no Trabalho de fresa e mostra essa aba.</summary>
     public void ApplyPlan(IEnumerable<CamOperationSpec> operations)
     {
@@ -223,6 +226,9 @@ public partial class CamView : UserControl
         RefreshPreview();
     }
 
+    /// <summary>Ao abrir o módulo: marca o programa do Trabalho fresa como desatualizado se o perfil da máquina mudou.</summary>
+    public void CheckJobFresh() => JobPanel.CheckFresh();
+
     private void ShowMachine(bool lathe, bool profile = false, bool job = false, bool latheJob = false, bool model = false)
     {
         MillTab.IsChecked = !lathe && !profile && !job && !latheJob && !model;
@@ -240,6 +246,11 @@ public partial class CamView : UserControl
         if (profile)
         {
             MachinePanel.Refresh();
+        }
+
+        if (job)
+        {
+            JobPanel.CheckFresh(); // o perfil pode ter mudado na aba Máquina
         }
     }
 
@@ -587,7 +598,7 @@ public partial class CamView : UserControl
     private string WarningText()
     {
         var lines = _ops.SelectMany(o => o.Warnings).ToList();
-        lines.AddRange(CamPost.Check(_ops));
+        lines.AddRange(CamPost.Check(_ops, ActiveMachine()));
         foreach (CamTool t in _ops.Select(o => o.Tool).GroupBy(t => t.Number).Select(g => g.First()))
         {
             ToolEntry? bank = Tools?.FirstOrDefault(e => e.Number == t.Number);
@@ -737,6 +748,9 @@ public partial class CamView : UserControl
         RefreshPreview();
     }
 
+    // Perfil de máquina ativo (o mesmo que a face girada e o texto no cilindro usam)
+    private MachineProfile? ActiveMachine() => MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
+
     private void Generate()
     {
         if (_ops.Count == 0)
@@ -747,7 +761,7 @@ public partial class CamView : UserControl
 
         Errors.Text = "";
         var dialect = DialectCombo.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
-        _program = CamPost.Generate(_ops, new PostOptions(dialect, ProgramName: _baseName));
+        _program = CamPost.Generate(_ops, new PostOptions(dialect, ProgramName: _baseName, Machine: ActiveMachine()));
         Output.Text = _program;
         OpenButton.IsEnabled = CopyButton.IsEnabled = true;
     }
