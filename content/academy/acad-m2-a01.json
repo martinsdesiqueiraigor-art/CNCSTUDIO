@@ -1,100 +1,131 @@
 {
+  "versao": 2,
   "id": "acad-m2-a01",
   "modulo": "acad-m2",
   "titulo": "Movimento rápido G00",
   "nivel": "Iniciante",
   "caminho": "Fresa",
-  "status": "rascunho",
+  "dialeto": "fanuc",
+  "maquina": "fresa",
+  "estado": "rascunho",
   "objetivo": "Programar e interpretar posicionamentos rápidos em uma fresadora CNC Fanuc.",
   "pre_requisito": "acad-m1-a05",
-  "texto": "[conceito] G00 é a função de posicionamento rápido utilizada para deslocar os eixos até uma posição programada. Em uma fresadora CNC, esse movimento normalmente serve para aproximar a ferramenta de uma região de trabalho ou afastá-la depois de uma operação. A velocidade efetiva depende dos limites da máquina e das condições de operação. G00 não utiliza o avanço F como velocidade de interpolação de trabalho. Por isso, não devemos confundir posicionamento rápido com corte controlado.\n\n[conceito] Na programação Fanuc de fresamento, G90 estabelece coordenadas absolutas e G21 seleciona milímetros em controles compatíveis. Assim, G00 X20.0 Y10.0 solicita posicionamento nas coordenadas X20.0 e Y10.0 do sistema de trabalho ativo. O código G54 seleciona uma referência de trabalho, mas seu valor físico depende da preparação. O programa didático considera X0 Y0 no canto inferior esquerdo da peça e Z0 na superfície superior. Esses pontos são referências do exercício, não ajustes universais de máquina.\n\n[dica] Antes de deslocar a ferramenta lateralmente, planeje uma altura de afastamento adequada à fixação. No exemplo, Z20.0 representa uma posição acima da superfície da peça, escolhida apenas para visualizar o movimento. Não é uma distância de segurança certificada. A altura realmente segura depende do bruto, da ferramenta, da morsa, dos grampos e da máquina: A definir. O aluno deve identificar o destino de cada movimento e observar que o simulador não garante ausência de colisão.\n\n[conceito] G00 pertence ao grupo de movimentos modais. Depois de selecionado, pode continuar ativo nos blocos seguintes até ser substituído por outro modo do mesmo grupo. Por exemplo, após G00 X10.0 Y10.0, um bloco X30.0 solicita novo posicionamento rápido em X, mantendo Y10.0 no modo absoluto. Isso não significa que a ferramenta sempre percorra uma reta sincronizada entre os eixos. O comportamento dos deslocamentos rápidos combinados depende do controle e da máquina.\n\n[atenção] Erro comum no chão de fábrica: programar um deslocamento lateral próximo da superfície sem verificar a posição da ferramenta e os dispositivos de fixação. Outro erro é acreditar que escrever F100.0 limita a velocidade de G00. A função rápida não deve ser utilizada como substituta de G01 em uma operação de corte.\n\n[exemplo] No programa de treinamento, a ferramenta permanece acima do bruto e não existe rotação nem remoção de material. Primeiro é selecionado o sistema G54. Depois a ferramenta vai para Z20.0, posiciona-se em X10.0 Y10.0 e segue para X30.0 Y10.0. O aluno deve observar os pontos inicial e final, conferir a modalidade de G00 e explicar por que a trajetória não representa uma operação de usinagem pronta para produção.",
-  "erro_comum": "Descrito no texto da aula.",
-  "programa": "samples/academy/acad-m2-a01.nc",
-  "aviso": "Simule antes de rodar na máquina",
-  "exercicio": {
-    "tipo": "complete/corrija",
-    "enunciado": "Complete o posicionamento rápido absoluto para X30.0 Y10.0: ____ X30.0 Y10.0",
-    "gabarito": "G00",
-    "editor": {
-      "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y10.0",
-      "inicial": "____ X30.0 Y10.0",
-      "solucao": "G00 X30.0 Y10.0",
-      "checagens": [
+  "secoes": {
+    "visao": {
+      "estado": "rascunho",
+      "abertura": "Como movimentar rapidamente uma ferramenta sem confundir posicionamento com usinagem?",
+      "texto": "[conceito] G00 é a função de posicionamento rápido utilizada para deslocar os eixos até uma posição programada. Em uma fresadora CNC, esse movimento normalmente serve para aproximar a ferramenta de uma região de trabalho ou afastá-la depois de uma operação. A velocidade efetiva depende dos limites da máquina e das condições de operação. G00 não utiliza o avanço F como velocidade de interpolação de trabalho. Por isso, não devemos confundir posicionamento rápido com corte controlado.\n\n[conceito] Na programação Fanuc de fresamento, G90 estabelece coordenadas absolutas e G21 seleciona milímetros em controles compatíveis. Assim, G00 X20.0 Y10.0 solicita posicionamento nas coordenadas X20.0 e Y10.0 do sistema de trabalho ativo. O código G54 seleciona uma referência de trabalho, mas seu valor físico depende da preparação. O programa didático considera X0 Y0 no canto inferior esquerdo da peça e Z0 na superfície superior. Esses pontos são referências do exercício, não ajustes universais de máquina.\n\n[dica] Antes de deslocar a ferramenta lateralmente, planeje uma altura de afastamento adequada à fixação. No exemplo, Z20.0 representa uma posição acima da superfície da peça, escolhida apenas para visualizar o movimento. Não é uma distância de segurança certificada. A altura realmente segura depende do bruto, da ferramenta, da morsa, dos grampos e da máquina: A definir. O aluno deve identificar o destino de cada movimento e observar que o simulador não garante ausência de colisão.\n\n[conceito] G00 pertence ao grupo de movimentos modais. Depois de selecionado, pode continuar ativo nos blocos seguintes até ser substituído por outro modo do mesmo grupo. Por exemplo, após G00 X10.0 Y10.0, um bloco X30.0 solicita novo posicionamento rápido em X, mantendo Y10.0 no modo absoluto. Isso não significa que a ferramenta sempre percorra uma reta sincronizada entre os eixos. O comportamento dos deslocamentos rápidos combinados depende do controle e da máquina.\n\n[atenção] Erro comum no chão de fábrica: programar um deslocamento lateral próximo da superfície sem verificar a posição da ferramenta e os dispositivos de fixação. Outro erro é acreditar que escrever F100.0 limita a velocidade de G00. A função rápida não deve ser utilizada como substituta de G01 em uma operação de corte.\n\n[exemplo] No programa de treinamento, a ferramenta permanece acima do bruto e não existe rotação nem remoção de material. Primeiro é selecionado o sistema G54. Depois a ferramenta vai para Z20.0, posiciona-se em X10.0 Y10.0 e segue para X30.0 Y10.0. O aluno deve observar os pontos inicial e final, conferir a modalidade de G00 e explicar por que a trajetória não representa uma operação de usinagem pronta para produção.",
+      "conceitos": [
+        "G00 solicita posicionamento rápido e não utiliza F como avanço de trabalho.",
+        "G90 e G54 ajudam a interpretar as coordenadas do destino.",
+        "Movimentos rápidos exigem verificação de peça, ferramenta e fixação."
+      ]
+    },
+    "trajetoria": {
+      "estado": "rascunho",
+      "programa": ""
+    },
+    "sintaxe": {
+      "estado": "rascunho",
+      "blocos": [],
+      "parametros": []
+    },
+    "exemplo": {
+      "estado": "rascunho",
+      "programa": "samples/academy/acad-m2-a01.nc",
+      "etapas": []
+    },
+    "cuidados": {
+      "estado": "rascunho",
+      "erros": [
+        "Descrito no texto da aula."
+      ],
+      "alertas": [
+        "Simule antes de rodar na máquina"
+      ]
+    },
+    "praticar": {
+      "estado": "rascunho",
+      "exercicio": {
+        "tipo": "complete/corrija",
+        "enunciado": "Complete o posicionamento rápido absoluto para X30.0 Y10.0: ____ X30.0 Y10.0",
+        "gabarito": "G00",
+        "editor": {
+          "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y10.0",
+          "inicial": "____ X30.0 Y10.0",
+          "solucao": "G00 X30.0 Y10.0",
+          "checagens": [
+            {
+              "tipo": "contem",
+              "texto": "G00",
+              "dica": "Identifique o código ou parâmetro correto."
+            },
+            {
+              "tipo": "posicao_final",
+              "x": 30,
+              "y": 10
+            },
+            {
+              "tipo": "sem_erros"
+            }
+          ]
+        }
+      },
+      "quiz": [
         {
-          "tipo": "contem",
-          "texto": "G00",
-          "dica": "Identifique o código ou parâmetro correto."
+          "id": "acad-m2-a01-q01",
+          "enunciado": "Qual é a função principal de G00?",
+          "alternativas": [
+            "Posicionar os eixos em movimento rápido",
+            "Executar interpolação circular",
+            "Ativar a rotação do spindle",
+            "Selecionar o avanço de corte"
+          ],
+          "correta": "A",
+          "explicacao": "A: G00 solicita posicionamento rápido. B: Arcos utilizam G02 ou G03. C: A rotação depende de funções do spindle. D: O avanço de trabalho é aplicado em movimentos como G01.",
+          "dica": "Associe G00 ao deslocamento entre posições."
         },
         {
-          "tipo": "posicao_final",
-          "x": 30,
-          "y": 10
+          "id": "acad-m2-a01-q02",
+          "enunciado": "No trecho G90 G00 X20.0 Y10.0, qual é o destino?",
+          "alternativas": [
+            "Somar 20.0 e 10.0 à posição atual",
+            "X20.0 Y10.0 no sistema ativo",
+            "Mover apenas o eixo Z",
+            "Executar uma interpolação circular"
+          ],
+          "correta": "B",
+          "explicacao": "A: Isso confundiria absoluto com incremental. B: G90 interpreta X e Y como posições absolutas. C: Não existe Z no bloco. D: G00 não especifica interpolação circular.",
+          "dica": "G90 utiliza a origem ativa como referência."
         },
         {
-          "tipo": "sem_erros"
+          "id": "acad-m2-a01-q03",
+          "enunciado": "Após G00 X10.0 Y10.0, o bloco X30.0 mantém qual modo?",
+          "alternativas": [
+            "G03",
+            "G01",
+            "G00",
+            "G02"
+          ],
+          "correta": "C",
+          "explicacao": "A: G03 não foi selecionado. B: G01 não aparece no trecho. C: G00 permanece modal até substituição. D: G02 não foi programado.",
+          "dica": "Observe o último código de movimento."
+        },
+        {
+          "id": "acad-m2-a01-q04",
+          "enunciado": "Qual afirmação sobre G00 é correta?",
+          "alternativas": [
+            "F100.0 limita sempre a velocidade rápida",
+            "G00 garante ausência de colisões",
+            "G00 deve ser usado para controlar o corte",
+            "O percurso rápido exige verificação da fixação"
+          ],
+          "correta": "D",
+          "explicacao": "A: F não controla diretamente a velocidade de G00. B: Não existe garantia automática de segurança. C: Corte controlado requer outro planejamento. D: A trajetória deve ser conferida contra peça e fixação.",
+          "dica": "Pense nos obstáculos existentes entre duas posições."
         }
       ]
     }
   },
-  "quiz": [
-    {
-      "id": "acad-m2-a01-q01",
-      "enunciado": "Qual é a função principal de G00?",
-      "alternativas": [
-        "Posicionar os eixos em movimento rápido",
-        "Executar interpolação circular",
-        "Ativar a rotação do spindle",
-        "Selecionar o avanço de corte"
-      ],
-      "correta": "A",
-      "explicacao": "A: G00 solicita posicionamento rápido. B: Arcos utilizam G02 ou G03. C: A rotação depende de funções do spindle. D: O avanço de trabalho é aplicado em movimentos como G01.",
-      "dica": "Associe G00 ao deslocamento entre posições."
-    },
-    {
-      "id": "acad-m2-a01-q02",
-      "enunciado": "No trecho G90 G00 X20.0 Y10.0, qual é o destino?",
-      "alternativas": [
-        "Somar 20.0 e 10.0 à posição atual",
-        "X20.0 Y10.0 no sistema ativo",
-        "Mover apenas o eixo Z",
-        "Executar uma interpolação circular"
-      ],
-      "correta": "B",
-      "explicacao": "A: Isso confundiria absoluto com incremental. B: G90 interpreta X e Y como posições absolutas. C: Não existe Z no bloco. D: G00 não especifica interpolação circular.",
-      "dica": "G90 utiliza a origem ativa como referência."
-    },
-    {
-      "id": "acad-m2-a01-q03",
-      "enunciado": "Após G00 X10.0 Y10.0, o bloco X30.0 mantém qual modo?",
-      "alternativas": [
-        "G03",
-        "G01",
-        "G00",
-        "G02"
-      ],
-      "correta": "C",
-      "explicacao": "A: G03 não foi selecionado. B: G01 não aparece no trecho. C: G00 permanece modal até substituição. D: G02 não foi programado.",
-      "dica": "Observe o último código de movimento."
-    },
-    {
-      "id": "acad-m2-a01-q04",
-      "enunciado": "Qual afirmação sobre G00 é correta?",
-      "alternativas": [
-        "F100.0 limita sempre a velocidade rápida",
-        "G00 garante ausência de colisões",
-        "G00 deve ser usado para controlar o corte",
-        "O percurso rápido exige verificação da fixação"
-      ],
-      "correta": "D",
-      "explicacao": "A: F não controla diretamente a velocidade de G00. B: Não existe garantia automática de segurança. C: Corte controlado requer outro planejamento. D: A trajetória deve ser conferida contra peça e fixação.",
-      "dica": "Pense nos obstáculos existentes entre duas posições."
-    }
-  ],
-  "observacoes": "Fanuc didático. Alturas seguras e limites da máquina: A definir. Sem corte e sem compensação.",
-  "abertura": "Como movimentar rapidamente uma ferramenta sem confundir posicionamento com usinagem?",
-  "resumo": [
-    "G00 solicita posicionamento rápido e não utiliza F como avanço de trabalho.",
-    "G90 e G54 ajudam a interpretar as coordenadas do destino.",
-    "Movimentos rápidos exigem verificação de peça, ferramenta e fixação."
-  ]
+  "observacoes": "Fanuc didático. Alturas seguras e limites da máquina: A definir. Sem corte e sem compensação."
 }

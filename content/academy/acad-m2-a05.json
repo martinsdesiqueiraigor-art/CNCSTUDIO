@@ -1,100 +1,131 @@
 {
+  "versao": 2,
   "id": "acad-m2-a05",
   "modulo": "acad-m2",
   "titulo": "Arcos G02/G03 com I e J",
   "nivel": "Iniciante",
   "caminho": "Fresa",
-  "status": "rascunho",
+  "dialeto": "fanuc",
+  "maquina": "fresa",
+  "estado": "rascunho",
   "objetivo": "Interpretar arcos no plano XY utilizando deslocamentos I e J até o centro.",
   "pre_requisito": "acad-m2-a04",
-  "texto": "[conceito] Além da programação por raio R, os movimentos circulares G02 e G03 podem utilizar informações do centro do arco. Na referência Fanuc de fresamento utilizada nesta aula, I representa o deslocamento do ponto inicial até o centro na direção X, enquanto J representa o deslocamento na direção Y. No plano G17, esses dois valores ajudam a definir a geometria da trajetória. A interpretação apresentada considera o formato incremental de centro utilizado no exemplo didático.\n\n[conceito] É importante separar as coordenadas do destino dos deslocamentos do centro. Com G90 ativo, X e Y indicam posições absolutas no sistema de trabalho. Já I e J, no formato adotado, são calculados a partir do ponto inicial do arco. Portanto, não devemos interpretar I e J automaticamente como coordenadas absolutas da máquina. A disponibilidade de outros modos de programação do centro depende da configuração do comando: A definir.\n\n[exemplo] Considere um movimento que começa em X10.0 Y20.0. O centro desejado está em X20.0 Y20.0. A diferença entre centro e início é I10.0 J0.0. Para terminar em X30.0 Y20.0 pelo semicírculo anti-horário, podemos escrever G03 X30.0 Y20.0 I10.0 J0.0. A distância do início ao centro e do centro ao destino é a mesma, permitindo construir um arco de raio 10 milímetros.\n\n[dica] Para conferir um arco, faça três verificações: localize o ponto inicial, calcule a posição do centro usando I e J e confirme se o destino está à mesma distância desse centro. Depois determine o sentido com G02 ou G03. Esse procedimento ajuda a identificar erros de sinal, valores incompatíveis e interpretações equivocadas de coordenadas.\n\n[atenção] Erro comum no chão de fábrica: copiar os valores I e J de outro arco sem considerar que o ponto inicial mudou. Outro erro é confundir o centro absoluto com o deslocamento incremental até ele. Isso pode produzir uma curva incorreta ou um erro de geometria. Mesmo que o programa seja aceito pelo editor, a trajetória precisa ser conferida visualmente antes de qualquer aplicação real.\n\n[exemplo] O arquivo desta aula contém dois semicírculos consecutivos. O primeiro parte de X10.0 Y20.0 e termina em X30.0 Y20.0 com I10.0 J0.0. O segundo retorna ao início com I-10.0 J0.0, mantendo G03. Cada bloco utiliza o ponto inicial daquele arco como referência para o centro. A ferramenta permanece acima do bruto, sem rotação e sem corte. O objetivo é observar a geometria e comparar a programação por centro com a programação por raio apresentada anteriormente.",
-  "erro_comum": "Descrito no texto da aula.",
-  "programa": "samples/academy/acad-m2-a05.nc",
-  "aviso": "Simule antes de rodar na máquina",
-  "exercicio": {
-    "tipo": "complete/corrija",
-    "enunciado": "Partindo de X10.0 Y20.0, complete o valor I para o centro X20.0 Y20.0: G03 X30.0 Y20.0 ____ J0.0 F120.0",
-    "gabarito": "I10.0",
-    "editor": {
-      "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y20.0",
-      "inicial": "G03 X30.0 Y20.0 ____ J0.0 F120.0",
-      "solucao": "G03 X30.0 Y20.0 I10.0 J0.0 F120.0",
-      "checagens": [
+  "secoes": {
+    "visao": {
+      "estado": "rascunho",
+      "abertura": "Como localizar o centro de um arco sem informar diretamente seu raio?",
+      "texto": "[conceito] Além da programação por raio R, os movimentos circulares G02 e G03 podem utilizar informações do centro do arco. Na referência Fanuc de fresamento utilizada nesta aula, I representa o deslocamento do ponto inicial até o centro na direção X, enquanto J representa o deslocamento na direção Y. No plano G17, esses dois valores ajudam a definir a geometria da trajetória. A interpretação apresentada considera o formato incremental de centro utilizado no exemplo didático.\n\n[conceito] É importante separar as coordenadas do destino dos deslocamentos do centro. Com G90 ativo, X e Y indicam posições absolutas no sistema de trabalho. Já I e J, no formato adotado, são calculados a partir do ponto inicial do arco. Portanto, não devemos interpretar I e J automaticamente como coordenadas absolutas da máquina. A disponibilidade de outros modos de programação do centro depende da configuração do comando: A definir.\n\n[exemplo] Considere um movimento que começa em X10.0 Y20.0. O centro desejado está em X20.0 Y20.0. A diferença entre centro e início é I10.0 J0.0. Para terminar em X30.0 Y20.0 pelo semicírculo anti-horário, podemos escrever G03 X30.0 Y20.0 I10.0 J0.0. A distância do início ao centro e do centro ao destino é a mesma, permitindo construir um arco de raio 10 milímetros.\n\n[dica] Para conferir um arco, faça três verificações: localize o ponto inicial, calcule a posição do centro usando I e J e confirme se o destino está à mesma distância desse centro. Depois determine o sentido com G02 ou G03. Esse procedimento ajuda a identificar erros de sinal, valores incompatíveis e interpretações equivocadas de coordenadas.\n\n[atenção] Erro comum no chão de fábrica: copiar os valores I e J de outro arco sem considerar que o ponto inicial mudou. Outro erro é confundir o centro absoluto com o deslocamento incremental até ele. Isso pode produzir uma curva incorreta ou um erro de geometria. Mesmo que o programa seja aceito pelo editor, a trajetória precisa ser conferida visualmente antes de qualquer aplicação real.\n\n[exemplo] O arquivo desta aula contém dois semicírculos consecutivos. O primeiro parte de X10.0 Y20.0 e termina em X30.0 Y20.0 com I10.0 J0.0. O segundo retorna ao início com I-10.0 J0.0, mantendo G03. Cada bloco utiliza o ponto inicial daquele arco como referência para o centro. A ferramenta permanece acima do bruto, sem rotação e sem corte. O objetivo é observar a geometria e comparar a programação por centro com a programação por raio apresentada anteriormente.",
+      "conceitos": [
+        "I e J representam deslocamentos do início até o centro no formato adotado.",
+        "X e Y continuam indicando o destino no modo G90.",
+        "O centro deve estar à mesma distância dos pontos inicial e final."
+      ]
+    },
+    "trajetoria": {
+      "estado": "rascunho",
+      "programa": ""
+    },
+    "sintaxe": {
+      "estado": "rascunho",
+      "blocos": [],
+      "parametros": []
+    },
+    "exemplo": {
+      "estado": "rascunho",
+      "programa": "samples/academy/acad-m2-a05.nc",
+      "etapas": []
+    },
+    "cuidados": {
+      "estado": "rascunho",
+      "erros": [
+        "Descrito no texto da aula."
+      ],
+      "alertas": [
+        "Simule antes de rodar na máquina"
+      ]
+    },
+    "praticar": {
+      "estado": "rascunho",
+      "exercicio": {
+        "tipo": "complete/corrija",
+        "enunciado": "Partindo de X10.0 Y20.0, complete o valor I para o centro X20.0 Y20.0: G03 X30.0 Y20.0 ____ J0.0 F120.0",
+        "gabarito": "I10.0",
+        "editor": {
+          "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y20.0",
+          "inicial": "G03 X30.0 Y20.0 ____ J0.0 F120.0",
+          "solucao": "G03 X30.0 Y20.0 I10.0 J0.0 F120.0",
+          "checagens": [
+            {
+              "tipo": "contem",
+              "texto": "I10.0",
+              "dica": "Identifique o código ou parâmetro correto."
+            },
+            {
+              "tipo": "posicao_final",
+              "x": 30,
+              "y": 20
+            },
+            {
+              "tipo": "sem_erros"
+            }
+          ]
+        }
+      },
+      "quiz": [
         {
-          "tipo": "contem",
-          "texto": "I10.0",
-          "dica": "Identifique o código ou parâmetro correto."
+          "id": "acad-m2-a05-q01",
+          "enunciado": "No formato didático utilizado, o que I representa?",
+          "alternativas": [
+            "Deslocamento em X do início até o centro",
+            "Avanço da ferramenta",
+            "Rotação do spindle",
+            "Coordenada final Z"
+          ],
+          "correta": "A",
+          "explicacao": "A: I indica o deslocamento até o centro na direção X. B: Avanço utiliza F. C: Rotação utiliza S. D: O destino Z é programado pelo endereço Z.",
+          "dica": "Relacione I ao centro do arco."
         },
         {
-          "tipo": "posicao_final",
-          "x": 30,
-          "y": 20
+          "id": "acad-m2-a05-q02",
+          "enunciado": "Partindo de X10.0 Y20.0, onde fica o centro com I10.0 J0.0?",
+          "alternativas": [
+            "X10.0 Y10.0",
+            "X20.0 Y20.0",
+            "X0.0 Y20.0",
+            "X10.0 Y0.0"
+          ],
+          "correta": "B",
+          "explicacao": "A: J0.0 não desloca Y. B: Somar I10.0 ao X inicial resulta em X20.0. C: Isso exigiria I-10.0. D: O valor de J não desloca o centro até Y0.0.",
+          "dica": "Centro é igual ao início mais os deslocamentos I e J."
         },
         {
-          "tipo": "sem_erros"
+          "id": "acad-m2-a05-q03",
+          "enunciado": "No trecho G03 X30.0 Y20.0 I10.0 J0.0, qual endereço indica o destino X?",
+          "alternativas": [
+            "I",
+            "J",
+            "X",
+            "F"
+          ],
+          "correta": "C",
+          "explicacao": "A: I descreve deslocamento do centro em X. B: J descreve deslocamento do centro em Y. C: X informa a coordenada final do eixo X. D: F representa avanço.",
+          "dica": "Separe destino de centro."
+        },
+        {
+          "id": "acad-m2-a05-q04",
+          "enunciado": "Qual verificação geométrica é essencial para um arco com I/J?",
+          "alternativas": [
+            "Comparar somente os números de linha",
+            "Verificar apenas a rotação S",
+            "Conferir somente o nome da ferramenta",
+            "Confirmar distâncias iguais do centro ao início e ao destino"
+          ],
+          "correta": "D",
+          "explicacao": "A: Numeração não valida geometria. B: Rotação não define o raio. C: Nome da ferramenta não garante consistência do arco. D: Início e fim precisam pertencer à mesma circunferência.",
+          "dica": "Pense na definição geométrica de uma circunferência."
         }
       ]
     }
   },
-  "quiz": [
-    {
-      "id": "acad-m2-a05-q01",
-      "enunciado": "No formato didático utilizado, o que I representa?",
-      "alternativas": [
-        "Deslocamento em X do início até o centro",
-        "Avanço da ferramenta",
-        "Rotação do spindle",
-        "Coordenada final Z"
-      ],
-      "correta": "A",
-      "explicacao": "A: I indica o deslocamento até o centro na direção X. B: Avanço utiliza F. C: Rotação utiliza S. D: O destino Z é programado pelo endereço Z.",
-      "dica": "Relacione I ao centro do arco."
-    },
-    {
-      "id": "acad-m2-a05-q02",
-      "enunciado": "Partindo de X10.0 Y20.0, onde fica o centro com I10.0 J0.0?",
-      "alternativas": [
-        "X10.0 Y10.0",
-        "X20.0 Y20.0",
-        "X0.0 Y20.0",
-        "X10.0 Y0.0"
-      ],
-      "correta": "B",
-      "explicacao": "A: J0.0 não desloca Y. B: Somar I10.0 ao X inicial resulta em X20.0. C: Isso exigiria I-10.0. D: O valor de J não desloca o centro até Y0.0.",
-      "dica": "Centro é igual ao início mais os deslocamentos I e J."
-    },
-    {
-      "id": "acad-m2-a05-q03",
-      "enunciado": "No trecho G03 X30.0 Y20.0 I10.0 J0.0, qual endereço indica o destino X?",
-      "alternativas": [
-        "I",
-        "J",
-        "X",
-        "F"
-      ],
-      "correta": "C",
-      "explicacao": "A: I descreve deslocamento do centro em X. B: J descreve deslocamento do centro em Y. C: X informa a coordenada final do eixo X. D: F representa avanço.",
-      "dica": "Separe destino de centro."
-    },
-    {
-      "id": "acad-m2-a05-q04",
-      "enunciado": "Qual verificação geométrica é essencial para um arco com I/J?",
-      "alternativas": [
-        "Comparar somente os números de linha",
-        "Verificar apenas a rotação S",
-        "Conferir somente o nome da ferramenta",
-        "Confirmar distâncias iguais do centro ao início e ao destino"
-      ],
-      "correta": "D",
-      "explicacao": "A: Numeração não valida geometria. B: Rotação não define o raio. C: Nome da ferramenta não garante consistência do arco. D: Início e fim precisam pertencer à mesma circunferência.",
-      "dica": "Pense na definição geométrica de uma circunferência."
-    }
-  ],
-  "observacoes": "I/J incrementais em relação ao início do arco. Outros modos de centro: A definir. Sem compensação ou corte.",
-  "abertura": "Como localizar o centro de um arco sem informar diretamente seu raio?",
-  "resumo": [
-    "I e J representam deslocamentos do início até o centro no formato adotado.",
-    "X e Y continuam indicando o destino no modo G90.",
-    "O centro deve estar à mesma distância dos pontos inicial e final."
-  ]
+  "observacoes": "I/J incrementais em relação ao início do arco. Outros modos de centro: A definir. Sem compensação ou corte."
 }
