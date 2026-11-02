@@ -259,7 +259,7 @@ function showHome() {
 
   const head = make('div', null, 'display:flex;align-items:center;gap:10px;flex:none;margin-bottom:8px');
   head.className = 'pl-head';
-  const logo = make('img', null, 'width:104px;height:104px;object-fit:contain;flex:none;-webkit-mask-image:radial-gradient(circle at center,#000 62%,transparent 76%);mask-image:radial-gradient(circle at center,#000 62%,transparent 76%)');
+  const logo = make('img', null, 'width:132px;height:132px;margin:-10px -12px -10px -14px;object-fit:contain;flex:none;-webkit-mask-image:radial-gradient(circle at center,#000 62%,transparent 76%);mask-image:radial-gradient(circle at center,#000 62%,transparent 76%)');
   logo.className = 'pl-logo2'; logo.src = './img/plataforma/topo.webp'; logo.alt = 'Casillas';
   const titles = make('div', null, 'flex:1;min-width:0');
   titles.append(make('h1', 'Casillas', 'font-size:30px;line-height:1.05;margin:0;color:#f3d9a4'), make('div', 'Plataforma de Usinagem CNC', 'font-size:13px;color:#9baab9'));
