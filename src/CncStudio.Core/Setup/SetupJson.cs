@@ -77,6 +77,27 @@ public static class SetupJson
         return (MachiningSetup.CreateDefault(projectKey), read.Warning);
     }
 
+    /// <summary>
+    /// Como <see cref="LoadOrDefault(string?, string)"/>, mas o programa sem setup salvo (ou com setup que não serviu)
+    /// começa com "minhas ferramentas" (<paramref name="myToolsJson"/>). Só as ferramentas são copiadas: bruto e
+    /// fixação continuam não informados. <c>FromMyTools</c> diz se a lista veio de lá (para avisar que é para conferir).
+    /// </summary>
+    public static (MachiningSetup Setup, string? Warning, bool FromMyTools) LoadOrDefault(string? json, string projectKey, string? myToolsJson)
+    {
+        (MachiningSetup setup, string? warning) = LoadOrDefault(json, projectKey);
+        if (Parse(json).Setup is not null || Parse(myToolsJson).Setup is not { Tools.Count: > 0 } mine)
+        {
+            return (setup, warning, false);
+        }
+
+        setup.Tools = mine.Tools;
+        return (setup, warning, true);
+    }
+
+    /// <summary>"Minhas ferramentas": só a lista de ferramentas do setup, sem bruto, fixação nem programa.</summary>
+    public static string SerializeMyTools(MachiningSetup setup) =>
+        Serialize(new MachiningSetup { Tools = setup.Clone().Tools });
+
     /// <summary>SchemaVersion do JSON (0 se ausente ou não numérico).</summary>
     private static int ReadVersion(string json)
     {

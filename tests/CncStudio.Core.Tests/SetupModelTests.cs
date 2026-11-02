@@ -153,6 +153,76 @@ public class SetupModelTests
         Assert.NotNull(setup.Stock);
     }
 
+    [Fact]
+    public void MinhasFerramentasGuardaSoAsFerramentas()
+    {
+        SetupReadResult read = SetupJson.Parse(SetupJson.SerializeMyTools(Sample()));
+        MachiningSetup mine = Assert.IsType<MachiningSetup>(read.Setup);
+        Assert.Equal([3, 7], mine.Tools.Select(t => t.Number));
+        Assert.Null(mine.Stock);
+        Assert.Empty(mine.Fixtures);
+        Assert.Equal("", mine.ProjectKey);
+    }
+
+    [Fact]
+    public void ProgramaNovoComecaComMinhasFerramentasSemBrutoNemFixacao()
+    {
+        string mine = SetupJson.SerializeMyTools(Sample());
+        (MachiningSetup setup, string? warning, bool fromMine) = SetupJson.LoadOrDefault(null, "novo.nc", mine);
+        Assert.True(fromMine);
+        Assert.Null(warning);
+        Assert.Equal("novo.nc", setup.ProjectKey);
+        Assert.Equal([3, 7], setup.Tools.Select(t => t.Number));
+        Assert.Null(setup.Stock);
+        Assert.Empty(setup.Fixtures);
+    }
+
+    [Fact]
+    public void SetupSalvoDoProgramaVenceMinhasFerramentas()
+    {
+        var own = new MachiningSetup { Tools = [new SetupTool { Number = 5, Diameter = 4 }] };
+        string mine = SetupJson.SerializeMyTools(Sample());
+        (MachiningSetup setup, _, bool fromMine) = SetupJson.LoadOrDefault(SetupJson.Serialize(own), "peca.nc", mine);
+        Assert.False(fromMine);
+        Assert.Equal([5], setup.Tools.Select(t => t.Number));
+
+        // Programa que salvou o setup com a lista vazia continua vazio
+        (setup, _, fromMine) = SetupJson.LoadOrDefault(SetupJson.Serialize(new MachiningSetup()), "peca.nc", mine);
+        Assert.False(fromMine);
+        Assert.Empty(setup.Tools);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("{lixo")]
+    [InlineData("{\"SchemaVersion\":2,\"Tools\":[]}")]
+    public void SemMinhasFerramentasValidasProgramaNovoFicaVazio(string? mine)
+    {
+        (MachiningSetup setup, string? warning, bool fromMine) = SetupJson.LoadOrDefault(null, "novo.nc", mine);
+        Assert.False(fromMine);
+        Assert.Null(warning);
+        Assert.Empty(setup.Tools);
+    }
+
+    [Fact]
+    public void MarcaSaveAsMyToolsDoEditorWebNaoAtrapalhaALeitura()
+    {
+        string json = SetupJson.Serialize(Sample()).TrimEnd('}') + ",\"SaveAsMyTools\":true}";
+        MachiningSetup setup = Assert.IsType<MachiningSetup>(SetupJson.Parse(json).Setup);
+        Assert.Equal(2, setup.Tools.Count);
+        Assert.DoesNotContain("SaveAsMyTools", SetupJson.Serialize(setup));
+    }
+
+    [Fact]
+    public void SetupCorrompidoAvisaEUsaMinhasFerramentas()
+    {
+        (MachiningSetup setup, string? warning, bool fromMine) = SetupJson.LoadOrDefault("{lixo", "x.nc", SetupJson.SerializeMyTools(Sample()));
+        Assert.Equal(SetupJson.InvalidWarning, warning);
+        Assert.True(fromMine);
+        Assert.Equal(2, setup.Tools.Count);
+    }
+
     // Formato 1 como o protótipo web gravava (JSON indentado, G54 e bruto sempre presentes)
     private const string V1Redondo = """
         {
