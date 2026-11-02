@@ -143,7 +143,15 @@ public static class CamJobJson
 
         if (s.Face is { } f)
         {
-            o["face"] = new JsonObject { ["axis"] = f.Axis, ["angle"] = f.Angle, ["axisToFace"] = f.AxisToFace };
+            var face = new JsonObject { ["axis"] = f.Axis, ["angle"] = f.Angle, ["axisToFace"] = f.AxisToFace };
+            if (f.Axis2 is { } axis2)
+            {
+                // 3+2: campos opcionais (arquivos sem eles continuam abrindo como face de um eixo)
+                face["axis2"] = axis2;
+                face["angle2"] = f.Angle2;
+            }
+
+            o["face"] = face;
         }
 
         return o;
@@ -281,7 +289,8 @@ public static class CamJobJson
 
         if (o["face"] is JsonObject f)
         {
-            spec = spec with { Face = new RotaryFaceSpec(Str(f, "axis"), Num(f, "angle"), Num(f, "axisToFace")) };
+            var face = new RotaryFaceSpec(Str(f, "axis"), Num(f, "angle"), Num(f, "axisToFace"));
+            spec = spec with { Face = f["axis2"] is null ? face : face with { Axis2 = Str(f, "axis2"), Angle2 = Num(f, "angle2") } };
         }
 
         return spec;

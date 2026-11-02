@@ -110,7 +110,7 @@ public static class CamJobInfo
     public static string OpTitle(int index, CamOperationSpec s)
     {
         string name = s.Label.Length > 0 ? s.Label : KindName(s);
-        string face = s.Face is { } f ? $" · face {f.Axis}{N(f.Angle)}°" : "";
+        string face = s.Face is { } f ? $" · face {f.Axis}{N(f.Angle)}°" + (f.Axis2 is { } a2 ? $" {a2}{N(f.Angle2)}° (3+2)" : "") : "";
         string tool = s.Tool.Name.Length > 0 ? " " + s.Tool.Name : "";
         return $"{index + 1} · {name} — T{s.Tool.Number} Ø{N(s.Tool.Diameter)}{tool}{face}";
     }

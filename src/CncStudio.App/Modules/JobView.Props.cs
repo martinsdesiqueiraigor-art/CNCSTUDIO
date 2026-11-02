@@ -142,9 +142,31 @@ public partial class JobView
 
         if (s.Kind != JobOpKind.WrapText)
         {
-            Section("4º eixo");
+            Section("4º eixo e 3+2");
             Check(i, "Face girada (perfil da máquina)", s.Face is not null, (x, b) => x with { Face = b ? new RotaryFaceSpec("A", 90, 25) : null }, rebuild: true);
-            if (s.Face is { } f)
+            MachineProfile? machine = MachineSource?.Invoke();
+            bool tableTable = machine?.Configuration == MachineConfiguration.FiveAxisTableTable;
+            if (s.Face is { Axis2: not null } || (s.Face is not null && tableTable))
+            {
+                // 3+2 só se oferece com perfil de mesa dupla; uma face 3+2 já salva aparece sempre (o erro do perfil vem no percurso)
+                Check(i, "3+2: usar os dois eixos da mesa", s.Face?.Axis2 is not null, (x, b) => x with
+                {
+                    Face = b && machine is { Axes.Count: 2 } m
+                        ? x.Face! with { Axis = m.Axes[0].Letter, Axis2 = m.Axes[1].Letter, Angle2 = 0 }
+                        : x.Face! with { Axis = x.Face!.Axis is "A" or "B" ? x.Face.Axis : "A", Axis2 = null, Angle2 = 0 },
+                }, rebuild: true);
+            }
+
+            if (s.Face is { Axis2: { } axis2 } t)
+            {
+                PropsPanel.Children.Add(new TextBlock { Text = $"Basculante {t.Axis} carrega o giratório {axis2} (ordem do perfil da máquina).", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                Num(i, $"Ângulo do basculante ({t.Axis})", "°", t.Angle, (x, v) => x with { Face = t with { Angle = v } });
+                Num(i, $"Ângulo do giratório ({axis2})", "°", t.Angle2, (x, v) => x with { Face = t with { Angle2 = v } });
+                Num(i, $"Do centro do eixo {t.Axis} até a face", "mm", t.AxisToFace, (x, v) => x with { Face = t with { AxisToFace = v } });
+                PropsPanel.Children.Add(new TextBlock { Text = $"Desenhe a face de cima (Z 0 na face), como fica com os dois giros. O programa gira {axis2} e depois {t.Axis} na altura segura; os cursos vêm do perfil da máquina.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                PropsPanel.Children.Add(UiKit.StatusNote("⚠ " + RotaryIndexing.NotMachineVerified + " Colisão da mesa e da fixação nos giros não é verificada.", "pending"));
+            }
+            else if (s.Face is { } f)
             {
                 Pick(i, "Eixo", ["A", "B"], f.Axis == "B" ? 1 : 0, (x, n) => x with { Face = f with { Axis = n == 1 ? "B" : "A" } });
                 Num(i, "Ângulo da face", "°", f.Angle, (x, v) => x with { Face = f with { Angle = v } });
