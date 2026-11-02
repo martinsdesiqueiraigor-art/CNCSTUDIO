@@ -316,7 +316,7 @@ public partial class JobView
         TextBox y = Field("Canto Y", "mm", box?.Y ?? 0);
         PropsPanel.Children.Add(new TextBlock
         {
-            Text = "Topo do bruto em Z0 (desce até Z −altura). O Z topo de cada operação continua nas propriedades dela.",
+            Text = "Topo do bruto em Z0 (desce até Z −altura). O Z topo de cada operação continua nas propriedades dela. O bruto ainda não altera o programa gerado.",
             Opacity = 0.7, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         });
         var error = new ContentControl();

@@ -36,8 +36,11 @@ public static class CamJobInfo
         _ => "Texto no cilindro",
     };
 
-    /// <summary>Estado de uma operação na árvore: "OK", "desligada" ou "erro: motivo".</summary>
-    public static (string Kind, string Text) OpState(JobOpResult? r)
+    /// <summary>
+    /// Estado de uma operação na árvore: "OK", "desligada", "erro: motivo" ou, com o limite do fuso informado, "aviso: acima do fuso"
+    /// (mesma conferência de <see cref="SpindleWarning"/>).
+    /// </summary>
+    public static (string Kind, string Text) OpState(JobOpResult? r, CamOperationSpec? spec = null, double? maxRpm = null)
     {
         if (r is null)
         {
@@ -49,11 +52,23 @@ public static class CamJobInfo
             return ("off", "desligada");
         }
 
-        return r.Ok ? ("ok", "OK") : ("bad", "erro: " + (r.Error ?? "não foi possível gerar"));
+        if (!r.Ok)
+        {
+            return ("bad", "erro: " + (r.Error ?? "não foi possível gerar"));
+        }
+
+        return spec is not null && SpindleWarning(spec.Tool.SpindleRpm, maxRpm) is not null ? ("pending", "aviso: acima do fuso") : ("ok", "OK");
     }
 
-    /// <summary>O que impede de gerar o G-code (vazio = pronto). Não inclui a fixação, que o app nunca verifica.</summary>
-    public static IReadOnlyList<string> Pending(CamJob job, JobBuild build)
+    /// <summary>Operações ligadas com rotação acima do limite do fuso (índices), pela mesma conferência de <see cref="SpindleWarning"/>.</summary>
+    public static IReadOnlyList<int> OverSpindle(CamJob job, double? maxRpm) =>
+        job.Operations.Select((o, i) => (o, i)).Where(x => x.o.Enabled && SpindleWarning(x.o.Tool.SpindleRpm, maxRpm) is not null).Select(x => x.i).ToList();
+
+    /// <summary>
+    /// O que impede de gerar o G-code (vazio = pronto). Não inclui a fixação, que o app nunca verifica. <paramref name="maxRpm"/>: limite do
+    /// fuso do perfil da máquina; sem ele, a rotação não vira pendência ("fuso não informado").
+    /// </summary>
+    public static IReadOnlyList<string> Pending(CamJob job, JobBuild build, double? maxRpm = null)
     {
         var list = new List<string>();
         if (job.Contours.Count == 0)
@@ -78,6 +93,11 @@ public static class CamJobInfo
             {
                 list.Add($"Operação {i + 1}: " + (r.Error ?? "não foi possível gerar"));
             }
+        }
+
+        foreach (int i in OverSpindle(job, maxRpm))
+        {
+            list.Add($"rotação acima do fuso na operação {i + 1}");
         }
 
         return list;

@@ -352,7 +352,8 @@ public partial class JobView : UserControl
     /// </summary>
     private List<JobBarItem> PendingItems()
     {
-        IReadOnlyList<string> texts = CamJobInfo.Pending(_job, _build);
+        double? maxRpm = MachineSource?.Invoke()?.MaxSpindleRpm;
+        IReadOnlyList<string> texts = CamJobInfo.Pending(_job, _build, maxRpm);
         var targets = new List<(string Kind, Action Go)>();
         if (_job.Contours.Count == 0)
         {
@@ -376,6 +377,11 @@ public partial class JobView : UserControl
             {
                 targets.Add(("bad", () => GoToTree(t => t.Kind == "op" && t.Index == index)));
             }
+        }
+
+        foreach (int index in CamJobInfo.OverSpindle(_job, maxRpm))
+        {
+            targets.Add(("pending", () => GoToTree(t => t.Kind == "op" && t.Index == index)));
         }
 
         // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho)
@@ -480,7 +486,7 @@ public partial class JobView : UserControl
             CamOperationSpec spec = _job.Operations[i];
             var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
             // título com reticências: a etiqueta de estado (texto) nunca sai da árvore
-            DockPanel row = UiKit.StateRow(CamJobInfo.OpTitle(i, spec), CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
+            DockPanel row = UiKit.StateRow(CamJobInfo.OpTitle(i, spec), CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
             row.Opacity = spec.Enabled ? 1 : 0.5;
             check.IsCheckedChanged += (_, _) =>
             {

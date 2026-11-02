@@ -70,6 +70,31 @@ public class CamJobSetupInfoTests
     }
 
     [Fact]
+    public void Rotacao_acima_do_fuso_vira_pendencia_e_aviso_na_arvore()
+    {
+        var job = new CamJob { Stock = new JobStock(0, 0, 100, 60, 10) };
+        job.Contours.Add(Contour.FromPoints([new(0, 0), new(100, 0), new(100, 60), new(0, 60)]));
+        CamOperationSpec op = CamJobInfo.NewOperation(JobOpKind.Contour, ContourSide.Outside, 0);
+        CamOperationSpec fast = op with { Tool = op.Tool with { SpindleRpm = 9000 } };
+        job.Operations.Add(op);
+        job.Operations.Add(fast);
+        JobBuild build = CamJobBuilder.Build(job, null);
+
+        Assert.Equal(["rotação acima do fuso na operação 2"], CamJobInfo.Pending(job, build, 8000));
+        Assert.Equal([1], CamJobInfo.OverSpindle(job, 8000));
+        Assert.Equal(("pending", "aviso: acima do fuso"), CamJobInfo.OpState(build.Items[1], fast, 8000));
+        Assert.Equal(("ok", "OK"), CamJobInfo.OpState(build.Items[0], op, 8000));
+
+        // Sem limite informado: nada é suposto (sem pendência, operação OK)
+        Assert.Empty(CamJobInfo.Pending(job, build, null));
+        Assert.Equal(("ok", "OK"), CamJobInfo.OpState(build.Items[1], fast, null));
+
+        // Operação desligada não conta
+        job.Operations[1] = fast with { Enabled = false };
+        Assert.Empty(CamJobInfo.OverSpindle(job, 8000));
+    }
+
+    [Fact]
     public void SpindleWarning_nao_muda_o_programa()
     {
         // Só conferência: a geração usa a rotação digitada, com ou sem perfil de máquina
