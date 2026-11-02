@@ -1,4 +1,4 @@
-// Plataforma Casillas: tela inicial com os módulos e barra fixa inferior (Início, Code, Academy, Macro).
+// Plataforma Casillas: tela inicial com os módulos; barra inferior só dentro dos módulos (Início e o módulo atual).
 // Tudo em HTML; roda antes do .NET carregar. Para abrir Academy e Macro (que dependem do .NET), avisa o C#
 // pelo callback registrado em onPlatform (web.js). Se o .NET ainda não carregou, guarda o pedido e entrega depois.
 
@@ -19,7 +19,6 @@ const MODULES = [
   { id: 'calculadoras', img: 'ic-calculadoras', name: 'Casillas Calculadoras', text: 'Cálculos técnicos de usinagem', color: '#ff9a4a', url: 'https://martinsdesiqueiraigor-art.github.io/Casillas_app_2/', icon: '<path d="M6 3h12v18H6zM8 7h8M9 11h2M13 11h2M9 15h2M13 15h2" />' },
   { id: 'loja', img: 'ic-loja', name: 'Casillas Loja', text: 'Loja de ferramentas', color: '#2fd0c8', icon: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3l9-9a4 4 0 0 1-2-2z" />' },
 ];
-const DOCK = ['inicio', 'code', 'academy', 'macro', 'otimizador'];
 
 const state = (window.casillasPlatform = window.casillasPlatform || { handler: null, pending: [] });
 let current = 'inicio';
@@ -209,10 +208,46 @@ function ensureHomeStyle() {
     '.pl-wrap{align-items:flex-start!important;flex:none!important}.pl-left{flex:0 0 36%;display:flex;flex-direction:column}',
     '.pl-right{flex:1;display:flex;flex-direction:column;min-width:0}',
     '.pl-grid{flex:none!important;align-content:flex-start!important}.pl-card{flex:0 0 calc((100% - 32px)/5);aspect-ratio:1/0.95;max-height:none!important;height:auto!important}',
-    '}',
+    '.pl-card strong{font-size:11.5px!important}}',
     '@media (min-width:600px) and (min-height:700px){.pl-sub{display:-webkit-box!important}}',
   ].join('');
   document.head.append(homeStyle);
+}
+
+/** Janelinha simples sobre a tela inicial. */
+function sheet(title) {
+  const ov = make('div', null, 'position:fixed;inset:0;z-index:10060;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px');
+  const box = make('div', null, 'width:100%;max-width:380px;background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:16px;padding:16px;font:15px/1.45 system-ui,sans-serif;display:flex;flex-direction:column;gap:10px');
+  box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', title);
+  box.append(make('strong', title, 'font-size:17px'));
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  ov.append(box); document.body.append(ov);
+  return { box, close };
+}
+const sheetBtn = (text, fn, primary) => {
+  const b = make('button', text, `border-radius:10px;border:1px solid ${primary ? '#ff9a4d' : '#30363d'};background:${primary ? '#ff9a4d' : '#0d1117'};color:${primary ? '#111' : '#e6edf3'};font:700 14px system-ui,sans-serif;padding:11px 12px;cursor:pointer;text-align:left`);
+  b.type = 'button'; b.addEventListener('click', fn); return b;
+};
+
+/** Sino: novidades e avisos de atualização (etapa 1: só a lista, ainda vazia). */
+function newsDialog() {
+  const { box, close } = sheet('Novidades');
+  box.append(make('div', 'Nenhuma novidade no momento.', 'color:#9baab9;font-size:14px'));
+  box.append(sheetBtn('Fechar', close));
+}
+
+/** Engrenagem: tema e conta. */
+function settingsDialog(onAccountDone) {
+  const { box, close } = sheet('Configurações');
+  box.append(
+    sheetBtn('Tema: padrão ou CMYK', () => { window.dispatchEvent(new CustomEvent('casillas:cmyk-toggle')); close(); }),
+    sheetBtn('Conta e licença', async () => {
+      close();
+      try { if (await accountPanel(await accountCheck()) === 'refresh') onAccountDone(); } catch { toast('Conecte-se à internet para abrir a conta'); }
+    }),
+    sheetBtn('Fechar', close),
+  );
 }
 
 function showHome() {
@@ -224,18 +259,21 @@ function showHome() {
 
   const head = make('div', null, 'display:flex;align-items:center;gap:10px;flex:none;margin-bottom:8px');
   head.className = 'pl-head';
-  const logo = make('img', null, 'width:64px;height:64px;object-fit:contain;flex:none;-webkit-mask-image:radial-gradient(circle at center,#000 62%,transparent 76%);mask-image:radial-gradient(circle at center,#000 62%,transparent 76%)');
+  const logo = make('img', null, 'width:132px;height:132px;margin:-10px -12px -10px -14px;object-fit:contain;flex:none;-webkit-mask-image:radial-gradient(circle at center,#000 62%,transparent 76%);mask-image:radial-gradient(circle at center,#000 62%,transparent 76%)');
   logo.className = 'pl-logo2'; logo.src = './img/plataforma/topo.webp'; logo.alt = 'Casillas';
   const titles = make('div', null, 'flex:1;min-width:0');
-  titles.append(make('h1', 'Casillas', 'font-size:22px;line-height:1.1;margin:0;color:#f3d9a4'), make('div', 'Plataforma de Usinagem CNC', 'font-size:12px;color:#9baab9'));
+  titles.append(make('h1', 'Casillas', 'font-size:30px;line-height:1.05;margin:0;color:#f3d9a4'), make('div', 'Plataforma de Usinagem CNC', 'font-size:13px;color:#9baab9'));
   head.append(logo, titles);
-  const gear = make('button', null, 'flex:none;width:40px;height:40px;border-radius:12px;border:1px solid #30363d;background:#161b22;display:flex;align-items:center;justify-content:center;cursor:pointer');
-  gear.type = 'button'; gear.setAttribute('aria-label', 'Conta e licença');
-  gear.innerHTML = svg('<circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />', '#c9d1d9', 20);
-  gear.addEventListener('click', async () => {
-    try { if (await accountPanel(await accountCheck()) === 'refresh') showHome(); } catch { toast('Conecte-se à internet para abrir a conta'); }
-  });
-  head.append(gear);
+  const iconBtn = (label, html) => {
+    const b = make('button', null, 'flex:none;width:40px;height:40px;border-radius:12px;border:1px solid #30363d;background:#161b22;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative');
+    b.type = 'button'; b.setAttribute('aria-label', label); b.innerHTML = html;
+    return b;
+  };
+  const bell = iconBtn('Novidades', svg('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0" />', '#c9d1d9', 20));
+  bell.addEventListener('click', () => newsDialog());
+  const gear = iconBtn('Configurações', svg('<circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />', '#c9d1d9', 20));
+  gear.addEventListener('click', () => settingsDialog(() => showHome()));
+  head.append(bell, gear);
   // Etiquetas de situação: licença/teste (lidas da última situação confirmada) e uso sem internet
   const chips = make('div', null, 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px');
   chips.className = 'pl-chips';
@@ -262,7 +300,7 @@ function showHome() {
     }
     const sub = make('span', m.text, 'color:#9baab9;font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden');
     sub.className = 'pl-sub';
-    c.append(ic, make('strong', m.name, `font-size:12px;line-height:1.15;color:${m.color};flex:none`), sub);
+    c.append(ic, make('strong', m.name.replace('Casillas ', ''), `font-size:13.5px;line-height:1.15;color:${m.color};flex:none`), sub);
     if (m.desktop) c.append(make('span', 'Windows', 'position:absolute;top:5px;right:5px;font-size:9.5px;font-weight:700;color:#ffe9a8;background:rgba(70,56,14,.92);border:1px solid #7a6122;border-radius:999px;padding:0 6px'));
     else if (m.soon) c.append(make('span', 'Em breve', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#f3c969;background:rgba(59,47,18,.9);border:1px solid #7a6122;border-radius:999px;padding:0 7px'));
     else if (GATED.has(m.id) && moduleState(m.id) === 'EXPIRED') c.append(make('span', '🔒 Licença', 'position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;color:#ffd7a8;background:rgba(80,40,10,.92);border:1px solid #a05a1d;border-radius:999px;padding:0 7px'));
@@ -271,21 +309,24 @@ function showHome() {
     grid.append(c);
   });
   right.append(grid);
-  const tag = make('div', 'Formação profissional • Gestão de usinagem • Banco de dados G-code • Análise e otimização • Editores avançados • Gestão de ativos', 'text-align:center;color:#c9a96a;font-size:10.5px;font-weight:700;letter-spacing:.2px;margin:8px 6px 0;line-height:1.4;flex:none');
-  tag.className = 'pl-tag';
-  right.append(tag);
   el.append(wrap);
   document.body.append(el);
   homeEl = el;
 }
 
 function drawDock() {
+  const home = current === 'inicio';
+  // no Início não há barra: os cartões fazem a navegação (a altura vira 0 para as telas usarem o espaço)
+  document.documentElement.style.setProperty('--dock-h', home ? '0px' : DOCK_H);
   if (!dockEl) {
     dockEl = make('nav', null, 'position:fixed;left:0;right:0;bottom:0;height:var(--dock-h);z-index:9000;background:#0d1117;border-top:1px solid #303d4b;display:flex;padding:0 6px env(safe-area-inset-bottom,0px);box-sizing:border-box');
     document.body.append(dockEl);
   }
   dockEl.replaceChildren();
-  DOCK.forEach(id => {
+  dockEl.style.display = home ? 'none' : 'flex';
+  if (home) return;
+  // dentro de um módulo: caminho de volta ao Início e o módulo atual
+  ['inicio', current].forEach(id => {
     const m = MODULES.find(x => x.id === id);
     const active = id === current;
     const color = active ? (m ? m.color : '#ffb454') : '#9baab9';
@@ -297,15 +338,6 @@ function drawDock() {
     b.addEventListener('click', () => { if (id !== current || id === 'inicio') openModule(id); });
     dockEl.append(b);
   });
-  // Atalho do tema (padrão ↔ CMYK), disponível em qualquer módulo
-  const t = make('button', null, 'flex:none;width:58px;border:none;background:none;color:#9baab9;font:700 11.5px system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:0');
-  t.type = 'button';
-  t.setAttribute('aria-label', 'Trocar tema (padrão ou CMYK)');
-  const ti = make('span');
-  ti.innerHTML = svg('<circle cx="12" cy="12" r="9" /><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="#9baab9" />', '#9baab9', 22);
-  t.append(ti, make('span', 'Tema'));
-  t.addEventListener('click', () => window.dispatchEvent(new CustomEvent('casillas:cmyk-toggle')));
-  dockEl.append(t);
 }
 
 // O Academy/Macro fechou sozinho (a pessoa tocou em Fechar): o Code passa a ser o atual
