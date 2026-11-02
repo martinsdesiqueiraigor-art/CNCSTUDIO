@@ -7,6 +7,9 @@ namespace CncStudio.Core.Cam;
 public sealed record LatheLoadResult(LatheJob? Job, string? Error)
 {
     public bool Ok => Job is not null;
+
+    /// <summary>Avisos de um trabalho que abriu (ex.: fixação inválida, que fica "não informada"), como na fresa.</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
 /// <summary>Salvar e abrir o <see cref="LatheJob"/> em JSON com versão (mesmo cuidado do <see cref="CamJobJson"/>: sem reflexão, números com ponto).</summary>
@@ -29,6 +32,28 @@ public static class LatheJobJson
         if (job.Profile is { } p)
         {
             root["profile"] = CamJobJson.SegmentsToJson(p.Segments);
+        }
+
+        // campo opcional: arquivo sem ele (antigo ou sem fixação) abre com a fixação "não informada"
+        if (job.Fixation is { } fx)
+        {
+            var o = new JsonObject { ["kind"] = LatheFixation.FileName(fx.Kind) };
+            if (fx.GripDiameter is { } d)
+            {
+                o["gripDiameter"] = d;
+            }
+
+            if (fx.GripLength is { } l)
+            {
+                o["gripLength"] = l;
+            }
+
+            if (fx.StickOut is { } s)
+            {
+                o["stickOut"] = s;
+            }
+
+            root["fixation"] = o;
         }
 
         var ops = new JsonArray();
@@ -181,13 +206,27 @@ public static class LatheJobJson
                     ?? throw new CamJobJson.FormatException(error ?? "Perfil inválido no arquivo.");
             }
 
+            // fixação estragada não impede de abrir (igual à fresa): fica "não informada" e vira aviso
+            var warnings = new List<string>();
+            if (root["fixation"] is not null)
+            {
+                try
+                {
+                    job.Fixation = FixationFrom(root["fixation"] as JsonObject ?? throw new CamJobJson.FormatException("formato inválido"));
+                }
+                catch (CamJobJson.FormatException ex)
+                {
+                    warnings.Add($"Fixação do arquivo ignorada ({ex.Message.TrimEnd('.')}): ficou como não informada.");
+                }
+            }
+
             foreach (JsonNode? on in CamJobJson.Arr(root, "operations"))
             {
                 job.Operations.Add(OpFrom(on as JsonObject ?? throw new CamJobJson.FormatException("Operação inválida.")));
             }
 
             IReadOnlyList<string> problems = job.Validate();
-            return problems.Count > 0 ? new LatheLoadResult(null, problems[0]) : new LatheLoadResult(job, null);
+            return problems.Count > 0 ? new LatheLoadResult(null, problems[0]) : new LatheLoadResult(job, null) { Warnings = warnings };
         }
         catch (JsonException)
         {
@@ -197,6 +236,15 @@ public static class LatheJobJson
         {
             return new LatheLoadResult(null, ex.Message);
         }
+    }
+
+    private static LatheFixation FixationFrom(JsonObject o)
+    {
+        string name = CamJobJson.Str(o, "kind");
+        LatheFixationKind kind = LatheFixation.FromFileName(name) ?? throw new CamJobJson.FormatException($"Valor desconhecido de fixação: \"{name}\".");
+        double? Opt(string key) => o[key] is null ? null : CamJobJson.Num(o, key);
+        var f = new LatheFixation(kind, Opt("gripDiameter"), Opt("gripLength"), Opt("stickOut"));
+        return f.Validate() is { } error ? throw new CamJobJson.FormatException(error) : f;
     }
 
     private static LatheOperationSpec OpFrom(JsonObject o)

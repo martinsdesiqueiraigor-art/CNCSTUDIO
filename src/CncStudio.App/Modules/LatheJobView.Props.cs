@@ -26,9 +26,15 @@ public partial class LatheJobView
     {
         PropsPanel.Children.Clear();
         PropsPanel.Children.Add(new TextBlock { Text = "Propriedades", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        if (FixationSelected())
+        {
+            BuildFixationProps();
+            return;
+        }
+
         if (SelectedOp() is not { } i || i >= _job.Operations.Count)
         {
-            PropsPanel.Children.Add(new TextBlock { Text = "Selecione uma operação na árvore para editar os dados dela.", Opacity = 0.7, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
+            PropsPanel.Children.Add(new TextBlock { Text = "Selecione uma operação ou a fixação na árvore para editar os dados.", Opacity = 0.7, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
             return;
         }
 
@@ -44,6 +50,11 @@ public partial class LatheJobView
         Num(i, "Velocidade de corte (G96)", "m/min", s.Tool.SurfaceSpeed, (x, v) => x with { Tool = x.Tool with { SurfaceSpeed = v } });
         Num(i, "Rotação máxima", "rpm", s.Tool.MaxRpm, (x, v) => x with { Tool = x.Tool with { MaxRpm = v } });
         Num(i, "Rotação fixa (0 = G96)", "rpm", s.Tool.Rpm, (x, v) => x with { Tool = x.Tool with { Rpm = v } });
+        if (LatheJobInfo.SpindleWarning(s.Tool, MachineSource?.Invoke()?.MaxSpindleRpm) is { } spindle)
+        {
+            // só conferência: a rotação e o programa continuam os digitados
+            PropsPanel.Children.Add(UiKit.StatusNote(spindle, "pending"));
+        }
 
         Section("Segurança");
         Num(i, "Z seguro", "mm", s.SafeZ, (x, v) => x with { SafeZ = v });
@@ -103,6 +114,97 @@ public partial class LatheJobView
                 Num(i, "Avanço", "mm/rot", g.Feed, (x, v) => x with { Groove = g with { Feed = v } });
                 break;
         }
+    }
+
+    /// <summary>Fixação: tipo e medidas opcionais. Só informativa; o aviso "não verificada" fica sempre visível.</summary>
+    private void BuildFixationProps()
+    {
+        PropsPanel.Children.Add(UiKit.StatusNote("Fixação não verificada: o app não confere se a peça está presa nem colisão com a placa. Primeira execução sempre no ar.", "pending"));
+        LatheFixation? f = _job.Fixation;
+        string[] kinds = ["Não informada", "Castanhas", "Placa", "Entre pontas (castanhas + contraponto)"];
+        var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        foreach (string k in kinds)
+        {
+            combo.Items.Add(new ComboBoxItem { Content = k });
+        }
+
+        combo.SelectedIndex = f is null ? 0 : (int)f.Kind + 1;
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (combo.SelectedIndex < 0)
+            {
+                return;
+            }
+
+            // trocar o tipo guarda as medidas já digitadas; "Não informada" apaga a fixação
+            LatheFixation? now = combo.SelectedIndex == 0 ? null : (_job.Fixation ?? new LatheFixation(LatheFixationKind.Jaws)) with { Kind = (LatheFixationKind)(combo.SelectedIndex - 1) };
+            SetFixation(now, rebuild: true);
+        };
+        PropsPanel.Children.Add(Row("Tipo", combo));
+        if (f is null)
+        {
+            return;
+        }
+
+        FixNum("Ø de fixação", f.GripDiameter, (x, v) => x with { GripDiameter = v });
+        FixNum("Comprimento preso", f.GripLength, (x, v) => x with { GripLength = v });
+        FixNum("Balanço livre", f.StickOut, (x, v) => x with { StickOut = v });
+        if (f.Validate() is { } error)
+        {
+            PropsPanel.Children.Add(UiKit.StatusNote(error, "bad"));
+        }
+    }
+
+    /// <summary>Medida opcional da fixação: vazio = não informada.</summary>
+    private void FixNum(string label, double? value, Func<LatheFixation, double?, LatheFixation> apply)
+    {
+        var box = new TextBox { Text = value is { } v0 ? Fmt(v0) : "", Watermark = "não informado", MinHeight = 26 };
+        void Commit()
+        {
+            double? v = null;
+            if (!string.IsNullOrWhiteSpace(box.Text))
+            {
+                double parsed = ParseNum(box.Text);
+                if (double.IsNaN(parsed))
+                {
+                    box.Foreground = Avalonia.Media.Brushes.IndianRed;
+                    Errors.Text = $"• Valor inválido em \"{label}\".";
+                    return;
+                }
+
+                v = parsed;
+            }
+
+            box.ClearValue(TemplatedControl.ForegroundProperty);
+            if (v != value && _job.Fixation is { } f)
+            {
+                value = v;
+                LatheFixation next = apply(f, v);
+                // sem refazer o painel (o foco segue para o próximo campo); medida inválida fica em vermelho aqui e na árvore
+                if (v is { } x && !(x > 0))
+                {
+                    box.Foreground = Avalonia.Media.Brushes.IndianRed;
+                }
+
+                SetFixation(next, rebuild: false);
+            }
+        }
+
+        box.LostFocus += (_, _) => Commit();
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                Commit();
+            }
+        };
+        PropsPanel.Children.Add(Row(label, box, "mm"));
+    }
+
+    private void SetFixation(LatheFixation? f, bool rebuild)
+    {
+        _job.Fixation = f;
+        Refresh(keep: true, props: rebuild);
     }
 
     // ---------------------------------------------------------------- campos

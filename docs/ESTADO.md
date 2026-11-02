@@ -472,3 +472,9 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## CAM-02 · rotativo a zero no fim (`ajuste-cam02-rotativo-zero`, T7b)
 - `CamPost`: se o programa termina com A/B/C fora de 0°, depois de Z na referência (G28/G53) sai comentário "NAO VERIFICADO EM MAQUINA" e `G0 A0` antes do M30. Só com perfil da máquina (`PostOptions.Machine`) e 0° dentro do curso; senão comentário "CONFIRA: … NAO VOLTA A ZERO". `CamPost.Check(ops, machine)` avisa nos dois casos. Trabalho fresa, CAM antigo e CAM web passam o perfil.
 - Programa sem rotativo fica idêntico (teste). 11 testes novos (**1245**); Release 0 avisos. Não rodou em máquina; colisão no giro final não verificada.
+
+## T6 torno: Origem e Máquina (ajuste-torno-origem-fixacao)
+- Árvore do Trabalho torno ganha "Origem G54: X0 no centro da peça, Z0 do perfil" (sempre "não verificada") e "Máquina" (perfil ativo e fuso), como na fresa. Core: `LatheJobInfo.OriginTitle/SpindleRpm/SpindleWarning/OverSpindle/OpState`.
+- Rotação acima do fuso (fixa ou G50 em G96): operação "aviso: acima do fuso" (âmbar), pendência na barra e nota nas propriedades; só confere, o programa não muda. **Testes:** 1240.
+- Fixação do torno (opção A do Igor): `LatheJob.Fixation` (`LatheFixation`: tipo castanhas/placa/ponto + Ø de fixação, comprimento preso e balanço opcionais), campo `fixation` opcional no JSON (versão continua 1; arquivo antigo abre como "não informada"); nó da árvore editável, sempre "não verificada", medida ≤ 0 em vermelho. Não entra no programa. **Testes:** 1246.
+- #126 ajustado (Igor, 02/11: "igual à fresa"): fixação do torno inválida no arquivo não impede de abrir; o trabalho abre com aviso e a fixação fica "não informada" (`LatheLoadResult.Warnings`). Corrigido também: "Abrir trabalho" do torno perdia a fixação do arquivo. **Testes:** 1307.

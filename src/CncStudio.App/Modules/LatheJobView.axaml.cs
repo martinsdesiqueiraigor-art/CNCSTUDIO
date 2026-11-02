@@ -123,6 +123,9 @@ public partial class LatheJobView : UserControl
 
     public Func<List<ToolEntry>>? ToolsSource { get; set; }
 
+    /// <summary>Perfil da máquina ativa (o mesmo da fresa), para o limite do fuso.</summary>
+    public Func<MachineProfile?>? MachineSource { get; set; }
+
     public Action? SaveTools { get; set; }
 
     public Func<string, Task>? CopyText { get; set; }
@@ -219,10 +222,13 @@ public partial class LatheJobView : UserControl
         _job.WorkOffset = j.WorkOffset;
         _job.Coolant = j.Coolant;
         _job.Profile = j.Profile;
+        _job.Fixation = j.Fixation;
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
         Refresh();
+        // avisos do arquivo (ex.: fixação inválida, que abre como "não informada")
+        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
     }
 
     // ---------------------------------------------------------------- operações
@@ -230,6 +236,8 @@ public partial class LatheJobView : UserControl
     private sealed record TreeTag(string Kind, int Index);
 
     private int? SelectedOp() => (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "op" } t ? t.Index : null;
+
+    private bool FixationSelected() => (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "fixation" };
 
     private void AddOperation()
     {
@@ -295,13 +303,14 @@ public partial class LatheJobView : UserControl
     private void Refresh(int? op = null, bool keep = false, bool props = true)
     {
         int? keepOp = keep ? SelectedOp() : op;
+        bool keepFixation = keep && FixationSelected();
         _busy = true;
         try
         {
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
             _build = LatheJobBuilder.Build(_job);
-            BuildTree(keepOp);
+            BuildTree(keepOp, keepFixation);
         }
         finally
         {
@@ -332,7 +341,8 @@ public partial class LatheJobView : UserControl
     /// </summary>
     private List<JobBarItem> PendingItems()
     {
-        IReadOnlyList<string> texts = LatheJobInfo.Pending(_job, _build);
+        double? maxRpm = MachineSource?.Invoke()?.MaxSpindleRpm;
+        IReadOnlyList<string> texts = LatheJobInfo.Pending(_job, _build, maxRpm);
         var targets = new List<(string Kind, Action Go)>();
         if (_job.Profile is null)
         {
@@ -360,6 +370,11 @@ public partial class LatheJobView : UserControl
             {
                 targets.Add(("bad", () => GoToOp(index)));
             }
+        }
+
+        foreach (int index in LatheJobInfo.OverSpindle(_job, maxRpm))
+        {
+            targets.Add(("pending", () => GoToOp(index)));
         }
 
         // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho)
@@ -401,7 +416,7 @@ public partial class LatheJobView : UserControl
         }
     }
 
-    private void BuildTree(int? selectOp)
+    private void BuildTree(int? selectOp, bool selectFixation = false)
     {
         Tree.Items.Clear();
         TreeViewItem? select = null;
@@ -413,7 +428,16 @@ public partial class LatheJobView : UserControl
 
         // perfil ausente é pendência (âmbar, como na barra)
         Tree.Items.Add(NodeState(LatheJobInfo.ProfileTitle(_job.Profile), _job.Profile is null ? ("pending", "falta definir") : ("ok", "OK"), "perfil"));
-        Tree.Items.Add(NodeState("Fixação (castanhas)", ("pending", "não verificada"), "fixacao"));
+        Tree.Items.Add(NodeState(LatheJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "preparo"));
+        TreeViewItem fixation = UiKit.StateItem(UiKit.StateRow(LatheFixation.Title(_job.Fixation), LatheFixation.State(_job.Fixation), UiKit.Icon("fixacao", "#8FB4FF", 15)), new TreeTag("fixation", 0));
+        Tree.Items.Add(fixation);
+        if (selectFixation)
+        {
+            select = fixation;
+        }
+
+        MachineProfile? machine = MachineSource?.Invoke();
+        Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
         TreeViewItem tools = Node("Ferramentas", "ferramentas");
         foreach (LatheTool t in LatheJobInfo.ToolsUsed(_job))
         {
@@ -428,7 +452,7 @@ public partial class LatheJobView : UserControl
             LatheOperationSpec spec = _job.Operations[i];
             var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
             // título com reticências: a etiqueta de estado (texto) nunca sai da árvore
-            DockPanel row = UiKit.StateRow(LatheJobInfo.OpTitle(i, spec), OpState(i < _build.Items.Count ? _build.Items[i] : null), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
+            DockPanel row = UiKit.StateRow(LatheJobInfo.OpTitle(i, spec), LatheJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
             row.Opacity = spec.Enabled ? 1 : 0.5;
             check.IsCheckedChanged += (_, _) =>
             {
@@ -450,22 +474,6 @@ public partial class LatheJobView : UserControl
         {
             Tree.SelectedItem = select;
         }
-    }
-
-    /// <summary>Estado de uma operação na árvore (o mesmo texto da fresa): "OK", "desligada" ou "erro: motivo".</summary>
-    private static (string Kind, string Text) OpState(LatheOpResult? r)
-    {
-        if (r is null)
-        {
-            return ("pending", "a calcular");
-        }
-
-        if (r.Skipped)
-        {
-            return ("off", "desligada");
-        }
-
-        return r.Ok ? ("ok", "OK") : ("bad", "erro: " + (r.Error ?? "não foi possível gerar"));
     }
 
     private void UpdatePreview()
