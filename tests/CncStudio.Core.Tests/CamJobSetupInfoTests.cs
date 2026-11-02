@@ -83,7 +83,7 @@ public class CamJobSetupInfoTests
     [Fact]
     public void Rotacao_acima_do_fuso_vira_pendencia_e_aviso_na_arvore()
     {
-        var job = new CamJob { Stock = new JobStock(0, 0, 100, 60, 10) };
+        var job = new CamJob { Stock = new JobStock(0, 0, 100, 60, 10), Fixture = new JobFixture("morsa") };
         job.Contours.Add(Contour.FromPoints([new(0, 0), new(100, 0), new(100, 60), new(0, 60)]));
         CamOperationSpec op = CamJobInfo.NewOperation(JobOpKind.Contour, ContourSide.Outside, 0);
         CamOperationSpec fast = op with { Tool = op.Tool with { SpindleRpm = 9000 } };

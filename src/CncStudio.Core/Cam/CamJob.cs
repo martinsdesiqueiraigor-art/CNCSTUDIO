@@ -18,6 +18,45 @@ public sealed record WrapSpec(string Text, double LetterHeight, string Axis, Wra
 public sealed record JobStock(double X, double Y, double Width, double Length, double Thickness);
 
 /// <summary>
+/// Fixação da peça informada pelo usuário: tipo (<see cref="Kinds"/>) e descrição curta opcional. Só registro: o app não
+/// verifica fixação nem colisão, e nada é suposto quando falta.
+/// </summary>
+public sealed record JobFixture(string Kind, string Description = "")
+{
+    public const int MaxDescription = 80;
+
+    /// <summary>Tipos aceitos (código guardado no arquivo → nome mostrado).</summary>
+    public static readonly IReadOnlyList<(string Code, string Name)> Kinds =
+    [
+        ("morsa", "Morsa"),
+        ("grampos", "Grampos"),
+        ("placa", "Placa (castanhas)"),
+        ("vacuo", "Vácuo"),
+        ("dispositivo", "Dispositivo próprio"),
+        ("outro", "Outro"),
+    ];
+
+    /// <summary>Nome do tipo, ou null se o código não existe.</summary>
+    public static string? NameOf(string code) => Kinds.FirstOrDefault(k => k.Code == code).Name;
+
+    /// <summary>Motivo se a fixação é inválida (tipo desconhecido, descrição longa); null se está boa.</summary>
+    public string? Validate()
+    {
+        if (NameOf(Kind) is null)
+        {
+            return $"tipo \"{Kind}\" desconhecido (use: {string.Join(", ", Kinds.Select(k => k.Code))})";
+        }
+
+        if (Kind == "outro" && string.IsNullOrWhiteSpace(Description))
+        {
+            return "no tipo \"outro\", descreva a fixação";
+        }
+
+        return Description.Length > MaxDescription ? $"descrição com mais de {MaxDescription} letras" : null;
+    }
+}
+
+/// <summary>
 /// Uma operação do Job: os <b>parâmetros</b> (não o percurso). O percurso é gerado de novo, sempre com o mesmo código do CAM,
 /// por <see cref="CamJobBuilder"/>. Só os campos do <see cref="Kind"/> escolhido são usados.
 /// </summary>
@@ -68,6 +107,9 @@ public sealed class CamJob
     public bool Coolant { get; set; } = true;
 
     public JobStock? Stock { get; set; }
+
+    /// <summary>Fixação informada pelo usuário; null = "não definida" (arquivos antigos abrem assim). Fonte única: o Assist lê daqui.</summary>
+    public JobFixture? Fixture { get; set; }
 
     public List<Contour> Contours { get; } = [];
 

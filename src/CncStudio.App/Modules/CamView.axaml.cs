@@ -62,6 +62,9 @@ public partial class CamView : UserControl
 
     public JobStock? JobStockInfo => JobPanel.Stock;
 
+    /// <summary>Fixação do Trabalho fresa (fonte única; o Assist lê daqui).</summary>
+    public JobFixture? JobFixtureInfo => JobPanel.Fixture;
+
     /// <summary>Põe as operações sugeridas no Trabalho de fresa e mostra essa aba.</summary>
     public void ApplyPlan(IEnumerable<CamOperationSpec> operations)
     {
