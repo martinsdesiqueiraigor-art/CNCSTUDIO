@@ -145,10 +145,14 @@ public class AcademyV2Tests
                 Assert.Equal(before.Summary, after.Summary);
                 Assert.Equal(before.Quiz.Select(Key), after.Quiz.Select(Key));
                 Assert.Equal(before.Exercise?.Answer, after.Exercise?.Answer);
-                Assert.EndsWith(before.Text, after.Text);
-                Assert.StartsWith(before.Opening, after.Text);
+                Assert.Equal(before.Text, after.Text);
+                Assert.Equal(before.Opening, after.Opening);
                 Assert.Equal("", after.Sections!.TrajectoryPath);
-                Assert.Empty(after.Sections.SyntaxParams);
+                if (before.Version == 1)
+                {
+                    // aula ainda v1: sintaxe vazia na conversão (o módulo 2 já está em v2 no repositório e volta igual)
+                    Assert.Empty(after.Sections.SyntaxParams);
+                }
             }
             else
             {
@@ -163,6 +167,35 @@ public class AcademyV2Tests
         Assert.Equal(v1.Module("acad-m2")!.Lessons.Count, v2Lib.Module("acad-m2")!.Lessons.Count);
         // só as seções que o v1 não tem viram aviso
         Assert.All(v2Lib.Validate().Where(i => !i.IsError && i.Message.Contains("vazia")), i => Assert.Matches("\"(trajetoria|sintaxe)\" vazia", i.Message));
+    }
+
+    [Fact]
+    public void Piloto_modulo_2_em_v2_rascunho_com_sintaxe_so_na_a02()
+    {
+        AcademyLibrary lib = AcademyLibrary.FromEmbedded();
+        Assert.DoesNotContain(lib.Validate(), i => i.IsError);
+        Assert.All(lib.Module("acad-m1")!.Lessons, l => Assert.Equal(1, l.Version));
+        AcademyModule m2 = lib.Module("acad-m2")!;
+        Assert.Equal(6, m2.Lessons.Count);
+        foreach (Lesson l in m2.Lessons)
+        {
+            Assert.Equal(2, l.Version);
+            Assert.Equal("rascunho", l.Status);
+            Assert.All(LessonSections.Names, n => Assert.Equal("rascunho", l.Sections!.Status[n]));
+            Assert.NotEqual("", l.Opening);
+            bool syntax = l.Sections!.SyntaxBlocks.Count > 0 || l.Sections.SyntaxParams.Count > 0;
+            Assert.Equal(l.Id == "acad-m2-a02", syntax);
+        }
+
+        AcademyJson.UseLibrary(null);
+        JsonObject a02 = JsonNode.Parse(AcademyJson.Dispatch("lesson", """{"id":"acad-m2-a02","hideAnswers":true}"""))!.AsObject();
+        Assert.Equal("G01 X30.0 Y10.0 F120.0", (string)a02["sections"]!["syntaxBlocks"]![0]!);
+        Assert.Equal("F", (string)a02["sections"]!["syntaxParams"]![2]!["address"]!);
+        Assert.NotEqual("", (string)a02["opening"]!);
+        JsonObject catalog = JsonNode.Parse(AcademyJson.Dispatch("catalog", "{}"))!.AsObject();
+        IEnumerable<string> descriptions = catalog["tracks"]!.AsArray().First(t => (string)t!["name"]! == "Fresa")!["levels"]!.AsArray()
+            .Select(l => l!["module"]?["description"]?.GetValue<string>() ?? "");
+        Assert.Contains("ciclos, subprogramas e compensação", descriptions);
     }
 
     [Fact]
@@ -192,6 +225,24 @@ public class AcademyV2Tests
         Assert.Equal(4, results.Count);
         Assert.All(results, r => Assert.False((bool)r!["ok"]!));
         Assert.Equal(right, (int)results[0]!["right"]!);
+    }
+
+    [Fact]
+    public void Teste_final_real_e_corrigido_pelo_id_do_arquivo()
+    {
+        // o conteúdo real usa "acad-m1-final" (não "…-teste-final"); antes a correção devolvia ok:false
+        AcademyJson.UseLibrary(null);
+        JsonObject f = JsonNode.Parse(AcademyJson.Dispatch("final", """{"module":"acad-m1","seed":5,"hideAnswers":true}"""))!.AsObject();
+        string quizId = (string)f["quizId"]!;
+        JsonArray quiz = f["quiz"]!.AsArray();
+        var ids = new JsonArray(quiz.Select(q => (JsonNode)JsonValue.Create((string)q!["id"]!)).ToArray());
+        var answers = new JsonArray(quiz.Select(_ => (JsonNode)JsonValue.Create(0)).ToArray());
+        JsonObject g = JsonNode.Parse(AcademyJson.Dispatch("grade", new JsonObject { ["quizId"] = quizId, ["ids"] = ids, ["answers"] = answers }.ToJsonString()))!.AsObject();
+        Assert.True((bool)g["ok"]!);
+        Assert.Equal(quiz.Count, g["results"]!.AsArray().Count);
+        Assert.Equal((int)g["percent"]!, AcademyProgress.FromJson((string)g["progress"]!).BestScore(quizId));
+        JsonObject a = JsonNode.Parse(AcademyJson.Dispatch("answer", $$"""{"quizId":"{{quizId}}","qid":"{{(string)quiz[0]!["id"]!}}","choice":0}"""))!.AsObject();
+        Assert.True((bool)a["ok"]!);
     }
 
     [Fact]

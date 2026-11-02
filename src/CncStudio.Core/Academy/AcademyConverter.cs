@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 namespace CncStudio.Core.Academy;
 
 /// <summary>
-/// Converte uma aula do JSON v1 para o v2 (ficha ACAD-03). Mapa: abertura + texto → visao.texto, resumo → visao.conceitos,
+/// Converte uma aula do JSON v1 para o v2 (ficha ACAD-03). Mapa: abertura → visao.abertura, texto → visao.texto, resumo → visao.conceitos,
 /// programa → exemplo.programa, erro_comum → cuidados.erros, aviso → cuidados.alertas, exercicio + quiz → praticar.
 /// Trajetória e sintaxe ficam vazias (o v1 não tem esses dados). Dialeto fanuc; máquina torno só na trilha Torno.
 /// Cada seção herda o "status" da aula; trajetória e sintaxe vazias ficam "rascunho".
@@ -73,7 +73,8 @@ public static class AcademyConverter
                 ["visao"] = new JsonObject
                 {
                     ["estado"] = status,
-                    ["texto"] = opening.Length > 0 ? opening + "\n\n" + text : text,
+                    ["abertura"] = opening,
+                    ["texto"] = text,
                     ["conceitos"] = Copy("resumo") ?? new JsonArray(),
                 },
                 ["trajetoria"] = new JsonObject { ["estado"] = "rascunho", ["programa"] = "" },

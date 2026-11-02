@@ -334,8 +334,13 @@ public static class AcademyJson
         return new JsonObject { ["ok"] = true, ["passed"] = r.Passed, ["messages"] = Strings(r.Messages) }.ToJsonString();
     }
 
+    /// <summary>
+    /// Módulo do teste final pelo id do teste (o conteúdo real usa "acad-m1-final"); se nenhum casar, aceita o padrão
+    /// "&lt;módulo&gt;-teste-final".
+    /// </summary>
     private static string ModuleOfFinal(string quizId) =>
-        quizId.EndsWith("-teste-final", StringComparison.Ordinal) ? quizId[..^"-teste-final".Length] : "";
+        AcademyLibrary.Plan.Select(p => Library.Module(p.Id)).FirstOrDefault(m => m?.Final is { } f && f.Id == quizId)?.Id
+            ?? (quizId.EndsWith("-teste-final", StringComparison.Ordinal) ? quizId[..^"-teste-final".Length] : "");
 
     private static JsonArray Questions(IEnumerable<QuizQuestion> questions, bool hideAnswers = false)
     {

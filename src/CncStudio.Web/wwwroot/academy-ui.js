@@ -323,6 +323,7 @@ export function openAcademy(call) {
         head.append(make('strong', l.level + (m && m.badge ? '  🏅' : ''), null, `color:${lc}`), make('span', ok ? (!OPEN_MODULES.has(m.id) && moduleState('academy') === 'EXPIRED' ? '🔒 Licença · ' : '') + `${nDone}/${m.lessons.length} aulas` : 'Em breve', 'ac-muted'));
         c.append(head);
         if (m) c.append(make('div', m.title, null, 'font-size:14px;margin-top:2px'));
+        if (m && m.description) c.append(make('div', m.description, 'ac-muted', 'font-size:12px;margin-top:2px'));
         if (ok) {
           c.append(bar(100 * nDone / m.lessons.length, lc, 'Progresso de ' + l.level));
           if (m.draft) c.append(make('div', 'Conteúdo em rascunho: ainda não revisado.', null, 'color:var(--warn);font-size:12px;margin-top:6px'));
@@ -451,19 +452,21 @@ export function openAcademy(call) {
         if (graded) return;
         if (answers.some(a => a < 0) && !confirm('Há perguntas em branco. Corrigir assim mesmo?')) return;
         const r = ask('grade', { quizId, ids: quiz.map(q => q.id), answers });
-        if (!r.ok) { result.textContent = 'Não foi possível corrigir.'; return; }
+        if (!r.ok || !r.results) { result.textContent = 'Não foi possível corrigir.'; return; }
         graded = true;
         saveProgress(r.progress);
+        // a resposta certa e a explicação só chegam do Core depois da correção (grade.results)
         quiz.forEach((q, qi) => {
+          const res = r.results[qi];
           pickedRow[qi].style.display = 'none';
           optionButtons[qi].forEach((b, oi) => {
             b.style.display = 'block';
             b.classList.remove('picked');
-            if (oi === q.correct) b.classList.add('right');
+            if (oi === res.right) b.classList.add('right');
             else if (oi === answers[qi]) b.classList.add('wrong');
           });
           explains[qi].style.display = 'block';
-          explains[qi].textContent = (answers[qi] === q.correct ? '✓ Correto. ' : '✗ Resposta certa: ' + 'ABCD'[q.correct] + '. ') + q.explanation;
+          explains[qi].textContent = (res.ok ? '✓ Correto. ' : '✗ Resposta certa: ' + 'ABCD'[res.right] + '. ') + res.explanation;
         });
         result.textContent = `${r.correct} de ${r.total} (${r.percent}%) — ${r.passed ? 'aprovado!' : 'precisa de ' + passPercent + '% para passar. Revise e tente de novo.'}`;
         result.className = 'ac-result ' + (r.passed ? 'ac-good' : 'ac-badt');
@@ -667,8 +670,11 @@ export function openAcademy(call) {
             const b = make('button', `${'ABCD'[oi]}) ${o}`, 'ac-opt');
             b.type = 'button';
             b.addEventListener('click', () => {
-              bs.forEach((x, xi) => { x.disabled = true; if (xi === s.q.correct) x.classList.add('right'); else if (xi === oi) x.classList.add('wrong'); });
-              fb.textContent = (oi === s.q.correct ? '✓ Correto. ' : '✗ Resposta certa: ' + 'ABCD'[s.q.correct] + '. ') + s.q.explanation;
+              // correção pelo Core: o quiz chega sem a resposta certa
+              const a = ask('answer', { quizId: s.q.quizId, qid: s.q.id, choice: oi });
+              if (!a.ok) { fb.textContent = 'Não foi possível corrigir.'; return; }
+              bs.forEach((x, xi) => { x.disabled = true; if (xi === a.right) x.classList.add('right'); else if (xi === oi) x.classList.add('wrong'); });
+              fb.textContent = (a.correct ? '✓ Correto. ' : '✗ Resposta certa: ' + 'ABCD'[a.right] + '. ') + a.explanation;
             });
             body.append(b); return b;
           });
@@ -863,7 +869,7 @@ export function openAcademy(call) {
 
     // ---------- Aula em abas: Visão geral, Trajetória, Sintaxe, Exemplo, Cuidados, Praticar ----------
     const lessonScreen = (id, mod, wantedTab) => {
-      const l = ask('lesson', { id });
+      const l = ask('lesson', { id, hideAnswers: true });
       if (!l.ok) { screen(header('Aula', () => moduleScreen(mod)), hint('Aula não encontrada.')); return; }
       const fresh = findModule(mod.id) || mod;
       ui.last = { mod: fresh.id, lesson: l.id }; saveUi();
@@ -894,7 +900,7 @@ export function openAcademy(call) {
         v.append(a); out.push(v);
         // [atenção] e [exemplo] ficam só nas abas Cuidados e Exemplo
         const readerText = paragraphs(l.text).filter(s => !['atenção', 'exemplo'].includes(parseKind(s).tag)).join('\n\n');
-        if (readerText) out.push(cardReader(readerText, l.quiz && l.quiz.length ? l.quiz[0] : null, l.opening));
+        if (readerText) out.push(cardReader(readerText, l.quiz && l.quiz.length ? { ...l.quiz[0], quizId: l.quizId } : null, l.opening));
         (l.diagrams || []).forEach(d => { const f = DIAGRAMS[d]; if (!f) return; const c = card(); c.append(f()); out.push(c); });
         if (l.summary && l.summary.length) {
           const c = card('ac-callout');
@@ -969,11 +975,43 @@ export function openAcademy(call) {
         return out;
       };
 
-      // Sintaxe: o conteúdo atual (v1) não tem esse campo; a aba fica escondida até existir dado
+      // Sintaxe (JSON v2): blocos em monoespaçado e tabela endereço → conceito; sem dado (v1 ou seção vazia), a aba não aparece
+      const syn = l.sections || {};
+      const synBlocks = syn.syntaxBlocks || [], synParams = syn.syntaxParams || [];
+      const sintaxe = () => {
+        const out = [];
+        if (synBlocks.length) {
+          const c = card();
+          c.append(make('strong', 'Como se escreve'));
+          const code = make('div', null, 'ac-code ac-code-lines', 'margin-top:8px');
+          code.setAttribute('aria-label', 'Formato dos blocos');
+          code.tabIndex = 0;
+          synBlocks.forEach(b => code.append(codeLine(b)));
+          c.append(code);
+          out.push(c);
+        }
+        if (synParams.length) {
+          const c = card();
+          c.append(make('strong', 'O que cada endereço significa'));
+          const table = make('table', null, null, 'width:100%;border-collapse:collapse;margin-top:8px;font-size:14px');
+          const head = make('tr');
+          ['Endereço', 'Conceito'].forEach(h => head.append(make('th', h, null, 'text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)')));
+          table.append(head);
+          synParams.forEach(p => {
+            const tr = make('tr');
+            tr.append(make('td', p.address, null, 'padding:6px 8px;font-family:var(--mono, ui-monospace, monospace);font-weight:700;white-space:nowrap;vertical-align:top;border-bottom:1px solid var(--border)'),
+              make('td', p.concept, null, 'padding:6px 8px;border-bottom:1px solid var(--border)'));
+            table.append(tr);
+          });
+          c.append(table);
+          out.push(c);
+        }
+        return out;
+      };
       const defs = [
         { id: 'visao', icon: '📖', label: 'Visão geral', build: visao, show: true },
         { id: 'trajetoria', icon: '🧭', label: 'Trajetória', build: trajetoria, show: walkOk },
-        { id: 'sintaxe', icon: '🔤', label: 'Sintaxe', build: () => [], show: false },
+        { id: 'sintaxe', icon: '🔤', label: 'Sintaxe', build: sintaxe, show: synBlocks.length > 0 || synParams.length > 0 },
         { id: 'exemplo', icon: '🧩', label: 'Exemplo', build: exemplo, show: !!l.program },
         { id: 'cuidados', icon: '⚠️', label: 'Cuidados', build: cuidados, show: !!(mistake || l.warning || pars.some(p => p.tag === 'atenção')) },
         { id: 'praticar', icon: '🎯', label: 'Praticar', build: praticar, show: true },
@@ -1039,7 +1077,7 @@ export function openAcademy(call) {
     // ---------- Teste final ----------
     const finalScreen = mod => {
       ui.last = null; saveUi();
-      const t = ask('final', { module: mod.id, seed: Math.floor(Math.random() * 1e6) });
+      const t = ask('final', { module: mod.id, seed: Math.floor(Math.random() * 1e6), hideAnswers: true });
       if (!t.ok) { screen(header('Teste final', () => moduleScreen(mod)), hint('Teste não encontrado.')); return; }
       const intro = hint(`Nota mínima: ${t.passPercent}%. ${t.canSkip ? 'Quem já conhece o assunto pode fazer este teste direto, sem passar pelas aulas.' : ''}`);
       const foot = make('div', null, 'ac-row', 'margin:16px 0 24px');

@@ -33,7 +33,7 @@ public static class AcademyReader
         o["versao"] is JsonValue v && v.TryGetValue(out int n) ? n : o["secoes"] is JsonObject ? 2 : 1;
 
     /// <summary>
-    /// Aula no formato v2 (uma seção por aba). Os campos que a tela atual lê continuam preenchidos: texto ← visao.texto,
+    /// Aula no formato v2 (uma seção por aba). Os campos que a tela atual lê continuam preenchidos: abertura ← visao.abertura, texto ← visao.texto,
     /// programa ← exemplo.programa, erro comum ← cuidados.erros, aviso ← cuidados.alertas, resumo ← visao.conceitos,
     /// exercício e quiz ← praticar.
     /// </summary>
@@ -74,7 +74,7 @@ public static class AcademyReader
             Questions(praticar["quiz"]), Str(o, "observacoes"), Strings(o["diagramas"]),
             o["video"] is JsonObject v && (Str(v, "url").Length > 0) ? new LessonVideo(Str(v, "titulo"), Str(v, "url")) : null,
             // dialeto e máquina ficam como vieram (vazio = padrão fanuc/fresa ao ler; o validador do v2 exige os dois)
-            concepts, "", dialect, machine, VersionOf(o), sections, Stock(o["bruto"] as JsonObject));
+            concepts, Str(visao, "abertura"), dialect, machine, VersionOf(o), sections, Stock(o["bruto"] as JsonObject));
     }
 
     private static LessonStock? Stock(JsonObject? b) => b is null
