@@ -164,6 +164,11 @@ public static class CamJobInfo
             ? "Círculo: digite números válidos no centro e no diâmetro."
             : diameter <= 0 ? "Círculo: o diâmetro precisa ser maior que zero." : null;
 
+    /// <summary>Ferramenta que vai para o banco: T inteiro de 1 a 9999 e diâmetro maior que zero (mesma regra da aba Fresa antiga).</summary>
+    public static string? BankToolError(int number, double diameter) =>
+        number is < 1 or > 9999 ? "o T precisa ser de 1 a 9999 para ir ao banco."
+            : !double.IsFinite(diameter) || diameter <= 0 ? "o diâmetro precisa ser maior que zero para ir ao banco." : null;
+
     /// <summary>Bruto digitado na tela: as três medidas precisam ser números maiores que zero (null = válido).</summary>
     public static string? StockError(double width, double length, double thickness)
     {
