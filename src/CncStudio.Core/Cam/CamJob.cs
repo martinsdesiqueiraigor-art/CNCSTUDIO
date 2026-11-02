@@ -96,6 +96,9 @@ public sealed record CamOperationSpec(JobOpKind Kind, CamTool Tool, CamLevels Le
 
     /// <summary>Leva a operação para uma face girada (não vale para o texto no cilindro, que já gira sozinho).</summary>
     public RotaryFaceSpec? Face { get; init; }
+
+    /// <summary>De onde vieram os valores (só o Assist marca); null = sem marca. Campo opcional do arquivo.</summary>
+    public OpOrigin? Origin { get; init; }
 }
 
 /// <summary>

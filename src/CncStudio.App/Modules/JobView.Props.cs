@@ -54,6 +54,11 @@ public partial class JobView
         CamOperationSpec s = _job.Operations[i];
         PropsPanel.Children.Add(new TextBlock { Text = "Propriedades", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
         PropsPanel.Children.Add(new TextBlock { Text = CamJobInfo.OpTitle(i, s), Opacity = 0.75, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
+        if (OpOrigin.Describe(s.Origin) is { } origin)
+        {
+            // marca de origem (missão 11): sempre com texto; rascunho em âmbar
+            PropsPanel.Children.Add(UiKit.StatusNote(origin.Text + " (informado, não verificado)", origin.Kind));
+        }
 
         Text(i, "Nome", s.Label, "padrão", (x, v) => x with { Label = v.Trim() });
 
@@ -217,7 +222,8 @@ public partial class JobView
 
         Snap();
         CamTool before = _job.Operations[i].Tool;
-        _job.Operations[i] = change(_job.Operations[i]);
+        CamOperationSpec old = _job.Operations[i];
+        _job.Operations[i] = OpOrigin.Track(old, change(old));
         CamTool after = _job.Operations[i].Tool;
         if (after.Number == before.Number && (after.Diameter != before.Diameter || after.Name != before.Name))
         {
