@@ -142,6 +142,21 @@ public sealed class TriangleMesh
     /// <summary>Cópia deslocada.</summary>
     public TriangleMesh Translated(double dx, double dy, double dz) => Map(p => new Point3(p.X + dx, p.Y + dy, p.Z + dz));
 
+    /// <summary>
+    /// Cópia girada (<see cref="ModelTurn"/>). Giro de 90° exato (só troca e sinal das coordenadas, sem seno e cosseno):
+    /// quatro giros iguais voltam à malha original. É uma rotação de verdade (não espelha), então o sentido dos
+    /// triângulos, o volume e a área não mudam. Para o topo voltar a Z = 0, aplique <see cref="PlacedTopAtZero"/> depois.
+    /// </summary>
+    public TriangleMesh Turned(ModelTurn turn) => turn switch
+    {
+        ModelTurn.XPlus90 => Map(p => new Point3(p.X, -p.Z, p.Y)),
+        ModelTurn.XMinus90 => Map(p => new Point3(p.X, p.Z, -p.Y)),
+        ModelTurn.YPlus90 => Map(p => new Point3(p.Z, p.Y, -p.X)),
+        ModelTurn.YMinus90 => Map(p => new Point3(-p.Z, p.Y, p.X)),
+        ModelTurn.Flip => Map(p => new Point3(p.X, -p.Y, -p.Z)),
+        _ => throw new ArgumentOutOfRangeException(nameof(turn)),
+    };
+
     /// <summary>Cópia com o canto mínimo na origem em X e Y e o topo em Z = 0 (convenção do CAM: Z0 no topo da peça).</summary>
     public TriangleMesh PlacedTopAtZero() =>
         TriangleCount == 0 ? this : Translated(-Bounds.Min.X, -Bounds.Min.Y, -Bounds.Max.Z);
