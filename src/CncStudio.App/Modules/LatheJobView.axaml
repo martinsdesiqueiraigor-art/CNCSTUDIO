@@ -3,22 +3,21 @@
              xmlns:modules="using:CncStudio.App.Modules"
              x:Class="CncStudio.App.Modules.LatheJobView">
   <Grid RowDefinitions="*,Auto">
-  <modules:JobBar x:Name="Bar" Grid.Row="1" />
   <Grid ColumnDefinitions="330,*,330">
+    <!-- Coluna compacta (UX-01, mínimo 1280×720): botões em uma linha cada, para a árvore ter ~8 linhas -->
     <Border Grid.Column="0" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,1,0">
-      <DockPanel Margin="14,12">
+      <DockPanel Margin="10,10">
         <StackPanel DockPanel.Dock="Top" Spacing="6">
-          <TextBlock Text="Trabalho (torno)" FontSize="20" FontWeight="Bold" />
-          <TextBlock Text="Perfil, operações e programa num lugar só. Mude a ordem, desligue ou duplique operações." Opacity="0.75" TextWrapping="Wrap" FontSize="12" />
-          <WrapPanel>
-            <Button x:Name="OpenJobButton" Content="Abrir trabalho…" Padding="10,5" Margin="0,0,6,6" />
-            <Button x:Name="SaveJobButton" Content="Salvar trabalho…" Padding="10,5" Margin="0,0,6,6" />
-          </WrapPanel>
-          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="6" ColumnSpacing="8">
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Nome" VerticalAlignment="Center" />
-            <TextBox Grid.Row="0" Grid.Column="1" x:Name="NameBox" MinHeight="26" />
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Comando" VerticalAlignment="Center" />
-            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="DialectCombo" SelectedIndex="0" MinWidth="120">
+          <TextBlock Text="Trabalho (torno)" FontSize="18" FontWeight="Bold"
+                     ToolTip.Tip="Perfil, operações e programa num lugar só. Mude a ordem, desligue ou duplique operações." />
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <Button x:Name="OpenJobButton" Content="Abrir trabalho…" Padding="6,4" FontSize="12" />
+            <Button x:Name="SaveJobButton" Content="Salvar trabalho…" Padding="6,4" FontSize="12" />
+          </StackPanel>
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+            <TextBlock Text="Nome" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" x:Name="NameBox" MinHeight="26" />
+            <ComboBox Grid.Column="2" x:Name="DialectCombo" SelectedIndex="0" MinWidth="96" ToolTip.Tip="Comando (dialeto do programa)">
               <ComboBoxItem Content="Fanuc" />
               <ComboBoxItem Content="Siemens" />
             </ComboBox>
@@ -34,18 +33,22 @@
           </Expander>
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
-          <ComboBox x:Name="KindCombo" HorizontalAlignment="Stretch" />
-          <Button x:Name="AddButton" Content="Adicionar operação" Padding="12,7" FontWeight="SemiBold" HorizontalAlignment="Stretch" />
-          <WrapPanel>
-            <Button x:Name="UpButton" Content="Subir" Padding="10,5" Margin="0,0,6,0" />
-            <Button x:Name="DownButton" Content="Descer" Padding="10,5" Margin="0,0,6,0" />
-            <Button x:Name="DuplicateButton" Content="Duplicar" Padding="10,5" Margin="0,0,6,0" />
-            <Button x:Name="RemoveButton" Content="Remover" Padding="10,5" Margin="0,0,6,0" />
-            <Button x:Name="UndoButton" Content="Desfazer" Padding="10,5" IsEnabled="False" />
-          </WrapPanel>
-          <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="#FF9A83" FontSize="12" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+            <ComboBox x:Name="KindCombo" HorizontalAlignment="Stretch" />
+            <Button Grid.Column="1" x:Name="AddButton" Content="Adicionar" Padding="10,5" FontWeight="SemiBold" ToolTip.Tip="Adicionar operação" />
+          </Grid>
+          <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="4">
+            <Button x:Name="UpButton" Content="Subir" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Column="1" x:Name="DownButton" Content="Descer" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Column="2" x:Name="DuplicateButton" Content="Duplicar" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Column="3" x:Name="RemoveButton" Content="Remover" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Column="4" x:Name="UndoButton" Content="Desfazer" Padding="2,4" FontSize="12" IsEnabled="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          </Grid>
+          <ScrollViewer MaxHeight="40" HorizontalScrollBarVisibility="Disabled">
+            <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="#FF9A83" FontSize="12" />
+          </ScrollViewer>
         </StackPanel>
-        <TreeView x:Name="Tree" Margin="0,8,0,0" />
+        <TreeView x:Name="Tree" Margin="0,8,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
       </DockPanel>
     </Border>
     <Grid Grid.Column="1" RowDefinitions="*,190">
@@ -82,5 +85,7 @@
       </TabControl>
     </Border>
   </Grid>
+  <!-- Barra por último no XAML: no Tab ela vem depois da coluna da esquerda e da árvore -->
+  <modules:JobBar x:Name="Bar" Grid.Row="1" />
   </Grid>
 </UserControl>

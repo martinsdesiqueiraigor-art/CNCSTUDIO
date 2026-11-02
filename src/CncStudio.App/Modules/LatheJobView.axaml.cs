@@ -1,5 +1,6 @@
 using System.Globalization;
 using Avalonia.Controls;
+using Avalonia.Input;
 using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Dialects;
@@ -343,13 +344,13 @@ public partial class LatheJobView : UserControl
                 }
 
                 PointsBox.BringIntoView();
-                PointsBox.Focus();
+                PointsBox.Focus(NavigationMethod.Tab);
             }));
         }
 
         if (_job.Operations.Count == 0)
         {
-            targets.Add(("pending", () => KindCombo.Focus()));
+            targets.Add(("pending", () => KindCombo.Focus(NavigationMethod.Tab)));
         }
 
         for (int i = 0; i < _build.Items.Count; i++)
@@ -375,7 +376,7 @@ public partial class LatheJobView : UserControl
         {
             Tree.SelectedItem = item;
             item.BringIntoView();
-            item.Focus();
+            item.Focus(NavigationMethod.Tab);
         }
     }
 
@@ -407,15 +408,11 @@ public partial class LatheJobView : UserControl
         TreeViewItem Node(string text, string? icon = null) => new() { Header = icon is null ? text : UiKit.IconLabel(icon, text), IsExpanded = true };
 
         // Mesma tabela de estados da fresa: OK, desligada, erro com motivo, não verificada
-        TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon)
-        {
-            var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8 };
-            row.Children.Add(UiKit.IconLabel(icon, text));
-            row.Children.Add(UiKit.StateTag(st));
-            return new TreeViewItem { Header = row, IsExpanded = true };
-        }
+        TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon) =>
+            UiKit.StateItem(UiKit.StateRow(text, st, UiKit.Icon(icon, "#8FB4FF", 15)));
 
-        Tree.Items.Add(NodeState(LatheJobInfo.ProfileTitle(_job.Profile), _job.Profile is null ? ("bad", "falta definir") : ("ok", "OK"), "perfil"));
+        // perfil ausente é pendência (âmbar, como na barra)
+        Tree.Items.Add(NodeState(LatheJobInfo.ProfileTitle(_job.Profile), _job.Profile is null ? ("pending", "falta definir") : ("ok", "OK"), "perfil"));
         Tree.Items.Add(NodeState("Fixação (castanhas)", ("pending", "não verificada"), "fixacao"));
         TreeViewItem tools = Node("Ferramentas", "ferramentas");
         foreach (LatheTool t in LatheJobInfo.ToolsUsed(_job))
@@ -430,15 +427,9 @@ public partial class LatheJobView : UserControl
             int index = i;
             LatheOperationSpec spec = _job.Operations[i];
             var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
-            var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6, Opacity = spec.Enabled ? 1 : 0.5 };
-            row.Children.Add(check);
-            row.Children.Add(UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
             // título com reticências: a etiqueta de estado (texto) nunca sai da árvore
-            string title = LatheJobInfo.OpTitle(i, spec);
-            var titleBlock = new TextBlock { Text = title, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, MaxWidth = 165, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis };
-            ToolTip.SetTip(titleBlock, title);
-            row.Children.Add(titleBlock);
-            row.Children.Add(UiKit.StateTag(OpState(i < _build.Items.Count ? _build.Items[i] : null)));
+            DockPanel row = UiKit.StateRow(LatheJobInfo.OpTitle(i, spec), OpState(i < _build.Items.Count ? _build.Items[i] : null), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
+            row.Opacity = spec.Enabled ? 1 : 0.5;
             check.IsCheckedChanged += (_, _) =>
             {
                 if (!_busy)
@@ -446,7 +437,7 @@ public partial class LatheJobView : UserControl
                     SetEnabled(index, check.IsChecked == true);
                 }
             };
-            var item = new TreeViewItem { Header = row, Tag = new TreeTag("op", i), IsExpanded = true };
+            TreeViewItem item = UiKit.StateItem(row, new TreeTag("op", i));
             ops.Items.Add(item);
             if (selectOp == i)
             {

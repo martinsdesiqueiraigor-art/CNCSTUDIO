@@ -80,8 +80,10 @@ public static class UiKit
     /// <summary>Etiqueta de estado da árvore ("OK", "desligada", "erro: motivo", "não verificada"): sempre com texto, nunca só cor.</summary>
     public static Border StateTag((string Kind, string Text) st)
     {
-        // texto longo ("erro: motivo…") com reticências; o começo fica sempre visível e o texto inteiro vai na dica
-        var text = new TextBlock { Text = st.Text, FontSize = 11, MaxWidth = 160, TextTrimming = TextTrimming.CharacterEllipsis };
+        // "erro: motivo" mostra só "erro" (o estado inteiro, nunca cortado); o motivo vai na dica e na barra inferior
+        int cut = st.Text.IndexOf(": ", StringComparison.Ordinal);
+        string shown = st.Kind == "bad" && cut > 0 ? st.Text[..cut] : st.Text;
+        var text = new TextBlock { Text = shown, FontSize = 11 };
         ToolTip.SetTip(text, st.Text);
         var tag = new Border
         {
@@ -92,6 +94,34 @@ public static class UiKit
         };
         return FollowTheme(tag, st.Kind, text);
     }
+
+    /// <summary>
+    /// Linha de árvore com estado: controles à esquerda (caixa, ícone), título com reticências no meio e etiqueta inteira à direita.
+    /// Precisa da árvore sem rolagem horizontal e do item esticado (<see cref="StateItem"/>).
+    /// </summary>
+    public static DockPanel StateRow(string title, (string Kind, string Text) st, params Control[] lead)
+    {
+        var row = new DockPanel();
+        foreach (Control c in lead)
+        {
+            DockPanel.SetDock(c, Dock.Left);
+            c.Margin = new Thickness(0, 0, 6, 0);
+            row.Children.Add(c);
+        }
+
+        Border tag = StateTag(st);
+        DockPanel.SetDock(tag, Dock.Right);
+        tag.Margin = new Thickness(6, 0, 0, 0);
+        row.Children.Add(tag);
+        var text = new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        ToolTip.SetTip(text, title);
+        row.Children.Add(text);
+        return row;
+    }
+
+    /// <summary>Item de árvore que ocupa a largura da árvore (para a etiqueta de <see cref="StateRow"/> ficar sempre à vista).</summary>
+    public static TreeViewItem StateItem(Control header, object? tag = null) =>
+        new() { Header = header, Tag = tag, IsExpanded = true };
 
     /// <summary>Aviso em bloco com as cores de estado do tema (claro, escuro e CMYK); acompanha a troca de tema.</summary>
     public static Border StatusNote(string text, string kind = "pending")
