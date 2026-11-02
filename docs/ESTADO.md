@@ -451,3 +451,8 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## Assist: material obrigatório antes de sugerir (`ajuste-assist-material`, T8a)
 - Core: `AssistPlanner.Plan` sem material não sugere nada (nota `MissingMaterial`); antes sugeria com 3000 rpm/F500 genéricos. Tela: o combo não pré-escolhe o 1º material ("Escolha o material…") e "Sugerir plano" mostra o motivo em ⚠. Travas do Aplicar sem mudança.
 - 1 teste novo (**1235** passando); Release 0 avisos. Não conferido na tela (sem roteiro headless até o Assist com DXF).
+## UX-01 rodada 3, PR 4: Fixação no Trabalho fresa (`ajuste-ux01-r3-fixacao`, HANDOFF-20)
+- Core: `CamJob.Fixture` (`JobFixture`: tipo morsa|grampos|placa|vacuo|dispositivo|outro e descrição até 80 letras) salvo como `fixture` no .casillas-job (campo opcional, versão do arquivo igual). Arquivo antigo abre com "Fixação: não definida"; fixação inválida abre com aviso e fica não definida. `Pending` ganha "Fixação não definida".
+- Árvore: item Fixação com estado (âmbar "não definida"; definida = "informada · não verificada", cor neutra) e editor nas propriedades (tipo, descrição, Definir/Limpar); a barra leva ao campo do tipo. Assist só lê a fixação do Trabalho e mostra na revisão; a regra do Aplicar (estratégia de soltura) não mudou. Torno: sem campo no modelo, ficou como estava.
+- **Testes:** 1241. Conferido com Avalonia Headless a 1280×720 (escuro e claro); não testado no Windows real nem a 100%/125%.
+- T1 (decisão B do Igor): "Fixação não definida" só avisa: a barra diz "G-code gerado, com 1 aviso" e os botões Gerar/Enviar continuam ligados (`JobBarItem.Blocking`, `CamJobInfo.Blocks`). As outras pendências, inclusive rotação acima do fuso, continuam travando. **Testes:** 1242.

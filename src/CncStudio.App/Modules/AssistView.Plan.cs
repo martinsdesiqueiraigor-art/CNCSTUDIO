@@ -36,6 +36,22 @@ public sealed partial class AssistView
     /// <summary>Põe as operações sugeridas no Trabalho de fresa.</summary>
     public Action<IReadOnlyList<CamOperationSpec>>? ApplyPlan { get; set; }
 
+    /// <summary>Fixação do Trabalho fresa (fonte única): o Assist só lê e mostra; não guarda cópia nem muda a regra do Aplicar.</summary>
+    public Func<JobFixture?>? PlanFixture { get; set; }
+
+    private readonly ContentControl _planFixture = new();
+
+    /// <summary>Relê a fixação do Trabalho e mostra na revisão (âmbar com texto quando falta; nunca prova que a peça está segura).</summary>
+    private void RefreshFixtureText()
+    {
+        JobFixture? fx = PlanFixture?.Invoke();
+        _planFixture.Content = UiKit.StatusNote(
+            fx is null
+                ? "Fixação do Trabalho fresa: não definida. Defina no item \"Fixação\" da árvore do Trabalho fresa."
+                : CamJobInfo.FixtureTitle(fx) + " (do Trabalho fresa; informada por você, não verificada).",
+            fx is null ? "pending" : "neutral");
+    }
+
     private void AddPlanTab()
     {
         var form = new StackPanel { Spacing = 8, MaxWidth = 700 };
@@ -106,6 +122,7 @@ public sealed partial class AssistView
         buttons.Children.Add(toReview);
         _secSuggest.Children.Add(buttons);
         _secReview.Children.Add(new TextBlock { Text = "3 · Revisar: ferramentas novas, profundidades, alturas Z e fixação", FontWeight = FontWeight.SemiBold });
+        _secReview.Children.Add(_planFixture);
         _secReview.Children.Add(_planMissing);
         _secReview.Children.Add(_planToolsPanel);
         _secReview.Children.Add(_planDepthsPanel);
@@ -174,6 +191,7 @@ public sealed partial class AssistView
 
     private void RefreshPlanApply()
     {
+        RefreshFixtureText();
         _planApply.IsEnabled = _plan is { Ok: true } && ReviewNow().Ok;
         _planMissing.Children.Clear();
         if (_plan is { Ok: true } plan && BuildPlanInput().Input is { } input)
@@ -510,6 +528,7 @@ public sealed partial class AssistView
         _planDrawing.Text = n > 0
             ? $"Desenho do Trabalho fresa: {n} contorno(s)."
             : "Nenhum desenho no Trabalho fresa. Abra um DXF em CAM › Trabalho fresa e volte aqui.";
+        RefreshFixtureText(); // a fixação também vem do Trabalho e pode ter mudado
     }
 
     private void SuggestPlan()
