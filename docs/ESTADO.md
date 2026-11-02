@@ -481,3 +481,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## T4d: aba Fresa antiga removida (`ajuste-remover-aba-fresa`)
 - O CAM abre no Trabalho fresa; a aba "Fresa" (formulário 2,5D antigo) saiu com o código que só ela usava (`CamView` fica só com as abas). Tudo o que ela fazia já estava no Trabalho (T4a, T4b, T4c sem código).
 - Único item só da aba antiga, migrado (opção A do Igor): aviso "Tn no banco do Code tem Ø…, mas o CAM usou Ø…" (Core `CamJobInfo.BankDiameterWarnings`), nos avisos do Trabalho; refeito ao abrir o CAM. Programa e arquivo sem mudança. **Testes:** 1308 (+1); Release 0 avisos; conferido headless a 1280×720.
+## T8b: fixação do Trabalho no plano do Assist (`ajuste-assist-fixacao`, opção A do Igor)
+- Core `PlanReview.Review(..., fixture)` + `FixtureNote`: ao aplicar, a fixação lida do Trabalho fresa (fonte única, sem cópia) entra nas notas, sempre "não verificada"; sem ela, nota "não definida". Só nota: nenhuma trava nova nem afrouxada (estratégia de soltura igual).
+- 3 testes novos (**1311**); Release 0 avisos. Tela sem mudança visual (a nota aparece no texto do Aplicar); não conferida na tela.
