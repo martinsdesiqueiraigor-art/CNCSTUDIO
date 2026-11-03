@@ -39,11 +39,23 @@ Desktop sem placa de vídeo (testes): `CASILLAS_SOFTWARE_GL=1 xvfb-run ...`.
 - Trabalhar num ramo (`fase-N-...`, `ajuste-...`, `dev`). O merge no `main` é do dono, por PR.
 
 ## Como trabalhamos (economia)
-1. **Uma conversa por tarefa ou parada.** Ao começar: ler este arquivo e `docs/ESTADO.md`. Não pedir resumo de conversas antigas.
+1. **Uma conversa por tarefa ou parada.** Ao começar: `git fetch origin` e conferir o commit (`git log -1 origin/main`); se a mensagem de abertura trouxer um commit esperado e ele diferir, avisar o Igor antes de trabalhar. Ler este arquivo e o bloco "Estado atual" de `docs/ESTADO.md` (o histórico em `docs/historico/` só se a tarefa pedir). Não pedir resumo de conversas antigas. Trocar de ramo só com ordem do Igor.
 2. **Prévia pelo GitHub**: todo push num ramo `fase-*`, `ajuste-*` ou `dev` roda `.github/workflows/previa.yml` → testes, web em `https://<ramo>.casillas-code.pages.dev` e o .exe de teste em Actions → Artifacts. Não montar prévia à mão nem publicar artefato com os arquivos do app.
 3. **Conferir com testes, não com fotos.** No máximo uma foto por parada, só em entrega visual.
 4. **Não ler arquivo grande inteiro**: buscar (grep) e ler só o trecho.
-5. Ao terminar: atualizar `docs/ESTADO.md` (3–6 linhas) e relatar em ≤ 10 linhas, com uma caixa de perguntas se houver decisão.
+5. Ao terminar: atualizar o bloco "Estado atual" de `docs/ESTADO.md` (3–6 linhas; manter o arquivo abaixo de 90 linhas, o resto vai para `docs/historico/`), sem escrever contagem de testes (vale o resultado do CI), e relatar em ≤ 10 linhas, com uma caixa de perguntas se houver decisão.
+
+## Roteamento (o que ler, por tarefa)
+Sempre: este arquivo e o bloco "Estado atual" de `docs/ESTADO.md`. Além disso:
+| Tarefa | Ler também |
+|---|---|
+| Academy (aulas, JSON v2) | `docs/tarefas/ACAD-01-academy-piloto.md`, `docs/tarefas/ACAD-02-modulos-2-a-4.md` |
+| CAM, Trabalho, Assist | `docs/tarefas/CAM-01-plano.md`; o resto do CAM está em `docs/historico/` (buscar por grep, não ler inteiro) |
+| STEP, Modelo 3D, seleção 3D | seção "Em ramo" de `docs/ESTADO.md`. **Não ir ao `main` antes do teste do Igor com STEP real e da revisão de licença** |
+| Desktop da plataforma | `docs/tarefas/PLAT-06-desktop-plataforma.md` |
+| Macro, Otimizador | `docs/tarefas/MACRO-01-geradores.md`, `docs/tarefas/OTIM-01-otimizador.md` |
+| Web (tela inicial, módulos) | `src/CncStudio.Web/wwwroot/platform-ui.js`. Mínimo de tela do desktop: 1280×720 lógicos |
+| Conta, licença, Supabase, termos, vendas | **Parar e perguntar ao Igor** |
 
 ## Delegação (GPT, DeepSeek)
 Ver `AGENTS.md` e `docs/tarefas/`. Agentes externos trabalham em ramo próprio `ext-<agente>-<tarefa>` e entregam por PR; o Claude revisa e roda os testes antes do merge. Tarefas com ID por produto (`CODE-<nº>`, `MACRO-`, `ACAD-`…). Ao fechar, a resposta segue a seção **Volta** de `docs/tarefas/MODELO.md`.
