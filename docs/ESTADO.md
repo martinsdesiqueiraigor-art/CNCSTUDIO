@@ -1,493 +1,74 @@
 # Estado atual
 
-Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqui.
-
-- **Na `main` (21/10):** Fase 1 (simulação 3D), CODE-06 interface enxuta (PR #5) e CODE-07 comparação na web/celular, animação do percurso e desktop em paridade (PRs #6 e #7). Web oficial publicada direto da `main`.
-- **Interface:** barra fina de ícones, seletor 2D | 2D + 3D | 3D, menu **Ver**, faixa de baixo numa linha com marcas de troca de ferramenta, editor recolhível. Web: `ComparePanel` (lado a lado, destaque das palavras); simulação começa no início; no play a ferramenta percorre o passo e os retornos dos ciclos (Core: `StepAnimation` na web, `LinePacing` no desktop).
-- **Mouse do 3D no desktop:** só chega ao `GlSceneView` por `ICustomHitTest`. Testado numa placa real (CODE-05) e por teste sem tela.
-- **Conta mestre:** licença vitalícia (20 aparelhos, o máximo do banco) criada no Supabase "Casillas Code" para o e-mail do dono. Mexer no Supabase continua só com autorização dele.
-- **Próximo:** CODE-09 ferramentas de torno (ficha `docs/tarefas/CODE-09-ferramentas-torno.md`), depois CODE-08 DNC. Pendências: corte gradual dentro de movimento longo; apagar ramos antigos (CODE-04, do Igor).
-- **Prévia:** push em ramo `fase-*`/`ajuste-*` publica `https://<ramo>.casillas-code.pages.dev` e o .exe de teste em Actions → Artifacts. **Testes:** 473 passando.
-
-- CODE-09 na `main` (21/10, PR #8): tipos de ferramenta de torno (desbaste, barra interna, bedame, rosca) com desenho e corte próprios; editor só na web. Entrega 2 (PR #15, 22/10): tipo e largura do inserto na tabela de ferramentas do desktop. Falta: perfil real da rosca.
-- CODE-13 na `main` (22/10, PR #14): bedame externo (cabeça fina, alargamento a 45°, cabo 25×25, garra e parafuso), PCLNR com garra em cunha e fresa de topo com 4 canais helicoidais (só visuais). Falta: bedame interno e barras (referências MVQNR), inclinação de 10° da cabeça, ver no app com GPU. **Testes:** 509.
-- Também na `main` (22/10): CODE-10 (6 programas de torno), MACRO-02 (macros O9010 furação em círculo e O9011 bolsão, rascunho, validadas no interpretador; PR #13) e CODE-11 (referência visual de ferramentas). Próximo: bedame interno e barras (MVQNR), Macro 01 (geradores), Academy piloto.
-- MACRO-01 entregas 1 e 2 (ramo `fase-2-macro-geradores`, 22/10): 8 geradores no Core (furação em círculo, grade, bolsões retangular e circular, rasgo, faceamento, furo e rosca helicoidais; macros O9010–O9017), saída programa pronto ou G65 + macro, tela na web (menu Arquivos → Geradores). Todos têm **Z inicial** (topo do bruto, campo W; camadas e alturas seguras partem dele; furação usa W + folga). Falta: teste do Igor no celular, tela no desktop, mais geradores. Ficha `docs/tarefas/MACRO-01-geradores.md`.
-- ACAD-01 (ramo `fase-3-academy`, 24/10): estrutura técnica da Academy na web, menu Arquivos → Academy (cursos). Core: `Academy/` (leitor de aulas JSON, validador da ficha, correção de quiz, progresso no aparelho, ponte `AcademyJson`); tela `wwwroot/academy-ui.js` (trilhas Comum/Fresa/Torno × 6 níveis, aula, quiz, teste final, abrir programa no editor/3D). Conteúdo vem de `content/academy/` e `samples/academy/` (embutido); o teste `EmbeddedContentInTheRepositoryIsValid` barra conteúdo fora da ficha. Módulo 1 (rascunho do GPT, 2ª versão aprovada pelo validador) já incluído. Falta: módulos 2–7, tela no desktop. **Testes:** 583.
-- ACAD-01 teste visual (ramo `fase-3-academy-visual`, sobre o PR #19, 24/10): a aula mostra o programa linha a linha com explicação de cada comando (Core: `ProgramWalkthrough`/`LineExplainer`, texto gerado, sem custo de conteúdo) e um mini 3D em aramado (bruto, eixos, percurso, ferramenta, girar com o dedo, reproduzir). A 1ª versão (PR #19) fica como volta se não der certo. **Testes:** 587.
-- ACAD-01 visual v2 (24/10, PR #20): aula em cartões curtos com pausa rápida; diagramas interativos (eixos X/Y/Z, absoluto × incremental, zero máquina × zero peça/G54); exercício digitado no editor e conferido pelo Core (`ExerciseChecker`: posição final, texto presente, sem erro; a solução do autor tem de passar); espaço para vídeo do YouTube (campo `video`, sem vídeo ainda); mini 3D e leitura linha a linha. Campos novos no JSON da aula: `diagramas`, `video`, `exercicio.editor`. **Testes:** 593.
-- ACAD-01 painel (24/10, PR #20): abas inferiores Início (continuar, anel de progresso, dias seguidos), Trilhas (linha do tempo dos níveis, com cor e barra) e Conquistas (selos de módulo, estatísticas, notas dos testes finais); quiz recolhe as outras alternativas depois de responder (Trocar resposta; Corrigir mostra todas com cor); gráfico dos eixos fixo; mini 3D da aula só gira com o botão Girar; botão do canal do YouTube enquanto a aula não tem vídeo. Fora do escopo por decisão do Igor: mapas visuais.
-- Plataforma (fase-4-plataforma-inicio): tela inicial "Plataforma Casillas" (cartões Code, Academy, Macro ativos; CAM, Biblioteca CNC, Ferramentas "em breve") e barra inferior fixa (Início, Code, Academy, Macro) em `platform-ui.js`; links `#academy`/`#macro`/`#code`; só na web por enquanto (desktop depois). Academy: botões Voltar ao módulo/Próxima aula no fim da aula e do teste final. Atualização 24/10 (fase-5-otimizador, PR #22): tela inicial com 8 cartões em ícones estilo app (Academy, CAM, Code, Biblioteca, Macro, Otimizador, Calculadoras, Loja), sem rolagem; Calculadoras abre o app Casillas em outra aba; Loja e CAM/Biblioteca "em breve"; barra inferior Início/Code/Academy/Macro/Otimizador; aviso de teste; menu do Code enxuto.
-- OTIM-01 (fase-5-otimizador): núcleo do GCodeOptimizer portado para `Core/Optimizer` (130 testes, programas sintéticos), tela web (analisar, propostas, abrir no editor/3D/comparar, revisão e cópia anonimizada), cartão "Casillas Otimizador" e barra inferior. Só simulador. Ver `docs/tarefas/OTIM-01-otimizador.md`.
-- PLAT-03 (fase-6-conta-unica): web usa a conta única (Supabase "Casillas", funções `platform_*_v1`): teste de 30 dias para todos os módulos, 2 aparelhos, ativar código na tela Conta; Macro e Otimizador travam com "Comprar licença" no fim do teste; Code trava a simulação (reproduzir/passo a passo), salvar e exportar. Falta: Academy (módulo 1 aberto, demais travados), painel de ativação novo, desktop. Auth do projeto novo: conferir Site URL e URLs de redirecionamento (casillas-code.pages.dev e *.casillas-code.pages.dev). Atualização (fase-7-academy-painel): Academy trava módulos ≠ 1 sem teste/licença (módulo 1 sempre aberto); painel de ativação (`admin/index.html`) reescrito para o projeto "Casillas": gerar códigos (módulo/pacote, assinatura ou vitalícia), clientes, licenças, revogar, liberar aparelho; funções `platform_admin_*_v1`.
-- PLAT-03 (fase-6-conta-unica): web usa a conta única (Supabase "Casillas", funções `platform_*_v1`): teste de 30 dias para todos os módulos, 2 aparelhos, ativar código na tela Conta; Macro e Otimizador travam com "Comprar licença" no fim do teste; Code trava a simulação (reproduzir/passo a passo), salvar e exportar. Falta: Academy (módulo 1 aberto, demais travados), painel de ativação novo, desktop. Auth do projeto novo: conferir Site URL e URLs de redirecionamento (casillas-code.pages.dev e *.casillas-code.pages.dev).
-- MACRO-03 (fase-8-macro-texto, 24/10): gerador **Texto (gravação)**:  [arco: raio K e lado M, texto segue um círculo] fonte de traço único própria (A–Z, 0–9, `- _ = + / . , : ! ( )`; acentos viram a letra base), altura, largura %, espaço entre letras, ângulo, alinhamento (esq./centro/dir.), Z inicial, passes em Z, avanço de descida e de corte. Só programa pronto (sem G65). Core: `StrokeFont`, `TextEngravingGenerator`; geradores ganharam campos de texto (`TextParameters`, `SupportsMacro`) e a tela web mostra o campo de texto. **Testes:** 740.
-- UI do Code (ramo `ajuste-code-ui`, 25/10): (1) menus Arquivos, Funções e movimentos rápidos escondem o 3D enquanto abertos (o 3D é elemento do navegador e cortava o menu); (2) botão "N avisos/erros" abre cartão com tipo, linha, mensagem, linha do programa e "como corrigir" (Core: `DiagnosticAdvice`), com Anterior/Próximo; (3) cabeçalho em uma linha, versão e licença sob o nome, botões mais justos no celular em pé. **Testes:** 750. Falta ver na prévia (celular em pé e deitado).
-- UI do Code, etapa 2 (ramo `ajuste-tela-inicial`, 25/10): tela inicial com logo maior e cartões menores. Em pé: 3 colunas, última linha centralizada, sem descrição. Deitado: logo e título à esquerda, 4×2 cartões (Loja não fica sozinha). Só `platform-ui.js`. **Testes:** 750. Falta ver na prévia.
-- UI do Code, etapa 1 (ramo `ajuste-code-formatar`, 25/10): menu Funções da web ganha "Formatar o programa": Espaçar código, Juntar código e Letras maiúsculas (Core: `NcTextTools`, já testado; comentários e textos não mudam; uma ação no Desfazer). **Testes:** 750. Falta ver na prévia (celular). Próximas: 2 tela inicial, 3 barra de simulação flutuante, 4 teclado do editor, 5 cores, 6 tema ciano.
-
-- **Painel de controle (ramo `ajuste-painel-controle`)**: cartão estilo máquina na simulação (2D e 3D): posição absoluta, falta percorrer por eixo, ferramenta, avanço/rotação, G ativos e zero de peça (G54–G59). Sem coordenada máquina. Arrasta, recolhe/expande; liga/desliga em Ver. Core: `Panel/ControlPanel`, `MachineModal` por movimento.
-- UI do Code, etapa 4 (ramo `ajuste-teclado-editor`, 25/10): (1) teclado próprio do editor no celular (`EditorKeyboard`, `MainView.Keyboard.cs`): botão "Teclado" no editor; letras do G-code (G M N O X Y Z...), página 123 com números e símbolos, setas, espaço, Apagar (repete), Enter, Desfazer e esconder; não abre o teclado do Android e o "Editar" nativo continua. (2) balão do código: tocar num G/M/endereço (ou digitar) mostra a explicação do Core (`GCodeHelp`); fecha no X ou em 9 s. (3) correção: o canvas do Avalonia ocupava a tela toda e a barra inferior cobria o rodapé do app (status e informações do ponto); `#out` agora é relativo e cortado (`platform-ui.js`). Conferido no app publicado em navegador de teste: abrir, digitar G83 e ver o balão. **Testes:** 750. Falta ver na prévia, no celular.
-- Etapa 4, ajuste (25/10, a pedido do Igor): botão "Balão: sim/não" liga e desliga o balão do código (fica guardado em `cc.balloon`); letras mais usadas do teclado com cor (G azul, M laranja, X Y Z verde, F S T amarelo, I J K R roxo).
-- UI do Code, etapa 3 (ramo `ajuste-barra-simulacao`, 25/10): no 3D sozinho, os controles da simulação (início, voltar, play, passo, fim, progresso, velocidade) saem do rodapé e flutuam dentro do 3D, numa barra HTML (`scene3d.js`: `setSimBar`/`onSimBar`/`setSimBarVisible`; C#: `Scene3DView.SimBarCommand`, `MainView.SimCommandAsync`, mesmos comandos e trava de licença do rodapé). Fica em baixo, à direita, em cima ou à esquerda: arrastar a alça ou tocar nela troca (guarda em `cc.simbar.edge`); vertical compacta no celular deitado. Sem as marcas de troca de ferramenta no 3D (continuam no 2D+3D e no 2D). Com 2D ao lado vale o rodapé. **Testes:** 750. Falta ver na prévia.
-
-- **Tema CMYK (ramo `ajuste-tema-cmyk`)**: opção em Ver → "Tema CMYK" (ciano de destaque, magenta na marca, fundo azul-petróleo). Padrão continua o visual laranja. Cor dos elementos HTML via `--cc-accent`.
-
-- **CMYK em todos os módulos HTML** (ramo `ajuste-tema-cmyk-modulos`): o tema agora também recolore Início, Academy, Macro, Otimizador, Ferramentas e rodapé (sobreposição de cores em `web.js`). Cada cartão da Início mantém a cor própria do produto.
-
-- **Atalho de tema no rodapé** (ramo `ajuste-tema-atalho`): botão "Tema" no rodapé alterna padrão ↔ CMYK em qualquer módulo; sincroniza com a opção do menu Ver.
-
-- **ACAD-02** (`docs/tarefas/ACAD-02-modulos-2-a-4.md`): ficha dos módulos 2 a 4 da Academy pronta para o GPT (um PR por módulo). Aguarda o Igor entregar ao GPT.
-
-- **PLAT-06** (`docs/tarefas/PLAT-06-desktop-plataforma.md`): plano da plataforma no desktop (barra de módulos, Início, Tema, Otimizador, Macro, conta, Academy). CAM-01 atualizado: desktop primeiro. Nada codado.
-- **CAM-01** (`docs/tarefas/CAM-01-plano.md`): plano do Casillas CAM 2,5D escrito (6 entregas, 5 decisões do Igor). Nada codado.
-- **Casillas Loja (teste)** (ramo `ajuste-loja-teste`): módulo abre pelo cartão/#loja; catálogo em `wwwroot/loja/catalogo.json` (1 item: apalpador 3D, specs A definir, preço sob consulta); pedido pelo WhatsApp. Sem pagamento, sem preço no repositório.
-
-- **Desktop, etapa 1 do PLAT-06** (ramo `ajuste-desktop-barra-modulos`): barra lateral de módulos (Início, Code, Otimizador, Macro, CAM, Academy; os 4 últimos "em breve"), tela Início e botão Tema CMYK (salvo nas configurações). O Code não mudou: o Início só o cobre.
-
-- **Desktop, etapa 2** (`ajuste-desktop-otimizador`): módulo Otimizador nativo (analisar, propostas, abrir proposta/revisão no editor, copiar anonimizada), usando `Core/Optimizer`.
-
-- **Desktop, etapa 3** (`ajuste-desktop-macro`): módulo Macro nativo (9 geradores, programa pronto ou G65 + macro, abrir no editor para simular), usando `Core/Generators`.
-
-- **Desktop, etapas 5 e 6**: Academy fica só na web (decisão do Igor, 26/10). Loja nativa no desktop (catálogo `loja/catalogo.json` compartilhado com a web, pedido pelo WhatsApp). Falta a etapa 4 (conta e licença).
-
-- **Desktop voltado ao operador** (`ajuste-desktop-links-web`): Academy, Loja e Calculadoras viram botões que abrem a web (endereços em `Modules/PlatformModules.cs`); Loja nativa removida. Desktop fica com Code, Otimizador, Macro e CAM.
-
-- **Desktop visual** (`ajuste-desktop-visual`): Início no estilo da web (logo com máscara, cartões com ilustração e cor por produto; as imagens são as mesmas da web, ligadas por `AvaloniaResource Link`), barra lateral com ícones coloridos e destaque na cor do produto, marca "Casillas Code" no cabeçalho, CMYK completo (editor, código, abas e painéis).
-
-## CAM-01 entrega 1 — geometria 2D e offset (ajuste-cam-geometria)
-- `Core/Cam`: `Point2`, `Segment2` (reta/arco), `Contour` (área com sinal, sentido, perímetro, retângulo/círculo/polígono, `Reversed`).
-- `Contour.OffsetOutside(d)` / `OffsetLeft(d)`: desloca por fora/dentro, com arco nos cantos externos e encontro nos internos; devolve erro se não cabe ou se cruza.
-- 13 testes novos (`ContourOffsetTests`); total 769 passando. Próximo: entrega 2 (importar DXF).
-
-## CAM-01 entrega 2 — importar DXF (ajuste-cam-dxf)
-- `Core/Cam/DxfImporter.Parse(texto)`: LINE, ARC, CIRCLE, LWPOLYLINE e POLYLINE (com bulge); junta retas/arcos soltos em contornos fechados (pontas a 0,001 mm, inverte o que precisar).
-- Devolve contornos fechados, cadeias abertas e avisos (SPLINE/ELLIPSE/texto ignorados). Só DXF em texto.
-- 11 testes novos; total 780 passando. Próximo: entrega 3 (operações: faceamento, contorno, bolsão, furação).
-
-## CAM-01 entrega 3 — operações (ajuste-cam-operacoes)
-- `Core/Cam`: `CamOperations.Facing`, `.Contour` (fora/dentro/sobre a linha, concordante ou convencional, sobremetal, entrada/saída em arco, compensação G41/G42 ou percurso já deslocado), `.Pocket` (anéis concêntricos, rampa helicoidal, acabamento), `.Drilling` (G81/G82/G83/G73, ordem do furo mais próximo, furos a partir de círculos do DXF).
-- Saída neutra (`ToolMove`, `DrillCycle`); o G-code sai na entrega 4 (pós Fanuc/Siemens), onde cada programa passa também pelo `MachineExecutor`.
-- Limites: bolsão sem ilhas; contorno por dentro desce na vertical (avisa). 22 testes novos; total 801 passando.
-
-## CAM-01 entrega 4 — pós-processador Fanuc e Siemens (ajuste-cam-pos)
-- `Core/Cam/CamPost.Generate(operações, PostOptions)`: cabeçalho, troca de ferramenta (T/M6, G43 H no Fanuc, D no Siemens), S/M3, refrigerante, G54, movimentos com avanço modal, arcos e hélices (I/J), G41/G42 (Fanuc `D`, Siemens sem D), furação G81/G82/G83/G73 (Fanuc) e CYCLE81/82/83 com MCALL (Siemens), fim com M30.
-- Cada programa passa pelo `MachineExecutor`: o percurso simulado é igual ao gerado (movimento a movimento) e a compensação G41 desloca para o lado certo.
-- 17 testes novos; total 818 passando. `DrillCycle` ganhou `SafeZ`. Próximo: entrega 5 (tela do CAM no desktop).
-
-## CAM-01 entrega 5 — tela do CAM no desktop (ajuste-cam-tela)
-- Módulo **CAM** ativo na barra lateral: abrir DXF ou desenhar retângulo/círculo, lista de contornos, ferramenta e alturas, operação (contorno fora/dentro/sobre a linha, bolsão, faceamento, furação pelos círculos), lista de operações, comando Fanuc/Siemens, prévia 2D com o percurso, "Gerar programa" e "Abrir no editor (simular no Code)".
-- Testado em Xvfb: retângulo + círculo → contorno por fora → programa abre no Code com 0 erros (2 avisos de G28, que o simulador não desenha).
-- Core: `Contour.BoundsXY`, `ToolpathView.CuttingPolylines` (+3 testes; total 821). Só desktop; na web o CAM continua "em breve".
-- Falta: testar com um DXF real de máquina, ilhas no bolsão, banco de ferramentas, torno e 3D (entrega 6).
-
-## CAM-01 entrega 6a — banco de ferramentas (ajuste-cam-ferramentas)
-- Banco = a **mesma tabela de ferramentas do Code** (`AppSettings.Tools`, em config.json): `ToolEntry` ganhou rotação e avanços. Uma fonte só: o simulador do Code usa o diâmetro cadastrado.
-- Tela do CAM: escolher ferramenta do banco (preenche T, Ø, rpm, avanços e nome), salvar no banco, excluir. "Abrir no editor" cadastra no banco as ferramentas que faltam.
-- Pós: nome da ferramenta no comentário da troca; mesma ferramenta com rotação diferente emite novo S; `CamPost.Check` avisa T repetido com diâmetros diferentes (e a tela avisa se o diâmetro difere do banco).
-- 4 testes novos; total 825. Próximo: 6b torno.
-
-## CAM-01 entrega 6b — torno (ajuste-cam-torno)
-- `Core/Cam/Lathe.cs`: `LatheProfile` (trechos em Z × raio, orientado para a placa), `LatheOperations.Turning` (externo/interno, desbaste e/ou acabamento, perfil tipo I; recusa rebaixo, bruto menor que o perfil), `.Facing`, `.Drilling` (bicadas em movimentos simples).
-- `Core/Cam/LathePost.cs`: Fanuc (G71/G70, G96+G50, G99, T0101) e Siemens (CYCLE95 com contornos depois do M30, G96 LIMS, G95, DIAMON). Só acabamento sai como movimentos simples.
-- Conferido pelo simulador: o percurso nunca entra no perfil (externo) nem sai do furo (interno), o acabamento passa pelo perfil (inclusive arco) e chega ao fundo/centro. 17 testes novos; total 842.
-- Tela: no módulo CAM, aba **Torno** (perfil por DXF ou pontos "Z Ø", ferramenta, operações, prévia do programa simulado, gerar, abrir no editor).
-- Limites: sem rosca, canal, G72/G73 nem perfil com rebaixo (tipo II); sem integração com o banco de ferramentas do torno; sobremetal radial do Siemens (FALX) precisa ser conferido em controle real.
-
-## CAM-01 · entrega 6c — rosca no torno
-- `LatheOperations.Threading` (externa/interna, passo ISO, altura 0,6134·P / 0,5413·P, passes √ + acabamento) e `LatheThread` no Core.
-- Pós: Fanuc `G76` (dois blocos, P/Q em mícrons, `G97` giro fixo) e Siemens `CYCLE97`; volta ao `G96` na operação seguinte.
-- Tela do torno: "Rosca externa" e "Rosca interna". Testes simulam os dois dialetos (raiz, crista, Z de entrada/saída).
-- Limites: só rosca reta, 1 entrada, flanco 60°; não testado em máquina real.
-
-## CAM-01 · entrega 6d — canal no torno
-- `LatheOperations.Grooving` (canal radial externo/interno, retangular): mergulhos com quebra-cavaco, passo lateral de 80% da ferramenta, acabamento das duas paredes e do fundo com sobremetal.
-- Movimentos simples (Fanuc e Siemens iguais; o simulador não executa CYCLE93, por isso não usamos). Z da ferramenta = aresta de maior Z.
-- Tela: "Canal externo" e "Canal interno". Testes simulam e conferem fundo, paredes e cobertura.
-- Limites: só canal reto (sem chanfro/raio, sem canal de face).
-
-## CAM-01 · entrega 6e — perfil com rebaixo (mergulho)
-- `Turning` aceita perfil cujo raio vai e volta (canal/rebaixo); Z segue obrigatoriamente rumo à placa. Antes recusava.
-- Fanuc: G71 tipo II (1º bloco do perfil com X e Z); Siemens: CYCLE95 (o simulador mergulha no rebaixo nos dois).
-- Com rebaixo o sobremetal em Z vai a zero (senão corta a parede do rebaixo a mais) e aparece aviso. Teste simula e confere que nada entra na peça.
-- Limites: sem checar ângulo de folga da pastilha; para canal retangular simples use "Canal" (6d).
-
-## CAM-02 · etapa 1 — perfil de máquina 4/5 eixos
-- Core: `MachineProfile` (comando, até 2 eixos rotativos A/B/C na mesa ou no cabeçote, limites, pivô, sentido, modo de saída calculado ou função da máquina), `Validate`/`Warnings`, `Describe`, modelos prontos e JSON (`MachineProfileJson`). 10 testes.
-- Desktop: aba "Perfil 4/5 eixos" no CAM (lista, novo a partir de modelo, duplicar, excluir, salvar, "usar este perfil"); perfis em `config.json` (`MachineProfiles`, `ActiveMachineProfile`).
-- Ainda **não gera programa**: só guarda a máquina. Próximo: 4º eixo no modo calculado (Fanuc 21i, sem G68.2/TCP, 5 eixos simultâneos). Plano: `CAM-02-4-e-5-eixos.md` no Projeto.
-
-## CAM-02 etapa 2 — 4º eixo no modo calculado (Core)
-- `ToolMove` ganhou palavra rotativa opcional (`RotaryLetter`/`RotaryAngle`); `CamPost` escreve A/B/C em Fanuc e Siemens (só quando muda).
-- `RotaryIndexing.Place`: leva operação 2,5D (face para cima) para a face girada do eixo A ou B na mesa: translada pelo pivô, sobe à altura segura, gira, corta, recua. Respeita curso e sentido invertido; recusa cabeçote, modo nativo e furação em ciclo fixo.
-- Sem tela ainda (próximo passo). Nada testado em máquina: rodar no ar e conferir o sentido de A/B. 874 testes.
-
-## CAM-02 etapa 2b — tela da face girada
-- Aba Fresa do CAM: caixa "Face girada no 4º eixo" (eixo A/B, ângulo, distância centro→face); usa o perfil de máquina ativo e aplica `RotaryIndexing.Place` na operação ao adicionar. Mostra o erro do perfil (curso, cabeçote, modo função).
-- Não conferido em tela com GPU nem em máquina.
-
-## CAM-02 etapa 2c — simulador com eixo rotativo
-- Executor da fresa lê A/B/C (antes: aviso "não simulado"); o ângulo vai no estado modal (`RotaryAngles`) e aparece como linhas A e B no painel de controle quando o programa usa giro.
-- O corte do material **não** é simulado com a peça girada (mapa de alturas é 3 eixos): movimentos com A/B ≠ 0 não retiram material; um aviso diz isso uma vez. O desenho do percurso continua em coordenadas de máquina.
-- Falta (não autorizado): girar o bruto/percurso na vista 3D e simular o corte na face girada.
-
-## CAM-02 etapa 2d — percurso na peça girada (3D)
-- `RotaryPartFrame` (Core/Scene): desfaz o giro de A/B (mesa) em cada ponto do percurso; o 3D do desktop desenha o percurso **na peça parada**, a partir do perfil de máquina ativo (pivô e sentido). Ferramenta fica escondida enquanto a peça está girada (ficaria inclinada).
-- O desktop passou a usar o mesmo filtro da fábrica: movimentos com A/B ≠ 0 não cortam o mapa de alturas.
-- Ainda não: cortar o material na face girada, ferramenta inclinada, C e cabeçote. Sentido do giro não conferido em máquina.
-
-## CAM-02 etapa 3 — CAM rápido na web (celular)
-- `CamQuickJson` (Core): retângulo ou círculo + contorno por fora/dentro/sobre a linha ou bolsão, Fanuc/Siemens, 4º eixo opcional (face girada). `cam-ui.js` + `MainView.Cam.cs`: formulário em HTML, abre no editor ou no 3D. Cartão "Casillas CAM" deixou de ser "em breve".
-- Sem DXF, sem torno e sem várias operações (use o desktop). **Sem trava de licença** (módulo `cam` não existe no banco): decisão do Igor antes de publicar o site oficial.
-- Conferir na prévia do ramo (celular): formulário, programa com A90, abrir no 3D.
-
-## CAM-02 etapa 3b — a peça gira na simulação (visual)
-- A trajetória carrega o giro da mesa (`MachineSettings.PartFrame` → `ToolPath.PartFrame`): limites e bruto automático são calculados na peça parada. Desktop: vem do perfil de máquina ativo (a análise refaz ao trocar o perfil). Web: do formulário do CAM.
-- `SimulationScene.PartMatrix` (A/B do movimento atual) gira material, fixações e percurso; a ferramenta fica parada e sempre visível. Desktop (OpenGL: matriz no modelo e nas linhas; normal rotacionada) e web (three.js, grupo da mesa). Conferido no desktop com GPU por software; **web não conferida a olho**.
-- Cada rotativo gira de uma vez no movimento seguinte (indexado). O corte do material na face girada continua não simulado.
-
-## CAM-02 etapa 3c — texto enrolado no cilindro (4º eixo contínuo)
-- `RotaryWrap` (Core): traços desenrolados (u ao longo do eixo, v ao redor) viram X (ou Y) e A (ou B) **juntos**, Z fixo na superfície menos a profundidade, ferramenta vertical sobre a linha de centro. Avanço corrigido por trecho: o controle trata graus como mm, então F sai ajustado para a superfície andar no avanço pedido. Checa o curso do eixo. Texto em fonte de traço único (`StrokeFont`).
-- Pós: no Siemens, `FGROUP(X,Y,Z,A)` antes e `FGROUP(X,Y,Z)` depois (o rotativo entra no avanço de trajetória). **O comportamento do F com rotativo no Fanuc 21i não foi confirmado**: rodar no ar, avanço baixo.
-- Telas: desktop (aba Fresa, "Texto enrolado no cilindro", usa o perfil ativo) e web (formulário do CAM). No 3D o bruto automático é uma caixa em volta da gravação (o cilindro redondo não é desenhado).
-- Não feito: gravar contorno/figura no cilindro, texto ao redor (em vez de ao longo do eixo), 3D simultâneo (X,Y,Z,A) de superfícies.
-
-## CAM-02 etapa 3d — eixo rotativo contínuo e corte da face girada (desktop)
-- Movimento só de A/B vira um movimento de comprimento zero e o ângulo é interpolado ao longo do trecho (usinar com o 4º eixo girando junto): a peça gira suave na simulação.
-- Material em voxels (`VoxelStock`, `VoxelSimulator`, `VoxelMesh`; bits, blocos de 16³, faces expostas em fileiras) quando o programa gira a peça (`SimulationFactory.NeedsVoxels`): a ferramenta é levada para a peça parada e corta em qualquer direção (perfis topo reto/esférica/toroidal/cone). Voltar/avançar por pontos de retorno; rápidos não cortam (sem aviso de colisão).
-- Só no desktop. A web continua em 3 eixos (não corta nesses trechos; o aviso do analisador diz isso). Bruto: o do setup (bloco) ou caixa em volta dos cortes; cilindro redondo não é desenhado.
-- Resolução: até 256 voxels no lado maior e 12 milhões no total (voxel ≥ 0,05 mm). Conferido a olho no desktop (face girada e gravação enrolada).
-
-## Setup — eixo do bruto cilíndrico (X, Y ou Z)
-- `SetupStock.Axis` (Z padrão; arquivos antigos seguem iguais). Redondo e tubo, só na fresa. Eixo X/Y = cilindro deitado: o campo do eixo é o começo e `Height` o comprimento; os outros dois campos são o centro. `Extent` (caixa) e `Contains` (ponto no material, com furo do tubo) no Core; `ToStock` usa a caixa.
-- Cilindro deitado usa material em voxels (`SimulationFactory.UsesVoxels`) nas duas cascas; celular com voxel mais grosso (≤96 no lado, ≤1 milhão no total). Com isso a web também passa a cortar a face girada (aproximado), em vez de ignorá-la; **não conferido no celular**.
-- Formulário do setup (web): seletor "Eixo do cilindro"; com eixo X/Y a posição vira o centro da barra e a fixação fica abaixo do cilindro. O desktop lê o setup salvo (a caixa de bruto do desktop só edita bloco).
-- Não feito: castanhas/morsa acompanhando o eixo, vista 2D de frente para o eixo (proposta pendente).
-- **Voxels, acabamento:** a luz da malha usa a normal suavizada (gradiente da densidade numa janela 5×5×5; as faces planas do bruto seguem planas) e faces vizinhas iguais continuam fundidas. Voxel mais fino: PC até 320 por lado / 16 milhões; celular até 160 por lado / 2,5 milhões. Medido no PC (Release, texto no cilindro Ø50×60): simulação ≈ 0,2 s e malha ≈ 1,7 s; **tempo no celular (WASM) não medido**.
-- **Eixo automático do bruto:** `SetupAxis.Auto` segue o eixo rotativo da mesa do perfil de máquina: A → cilindro ao longo de X, centro no pivô (Y, Z); só B → ao longo de Y, centro no pivô (X, Z); sem perfil, X com os campos informados. `SetupStock.Resolved(frame)`, `RotaryPartFrame.HasA/HasB`. Seletor "Automático (eixo da máquina)" no setup da web; no desktop vale o perfil ativo. Na web, o eixo automático só acha o pivô quando há perfil (hoje o perfil vem do formulário do CAM).
-
-## Vista 2D de frente para o eixo (web)
-- `RotaryEndView` (Core): dados da vista olhando ao longo do eixo (A → plano YZ, B → XZ): contorno do bruto (círculo do cilindro do setup, com furo no tubo, ou caixa) girado pelo ângulo atual, marca do topo da peça, percurso executado na superfície (girado junto) e ferramenta parada. Uma fonte de dados para as duas cascas; testes em `RotaryEndViewTests`.
-- Web: botão "de frente para o eixo" no 2D, só aparece quando o programa gira a peça (hoje o giro vem do formulário do CAM). Conferido só pela geometria (gráfico dos dados); **o desenho na tela não foi visto a olho**.
-- Desktop: **ainda não**; a vista do desktop usa outra tela 2D (decisão do Igor).
-
-## CAM-02 — furação na face girada (4º eixo)
-- `RotaryIndexing.Place` passa a aceitar furação em ciclo fixo (G81/G82/G83/G73; CYCLE81/82/83 no Siemens): desloca pontos e níveis Z para a face girada e o pós gira o eixo (`DrillCycle.RotaryLetter/RotaryAngle`) na altura segura, acima do cilindro, antes de descer ao primeiro furo. O ciclo fica como está: o furo sai radial porque a face gira para cima.
-- Desktop: já vale na tela do CAM (caixa "face girada" com a operação de furação). Web: o CAM web ainda não tem furação.
-- Limites: o eixo não volta a zero ao fim (como nas outras operações da face girada); confira sentido do giro e rode no ar; Siemens com rotativo e ciclo não confirmado em controle.
-
-## CAM-03 · J1 — modelo do Job no Core (ajuste-cam-job-modelo)
-- `Core/Cam/CamJob.cs`: `CamJob` (nome, comando, nº do programa, zero, bruto, contornos, lista de `CamOperationSpec` com os **parâmetros** de contorno, bolsão, faceamento, furação, texto no cilindro e face girada; ligar/desligar, mover, duplicar) e `CamJobBuilder` (gera percurso e programa com o mesmo código do CAM; erro por operação).
-- `Core/Cam/CamJobJson.cs`: salvar/abrir em JSON versionado (`casillas-job`, versão 1), sem reflexão (serve ao WebAssembly); recusa arquivo estranho, versão mais nova e índice inválido.
-- Teste-chave: o Job gera o mesmo programa que o fluxo direto (Fanuc e Siemens). 15 testes novos; total 947. **Só Core**: a tela ainda não usa o Job (J2 em diante). Plano: `CAM-03-tela-de-trabalho-job.md` no Projeto.
-
-## CAM-03 · J2 — árvore do Job no desktop (ajuste-cam-job-arvore)
-- Nova aba **Trabalho (novo)** no módulo CAM (`Modules/JobView`): árvore (Peça com contornos, Bruto, Fixação "em breve", Ferramentas, Operações), vista 2D e programa ao vivo (Fanuc/Siemens). Abrir DXF, abrir e salvar o trabalho (`.casillas-job`), adicionar operação (contorno por fora/dentro/sobre a linha, bolsão, faceamento, furação), ligar/desligar, subir/descer, duplicar, remover, copiar e abrir no editor. A tela antiga continua igual.
-- Core: `CamJobInfo` (títulos da árvore, operação nova com valores padrão, ferramentas usadas). 3 testes novos; total 950.
-- Limites: operação nova nasce com valores padrão (edição dos números é a J3); face girada e texto no cilindro só vêm de trabalho aberto (a criação é da J3); o DXF não pode ser aberto sobre um desenho que já tem operações. Conferido em Xvfb; o seletor de arquivo não é testável lá.
-
-## CAM-03 · J3 — painel de propriedades (ajuste-cam-job-propriedades)
-- Aba **Trabalho**: terceira coluna com as propriedades da operação selecionada. Edita nome, contorno do desenho, ferramenta (inclusive "do banco"), alturas Z, dados de cada tipo (contorno, bolsão, faceamento, furação, texto no cilindro) e **face girada** no 4º eixo; ao confirmar (Enter ou sair do campo) o percurso e o programa se refazem. Valor inválido avisa e não aplica.
-- Novo tipo na lista: **Texto no cilindro** (padrão: "CASILLAS", altura 6, eixo A, Ø40; precisa do perfil da máquina escolhido na aba Máquina). Clicar no nome da operação só a seleciona; a caixinha liga/desliga.
-- Core: `CamJobInfo.NewKinds` inclui o texto no cilindro. Total 950 testes. Conferido em Xvfb (diâmetro e Z fundo mudaram o programa). Limite: trocar a ferramenta de uma operação não troca as outras com o mesmo T (a J6 separa ferramenta e condição de corte).
-
-## CAM-03 · J5 — torno no Trabalho (ajuste-cam-job-torno)
-- Core: `LatheJob` (perfil Z×raio, comando, nº do programa, lista de `LatheOperationSpec` com os parâmetros de torneamento externo/interno, faceamento, furação axial, rosca e canal; ligar/desligar, mover, duplicar), `LatheJobBuilder` (gera com o mesmo código do torno: `LatheOperations` + `LathePost`), `LatheJobInfo` (títulos e operação nova com os valores padrão da tela atual) e `LatheJobJson` (arquivo `casillas-job-torno`, versão 1; fresa e torno se reconhecem e avisam qual botão usar). 11 testes novos; total 961. Teste-chave: o Trabalho gera o mesmo programa que o fluxo direto (Fanuc e Siemens).
-- Desktop: nova aba **Trabalho torno (novo)** ao lado da fresa, com a mesma estrutura (árvore, vista do perfil e do percurso simulado, programa ao vivo, painel de propriedades). Perfil por DXF ou por pontos Z Ø. As telas antigas continuam.
-- Limites: o seletor de arquivo não é testável em Xvfb; o torno ainda não usa o banco de ferramentas (T e velocidade digitados); castanha e contraponto ficam para o Assist.
-
-## CAM-03 · J6 — ferramentas e desfazer (ajuste-cam-job-ferramentas)
-- Painel separado em **Ferramenta** (T, nome, Ø) e **Condição de corte** (rotação/avanços). Mudar Ø ou nome vale para todas as operações com o mesmo T (`ApplyToolGeometry`); o corte fica em cada operação.
-- Torno do Trabalho agora usa o **banco de ferramentas** (só as de torno) e põe no banco as T novas ao abrir no Code.
-- **Desfazer** (botão) nas duas telas: `UndoStack` guarda até 50 estados das operações; limpa ao abrir arquivo.
-- 3 testes novos (964). Não testado: clique real no .exe.
-
-## CAM-03 · J4 — percurso de todas as operações (ajuste-cam-job-vista)
-- Fresa do Trabalho: sem operação selecionada (ou no grupo "Operações"), a vista mostra o percurso de todas as operações ligadas. Com uma operação selecionada, só o dela. Só tela, sem mudança no Core. Torno não mudou.
-
-## ASSIST · fase 1A — bibliotecas no Core (fase-assist-bibliotecas)
-- `Core/Assist`: `AssistLibrary` (materiais, morsas, castanhas de torno), `AssistLibraryJson` (arquivo `casillas-assist-biblioteca`, versão 1). Ferramentas e máquinas seguem nos cadastros atuais do Code.
-- Material sugere rpm/avanço/passe da fresa; morsa confere abertura, mandíbula e altura; castanha confere a faixa de pega (fora/dentro). Itens iniciais todos **rascunho** (Igor revisa).
-- 11 testes (974). Ainda sem tela: a tela do Assist no desktop é a fase 1B.
-
-## ASSIST · fase 1B — tela no desktop (fase-assist-tela)
-- Módulo **Assist** na barra lateral (`Modules/AssistView.cs`, só código): abas Materiais, Morsas e Castanhas com lista, campos editáveis, Novo/Duplicar/Remover e caixa "Rascunho". Valida a cada edição e volta atrás se inválido.
-- Salva sozinho em `AppSettings.AssistLibraryJson`; "Abrir/Salvar em arquivo" (`*.casillas-assist`); "Voltar aos itens iniciais".
-- Teste rápido: peça (largura, altura, Ø) e material → morsas e castanhas que servem e rpm/avanço/passe da fresa.
-- Verificado no Xvfb (tela, lista, campos, teste). Seletor de arquivo não testável lá. Ícone do módulo usa o padrão (sem arte própria ainda).
-
-## ASSIST · fase 2 — tempo de ciclo e orçamento (fase-assist-orcamento)
-- Core `Assist/Quote.cs`: `QuoteInput`, `QuoteCalculator`, `QuoteResult`. Ciclo = (tempo simulado + trocas × s) × (1 + folga) + carga/descarga. Custo = máquina + preparo÷lote + material + ferramenta; preço = custo × (1 + margem) ÷ (1 − impostos). 9 testes novos (983).
-- Aba **Orçamento** no Assist: usa o programa aberto no Code (`CurrentAnalysis`); valores em R$ ficam só em `AppSettings.Quote` (neste computador, nunca no repositório); botão "Copiar proposta" (texto marcado como estimativa, sem prazo).
-- Conferido no Xvfb com o exemplo (4min25s → ciclo 5min22s, cálculo bate à mão). Teste rápido das bibliotecas some na aba Orçamento. Sem PDF ainda.
-
-## ASSIST · proposta em arquivo (fase-assist-proposta)
-- `QuoteResult.ToHtml`: proposta de uma página (peça, quantidade, valor por peça e total), sem custos internos nem margem; cabeçalho com nome/contato do usuário. Texto escapado. 1 teste novo (984).
-- Aba Orçamento: campo "seu nome e contato" (salvo em `AppSettings.Quote.Company`) e botão "Salvar proposta (HTML)…"; para PDF, abrir no navegador e Imprimir › Salvar como PDF. Seletor de arquivo não testado no Xvfb.
-
-## CAM · bolsão com ilhas (ajuste-cam-ilhas)
-- Core `Cam/PocketIslands.cs`: `FindIslands` (contornos inteiros dentro do bolsão), `PocketWithIslands`. Contorna a parede e cada ilha em anéis (com rampa) e limpa o resto em passes paralelos em X que desviam das ilhas; acabamento (se houver sobremetal) na parede e nas ilhas. Erros claros: ilha perto demais da parede ou ilhas muito próximas (a ferramenta não passa).
-- Trabalho (fresa): opção **"Contornar ilhas"** no bolsão (`CamOperationSpec.Islands`, salvo no arquivo como `islands`, versão 1 compatível). Desligada = bolsão igual ao de antes.
-- 7 testes novos (991). Limites: passes paralelos só na direção X; entrada em rampa/zigue-zague; confira na simulação. Web não usa ainda.
-
-## ASSIST · fase 3 — plano automático 2D (fase-assist-plano, em cima de ajuste-cam-ilhas)
-- Core `Assist/Planner.cs` (`AssistPlanner.Plan`): maior contorno = peça; círculos de Ø até 20 = furos (broca da biblioteca ou nova); outros contornos dentro = bolsões; contornos dentro de um bolsão = ilhas. Ordem: furos, bolsões, contorno por último. Cada operação é testada no CAM antes de entrar (fresa maior que cabe; senão aviso). Corte (rpm/avanço/passe) do material escolhido. 8 testes (998), inclusive o plano virando programa nos dois comandos.
-- Aba **Plano 2D** no Assist: lê o desenho do Trabalho fresa, escolhe material e espessura, "Sugerir plano" e "Aplicar ao Trabalho (CAM)" (entra no fim do Trabalho; dá para Desfazer).
-- Profundidades são suposições (2D não diz): furos e contorno até a espessura, bolsões até a metade; contorno sem pontes. Avisos na tela. Conferido no Xvfb (DXF de teste → sugestão → aplicar).
-- **Depende do PR do bolsão com ilhas**: merge das ilhas primeiro.
-## Trava de licença do CAM web (ajuste-cam-web-licenca)
-- `platform-ui.js`: `cam` entra em `GATED`, mas como `SOFT`: só trava depois que o servidor passar a listar o módulo `cam` (`moduleKnown` em `account.js`). Hoje o produto `cam` está inativo no servidor ("em breve"), então o CAM web continua abrindo livre, sem pedir conta.
-- Para ligar a venda: o Igor ativa o produto `cam` no Supabase (não mexi). Aí o CAM passa a exigir teste ativo ou licença, com "Comprar licença", como Macro e Otimizador.
-- Não testado em navegador real (só JS; conferir na Prévia).
-
-## UI · base visual do Assist (ajuste-ui-assist-base)
-- Etapa 1 do redesenho (sugestão de Igor de 28/10): `Modules/UiKit.cs` (ícones de linha próprios, cartão de resultado, fundo que acompanha o tema).
-- Orçamento: formulário com ícones por campo e **resultado em cartões** (tempo de ciclo, preço por peça, total do lote) ao lado, sem rolar. Cabeçalho do Assist agora só "Casillas Assist"; teste rápido usa o fundo do tema (claro/escuro). Abas do CAM: "Trabalho fresa" e "Trabalho torno" (sem "(novo)").
-- Só visual, sem mudança de cálculo. Próximas: etapa 2 (árvore do Trabalho com ícones, abas Propriedades/Visualização/Código) e etapa 3 (vista 3D no Trabalho).
-
-## UI etapa 2 — Trabalho (fresa e torno)
-- Árvore do Trabalho com ícones por tipo (peça, contorno, bruto, fixação, ferramentas, operações; por operação: contorno, bolsão, faceamento, furo, texto / torneamento, rosca, canal).
-- Coluna direita agora tem abas **Propriedades | Código**; a vista 2D ocupa a coluna do meio inteira.
-- Nenhuma lógica mudou (999 testes ok). Etapa 3 (3D no Trabalho) aguarda OK.
-
-## UI etapa 3 — vista 3D no Trabalho
-- Botão **3D** sobre a vista do Trabalho (fresa e torno): simula o programa gerado até o fim e mostra o material cortado, com a mesma cena 3D do Code (`JobSceneView`). Volta ao 2D desmarcando.
-- Roda em segundo plano; edição nova descarta a simulação antiga. Sem placa de vídeo: mensagem e usa o 2D.
-- Teste novo cobre o caminho programa → simulação → cena. Não conferido visualmente: testar no .exe da Prévia.
-
-## Ajuste — botão Calcular (Assist)
-- O botão laranja ficava cinza ao clicar/passar o mouse (o tema trocava o fundo). Agora os estados do tema usam a cor de destaque. Só interface; não conferido visualmente.
-
-## CAM 3D — parte 1: importar STL e ver (`fase-cam3d-stl`)
-- Core `Cam3D/`: `StlReader` (binário e texto, descarta triângulo inválido, erros em português) e `TriangleMesh` (tamanho, área, volume, malha fechada?, escala, topo em Z0, malha para o 3D). 7 testes.
-- Desktop: aba **CAM › Modelo 3D (STL)**: abrir STL, escolher unidade (mm, pol, cm, m), ver no 3D e conferir medidas e malha.
-- Ainda sem percurso 3D (varredura e desbaste vêm depois). Não conferido visualmente nem com STL real: testar no .exe da Prévia com uma peça sua.
-
-## CAM 3D — parte 2: varredura de acabamento (`fase-cam3d-varredura`)
-- Core `Cam3D/DropCutter` (altura da ponta de fresa esférica sobre o STL: faces, arestas e vértices, com grade) e `SurfaceFinish.Raster` (linhas ao longo de X em zigue-zague, só onde há modelo, simplificação por tolerância, sobe à aproximação entre trechos). 6 testes, inclusive "nunca abaixo do modelo" e programa Fanuc/Siemens que roda no analisador.
-- Desktop: na aba **Modelo 3D**, campos da bola, passo, tolerância, dialeto, **Gerar varredura** e **Abrir no editor**.
-- Limites: só o corpo esférico é conferido (haste não); passo lateral só em X; sem desbaste; programa único (ainda não entra no Trabalho). Não testado com STL real nem na máquina: simular no Code e primeira execução no ar.
-
-## Descrição do site e README (SEO)
-- `index.html`: descrição, tags Open Graph e dados estruturados (JSON-LD) com a lista de recursos da web e do desktop; manifesto com descrição nova; README abre com o que há na web e no Windows.
-- Texto só descreve o que já existe (sem "em breve"). As páginas `conheca.html` e `conheca-classica.html` passaram de "14 dias" para "30 dias" de teste (pedido do Igor). `termos.html` (§4) e a FAQ das páginas Conheça alinhados à regra de 24/10: 30 dias; depois, o Code abre e edita, mas simular, salvar e exportar precisam de licença; Macro, Otimizador e CAM travam; Academy módulo 1 aberto. **Texto de termos: o Igor decide a publicação** (o merge publica na hora). Não revisados por advogado.
-
-## Ajuste: tema claro nos painéis Comparar e Estatísticas (28/10)
-- Os painéis pegavam a cor do tema só ao serem criados; ao trocar para o modo claro ficavam com fundo escuro e texto escuro.
-- Agora o fundo e as bordas seguem o tema em tempo real (`GetResourceObservable`). Web compilada, 1013 testes ok.
-- Falta conferir no celular (modo claro) depois da prévia.
-
-## Decisões do CAM (28/10) — para a próxima conversa
-- Próximos passos do CAM, só no desktop Windows (tela Trabalho), nesta ordem: 1) desbaste por níveis (passo em Z, sobra radial/axial, passo lateral; aba "Desbaste" no Modelo 3D); 2) DXF e seleção de contornos 2D; 3) estudo do STEP; 4) seleção de faces e arestas no 3D. O CAM web (CAM rápido) não muda por enquanto.
-- STEP só no desktop: motor OpenCASCADE (LGPL 2.1 + exceção OCCT, uso proprietário permitido com aviso; confirmar com profissional). Candidato: pacote OcctNet.Wrapper (MIT, 0.1.1, net10), só no `CncStudio.App`; o Core continua sem NuGet e recebe a malha (`TriangleMesh`) e a lista de faces/arestas. O STL continua, sem novos investimentos.
-- Teste de viabilidade do STEP precisa de um STEP real de peça do Igor. Depois do CAM vem o Assist.
-- PR #85 (tema claro em Comparar/Estatísticas) aguarda conferir no celular e o OK do merge.
-
-## Assist — plano obsoleto não se aplica (`ajuste-assist-plano-obsoleto`, a partir da `main`; auditoria A-09, Fase 1 / PR 1)
-- Core `Assist/PlanStamp`: o plano sugerido guarda um registro do desenho (geometria e ordem dos contornos, 0,0001 mm), espessura, material e ferramentas. `PlanValidity.CheckApply` recusa se algo mudou ou se uma operação aponta para contorno que não existe. `PlanResult.Stamp` é preenchido sempre (também em plano sem operações).
-- Assist (aba Plano 2D): mudar espessura ou material, ou voltar à aba com outro desenho/ferramentas, descarta o plano e liga o aviso "desatualizado: mudou X"; o botão Aplicar fica desligado. O clique em Aplicar confere de novo (o desenho pode mudar fora do Assist sem passar pela aba). Voltar aos mesmos dados não "ressuscita" o plano na tela: é preciso sugerir de novo.
-- 13 testes novos no Core na 1ª entrega (1026 no total): espessura, material, ferramentas, geometria com o mesmo número de contornos, ordem trocada, contorno removido, ruído < 0,1 µm, plano sem registro, índice inexistente. Conferido também no app real (Xvfb): sugerir → mudar espessura (bloqueia) → mudar desenho e clicar Aplicar (recusa) → sugerir e aplicar (4 operações entram).
-- Revisão pontual (Igor, 29/10): (1) `CheckApply` agora exige 0 ≤ `ContourIndex` < nº de contornos em **toda** operação do Assist, furação incluída (antes -1 passava na furação). (2) Precisão: cada número vira uma grade de 0,0001 mm (não é tolerância absoluta); dois valores a menos de 0,0001 podem cair em células vizinhas e recusar à toa, mas uma diferença ≥ 0,0001 nunca é aceita; -0 = 0; NaN/±infinito distintos. Documentado em `PlanStamp` e testado nas fronteiras. (3) Operações: o plano guarda cópia própria das operações e uma impressão digital (`OperationsStamp`); mudar ferramenta, níveis, índice, ligar/desligar ou remover operação depois de sugerir recusa a aplicação. Risco real hoje era baixo (`_plan` é privado e não é editado), a correção é mínima e só no Core.
-- 2ª revisão (Igor, 29/10): a lista de operações agora é `ReadOnlyCollection` (antes era array, que aceitava troca por índice; testado: troca, adição e remoção lançam erro). A impressão digital não usa mais `ToString()` (cultura e formato não são contrato): percorre por reflexão todas as propriedades dos registros aninhados (ferramenta, níveis, parâmetros, furação, texto, face), cultura invariante, números com precisão total. Campo novo entra sozinho. 37 casos de teste mudam um campo cada e exigem impressão diferente; testado também sem depender da cultura e com a ordem das operações.
-- Revisão total: +57 testes em relação à 1ª entrega do PR 1 (1083 no total), suíte completa verde.
-- Não faz parte deste PR: profundidades supostas, ferramenta nova, Z e rpm (PR 2 em diante). Não foi conferido em Windows real nem com um DXF aberto pelo Trabalho (a tela foi alimentada por teste).
-
-
-## Assist — ferramenta nova × banco (`ajuste-assist-ferramenta-nova`, a partir da `main` com o PR #86; auditoria A-04, Fase 1 / PR 2)
-- Core `Assist/PlanStamp`: `PlanValidity.ToolsOf` classifica cada ferramenta do plano como **Banco** (mesmo número e diâmetro no banco atual) ou **Nova** (inventada pelo plano). Calculado na hora, sem estado guardado. `CheckApply(plan, input, confirmadas)` recusa a aplicação enquanto houver ferramenta nova sem confirmação, listando os T.
-- Assist (Plano 2D): cada operação mostra `T# (banco)` ou `T# (NOVA, fora do banco)`; para cada ferramenta nova há uma caixa "Confirmo T# · Ø · nome"; o botão Aplicar só liga com todas marcadas. Mudar espessura/material/desenho/ferramentas descarta o plano e as confirmações. Cadastrar a ferramenta no banco muda o registro: é preciso sugerir de novo, e aí ela vira "banco".
-- 8 testes novos no Core (1091 no total). Conferido no app (Xvfb): banco vazio (3 caixas, Aplicar desligado até marcar todas; desmarcar desliga; mudar espessura limpa tudo), banco completo (sem caixas, aplica 4 operações).
-- Não faz parte: ferramenta "indisponível" (sem dado de disponibilidade hoje), profundidades supostas (PR 3), Z (PR 5), rpm (PR 6). A caixa confirma número e diâmetro, não a fixação nem o magazine da máquina.
-
-## Assist — profundidade suposta bloqueia a aplicação (`ajuste-assist-profundidade`, a partir da `main` com o PR #87; auditoria A-01, Fase 1 / PR 3)
-- Core `Assist/PlanReview`: o plano 2D não sabe a profundidade, então toda profundidade é **presumida** (furo = espessura, bolsão = metade, contorno = espessura). `DepthsOf` agrupa por tipo e nome (os furos de um mesmo Ø formam um grupo). `Review(plan, input, ferramentasConfirmadas, profundidades)` confere desatualização, ferramentas novas e **exige um valor digitado para cada profundidade**; devolve as operações com os valores do usuário (o plano sugerido não é alterado). Não existe "confirmo tudo".
-- Regras: valor finito e > 0; bolsão não passa da espessura do bruto; furo e contorno podem passar (calço/mesa de sacrifício); o passe em Z nunca passa da profundidade; furo vira bicada só se for mais fundo que 3 diâmetros (mesma regra do planejador).
-- Assist (Plano 2D): um campo por profundidade (o cinza dentro do campo é a suposição, não um valor) com o estado "presumida / confirmada / valor inválido"; o Aplicar só liga com todas digitadas, junto com as ferramentas novas confirmadas; mudar espessura/material/desenho/ferramentas descarta tudo.
-- 14 testes novos no Core. Conferido no app (Xvfb): 3 campos, aplicar bloqueado até todas digitadas, valor inválido e bolsão maior que o bruto bloqueiam, aplicado com fundos -12, -12, -3, -11,5.
-- Fora do escopo: estado "fornecida" (nenhum dado do 2D fornece profundidade hoje), Z seguro/aproximação (PR 5), peça solta (PR 4). A nota "Profundidades supostas…" do plano continua; o texto do 3D (R-05) não mudou.
-
-## Assist — contorno externo que solta a peça exige revisão da fixação (`ajuste-assist-peca-solta`, a partir da `main` com o PR #88; auditoria A-02, Fase 1 / PR 4)
-- Core `PlanReview`: o contorno externo é cortado por inteiro, por último e **sem pontes** (o `Contour` do Core não tem pontes; não implementei). `Review(..., ReleaseStrategy)` não tem valor padrão: `NotReviewed` bloqueia a aplicação. Opções: `HeldBySetup` (presa por outro meio, o usuário confere), `OmitContour` (tira só a operação do contorno do que será aplicado; o plano sugerido não muda) e `AcceptRelease` (aceita que solte e retira com a máquina parada).
-- Nenhuma opção diz "peça segura": o resultado traz avisos ("fixação não verificada: o Assist não confere morsa, grampos, vácuo nem colisão"), mostrados depois de aplicar.
-- Assist (Plano 2D): caixa de seleção sem opção marcada, sob o texto de risco; o Aplicar só liga com a fixação escolhida, as profundidades digitadas e as ferramentas novas confirmadas.
-- 5 testes novos no Core (19 em `PlanReviewTests`). Conferido no app (Xvfb): sem escolher bloqueia; com "presa por outro meio" liga; "tirar o contorno" aplica 3 operações (furos e bolsão), sem o contorno.
-- Fora do escopo: pontes (exige mudar o Core/CAM), checagem de morsa/castanha (os dados da biblioteca não acompanham o setup), Z (PR 5).
-
-## Assist — alturas Z configuráveis (`ajuste-assist-alturas-z`, a partir da `main` com o PR #89; auditoria A-05, Fase 1 / PR 5)
-- Core `PlanHeights(SafeZ, ClearanceZ, TopZ)`: Z seguro, plano de aproximação e topo da peça (referência Z do zero-peça), na coordenada do Trabalho. `Validate`: finitos e `Z seguro > aproximação > topo`. `PlanReview.Review(..., heights)` não tem padrão: sem alturas bloqueia a aplicação. As alturas digitadas vão para todas as operações e o fundo acompanha o topo (`fundo = topo − profundidade`); topo negativo vale. O plano sugerido (50 / 2 / 0 supostos) não muda.
-- Aviso após aplicar: "Alturas Z informadas pelo usuário… estar acima da peça não garante estar livre de morsa, grampos ou castanhas: não verificado". Sem detecção de colisão e sem promessa de segurança.
-- Assist (Plano 2D): três campos (Z seguro, Aproximação, Topo da peça), sem valor preenchido (o cinza é a suposição do plano), com o texto explicando cada coordenada; o Aplicar só liga junto das profundidades, fixação e ferramentas novas.
-- 12 testes novos no Core (1122 no total). Conferido no app (Xvfb): sem Z, só 2 de 3, aproximação = topo (recusa) e 80/5/0 (aplica; operações com níveis 80, 5, 0 e fundos -12, -12, -3, -11,5).
-- Fora do escopo: conferência de morsa/castanha/grampos (sem dados do setup), Z do 3D (R-05), rpm (PR 6). Origem/zero-peça continua a definição do usuário no Trabalho.
-
-## Assist — rotação vem do perfil da máquina (`ajuste-assist-rpm-maquina`, a partir da `main` com o PR #90; auditoria R-01, Fase 1 / PR 6)
-- Core `MachineProfile.MaxSpindleRpm` (rpm, `null` = não informado; perfis antigos sem o campo continuam válidos; se informado, finito e > 0). Nenhum limite é inventado: o `MaxSpindleSpeed = 4000` das configurações é só da simulação (G96) e **não** é usado.
-- `PlanInput.MaxSpindleRpm` entra no registro do plano (`PlanStamp.Spindle`): mudar o limite do perfil depois de sugerir descarta o plano ("limite de rotação da máquina").
-- `PlanReview.RpmIssues` lista as ferramentas cuja rotação calculada passa do limite; `Review(..., rpmAdjust)` **bloqueia** até o usuário digitar, para cada uma, uma rotação > 0 e ≤ limite. A rotação digitada vale para todas as operações da ferramenta e o avanço (XY e Z) acompanha na mesma proporção (mesmo avanço por dente). O plano sugerido não muda. Sem limite informado: não bloqueia, mas diz "rotação NÃO VERIFICADA".
-- App: campo "Rotação máx. do fuso" no perfil de máquina (CAM › Máquina; em branco = não informado) e, no Plano 2D, o aviso "não verificada" ou um campo de rpm por ferramenta acima do limite. O Assist usa o perfil ativo.
-- 17 testes novos no Core (1139 no total). Conferido no app (Xvfb): sem limite aparece o aviso; limite 4000 bloqueia a broca (4775 rpm); 4500 recusa, 3500 libera e aplica com avanço F239 → F175; a fresa (3820) não muda.
-- Fora do escopo: a rotação padrão de 3000 rpm / avanço 500 quando o plano não tem material (valor genérico, não vem de dado; sugestão: exigir material); limite do fuso do torno; validade tecnológica do corte (o limite do fuso não prova que a ferramenta aguenta).
-
-## CAM · DXF com unidade e escolha de contorno por clique (`fase-cam-dxf-contornos`, a partir da `main`)
-- Core: `DxfImporter` lê `$INSUNITS` (pol, pé, mm, cm, m) e `ParseInMillimeters` converte tudo para mm e avisa ("Unidade do DXF: polegadas… × 25,4"). Sem unidade ou unidade estranha: assume mm e avisa para conferir o tamanho. `Contour.Scaled`, `Segment2.Scaled`. `ContourPick.At`: borda mais perto (dentro da tolerância) ou o menor contorno que contém o ponto. 13 testes novos (1026).
-- Desktop: os quatro pontos de abertura de DXF (Trabalho fresa e torno, CAM rápido fresa e torno) usam `ParseInMillimeters`. `CamPreview` ganhou o evento `ContourPicked` (clique esquerdo; tolerância de 8 px); no Trabalho fresa o clique seleciona o contorno na árvore e as propriedades acompanham.
-- Limites: a escala só vale para a unidade do cabeçalho (sem "escala manual" ainda); sem camadas nem seleção múltipla; DXF só em texto. Os outros três módulos ainda não escutam o clique. Não conferido visualmente: testar no .exe da Prévia com um DXF em polegadas e clicando nos contornos.
-- Este ramo e o `fase-cam3d-desbaste` mexem em `docs/ESTADO.md` no mesmo ponto (fim do arquivo): ao mesclar os dois pode haver conflito simples de texto.
-
-## CAM 3D — parte 3: desbaste por níveis (`fase-cam3d-desbaste`)
-- Core `Cam3D/SurfaceRoughing.ByLevels`: planos de Z constante (passo em Z = `CamLevels.StepDown`), linhas em X em zigue-zague, só onde (modelo + sobra axial) fica abaixo do nível. Sobra radial aproximada engrossando a esfera de conferência (`DropCutter` com R + sobra). Bruto = prisma do modelo em XY, do topo ao fundo. Alturas calculadas uma vez e reaproveitadas em todos os níveis. 6 testes (1019): níveis certos, nunca abaixo do modelo + sobra, níveis mais fundos cortam menos, mais sobra corta menos, "nada a remover", programa Fanuc/Siemens roda no analisador, validações.
-- Desktop: aba **Modelo 3D** ganhou a seção "Desbaste por níveis" (passo em Z, passo lateral, sobras axial e radial); usa a ferramenta, o fundo e o comando da varredura. "Gerar desbaste" + "Abrir no editor" (arquivo `-desbaste.nc`).
-- Limites: só fresa esférica (para topo plano ou toroidal o conferir da esfera não vale); só o corpo esférico é conferido (haste não); linhas só em X; mergulho vertical em cada trecho (sem rampa); sem otimizar a ordem dos trechos; programa único (ainda não entra no Trabalho). Não testado com STL real nem na máquina: simular no Code e primeira execução no ar.
-
-## R-05 no desbaste e na varredura 3D (`ajuste-cam3d-desbaste-protecao`, em cima do `main`)
-- O desbaste por níveis (antes só no ramo `fase-cam3d-desbaste`) entra no `main` já protegido, junto com a varredura de acabamento: **Z seguro, aproximação e fundo são digitados**; sem valor fixo (+25/+5) e sem fundo suposto pela base do modelo.
-- Core `Cam3D/ModelZ.cs`: `ModelZ` (seguro > aproximação > topo; finito) e `SurfaceLevels.Build` (fundo digitado, abaixo do topo e não abaixo da base do modelo, pois o bruto é o prisma do modelo). 1171 testes (13 novos).
-- Conferido na tela (Xvfb): sem Z, sem fundo, fundo abaixo da base e seguro < aproximação são recusados; completo gera, com "valores seus" e aviso de fixação não verificada. Nada testado em máquina.
-- **Atenção ao juntar com a `fase-cam3d-selecao`:** ela tem o mesmo `ModelZ` em `ModelReview.cs` (apagar a cópia de lá) e outra versão dos campos Z em `ModelView.cs` (conflito a resolver, mesma ideia).
-
-## P1 da auditoria, PR 8: classificação do contorno da peça (A-03) (`ajuste-assist-classificacao-contorno`)
-- O plano escolhia o contorno de maior área como peça e seguia mesmo com o desenho ambíguo ou com defeito. Novo `Assist/ContourAudit` confere antes e **recusa com o motivo** (nenhuma operação sugerida): contornos que se cruzam (inclui furo que corta a borda), contorno que cruza a si mesmo, contorno aberto que envolve a peça (peça "aberta") e dois contornos grandes separados (o segundo com ≥ 50% da área do maior).
-- **Só avisam:** contornos abertos pequenos (ignorados) e contornos idênticos (duplicados). `Contour.CrossesContour` novo no Core.
-- 1204 testes no total (12 novos deste PR). Conferido na tela (Xvfb): ambíguo e cruzado recusados; placa normal segue igual. O limite de 50% é escolha minha; pode ser ajustado. Risco: um DXF real com contornos que se cruzam de propósito (ex.: sobreposição) passa a ser recusado; teste com DXF seu.
-
-## P1 da auditoria, PR 7: orçamento do Assist (A-06 e A-07) (`ajuste-assist-orcamento-limites`)
-- **A-06:** a quantidade do lote não é mais arredondada em silêncio (2,5 virava 2; valor enorme dava cast indefinido). `QuoteInput.ParseQuantity` recusa não inteiro, NaN/infinito, zero, negativo e acima de 1 milhão.
-- **A-07:** `QuoteCalculator.Calculate` confere o tempo e todas as parcelas (devolve erro, nunca infinito/NaN nem exceção de `TimeSpan`) e os campos têm limite de plausibilidade (ex.: hora-máquina até R$ 100.000/h; margem até 1000%). Antes, 1e300 de hora-máquina aparecia como preço.
-- 1192 testes (21 novos). Conferido na tela (Xvfb): 2,5 / 0 / lote gigante / hora-máquina absurda recusados; lote 10 calcula. Os limites são de plausibilidade, não regra de negócio: o Igor pode ajustar.
-
-## P1 da auditoria, PR 9: transparência de ferramenta, morsa e corte (R-02, R-03, R-04) (`ajuste-assist-transparencia`)
-- **R-02:** o plano mostra a regra de escolha e a diferença: broca do banco (a menos de 0,05 mm do furo, com a diferença em mm) e fresa (a maior do banco que cabe; critério só de geometria, sem material, balanço ou rigidez). Uma nota por ferramenta; ferramenta nova segue o aviso do A-04.
-- **R-03:** "Morsas que servem" virou "Compatibilidade dimensional preliminar" (abertura, comprimento da mandíbula, pega mínima; altura da mandíbula e do corpo não entram) + "confirme a fixação". Castanhas com o mesmo aviso. Regra de cálculo da morsa **não mudou**.
-- **R-04:** cada operação do plano mostra "rascunho" ou "SEM material: valor genérico" ao lado de rpm e avanço; o teste rápido diz que o valor é de partida da biblioteca, não do fabricante.
-- 1208 testes (4 novos). Só texto e notas, sem mudar cálculo. Conferido na tela (Xvfb).
-
-## UX, passo 1: árvore do Trabalho com estados (`ajuste-ux-arvore-estados`)
-- Wireframes aprovados pelo Igor (CAM = área de trabalho com árvore/vista/propriedades; Assist em etapas). Este é o primeiro protótipo, só na árvore do Trabalho (fresa): cada operação mostra uma etiqueta **OK / desligada / erro: motivo**; o bruto mostra OK ou "falta definir"; "Fixação" mostra "não verificada" (o app não confere fixação).
-- Core `CamJobInfo.OpState` / `StockState` (testados). Nada de cálculo mudou. Não conferido visualmente: ver no .exe da Prévia.
-- Pendente nos próximos passos: barra de pendências embaixo, etapas do Assist, tema claro.
-
-## UX, passo 2: barra de pendências no Trabalho (`ajuste-ux-barra-pendencias`)
-- Rodapé da vista central do Trabalho (fresa): "✓ Pronto para gerar" ou "Pendências (n)" com a lista (sem peça, sem bruto, sem operação, operação com erro). Aviso fixo: fixação e colisões não são verificadas; simular e rodar a primeira vez no ar.
-- Core `CamJobInfo.Pending` (teste novo, 1211 no total). Uma execução dos testes falhou uma vez e passou na seguinte sem mudança (possível teste instável; não identificado). Não conferido visualmente: ver no .exe da Prévia.
-
-## UX, passo 3: Assist em etapas, parte 1 (`ajuste-ux-assist-etapas`)
-- `AssistView` troca as abas por uma barra de etapas: **1 Preparar** (desenho, material, espessura) → **2 Sugerir** → **3 Revisar** (ferramentas novas, profundidades, Z, fixação, Aplicar) → **4 Orçar**, mais **Bibliotecas** (materiais, morsas, castanhas, arquivo e teste rápido) à parte. O resultado do plano fica sempre visível embaixo.
-- Só reorganização: mesmos controles e mesma lógica (nenhum cálculo mudou); ao voltar para as etapas 1–3 vindo de fora, o plano é conferido de novo, como antes na aba.
-- Conferido na tela (Xvfb, 1366×768): todas as etapas abrem; Revisar mostra Z, fixação e profundidades; Aplicar segue desligado até tudo ser informado.
-- Parte 2 (próximo PR): bloquear etapas fora de ordem, marcar ✓ e a lista "O que falta para aplicar".
-
-## UX, passo 4: Assist em etapas, parte 2 (`ajuste-ux-assist-pendencias`, em cima de `ajuste-ux-assist-etapas`)
-- **Revisar só abre com plano sugerido** (botão desligado e "Sugira um plano primeiro"); se o plano perde a validade (desenho, material ou espessura mudaram), volta para Sugerir. "✓" em Sugerir (plano pronto) e em Revisar (pode aplicar).
-- Revisar mostra a lista **"O que falta para aplicar (n)"** (fixação, alturas Z, rotação acima do limite, cada profundidade) ou "✓ Nada falta". Core `PlanReview.Missing` lista todos os itens de uma vez (o `Review` continua parando no primeiro); 3 testes novos. Aplicar segue só liberado quando `Review` aprova: a lista é informação, não troca a regra.
-- Conferido na tela (Xvfb): Revisar bloqueada sem plano; com plano mostra 5 pendências. Falta ainda: tema claro; Orçar continua livre (não depende do plano).
-
-## UX, passo 5: barra de pendências no Trabalho de torno (`ajuste-ux-torno-pendencias`)
-- Mesma barra do Trabalho de fresa no rodapé da vista do torno: "✓ Pronto para gerar" ou "Pendências (n)" (sem perfil, sem operação, operação com erro) + aviso fixo de que fixação e colisões não são verificadas. Core `LatheJobInfo.Pending` (1 teste). Não conferido visualmente.
-
-## UX, passo 6: tema claro das novas etiquetas e ✓ do Orçar (`ajuste-ux-tema-claro-orcar`, em cima de `ajuste-ux-torno-pendencias`)
-- O app já tinha tema claro; as etiquetas e títulos novos (estado da árvore, pendências, "O que falta") usavam cores só do escuro. `UiKit.Status(kind)` devolve texto/fundo legíveis em cada tema; fresa, torno e Assist usam; as telas se atualizam ao trocar de tema. Conferido na tela (Xvfb, tema claro).
-- Etapa **4 Orçar** ganha ✓ quando há programa analisado no Code. Ela **não depende do plano**: o orçamento usa o tempo do programa do Code, não as operações do Assist (por isso continua livre).
-- "Fixação" na árvore virou só o nome + etiqueta "não verificada" (o texto longo não cabia no painel).
-- Fora do escopo, visto no tema claro: o aviso amarelo do topo do Assist ("Os itens iniciais são rascunho…") fica escuro com texto claro (cor fixa, já existia).
-
-## Web: tela inicial renovada (`ajuste-web-tela-inicial`)
-- `platform-ui.js`: cabeçalho compacto (logo, "Casillas · Plataforma de Usinagem CNC", engrenagem que abre Conta); etiquetas **Licença ativa / Trial · N dias / Trial encerrado / Limite de aparelhos** (só lê o que `account.js` já guardou em `cc.license`, nenhuma regra mudou) e **Offline disponível** (só aparece se o service worker já controla a página); faixa **Consultor Técnico** com os mascotes (WebP, ~86 KB e ~71 KB) abrindo `…/Casillas_app_2/#/modulo/consultor-tecnico` em nova aba (o Consultor mora no app Casillas; aviso de conferir no catálogo do fabricante); sem título de seção; os cartões ficaram menores e entrou o **Casillas Assist** (cartão com etiqueta "Windows": o Assist só existe no Casillas Code para Windows, então tocar mostra um aviso, sem abrir nada); 9 cartões em 3×3 cabem sem rolar em 360×780. Sem busca (pedido do Igor, os módulos já aparecem). **Mesma barra inferior** de antes. Projetos recentes ficou de fora. O cartão do Assist usa o ícone enviado pelo Igor (`ic-assist.webp`, 256 px; as faíscas soltas das bordas foram limpas).
-- A tela agora rola em vez de espremer os cartões. Conferido no Chromium (360×780, 360×640, 900×420, 900×1100); não testado no aparelho nem o Consultor aberto de verdade (só o endereço, lido no código do app Casillas). A página real depende do .NET; a verificação foi num HTML de teste isolado (removido).
-- Próximos da lista: Simulação 3D, Code, Macro, Otimizador, Loja.
-
-## Web: Casillas Loja, foto do produto (`ajuste-web-loja`)
-- O catálogo (`loja/catalogo.json`) ganha o campo `imagem`; `store-ui.js` mostra a foto no topo do cartão (fundo branco, 640 px, ~17 KB). Entrou a foto do Apalpador 3D enviada pelo Igor. Preço, texto e pedido pelo WhatsApp não mudaram. Conferido no Chromium em 360 px; não testado no aparelho. Origem/direitos da foto: confirmar com o Igor se é própria ou do fornecedor.
-## Web: Otimizador, aviso de economia (`ajuste-web-otimizador`)
-- `optimizer-ui.js`: o resultado ganha o cartão **economia %** (linhas a menos ÷ linhas antes) e o aviso "Estimativa: é economia de linhas, não de tempo de usinagem". Nenhuma regra do Core mudou. Conferido no Chromium em 360 px (HTML de teste isolado); não testado no aparelho.
-## Web: Casillas Macro renovado (`ajuste-web-macro-form`)
-- `generators-ui.js`: título "Casillas Macro", cartão de descrição, abas **Parâmetros / Código**, campos em cartões com ícone (**Geometria, Profundidade, Condições de corte**) e botões Limpar, Cancelar, **Gerar programa** (abre no editor) e Ver em 3D. Os valores são os mesmos de antes; só mudou a forma.
-- Core: `GeneratorsJson.GroupOf` põe `group` em cada parâmetro (geometry/depth/cutting, por Id e rótulo); 2 testes novos (total 1217 passando).
-- Fora: desenho ao lado dos campos (não há arte por gerador, são 8). Conferido no Chromium (360×800 e 900×700) com HTML de teste isolado; não testado no aparelho.
-## Web: Code com faixa de funções e linha de estado (`ajuste-web-code-barra`)
-- O botão **Funções** do cabeçalho do editor foi desfeito em três botões visíveis numa faixa embaixo do editor: **Renumerar** (início, incremento, todos/só os que têm N, remover numeração), **Formatar** (espaçar, juntar, maiúsculas) e **Desfazer** (direto, sem menu). Mesma lógica de antes (`ApplyRenumber`, `ApplyTextTool`); só mudou onde ficam. Acima deles, a linha de estado **"Ln 10, Col 1 · 36 linha(s) · FANUC"** (atualiza ao mover o cursor, editar o texto e trocar o dialeto). "UTF-8" não entrou: o app não expõe a codificação.
-- Decisões do Igor: sem botão Simular (o Gráfico já tem a simulação) e sem minimapa. Não incluí busca nem os ícones `{}`/FX do desenho: não há função equivalente na web hoje.
-- **Não conferido na tela** (o app web não abre no navegador de teste daqui; só o build passa). Conferir na prévia, no celular em pé e deitado: com o teclado do código aberto a faixa fica embaixo dele (mais altura usada); o editor recolhido esconde a faixa junto.
-## UX-01 rodada 2, parte 1 (`ajuste-ux01-r2a`, HANDOFF-11)
-- Modelo 3D ganhou a barra de pendências (pendente em âmbar e inválido em vermelho, sempre com texto; tocar leva ao campo; alturas conferidas por `ModelZ`/`SurfaceLevels`, sem cálculo novo). Árvore do torno com estados (OK, desligada, erro com motivo, fixação não verificada), como a da fresa. Aviso do topo do Assist usa `UiKit.Status` (antes: cor fixa ilegível no claro).
-- `UiKit.StateTag`/`StatusNote` novos e acompanham a troca de tema. Conferido com Avalonia Headless a 1366×768, escuro e claro (no Windows não há Xvfb). **Testes:** 1217.
-- Teste instável (20 rodadas, 3 falhas): `AcademyJson._library` estático trocado em paralelo por `AcademyTests`, `AcademyEmbeddedTests` e `AcademyExtrasTests`; e `LargeProgramsStayFast` com limite de 20 s no relógio. Correção proposta, não feita.
-
-## Academy: tela nova sobre os dados v1 (`fase-academy-v2`, HANDOFF-10 · ACAD-03-B)
-- Aula em abas (Visão geral, Trajetória, Exemplo, Cuidados, Praticar; Sintaxe escondida, sem dado no JSON v1), cabeçalho fixo com selo e progresso; aba guardada por aula e última aula reaberta ao voltar (`cc.academy.ui`). Cuidados = erro comum (sem o "Descrito no texto"), parágrafos [atenção] e aviso; Exemplo = parágrafos [exemplo] + programa.
-- "Abrir no editor"/"Ver em 3D" deixam o atalho **‹ Voltar à aula** sobre o Code (some ao abrir outro módulo ou no ×). Só JS; C# e Core sem mudança.
-- Visual em `wwwroot/academy.css` com as cores do app (escuro, claro via `cc.theme`, CMYK via `--cc-accent`). Início com "Em andamento" e cartões das trilhas; Trilhas, Conquistas e teste final só mudaram o visual.
-- Conferido em Chromium (360, 390 e 420 px, dois temas) com ponte simulada e dados reais do módulo 1; **não** conferido dentro do app (Avalonia/WASM) nem no celular. **Testes:** 1217.
-- Ajustes 10b: "Voltar à aula" virou faixa de 44 px no topo que empurra o Code para baixo (`#out` encolhe; não cobre nada) e some quando outro programa entra no editor (C# `LoadProgram` → `WebInterop.ProgramLoaded`). O campo de arquivo invisível do "Abrir" agora acompanha o `#out`. Visão geral sem [atenção]/[exemplo]; Próxima aula abre na Visão geral. Conferido no app publicado em Chromium headless (360, 390 e 1366 px).
-## UX-01 rodada 2b (`ajuste-ux01-r2b`, sobre `ajuste-ux01-r2a`) e testes estáveis (`ajuste-testes-estaveis`)
-- Trabalhos fresa e torno: barra inferior `JobBar` (resumo, itens clicáveis que levam à árvore ou ao campo, chips Trajetória/G-code/"Simulado: não verificado", botões "Enviar ao Code para simular" e "Gerar G-code" desligados com o motivo escrito). Código CNC embaixo da vista; aba Código removida. "Gerar G-code" refaz e mostra o código (o app já gera a cada mudança).
-- Testes estáveis (só teste): 5 classes da Academy em `[Collection("AcademyJson")]`; `LargeProgramsStayFast` compara com um programa 5× menor (limite 15×) em vez de 20 s fixos. 20 rodadas: 0 falhas.
-- Conferido com Avalonia Headless a 1366×768 (escuro e claro). A 768 px a árvore fica baixa (rolagem). **Testes:** 1217.
-- HANDOFF-13: ramo atualizado com o main (merge, sem rebase). Bruto ausente em âmbar também na árvore (só interface; texto do Core igual). "Gerar G-code" confirmado: não salva arquivo nem abre diálogo. 1217 testes, 0 falhas; Release 0 avisos.
-- HANDOFF-15 (mínimo 1280×720): coluna da esquerda compacta (descrição na dica do título, botões em uma linha, Nome e Comando lado a lado, Adicionar ao lado do tipo) → árvore com ~8–11 linhas a 1280×720. Etiqueta de estado sempre inteira ("erro" com o motivo na dica e na barra), título com reticências; perfil ausente do torno em âmbar; barra por último no Tab; foco visível ao clicar num item. Conferido headless (1280×720 e 1366×768, 2 temas) e no Windows real a 150%.
-- Pendências (fora do HANDOFF-15): menu lateral pouco legível no tema claro; botão 3D do torno sobre fundo escuro; campo para definir o Bruto no Trabalho fresa (PR 3); Assist só relê o desenho ao trocar de passo (abrir o módulo não atualiza "Nenhum desenho…").
-## Academy: JSON v2 no Core, sem tela (`fase-academy-v2-core`, HANDOFF-17 · ACAD-03 passo 1)
-- Leitor aceita v1 e v2 (`versao`, `dialeto`, `maquina`, `bruto`, `secoes` com `estado`); o v2 preenche os mesmos campos que a tela lê. `ProgramWalkthrough`, `ExerciseChecker` e `AcademyValidator` usam o dialeto e a máquina da aula (v1: fanuc/fresa, como antes). Validador do v2: dialeto, máquina, estado das 6 seções, programa da trajetória; sintaxe/trajetória vazias = aviso.
-- Plano de trilhas/níveis/módulos em `src/CncStudio.Core/Academy/academy-plano.json` (embutido; descrições vazias, A definir). `AcademyConverter.ToV2`: módulos 1 e 2 convertidos passam no validador (saída só fora do repositório, por `CASILLAS_ACADEMY_V2_OUT`).
-- Contrato: só acréscimos (`answer`, `hideAnswers`, `grade.results`, `lesson.version/dialect/machine/sections`, `catalog.description`); a tela atual segue igual. Progresso com `versao: 2` e `tabs` (migra o antigo sem perder aulas nem notas). **Testes:** 1225. Tela conferida em Chromium com a ponte (módulos 1 e 2).
-## Academy: tela do v2 e piloto do módulo 2 (`fase-academy-v2-tela`, HANDOFF-19 · ACAD-03 passo 2)
-- Quiz da aula, pausa rápida e teste final chegam sem gabarito (`hideAnswers`); a correção vem do Core (`answer` e `grade.results`). O gabarito do exercício continua ("Ver gabarito"). Corrigido também: o teste final real (id "acad-mN-final") não era corrigido pelo Core (só aceitava "…-teste-final").
-- Aba Sintaxe (blocos em monoespaçado e tabela endereço → conceito; some quando vazia); `visao.abertura` virou campo próprio (o conversor não junta mais ao texto). Descrições do plano nas trilhas (Fresa e Torno; acad-m1 sem descrição).
-- Piloto: módulo 2 convertido para v2 pelo `AcademyConverter` (6 aulas, tudo "rascunho"); Sintaxe só na a02, com frases do próprio texto da aula. Módulo 1 segue v1. **Testes:** 1227. Chromium sem tela (390 px, escuro e claro): módulos 1 e 2, quiz, pausa, teste final, Sintaxe.
-## UX-01 rodada 3: Bruto, Origem, Máquina (`ajuste-ux01-r3-origem-bruto`, HANDOFF-16 B)
-- Trabalho fresa: clicar em Bruto (árvore ou barra) abre o editor nas propriedades (comprimento, largura, altura, canto X/Y; medidas vêm do desenho, altura em branco; "Definir bruto" valida e resolve a pendência). Usa o `JobStock` que já existia: formato .casillas-job sem mudança.
-- Árvore com Origem ("G54: X0 Y0 do desenho, topo Z…", sempre "não verificada") e Máquina (perfil ativo e fuso; OK só com rpm máximo informado). Rotação acima do fuso: aviso âmbar nas propriedades, sem mudar o programa.
-- Core: `CamJobInfo.StockError/DrawingBox/OriginTitle/OriginState/MachineTitle/MachineState/SpindleWarning` com 6 testes (**1223**). Conferido headless 1280×720 e 1366×768, 2 temas; não testado no Windows real.
-- A definir: rotação acima do fuso deve virar pendência na barra (hoje só aviso)? Origem/Máquina no torno.
-- HANDOFF-16b: rotação acima do fuso (perfil com rpm máximo) vira pendência clicável na barra ("rotação acima do fuso na operação N", leva à operação) e "aviso: acima do fuso" âmbar na árvore; mesma conferência do aviso (`SpindleWarning` → `OverSpindle`/`Pending`/`OpState`). Sem rpm máximo, nada muda. Editor do Bruto avisa que o bruto ainda não altera o programa. **Testes:** 1224.
-## Assist: relê o desenho ao abrir o módulo (`ajuste-assist-releitura`, HANDOFF-16 A)
-- Abrir o Assist relê só o texto do desenho do Trabalho fresa (`RefreshDrawingText` em `Reload`); antes ficava "Nenhum desenho…" até trocar de passo. Plano, orçamento, espessura e regra do Aplicar sem mudança. Conferido headless (o Core não tem esta tela).
-## Tela inicial web, etapa 1 (`ajuste-web-inicio`)
-- Logo do topo de 64 → 132 px (com margem negativa, a imagem tem borda transparente) e título maior; cartões com o nome sem "Casillas" (fonte maior; 11,5 px na tela larga); texto de áreas abaixo dos cartões removido.
-- Sino ao lado da engrenagem abre "Novidades" (lista vazia por enquanto; aviso real de versão é a etapa 2). Engrenagem agora abre "Configurações" com Tema (padrão/CMYK) e "Conta e licença" (o painel de conta não foi alterado).
-- Barra inferior só aparece dentro dos módulos, com "Início" e o módulo atual (`--dock-h` vira 0 no Início). Só JS (`platform-ui.js`); conferido em Chromium sem tela (360×760, 320×640, 800×400).
-## UX-01 PR5: "digitado" e "dados de corte: rascunho" no Assist (`ajuste-ux01-r3-digitado`, HANDOFF-22 T3, opção A)
-- Revisão do Plano 2D: cada valor que você preenche (profundidades, alturas Z, rotação ajustada) mostra "digitado" (verde com texto), "pendente" (âmbar) ou "✕ inválido" (vermelho); a lista do plano diz "dados de corte: rascunho" ou "dados de corte: SEM material (valor genérico)". Só interface: regra do Aplicar, G-code e arquivo sem mudança.
-- Fora: marcar a origem no Trabalho fresa (opção C, precisa de campo no arquivo: PR à parte com autorização). T2 (pontes) pulada a pedido. Conferido headless 1280×720, escuro e claro.
-## Assist: material obrigatório antes de sugerir (`ajuste-assist-material`, T8a)
-- Core: `AssistPlanner.Plan` sem material não sugere nada (nota `MissingMaterial`); antes sugeria com 3000 rpm/F500 genéricos. Tela: o combo não pré-escolhe o 1º material ("Escolha o material…") e "Sugerir plano" mostra o motivo em ⚠. Travas do Aplicar sem mudança.
-- 1 teste novo (**1235** passando); Release 0 avisos. Não conferido na tela (sem roteiro headless até o Assist com DXF).
-## UX-01 rodada 3, PR 4: Fixação no Trabalho fresa (`ajuste-ux01-r3-fixacao`, HANDOFF-20)
-- Core: `CamJob.Fixture` (`JobFixture`: tipo morsa|grampos|placa|vacuo|dispositivo|outro e descrição até 80 letras) salvo como `fixture` no .casillas-job (campo opcional, versão do arquivo igual). Arquivo antigo abre com "Fixação: não definida"; fixação inválida abre com aviso e fica não definida. `Pending` ganha "Fixação não definida".
-- Árvore: item Fixação com estado (âmbar "não definida"; definida = "informada · não verificada", cor neutra) e editor nas propriedades (tipo, descrição, Definir/Limpar); a barra leva ao campo do tipo. Assist só lê a fixação do Trabalho e mostra na revisão; a regra do Aplicar (estratégia de soltura) não mudou. Torno: sem campo no modelo, ficou como estava.
-- **Testes:** 1241. Conferido com Avalonia Headless a 1280×720 (escuro e claro); não testado no Windows real nem a 100%/125%.
-- T1 (decisão B do Igor): "Fixação não definida" só avisa: a barra diz "G-code gerado, com 1 aviso" e os botões Gerar/Enviar continuam ligados (`JobBarItem.Blocking`, `CamJobInfo.Blocks`). As outras pendências, inclusive rotação acima do fuso, continuam travando. **Testes:** 1242.
-## T4a: desenhar forma sem DXF no Trabalho fresa (`ajuste-fresa-forma`, HANDOFF-22)
-- Item "Peça" da árvore abre nas propriedades o retângulo (canto X/Y, largura, altura) e o círculo (centro X/Y, diâmetro), com os mesmos campos e valores iniciais da aba Fresa antiga; a forma entra no fim da lista de contornos (operações não mudam). Validação no Core (`RectangleError`/`CircleError`), "✕ inválido" com texto. A barra "Falta a peça (abra um DXF ou desenhe uma forma)" leva ao item Peça.
-- Diferenças da aba antiga: lá os campos ficavam num expansor sob "Abrir DXF…"; aqui ficam nas propriedades da Peça. Nenhuma das duas remove contorno nem desfaz a forma. Aba antiga continua igual. **Testes:** 1237.
-## T4b: salvar e excluir ferramenta no banco pelo Trabalho fresa (`ajuste-fresa-ferramentas`, HANDOFF-22)
-- Propriedades da operação: "Salvar Tn no banco" (ou "Atualizar", se o T já existe) grava diâmetro, nome, rotação e avanços; "Excluir Tn do banco…" pede confirmação na tela (diz o que sai e que a operação continua com a ferramenta). Regra do T e do diâmetro no Core (`BankToolError`, mesma da aba antiga).
-- Diferenças da aba antiga: lá excluía sem confirmar e salvava por cima de qualquer T; aqui não grava por cima de ferramenta de torno com o mesmo T. Aba antiga sem mudança. **Testes:** 1235. Conferido sem tela (salvar, cancelar, excluir).
-## T5 · UX-01 PR 6: "desatualizado" por dependência (`ajuste-ux01-r3-desatualizado`)
-- Core `DataStamp`: registro dos dados de que um resultado depende; diz o que mudou ("Desatualizado: mudou X."). Tabela: perfil da máquina → programa do Trabalho fresa; programa do Code e campos/nome/cabeçalho → orçamento. O plano do Assist já tinha a mesma regra (`PlanStamp`), sem mudança.
-- Trabalho fresa: trocar o perfil na aba Máquina mantém o código à vista, título "desatualizado… não use", item âmbar na barra (clique refaz) e desliga Enviar/Gerar/Copiar. Orçamento: valores ficam riscados, com aviso âmbar; Copiar/Salvar proposta só com cálculo em dia. **Testes:** 1243 (+9).
-- Não coberto: programa já enviado ao Code não é avisado quando o Trabalho muda; tela não conferida (sem teste de tela no repositório).
-## CAM-02 · 3+2 na mesa dupla, só Core (`ajuste-cam02-3mais2`, T7a)
-- `RotaryIndexing.PlaceTilted` + `TiltedFace`: perfil 5 eixos mesa+mesa (1º eixo A/B basculante carrega o 2º), modo calculado; na altura segura gira o giratório (C) e depois o basculante (A), confere os dois cursos do perfil (com sentido invertido) e sempre avisa "NÃO VERIFICADO EM MÁQUINA". Contorno/bolsão e furação (`DrillCycle.RotaryLetter2`). Simulador: `RotaryPartFrame` ganhou C na mesa; painel mostra C.
-- Trabalho fresa: em "4º eixo e 3+2", com perfil mesa dupla, a caixa "3+2: usar os dois eixos da mesa" (ângulos do basculante e do giratório, aviso âmbar fixo). `.casillas-job` segue versão 1 com `axis2`/`angle2` opcionais (decisão do Igor); o perfil precisa ter os mesmos eixos na mesma ordem. 27 testes novos (**1261**); Release 0 avisos. Conferido headless a 1280×720. Colisão nos giros não verificada; nada rodou em máquina.
-## CAM-02 · rotativo a zero no fim (`ajuste-cam02-rotativo-zero`, T7b)
-- `CamPost`: se o programa termina com A/B/C fora de 0°, depois de Z na referência (G28/G53) sai comentário "NAO VERIFICADO EM MAQUINA" e `G0 A0` antes do M30. Só com perfil da máquina (`PostOptions.Machine`) e 0° dentro do curso; senão comentário "CONFIRA: … NAO VOLTA A ZERO". `CamPost.Check(ops, machine)` avisa nos dois casos. Trabalho fresa, CAM antigo e CAM web passam o perfil.
-- Programa sem rotativo fica idêntico (teste). 11 testes novos (**1245**); Release 0 avisos. Não rodou em máquina; colisão no giro final não verificada.
-
-## T6 torno: Origem e Máquina (ajuste-torno-origem-fixacao)
-- Árvore do Trabalho torno ganha "Origem G54: X0 no centro da peça, Z0 do perfil" (sempre "não verificada") e "Máquina" (perfil ativo e fuso), como na fresa. Core: `LatheJobInfo.OriginTitle/SpindleRpm/SpindleWarning/OverSpindle/OpState`.
-- Rotação acima do fuso (fixa ou G50 em G96): operação "aviso: acima do fuso" (âmbar), pendência na barra e nota nas propriedades; só confere, o programa não muda. **Testes:** 1240.
-- Fixação do torno (opção A do Igor): `LatheJob.Fixation` (`LatheFixation`: tipo castanhas/placa/ponto + Ø de fixação, comprimento preso e balanço opcionais), campo `fixation` opcional no JSON (versão continua 1; arquivo antigo abre como "não informada"); nó da árvore editável, sempre "não verificada", medida ≤ 0 em vermelho. Não entra no programa. **Testes:** 1246.
-- #126 ajustado (Igor, 02/11: "igual à fresa"): fixação do torno inválida no arquivo não impede de abrir; o trabalho abre com aviso e a fixação fica "não informada" (`LatheLoadResult.Warnings`). Corrigido também: "Abrir trabalho" do torno perdia a fixação do arquivo. **Testes:** 1307.
-## T4d: aba Fresa antiga removida (`ajuste-remover-aba-fresa`)
-- O CAM abre no Trabalho fresa; a aba "Fresa" (formulário 2,5D antigo) saiu com o código que só ela usava (`CamView` fica só com as abas). Tudo o que ela fazia já estava no Trabalho (T4a, T4b, T4c sem código).
-- Único item só da aba antiga, migrado (opção A do Igor): aviso "Tn no banco do Code tem Ø…, mas o CAM usou Ø…" (Core `CamJobInfo.BankDiameterWarnings`), nos avisos do Trabalho; refeito ao abrir o CAM. Programa e arquivo sem mudança. **Testes:** 1308 (+1); Release 0 avisos; conferido headless a 1280×720.
-## T8b: fixação do Trabalho no plano do Assist (`ajuste-assist-fixacao`, opção A do Igor)
-- Core `PlanReview.Review(..., fixture)` + `FixtureNote`: ao aplicar, a fixação lida do Trabalho fresa (fonte única, sem cópia) entra nas notas, sempre "não verificada"; sem ela, nota "não definida". Só nota: nenhuma trava nova nem afrouxada (estratégia de soltura igual).
-- 3 testes novos (**1311**); Release 0 avisos. Tela sem mudança visual (a nota aparece no texto do Aplicar); não conferida na tela.
-## Missão 11 · T3-C: marca de origem por operação no Trabalho fresa (`ajuste-ux01-origem-valores`)
-- Core `OpOrigin` + `CamOperationSpec.Origin`, campo opcional `origin` por operação no .casillas-job (`source: assist`, `cutData: draft|reviewed`, `typed: depth|heights|rpm|feed`); versão do arquivo igual, arquivo antigo abre sem marca, marca inválida abre sem marca e com aviso. Só o Aplicar do Assist marca (`PlanReview.Review`).
-- Trabalho fresa: propriedades mostram "do Assist · dados de corte: rascunho · digitado: …" (âmbar com rascunho), dica na árvore; editar rotação/avanço tira o rascunho e vira digitado (decisão do Igor), fundo/passe e alturas idem (`OpOrigin.Track`). **Testes:** 1323 (+12); Release 0 avisos. Tela não conferida.
-
-## Web · minhas ferramentas no Setup (02/11)
-- Setup web: caixa "Guardar esta lista como minhas ferramentas"; programa sem setup salvo abre com essa lista (só ferramentas, bruto e fixação não). Fica no navegador (`cc.mytools.v1`), não sincroniza entre aparelhos.
-- Core: `SetupJson.LoadOrDefault(json, programa, minhas)` e `SerializeMyTools`; 1332 testes (+9). Desktop ainda sem isso.
+Atualizado em 02/11/2026 · base: `origin/main` em `fb1c10c` (merge do PR #132).
+Histórico completo em docs/historico/. Ler só se a tarefa pedir.
+Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:linha) e `git log`.
+
+## Na main (datas = merges no git log)
+- **Code (web e desktop):** simulação 2D/3D, comparação, painel de controle, tema CMYK, teclado do editor e balão do código na web, faixa Renumerar/Formatar/Desfazer na web (H:5-38, H:406). Merges de 18/10 a 30/10 (#105).
+- **Plataforma web:** tela inicial com cartões, Configurações, Novidades (lista vazia), conta única com teste de 30 dias e travas por módulo (H:22, H:394, H:444). Merges de 24/10 a 02/11 (#117).
+- **Macro:** geradores no Core, tela web renovada e módulo nativo no desktop (H:15, H:24, H:50, H:402). Merges de 24/10 a 30/10 (#106).
+- **Otimizador:** Core, tela web com aviso de economia de linhas, módulo nativo no desktop (H:21, H:48, H:400). Merges de 24/10 a 30/10 (#107).
+- **Academy (só web):** leitor v1 e v2, tela nova; módulo 1 em v1, módulo 2 em v2, conteúdo em rascunho (H:52, H:415, H:428-435). Merges de 24/10 a 02/11 (#109, #110, #116, #118).
+- **CAM desktop:** Trabalho fresa e torno (árvore, propriedades, barra de pendências, Bruto, Origem, Máquina, Fixação, desfazer, 3D), DXF com unidade, bolsão com ilhas, torno (rosca, canal, rebaixo), 4º eixo, 3+2 na mesa dupla (só Core e Trabalho), rotativo a zero no fim, aba Fresa antiga removida (H:58-206, H:331, H:436-489). Merges de 26/10 a 02/11 (#119, #121-#126, #128).
+- **CAM 3D desktop:** STL, varredura e desbaste por níveis com Z digitado (H:261-269, H:342-345). Merges de 28/10 a 30/10 (#81, #82, #94).
+- **CAM web:** CAM rápido; trava de licença “soft”, livre enquanto o produto `cam` estiver inativo no servidor (H:139, H:238-241). Merges de 27/10 a 28/10 (#73).
+- **Assist (só desktop):** bibliotecas, orçamento, proposta HTML, plano 2D com travas (plano obsoleto, ferramenta nova, profundidade, peça solta, alturas Z, rpm do fuso, material obrigatório), etapas e marca de origem por operação (H:208-236, H:286-329, H:451, H:484-489). Merges de 28/10 a 02/11 (#120, #127, #129, #131).
+- **Web, Setup:** “minhas ferramentas” guardadas no navegador; desktop ainda sem isso (H:491-493). Merge em 02/11 (#132).
+
+## Em ramo, sem merge na main (git, 02/11)
+- **CAM-08 STEP:** `fase-cam-step-malha` → `fase-cam-step-correcao` → `fase-cam-step-orientacao`; `fase-cam3d-selecao` vai em cima da malha. Há também `fase-cam-step-estudo`.
+- **Não ir à main** antes do teste do Igor com STEP real e da revisão de licença (LIC-01).
+- Partem de uma main antiga: o merge dará conflito em `docs/ESTADO.md` e `ModelView.cs`; apagar o `ModelZ` duplicado em `ModelReview.cs` (H:346).
+- `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02`, além de ramos antigos de 22/10.
+- PRs abertos: nenhum listado por `gh pr list` em 02/11.
+
+## Aguarda o Igor
+- Conferir na prévia/celular o que ficou “não conferido”: telas web do Code, Macro, Otimizador, Loja e Academy dentro do app (H:395-409, H:419); vista de frente para o eixo e peça girando na web (H:146, H:171).
+- Conferir no .exe da prévia: Trabalho 3D, DXF em polegadas e clique, STL real (H:256, H:264, H:334); telas do Assist e do Trabalho marcadas “tela não conferida” (H:453, H:468, H:486, H:489).
+- Decidir/ativar: produto `cam` no Supabase (H:240); publicação do texto de termos (H:273); origem/direitos da foto da Loja (H:399); STEP real de peça para o teste de viabilidade (H:283).
+- Revisar o módulo 2 da Academy (já na main, #109) e marcar `revisado`.
+- Autorizar: Handoff 18 (remover DLLs não usadas, ver LIC-01) e CODE-14 (avisos do simulador); Handoff 21 (módulo 1 em v2); PLAT-07 (conta e licença no desktop).
+- Testar no .exe a Fixação (#119) a 100% e 125%, se ainda não testada (H:457).
+
+## Limites que valem hoje
+- Nada do CAM rodou em máquina real: rosca, 4º eixo, 3+2, rotativo a zero, F com rotativo no Fanuc 21i, CYCLE95/FALX no Siemens (H:95, H:101, H:151, H:177, H:471, H:474).
+- Fixação e colisão nunca são verificadas; simular e rodar a primeira vez no ar (H:311, H:370).
+- Simulação web em 3 eixos com voxel aproximado; tempo no celular não medido (H:163, H:166).
+- Termos não revisados por advogado; licença OCCT do STEP a confirmar com profissional (H:273, H:282).
+- Conteúdo técnico da Academy e itens iniciais do Assist são rascunho (H:210, H:435).
+- O .exe e o instalador oficiais **não** estão publicados.
+- O merge na main publica na hora a web (casillas.com.br) e o painel.
+- Mínimo de tela do desktop: 1280×720 lógicos.
+
+## Licenças (LIC-01)
+- Inventário feito em `C:\Projetos\inventario\` (fora do repositório).
+- 33 das 69 DLLs nativas do OpenCASCADE não são usadas; a remoção (Handoff 18) aguarda autorização do Igor.
+- Revisão jurídica pendente: o Igor envia o inventário ao advogado/contador.
+
+## Próximos passos já registrados
+- CAM desktop, na ordem de 28/10: desbaste (feito), DXF e seleção de contornos, estudo do STEP, seleção de faces e arestas no 3D; depois o Assist (H:281-283).
+- Pendências registradas: menu lateral pouco legível no tema claro; botão 3D do torno sobre fundo escuro (H:427).
+- Não feito e citado: aviso ao Code quando o Trabalho muda (H:468); pontes no contorno (H:314); bedame interno e barras MVQNR (H:13); perfil real da rosca no editor (H:12); minhas ferramentas no desktop (H:493).
+
+## Testes
+- Contagem: ver o resultado do CI na main.
+
+## Ponteiros
+- Fichas: `docs/tarefas/` (modelo em `docs/tarefas/MODELO.md`); ex.: `docs/tarefas/CAM-01-plano.md`, `docs/tarefas/PLAT-06-desktop-plataforma.md`, `docs/tarefas/ACAD-02-modulos-2-a-4.md`.
+- Histórico: `docs/historico/ESTADO-ate-2026-11-02.md`.
+
+## Divergências a resolver (não decididas aqui)
+- H:5, H:9, H:14: “Na main (21/10)” e “Próximo: CODE-09, depois CODE-08 DNC” desatualizados; CODE-08 DNC não aparece de novo.
+- H:10 a H:493: contagens de testes diferentes ao longo do arquivo (473 a 1332), fora de ordem cronológica (H:480 1307, H:483 1308, H:474 1245).
+- H:22 e H:23: parágrafo do PLAT-03 duplicado.
+- H:8 cita o Supabase “Casillas Code”; H:22 cita o projeto “Casillas”. Qual vale para a conta mestre?
+- H:52 “Loja nativa no desktop” × H:54 “Loja nativa removida”.
+- H:20 (8 cartões, CAM “em breve”) × H:140 e H:394 (CAM ativo, 9 cartões).
+- H:284: “PR #85 aguarda conferir e o OK do merge”, mas o git mostra o #85 mesclado.
+- H:342 × git: `ajuste-cam3d-desbaste-protecao` entrou pelo #94; já o remoto `ajuste-cam3d-protecao` (outro ramo) segue sem merge na main.
+- H:371 e H:413 (teste instável, correção não feita) × H:423 (corrigido).
+- H:427 e H:440 listam como pendentes itens feitos depois (H:437, H:441, H:443, H:477).
+- STEP: ramos `fase-cam-step-*` existem no git, mas o arquivo não registra o estado deles.
+- H:118 e H:182 apontam planos “no Projeto” (fora deste repositório).
+- ffmpeg/FreeImage: não aparecem no arquivo de histórico; se descritos como usados, é em outro documento.
