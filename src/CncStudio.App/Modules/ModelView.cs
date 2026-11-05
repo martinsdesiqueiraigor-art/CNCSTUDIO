@@ -237,7 +237,8 @@ public sealed class ModelView : Grid
             _unit.SelectedIndex = 0; // o OpenCASCADE já entrega em milímetros
             _unit.IsEnabled = false;
             string collapsed = step.Collapsed > 0 ? $"; {step.Collapsed:N0} triângulos sem área descartados" : "";
-            Show(0, $"STEP lido em milímetros (malha de 0,05 mm de desvio; {step.Orientation!.FlippedTriangles:N0} triângulos reorientados{collapsed}).");
+            string notice = step.Notice is { } n ? "\n" + n : "";
+            Show(0, $"STEP lido em milímetros (malha de 0,05 mm de desvio; {step.Orientation!.FlippedTriangles:N0} triângulos reorientados{collapsed}).{notice}");
             return;
         }
 

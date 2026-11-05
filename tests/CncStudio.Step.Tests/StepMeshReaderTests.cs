@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using CncStudio.Core.Cam3D;
 using CncStudio.Step;
 using OcctNet.Wrapper;
@@ -81,6 +82,86 @@ public class StepMeshReaderTests
         Assert.True(r.Ok, r.Error);
         // 100 "polegadas" = 2540 mm
         Assert.Equal(2540, r.Mesh!.Size.X, 1);
+    }
+
+    // Partes do STEP da placa exportado pelo OpenCASCADE: "#10 = ADVANCED_BREP_SHAPE_REPRESENTATION('',(#11,#15),#429);",
+    // "#15 = MANIFOLD_SOLID_BREP('',#16);" e "#16 = CLOSED_SHELL('',(#17,...));"
+    private sealed record PlateParts(string Text, Match Rep, Match Solid, Match Shell);
+
+    private static PlateParts Parts()
+    {
+        string text = Encoding.ASCII.GetString(PlateStep());
+        Match rep = Regex.Match(text, @"#(\d+) = ADVANCED_BREP_SHAPE_REPRESENTATION\('',\(([^)]*)\),#(\d+)\);");
+        Match solid = Regex.Match(text, @"#(\d+) = MANIFOLD_SOLID_BREP\('',#(\d+)\);");
+        Match shell = Regex.Match(text, @"#" + solid.Groups[2].Value + @" = CLOSED_SHELL\('',\(([^)]*)\)\);");
+        Assert.True(rep.Success && solid.Success && shell.Success);
+        return new PlateParts(text, rep, solid, shell);
+    }
+
+    private static string AddRecords(string text, string records)
+    {
+        int end = text.LastIndexOf("ENDSEC;", StringComparison.Ordinal);
+        return text[..end] + records + "\n" + text[end..];
+    }
+
+    [Fact]
+    public void Solido_com_superficie_auxiliar_le_so_o_solido()
+    {
+        // Como nos STEP do NIST com PMI: além do sólido, um SHELL_BASED_SURFACE_MODEL com OPEN_SHELL (aqui, uma face
+        // repetida da própria placa). Lido junto, a malha ficaria com arestas de 3 triângulos e não fecharia.
+        PlateParts p = Parts();
+        string face = p.Shell.Groups[1].Value.Split(',')[0];
+        string text = p.Text.Replace(p.Rep.Value, p.Rep.Value.Replace(p.Rep.Groups[2].Value, p.Rep.Groups[2].Value + ",#9002"));
+        text = AddRecords(text, $"#9001 = OPEN_SHELL('',({face}));\n#9002 = SHELL_BASED_SURFACE_MODEL('',(#9001));");
+
+        StepResult r = StepMeshReader.Read(Encoding.ASCII.GetBytes(text));
+        Assert.True(r.Ok, r.Error);
+        Assert.True(r.Mesh!.IsClosed);
+        Assert.InRange(r.Mesh.Volume, PlateVolume * 0.995, PlateVolume * 1.001);
+        Assert.Equal("Ignorei 1 superfície auxiliar; usei só o sólido.", r.Notice);
+
+        // Sem superfície auxiliar: nenhum aviso
+        Assert.Null(StepMeshReader.Read(PlateStep()).Notice);
+    }
+
+    [Fact]
+    public void Sem_solido_le_as_superficies_como_antes()
+    {
+        // O sólido vira modelo de superfície aberto (sem uma das faces): continua lido, aberto e sem aviso de "ignorei"
+        PlateParts p = Parts();
+        string faces = p.Shell.Groups[1].Value;
+        string text = p.Text
+            .Replace(p.Solid.Value, $"#{p.Solid.Groups[1].Value} = SHELL_BASED_SURFACE_MODEL('',(#{p.Solid.Groups[2].Value}));")
+            .Replace(p.Shell.Value, p.Shell.Value.Replace("CLOSED_SHELL", "OPEN_SHELL").Replace(faces, faces[(faces.IndexOf(',') + 1)..]))
+            .Replace("ADVANCED_BREP_SHAPE_REPRESENTATION", "MANIFOLD_SURFACE_SHAPE_REPRESENTATION");
+
+        StepResult r = StepMeshReader.Read(Encoding.ASCII.GetBytes(text));
+        Assert.True(r.Ok, r.Error);
+        Assert.False(MeshCheck.Of(r.Mesh!).IsClosed);
+        Assert.Equal(100, r.Mesh!.Size.X, 3);
+        Assert.Null(r.Notice);
+    }
+
+    [Fact]
+    public void So_malha_facetada_le_com_aviso_de_volume_aproximado()
+    {
+        // AP242 tesselado (como o ftc_08 "-tg" do NIST): um tetraedro de triângulos no lugar do sólido B-rep
+        PlateParts p = Parts();
+        string text = p.Text
+            .Replace(p.Solid.Value, "")
+            .Replace(p.Rep.Value, p.Rep.Value
+                .Replace("ADVANCED_BREP_SHAPE_REPRESENTATION", "TESSELLATED_SHAPE_REPRESENTATION")
+                .Replace("#" + p.Solid.Groups[1].Value + ")", "#9102)"));
+        text = AddRecords(text,
+            "#9100 = COORDINATES_LIST('',4,((0.,0.,0.),(10.,0.,0.),(0.,10.,0.),(0.,0.,10.)));\n" +
+            "#9101 = TRIANGULATED_FACE('',#9100,4,(),$,(),((1,3,2),(1,2,4),(2,3,4),(1,4,3)));\n" +
+            "#9102 = TESSELLATED_SOLID('',(#9101),$);");
+
+        StepResult r = StepMeshReader.Read(Encoding.ASCII.GetBytes(text));
+        Assert.True(r.Ok, r.Error);
+        Assert.Equal(10, r.Mesh!.Size.X, 3);
+        Assert.Equal(10, r.Mesh.Size.Z, 3);
+        Assert.Equal("O arquivo só tem malha facetada, sem sólido: volume aproximado.", r.Notice);
     }
 
     [Fact]
