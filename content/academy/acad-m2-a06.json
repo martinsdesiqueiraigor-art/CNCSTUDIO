@@ -1,0 +1,131 @@
+{
+  "versao": 2,
+  "id": "acad-m2-a06",
+  "modulo": "acad-m2",
+  "titulo": "Lendo um programa simples de fresamento",
+  "nivel": "Iniciante",
+  "caminho": "Fresa",
+  "dialeto": "fanuc",
+  "maquina": "fresa",
+  "estado": "rascunho",
+  "objetivo": "Interpretar um programa completo com G00, G01, G02 e G03, identificando modos, trajetórias e encerramento.",
+  "pre_requisito": "acad-m2-a05",
+  "secoes": {
+    "visao": {
+      "estado": "rascunho",
+      "abertura": "Você consegue explicar o caminho completo de uma ferramenta lendo apenas o programa?",
+      "texto": "[conceito] Ler um programa CNC exige acompanhar a sequência de instruções e os modos ativos. Uma linha isolada raramente contém todas as informações necessárias para interpretar um movimento. Nesta aula, reunimos os conceitos estudados no módulo: posicionamento rápido G00, interpolação linear G01, interpolação circular G02/G03, avanço F e funções de rotação. O objetivo é reconhecer o comportamento programado sem depender apenas da memorização dos códigos.\n\n[conceito] A leitura começa pelo cabeçalho. Identifique o tipo de máquina, o comando, a peça, o bruto, a ferramenta e a definição do zero. Depois observe os modos iniciais: G21 seleciona milímetros, G90 estabelece coordenadas absolutas, G17 seleciona o plano XY e G94 estabelece avanço por minuto. G54 seleciona um sistema de coordenadas de trabalho. Essas informações fornecem o contexto para interpretar as posições seguintes.\n\n[exemplo] O programa começa posicionando a ferramenta em Z20.0 e depois em X10.0 Y10.0. O bloco G01 X30.0 Y10.0 F120.0 descreve uma reta até X30.0 Y10.0. Em seguida, G03 X30.0 Y30.0 R10.0 descreve um semicírculo anti-horário. Depois, G01 X10.0 Y30.0 solicita outra reta. Finalmente, G03 X10.0 Y10.0 R10.0 descreve outro semicírculo. Todos os movimentos de avanço permanecem acima do bruto e servem exclusivamente à interpretação geométrica.\n\n[dica] Uma boa estratégia é construir uma tabela mental com quatro informações: modo de movimento, ponto inicial, ponto final e avanço. Quando o programa contém G02 ou G03, acrescente plano, sentido e raio ou centro. Se o código de movimento não aparece em uma linha, procure o último modo válido. Se uma coordenada está ausente, verifique como o comando mantém a posição daquele eixo no contexto do movimento.\n\n[atenção] Erro comum no chão de fábrica: conferir apenas as coordenadas finais e ignorar o caminho entre elas. Dois programas podem terminar no mesmo ponto e percorrer trajetórias completamente diferentes. Outro erro é presumir que um programa sem alarmes esteja pronto para execução física. A interpretação geométrica não substitui a verificação de ferramenta, fixação, limites, corretores e condições reais de corte.\n\n[exemplo] No exercício final, o aluno deve identificar qual bloco inicia a primeira interpolação circular e explicar o sentido de movimento. Também deve reconhecer que M30 encerra o programa e que não existe acionamento de spindle no arquivo demonstrativo. O programa é uma sequência didática de movimentos acima da peça. A compatibilidade com uma máquina física e a definição de parâmetros de produção permanecem A definir. Simule antes de rodar na máquina.",
+      "conceitos": [
+        "Leia primeiro o cabeçalho, os modos e o sistema de coordenadas.",
+        "Interprete cada movimento considerando a posição anterior e o estado modal.",
+        "A leitura e a simulação não substituem a validação para a máquina real."
+      ]
+    },
+    "trajetoria": {
+      "estado": "rascunho",
+      "programa": ""
+    },
+    "sintaxe": {
+      "estado": "rascunho",
+      "blocos": [],
+      "parametros": []
+    },
+    "exemplo": {
+      "estado": "rascunho",
+      "programa": "samples/academy/acad-m2-a06.nc",
+      "etapas": []
+    },
+    "cuidados": {
+      "estado": "rascunho",
+      "erros": [
+        "Descrito no texto da aula."
+      ],
+      "alertas": [
+        "Simule antes de rodar na máquina"
+      ]
+    },
+    "praticar": {
+      "estado": "rascunho",
+      "exercicio": {
+        "tipo": "complete/corrija",
+        "enunciado": "Complete o arco anti-horário que parte de X30.0 Y10.0 e termina em X30.0 Y30.0, com raio R10.0.",
+        "gabarito": "G03 X30.0 Y30.0 R10.0",
+        "editor": {
+          "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y10.0\nG01 X30.0 Y10.0 F120.0",
+          "inicial": "____ X30.0 Y30.0 R10.0",
+          "solucao": "G03 X30.0 Y30.0 R10.0",
+          "checagens": [
+            {
+              "tipo": "contem",
+              "texto": "G03",
+              "dica": "Identifique o código ou parâmetro correto."
+            },
+            {
+              "tipo": "posicao_final",
+              "x": 30,
+              "y": 30
+            },
+            {
+              "tipo": "sem_erros"
+            }
+          ]
+        }
+      },
+      "quiz": [
+        {
+          "id": "acad-m2-a06-q01",
+          "enunciado": "Qual sequência de leitura é mais adequada?",
+          "alternativas": [
+            "Cabeçalho, modos, origem, movimentos e encerramento",
+            "Somente os blocos G01",
+            "Somente a última coordenada",
+            "Apenas o número do programa"
+          ],
+          "correta": "A",
+          "explicacao": "A: Essa ordem estabelece o contexto necessário. B: Ignora outros movimentos. C: Não revela a trajetória. D: O número identifica o programa, mas não explica seu funcionamento.",
+          "dica": "Comece pelas informações que definem o contexto."
+        },
+        {
+          "id": "acad-m2-a06-q02",
+          "enunciado": "No trecho G01 X30.0 Y10.0 F120.0 seguido de G03 X30.0 Y30.0 R10.0, qual movimento vem depois da reta?",
+          "alternativas": [
+            "Movimento rápido",
+            "Arco anti-horário",
+            "Arco horário",
+            "Parada do spindle"
+          ],
+          "correta": "B",
+          "explicacao": "A: G00 não foi selecionado. B: G03 representa interpolação circular anti-horária. C: Arco horário utiliza G02. D: Parada utiliza M05.",
+          "dica": "Observe o código G que substitui G01."
+        },
+        {
+          "id": "acad-m2-a06-q03",
+          "enunciado": "Qual código seleciona o plano XY?",
+          "alternativas": [
+            "G90",
+            "G54",
+            "G17",
+            "G94"
+          ],
+          "correta": "C",
+          "explicacao": "A: G90 seleciona coordenadas absolutas. B: G54 seleciona origem de trabalho. C: G17 seleciona o plano XY. D: G94 estabelece avanço por minuto.",
+          "dica": "Identifique o código de seleção de plano."
+        },
+        {
+          "id": "acad-m2-a06-q04",
+          "enunciado": "O que significa terminar um programa com M30?",
+          "alternativas": [
+            "Selecionar uma ferramenta",
+            "Programar um arco",
+            "Definir a origem da peça",
+            "Encerrar a execução do programa"
+          ],
+          "correta": "D",
+          "explicacao": "A: Seleção de ferramenta utiliza outros comandos. B: Arcos utilizam G02/G03. C: Origem pode ser selecionada com G54. D: M30 é utilizado para encerramento do programa.",
+          "dica": "Diferencie movimentos de funções de encerramento."
+        }
+      ]
+    }
+  },
+  "observacoes": "Programa didático sem rotação ou corte. Parâmetros reais, fixação e compatibilidade física: A definir."
+}

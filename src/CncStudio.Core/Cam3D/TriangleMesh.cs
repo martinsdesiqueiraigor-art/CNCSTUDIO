@@ -78,20 +78,21 @@ public sealed class TriangleMesh
 
     /// <summary>
     /// A malha é fechada? Cada aresta aparece em exatamente dois triângulos (vértices iguais até 1e-6 mm).
+    /// Triângulos colapsados (<see cref="IsCollapsed"/>) não contam: não têm área e não abrem nem fecham nada.
     /// Malha aberta ainda serve para ver, mas o volume e o CAM 3D ficam incertos.
     /// </summary>
     public bool IsClosed
     {
         get
         {
-            if (TriangleCount == 0)
-            {
-                return false;
-            }
-
             var edges = new Dictionary<(long, long, long, long, long, long), int>();
             for (int i = 0; i < TriangleCount; i++)
             {
+                if (IsCollapsed(i))
+                {
+                    continue;
+                }
+
                 (Point3 a, Point3 b, Point3 c) = Triangle(i);
                 foreach ((Point3 p, Point3 q) in new[] { (a, b), (b, c), (c, a) })
                 {
@@ -103,8 +104,36 @@ public sealed class TriangleMesh
                 }
             }
 
-            return edges.Values.All(count => count == 2);
+            return edges.Count > 0 && edges.Values.All(count => count == 2);
         }
+    }
+
+    /// <summary>
+    /// Triângulo colapsado: dois dos três vértices são o mesmo ponto (até 1e-6 mm). A triangulação de STEP às vezes
+    /// gera esses triângulos; contados como aresta, eles faziam uma malha fechada parecer aberta e em pedaços.
+    /// Triângulo de área zero com três pontos diferentes (alinhados) NÃO é colapsado: tirá-lo abriria a malha.
+    /// </summary>
+    public bool IsCollapsed(int index)
+    {
+        (Point3 a, Point3 b, Point3 c) = Triangle(index);
+        (long, long, long) ka = Key(a), kb = Key(b), kc = Key(c);
+        return ka == kb || kb == kc || ka == kc;
+    }
+
+    /// <summary>Cópia sem os triângulos colapsados (área e volume não mudam: eles não têm área).</summary>
+    public TriangleMesh WithoutCollapsed(out int removed)
+    {
+        var triangles = new List<(Point3, Point3, Point3)>(TriangleCount);
+        for (int i = 0; i < TriangleCount; i++)
+        {
+            if (!IsCollapsed(i))
+            {
+                triangles.Add(Triangle(i));
+            }
+        }
+
+        removed = TriangleCount - triangles.Count;
+        return removed == 0 ? this : new TriangleMesh(triangles);
     }
 
     /// <summary>Cópia com todas as medidas multiplicadas (ex.: 25,4 se o STL estava em polegadas; 1000 se em metros).</summary>
@@ -112,6 +141,21 @@ public sealed class TriangleMesh
 
     /// <summary>Cópia deslocada.</summary>
     public TriangleMesh Translated(double dx, double dy, double dz) => Map(p => new Point3(p.X + dx, p.Y + dy, p.Z + dz));
+
+    /// <summary>
+    /// Cópia girada (<see cref="ModelTurn"/>). Giro de 90° exato (só troca e sinal das coordenadas, sem seno e cosseno):
+    /// quatro giros iguais voltam à malha original. É uma rotação de verdade (não espelha), então o sentido dos
+    /// triângulos, o volume e a área não mudam. Para o topo voltar a Z = 0, aplique <see cref="PlacedTopAtZero"/> depois.
+    /// </summary>
+    public TriangleMesh Turned(ModelTurn turn) => turn switch
+    {
+        ModelTurn.XPlus90 => Map(p => new Point3(p.X, -p.Z, p.Y)),
+        ModelTurn.XMinus90 => Map(p => new Point3(p.X, p.Z, -p.Y)),
+        ModelTurn.YPlus90 => Map(p => new Point3(p.Z, p.Y, -p.X)),
+        ModelTurn.YMinus90 => Map(p => new Point3(-p.Z, p.Y, p.X)),
+        ModelTurn.Flip => Map(p => new Point3(p.X, -p.Y, -p.Z)),
+        _ => throw new ArgumentOutOfRangeException(nameof(turn)),
+    };
 
     /// <summary>Cópia com o canto mínimo na origem em X e Y e o topo em Z = 0 (convenção do CAM: Z0 no topo da peça).</summary>
     public TriangleMesh PlacedTopAtZero() =>
@@ -129,7 +173,7 @@ public sealed class TriangleMesh
         return new TriangleMesh(triangles);
     }
 
-    private static (long, long, long) Key(Point3 p) =>
+    internal static (long, long, long) Key(Point3 p) =>
         ((long)Math.Round(p.X * 1e6), (long)Math.Round(p.Y * 1e6), (long)Math.Round(p.Z * 1e6));
 
     private static int Compare((long, long, long) a, (long, long, long) b) =>

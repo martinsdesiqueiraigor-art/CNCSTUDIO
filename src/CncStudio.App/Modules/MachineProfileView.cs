@@ -37,6 +37,7 @@ public sealed class MachineProfileView : UserControl
     private readonly TextBox _name = new() { MinHeight = 28 };
     private readonly ComboBox _controller = new() { MinWidth = 160 };
     private readonly ComboBox _mode = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly TextBox _maxRpm = new() { MinHeight = 28, Watermark = "não informado" };
     private readonly AxisEditor[] _axes;
     private readonly TextBlock _summary = new() { FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _messages = new() { TextWrapping = TextWrapping.Wrap };
@@ -97,6 +98,12 @@ public sealed class MachineProfileView : UserControl
         root.Children.Add(Row("Nome", _name));
         root.Children.Add(Row("Comando", _controller));
         root.Children.Add(Row("Modo de saída", _mode));
+        root.Children.Add(Row("Rotação máx. do fuso", _maxRpm));
+        root.Children.Add(new TextBlock
+        {
+            Text = "Em rpm, do manual da sua máquina. Em branco = não informado: o Assist marca a rotação como não verificada e não inventa limite.",
+            Opacity = 0.7, FontSize = 11, TextWrapping = TextWrapping.Wrap,
+        });
 
         root.Children.Add(Label("Eixos rotativos (ordem: do lado da máquina para o lado da peça)"));
         for (int i = 0; i < _axes.Length; i++)
@@ -242,6 +249,19 @@ public sealed class MachineProfileView : UserControl
             Controller = _controller.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc,
             Mode = _mode.SelectedIndex == 1 ? RotaryOutputMode.Native : RotaryOutputMode.Calculated,
         };
+        if (!string.IsNullOrWhiteSpace(_maxRpm.Text))
+        {
+            double rpm = Parse(_maxRpm);
+            if (double.IsNaN(rpm))
+            {
+                inputError = "Rotação máxima do fuso: número inválido (ou deixe em branco).";
+            }
+            else
+            {
+                profile.MaxSpindleRpm = rpm;
+            }
+        }
+
         for (int i = 0; i < _axes.Length; i++)
         {
             AxisEditor a = _axes[i];
@@ -278,6 +298,7 @@ public sealed class MachineProfileView : UserControl
         _name.Text = profile.Name;
         _controller.SelectedIndex = profile.Controller == CamDialect.Siemens ? 1 : 0;
         _mode.SelectedIndex = profile.Mode == RotaryOutputMode.Native ? 1 : 0;
+        _maxRpm.Text = profile.MaxSpindleRpm?.ToString("0.###", Br) ?? "";
         for (int i = 0; i < _axes.Length; i++)
         {
             AxisEditor a = _axes[i];

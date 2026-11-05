@@ -11,20 +11,46 @@ namespace CncStudio.App.Modules;
 /// <summary>Aba Plano 2D do Assist: sugere furos, bolsões e contorno a partir do desenho do Trabalho de fresa.</summary>
 public sealed partial class AssistView
 {
-    private readonly ComboBox _planMaterial = new() { MinWidth = 220 };
+    private readonly ComboBox _planMaterial = new() { MinWidth = 220, PlaceholderText = "Escolha o material…" };
     private readonly TextBox _planThickness = new() { Width = 80, Text = "10" };
     private readonly TextBlock _planDrawing = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
     private readonly TextBlock _planResult = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
     private readonly Button _planApply = new() { Content = "Aplicar ao Trabalho (CAM)", Padding = new Thickness(16, 6), IsEnabled = false };
     private PlanResult? _plan;
+    private readonly StackPanel _planToolsPanel = new() { Spacing = 4 };
+    private readonly HashSet<int> _confirmedNewTools = [];
+    private readonly StackPanel _planDepthsPanel = new() { Spacing = 4 };
+    private readonly Dictionary<int, double> _reviewedDepths = [];
+    private ReleaseStrategy _release = ReleaseStrategy.NotReviewed;
+    private readonly double?[] _zValues = new double?[3]; // seguro, aproximação, topo da peça
+    private readonly Dictionary<int, double> _rpmAdjust = [];
 
     /// <summary>Contornos do desenho do Trabalho de fresa e a espessura do bruto, se já definida.</summary>
     public Func<(IReadOnlyList<Contour> Contours, double? Thickness)>? PlanDrawing { get; set; }
 
     public Func<IReadOnlyList<PlanTool>>? PlanTools { get; set; }
 
+    /// <summary>Rotação máxima do fuso do perfil de máquina ativo (rpm); null = não informada.</summary>
+    public Func<double?>? PlanMaxRpm { get; set; }
+
     /// <summary>Põe as operações sugeridas no Trabalho de fresa.</summary>
     public Action<IReadOnlyList<CamOperationSpec>>? ApplyPlan { get; set; }
+
+    /// <summary>Fixação do Trabalho fresa (fonte única): o Assist só lê e mostra; não guarda cópia nem muda a regra do Aplicar.</summary>
+    public Func<JobFixture?>? PlanFixture { get; set; }
+
+    private readonly ContentControl _planFixture = new();
+
+    /// <summary>Relê a fixação do Trabalho e mostra na revisão (âmbar com texto quando falta; nunca prova que a peça está segura).</summary>
+    private void RefreshFixtureText()
+    {
+        JobFixture? fx = PlanFixture?.Invoke();
+        _planFixture.Content = UiKit.StatusNote(
+            fx is null
+                ? "Fixação do Trabalho fresa: não definida. Defina no item \"Fixação\" da árvore do Trabalho fresa."
+                : CamJobInfo.FixtureTitle(fx) + " (do Trabalho fresa; informada por você, não verificada).",
+            fx is null ? "pending" : "neutral");
+    }
 
     private void AddPlanTab()
     {
@@ -34,14 +60,20 @@ public sealed partial class AssistView
             Text = "Sugere furos, bolsões e o contorno da peça a partir do desenho aberto em CAM › Trabalho fresa. Só sugere o que o CAM sabe gerar; revise, simule e rode a primeira vez no ar.",
             TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8,
         });
-        form.Children.Add(_planDrawing);
+        _secPrepare.Children.Add(new TextBlock { Text = "1 · Preparar: desenho, material e espessura", FontWeight = FontWeight.SemiBold });
+        _secPrepare.Children.Add(_planDrawing);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         row.Children.Add(new TextBlock { Text = "Material", VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
         row.Children.Add(_planMaterial);
         row.Children.Add(new TextBlock { Text = "Espessura do bruto", VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
         row.Children.Add(_planThickness);
         row.Children.Add(new TextBlock { Text = "mm", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.65, FontSize = 11 });
-        form.Children.Add(row);
+        _secPrepare.Children.Add(row);
+        Button toSuggest = new() { Content = "Continuar: Sugerir", Padding = new Thickness(16, 6), HorizontalAlignment = HorizontalAlignment.Left };
+        toSuggest.Click += (_, _) => ShowStep(1);
+        _secPrepare.Children.Add(toSuggest);
+        _planMaterial.SelectionChanged += (_, _) => OnPlanInputChanged();
+        _planThickness.TextChanged += (_, _) => OnPlanInputChanged();
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         Button suggest = new() { Content = "Sugerir plano", Padding = new Thickness(16, 6) };
         suggest.Click += (_, _) => SuggestPlan();
@@ -49,27 +81,428 @@ public sealed partial class AssistView
         {
             if (_plan is { Ok: true } plan && ApplyPlan is not null)
             {
-                ApplyPlan(plan.Operations);
-                _planResult.Text += "\n(operações adicionadas ao Trabalho fresa)";
+                // Confere de novo na hora de aplicar: o desenho, a espessura, o material ou as ferramentas podem ter mudado
+                if (CheckPlanStillValid() is { } stale)
+                {
+                    InvalidatePlan(stale);
+                    return;
+                }
+
+                // E as ferramentas novas (fora do banco) e as profundidades só entram revisadas, uma a uma
+                PlanReviewResult review = ReviewNow();
+                if (!review.Ok)
+                {
+                    _planResult.Text += "\n⚠ " + review.Error;
+                    _planApply.IsEnabled = false;
+                    return;
+                }
+
+                ApplyPlan(review.Operations!);
+                _planResult.Text += "\n(operações adicionadas ao Trabalho fresa)" + string.Concat(review.Notes.Select(n => "\n• " + n));
                 _planApply.IsEnabled = false;
+                _plan = null;
+                ClearPlanTools();
+                RefreshPlanApply();
             }
         };
-        buttons.Children.Add(suggest);
-        buttons.Children.Add(_planApply);
-        form.Children.Add(buttons);
-        form.Children.Add(_planResult);
-        var tab = new TabItem { Header = "Plano 2D", Content = new Border { Padding = new Thickness(0, 10), Child = form } };
-        tab.PropertyChanged += (_, e) =>
+        Button toReview = new() { Content = "Continuar: Revisar", Padding = new Thickness(16, 6) };
+        toReview.Click += (_, _) =>
         {
-            if (e.Property == TabItem.IsSelectedProperty && tab.IsSelected)
+            if (_plan is { Ok: true })
             {
-                LoadPlan();
+                ShowStep(2);
+            }
+            else
+            {
+                _planResult.Text = "Sugira um plano primeiro.";
             }
         };
-        _tabs.Items.Add(tab);
+        _secSuggest.Children.Add(new TextBlock { Text = "2 · Sugerir: o Assist propõe as operações", FontWeight = FontWeight.SemiBold });
+        buttons.Children.Add(suggest);
+        buttons.Children.Add(toReview);
+        _secSuggest.Children.Add(buttons);
+        _secReview.Children.Add(new TextBlock { Text = "3 · Revisar: ferramentas novas, profundidades, alturas Z e fixação", FontWeight = FontWeight.SemiBold });
+        _secReview.Children.Add(_planFixture);
+        _secReview.Children.Add(_planMissing);
+        _secReview.Children.Add(_planToolsPanel);
+        _secReview.Children.Add(_planDepthsPanel);
+        _secReview.Children.Add(_planApply);
+        form.Children.Add(_secPrepare);
+        form.Children.Add(_secSuggest);
+        form.Children.Add(_secReview);
+        form.Children.Add(_planResult);
+        _planPage = new Border { Padding = new Thickness(0, 10), Child = form };
+    }
+
+    private readonly StackPanel _secPrepare = new() { Spacing = 8 };
+    private readonly StackPanel _secSuggest = new() { Spacing = 8 };
+    private readonly StackPanel _secReview = new() { Spacing = 8 };
+    private Border _planPage = new();
+
+    private bool _loadingPlan;
+
+    /// <summary>Espessura ou material mudaram: o plano já sugerido deixa de valer.</summary>
+    private void OnPlanInputChanged()
+    {
+        if (!_loadingPlan && CheckPlanStillValid() is { } stale)
+        {
+            InvalidatePlan(stale);
+        }
+    }
+
+    /// <summary>Descarta o plano sugerido e explica por quê (o botão Aplicar fica desligado até sugerir de novo).</summary>
+    private void InvalidatePlan(string reason)
+    {
+        _plan = null;
+        _planApply.IsEnabled = false;
+        ClearPlanTools();
+        _planResult.Text = "⚠ " + reason;
+        RefreshPlanApply();
+        if (_step == 2)
+        {
+            ShowStep(1);
+        }
+    }
+
+    private void ClearPlanTools()
+    {
+        _confirmedNewTools.Clear();
+        _planToolsPanel.Children.Clear();
+        _reviewedDepths.Clear();
+        _release = ReleaseStrategy.NotReviewed;
+        Array.Clear(_zValues);
+        _rpmAdjust.Clear();
+        _planDepthsPanel.Children.Clear();
+    }
+
+    private PlanReviewResult ReviewNow()
+    {
+        if (_plan is not { } plan)
+        {
+            return new PlanReviewResult(null, "Não há plano sugerido.");
+        }
+
+        (PlanInput? input, string? error) = BuildPlanInput();
+        return input is null ? new PlanReviewResult(null, error) : PlanReview.Review(plan, input, _confirmedNewTools, _reviewedDepths, _release,
+            _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null, _rpmAdjust, PlanFixture?.Invoke());
+    }
+
+    private readonly StackPanel _planMissing = new() { Spacing = 3 };
+
+    private void RefreshPlanApply()
+    {
+        RefreshFixtureText();
+        _planApply.IsEnabled = _plan is { Ok: true } && ReviewNow().Ok;
+        _planMissing.Children.Clear();
+        if (_plan is { Ok: true } plan && BuildPlanInput().Input is { } input)
+        {
+            IReadOnlyList<string> missing = PlanReview.Missing(plan, input, _confirmedNewTools, _reviewedDepths, _release,
+                _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null, _rpmAdjust);
+            _planMissing.Children.Add(new TextBlock
+            {
+                Text = missing.Count == 0 ? "✓ Nada falta: pode aplicar ao Trabalho" : $"O que falta para aplicar ({missing.Count})",
+                FontWeight = FontWeight.SemiBold, Foreground = UiKit.Status(missing.Count == 0 ? "ok" : "pending").Fg,
+            });
+            foreach (string m in missing)
+            {
+                _planMissing.Children.Add(new TextBlock { Text = "• " + m, FontSize = 12, TextWrapping = TextWrapping.Wrap });
+            }
+        }
+        else
+        {
+            _planMissing.Children.Add(new TextBlock { Text = "Ainda não há plano sugerido.", FontSize = 12, Opacity = 0.7 });
+        }
+
+        UpdateSteps();
+    }
+
+    /// <summary>
+    /// Estado de um valor da revisão (UX-01 PR5), sempre com texto: "digitado" (informado por você, ok), pendente (âmbar) ou
+    /// inválido (vermelho). Só mostra; quem decide o Aplicar continua sendo o <see cref="PlanReview"/>.
+    /// </summary>
+    private static void Mark(TextBlock status, string text, string kind)
+    {
+        status.Text = text;
+        status.Foreground = UiKit.Status(kind).Fg;
+        status.Opacity = 1;
+    }
+
+    /// <summary>Rotação: sem limite no perfil, avisa "não verificada"; acima do limite, exige uma rotação digitada dentro dele.</summary>
+    private void AddRpmFields(PlanResult plan, PlanInput input)
+    {
+        if (input.MaxSpindleRpm is not { } limit)
+        {
+            _planDepthsPanel.Children.Add(new TextBlock
+            {
+                Text = "Rotação NÃO VERIFICADA: o perfil de máquina ativo não tem a rotação máxima do fuso. Informe em CAM › Máquina para o Assist conferir. Nenhum limite é suposto.",
+                TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+            });
+            return;
+        }
+
+        IReadOnlyList<PlanRpmIssue> issues = PlanReview.RpmIssues(plan, input);
+        if (issues.Count == 0)
+        {
+            return;
+        }
+
+        _planDepthsPanel.Children.Add(new TextBlock
+        {
+            Text = $"Rotação acima do limite do fuso do perfil da máquina ({limit:0} rpm). Digite uma rotação de no máximo {limit:0} para cada ferramenta; o avanço é reduzido na mesma proporção.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+        });
+        foreach (PlanRpmIssue issue in issues)
+        {
+            var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+            Mark(status, "pendente: acima do limite, digite o valor", "pending");
+            var box = new TextBox { Width = 90, Watermark = issue.Calculated.ToString("0", Br) };
+            int number = issue.ToolNumber;
+            box.TextChanged += (_, _) =>
+            {
+                if (double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) && v > 0 && v <= issue.Max + 1e-9)
+                {
+                    _rpmAdjust[number] = v;
+                    Mark(status, "digitado", "ok");
+                }
+                else
+                {
+                    _rpmAdjust.Remove(number);
+                    if (string.IsNullOrWhiteSpace(box.Text))
+                    {
+                        Mark(status, "pendente: acima do limite, digite o valor", "pending");
+                    }
+                    else
+                    {
+                        Mark(status, $"✕ inválido (máx. {issue.Max:0})", "bad");
+                    }
+                }
+
+                RefreshPlanApply();
+            };
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            row.Children.Add(new TextBlock { Text = $"T{issue.ToolNumber} · Ø{issue.Diameter.ToString("0.##", Br)} · calculada {issue.Calculated:0} rpm", Width = 260, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
+            row.Children.Add(box);
+            row.Children.Add(status);
+            _planDepthsPanel.Children.Add(row);
+        }
+    }
+
+    /// <summary>Alturas Z obrigatórias (sem valor padrão): Z seguro, aproximação e topo da peça, na coordenada do Trabalho.</summary>
+    private void AddHeightsFields(PlanResult plan)
+    {
+        _planDepthsPanel.Children.Add(new TextBlock
+        {
+            Text = "Alturas Z (mm, na coordenada do seu zero-peça, a mesma do programa): topo da peça = onde fica a face de cima; aproximação = acima do topo, onde o rápido termina e começa o avanço; Z seguro = altura de deslocamento entre operações, acima da aproximação. Estar acima da peça não garante estar livre de morsa, grampos ou castanhas: o Assist não verifica isso.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+        });
+        PlanResult p = plan;
+        CamLevels sample = p.Operations[0].Levels;
+        (string Name, double Presumed)[] fields = [("Z seguro", sample.SafeZ), ("Aproximação", sample.ClearanceZ), ("Topo da peça (referência Z)", sample.TopZ)];
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        for (int i = 0; i < fields.Length; i++)
+        {
+            int index = i;
+            row.Children.Add(new TextBlock { Text = fields[i].Name, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
+            var box = new TextBox { Width = 80, Watermark = fields[i].Presumed.ToString("0.##", Br) };
+            var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 11, Margin = new Thickness(0, 0, 8, 0) };
+            Mark(status, "pendente", "pending");
+            box.TextChanged += (_, _) =>
+            {
+                _zValues[index] = double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) ? v : null;
+                if (_zValues[index] is not null)
+                {
+                    Mark(status, "digitado", "ok");
+                }
+                else if (string.IsNullOrWhiteSpace(box.Text))
+                {
+                    Mark(status, "pendente", "pending");
+                }
+                else
+                {
+                    Mark(status, "✕ inválido", "bad");
+                }
+
+                RefreshPlanApply();
+            };
+            row.Children.Add(box);
+            row.Children.Add(status);
+        }
+
+        _planDepthsPanel.Children.Add(row);
+    }
+
+    /// <summary>Escolha obrigatória (sem valor padrão) de como a peça fica presa quando o contorno externo a libera.</summary>
+    private void AddReleaseChoice()
+    {
+        _planDepthsPanel.Children.Add(new TextBlock
+        {
+            Text = "Fixação: o contorno da peça é cortado por inteiro, por último e sem pontes (o CAM ainda não gera pontes), então a peça pode soltar. O Assist não verifica fixação nem colisão. Escolha uma opção para poder aplicar.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+        });
+        (string Text, ReleaseStrategy Value)[] options =
+        [
+            ("Presa por outro meio depois do corte (grampos, vácuo, mesa de sacrifício, calço…): eu confiro", ReleaseStrategy.HeldBySetup),
+            ("Tirar o contorno deste plano (faço depois, fora do Assist)", ReleaseStrategy.OmitContour),
+            ("Aceito que a peça solte no fim; vou retirar com a máquina parada", ReleaseStrategy.AcceptRelease),
+        ];
+        var combo = new ComboBox { MinWidth = 520, PlaceholderText = "Escolha a estratégia de fixação…" };
+        foreach ((string text, _) in options)
+        {
+            combo.Items.Add(text);
+        }
+
+        combo.SelectionChanged += (_, _) =>
+        {
+            _release = combo.SelectedIndex >= 0 ? options[combo.SelectedIndex].Value : ReleaseStrategy.NotReviewed;
+            RefreshPlanApply();
+        };
+        _planDepthsPanel.Children.Add(combo);
+    }
+
+    /// <summary>Uma caixa de número por profundidade presumida: o Aplicar só liga quando todas tiverem um valor digitado.</summary>
+    private void ShowPlanDepths(PlanResult plan, PlanInput input)
+    {
+        IReadOnlyList<PlanDepth> depths = PlanReview.DepthsOf(plan);
+        if (depths.Count == 0)
+        {
+            return;
+        }
+
+        AddRpmFields(plan, input);
+        AddHeightsFields(plan);
+        if (PlanReview.ReleaseOperationIndex(plan) >= 0)
+        {
+            AddReleaseChoice();
+        }
+
+        _planDepthsPanel.Children.Add(new TextBlock
+        {
+            Text = "Profundidades presumidas: o desenho 2D não diz a profundidade. Digite o valor de cada operação (mm, positivo) para poder aplicar. O número cinza dentro do campo é só a suposição do plano.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
+        });
+        foreach (PlanDepth d in depths)
+        {
+            var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+            Mark(status, "pendente: presumida, digite o valor", "pending");
+            var box = new TextBox { Width = 90, Watermark = d.Presumed.ToString("0.##", Br) };
+            int key = d.Key;
+            box.TextChanged += (_, _) =>
+            {
+                if (double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) && v > 0)
+                {
+                    _reviewedDepths[key] = v;
+                    Mark(status, "digitado", "ok");
+                }
+                else
+                {
+                    _reviewedDepths.Remove(key);
+                    if (string.IsNullOrWhiteSpace(box.Text))
+                    {
+                        Mark(status, "pendente: presumida, digite o valor", "pending");
+                    }
+                    else
+                    {
+                        Mark(status, "✕ inválido", "bad");
+                    }
+                }
+
+                RefreshPlanApply();
+            };
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            row.Children.Add(new TextBlock { Text = $"{d.Label} · profundidade (mm)", Width = 260, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
+            row.Children.Add(box);
+            row.Children.Add(status);
+            _planDepthsPanel.Children.Add(row);
+        }
+    }
+
+    /// <summary>Uma caixa por ferramenta nova: o botão Aplicar só liga quando todas estiverem marcadas.</summary>
+    private void ShowPlanTools(PlanResult plan, PlanInput input)
+    {
+        ClearPlanTools();
+        List<PlannedTool> news = PlanValidity.ToolsOf(plan, input).Where(t => t.Origin == ToolOrigin.New).ToList();
+        if (news.Count == 0)
+        {
+            return;
+        }
+
+        _planToolsPanel.Children.Add(new TextBlock
+        {
+            Text = "Ferramentas novas: não estão no banco de ferramentas. O programa usaria estes números e diâmetros inventados pelo plano. Confira na máquina e confirme cada uma (ou cadastre no banco e sugira de novo).",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold,
+        });
+        foreach (PlannedTool t in news)
+        {
+            var box = new CheckBox { Content = $"Confirmo T{t.Number} · Ø{t.Diameter.ToString("0.##", Br)} mm · {t.Name}" };
+            int number = t.Number;
+            box.IsCheckedChanged += (_, _) =>
+            {
+                if (box.IsChecked == true)
+                {
+                    _confirmedNewTools.Add(number);
+                }
+                else
+                {
+                    _confirmedNewTools.Remove(number);
+                }
+
+                RefreshPlanApply();
+            };
+            _planToolsPanel.Children.Add(box);
+        }
+    }
+
+    /// <summary>Mensagem do motivo se o plano guardado não vale mais; null se vale (ou se não há plano).</summary>
+    private string? CheckPlanStillValid()
+    {
+        if (_plan is not { } plan)
+        {
+            return null;
+        }
+
+        // Só desatualização: a falta de confirmação das ferramentas novas não descarta o plano (por isso conta todas como confirmadas aqui)
+        (PlanInput? input, string? error) = BuildPlanInput();
+        return input is null ? error : PlanValidity.CheckApply(plan, input, PlanValidity.NewToolNumbers(plan, input));
+    }
+
+    /// <summary>Monta os dados do plano com o que está na tela agora (desenho do Trabalho, espessura, material e ferramentas).</summary>
+    private (PlanInput? Input, string? Error) BuildPlanInput()
+    {
+        (IReadOnlyList<Contour> contours, double? thickness)? d = PlanDrawing?.Invoke();
+        if (d is not { } drawing || drawing.contours.Count == 0)
+        {
+            return (null, "O desenho do Trabalho fresa não está mais aberto. Abra um DXF em CAM › Trabalho fresa e sugira de novo.");
+        }
+
+        if (!double.TryParse((_planThickness.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double thick) || !(thick > 0))
+        {
+            return (null, "Confira a espessura do bruto.");
+        }
+
+        MaterialEntry? material = _planMaterial.SelectedIndex >= 0 && _planMaterial.SelectedIndex < _lib.Materials.Count ? _lib.Materials[_planMaterial.SelectedIndex] : null;
+        return (new PlanInput(drawing.contours, thick, material, PlanTools?.Invoke() ?? [], MaxSpindleRpm: PlanMaxRpm?.Invoke()), null);
     }
 
     private void LoadPlan()
+    {
+        _loadingPlan = true;
+        try
+        {
+            LoadPlanFields();
+        }
+        finally
+        {
+            _loadingPlan = false;
+        }
+
+        // Voltou para a aba: o desenho, o material ou as ferramentas podem ter mudado fora daqui
+        if (CheckPlanStillValid() is { } stale)
+        {
+            InvalidatePlan(stale);
+        }
+    }
+
+    private void LoadPlanFields()
     {
         int keep = _planMaterial.SelectedIndex;
         _planMaterial.Items.Clear();
@@ -78,41 +511,55 @@ public sealed partial class AssistView
             _planMaterial.Items.Add(m.Name);
         }
 
-        _planMaterial.SelectedIndex = Math.Clamp(keep, _lib.Materials.Count > 0 ? 0 : -1, _lib.Materials.Count - 1);
+        // Sem material pré-escolhido: o usinador escolhe (o plano não sugere sem material)
+        _planMaterial.SelectedIndex = keep >= 0 && keep < _lib.Materials.Count ? keep : -1;
         (IReadOnlyList<Contour> contours, double? thickness)? d = PlanDrawing?.Invoke();
-        int n = d?.contours.Count ?? 0;
-        _planDrawing.Text = n > 0
-            ? $"Desenho do Trabalho fresa: {n} contorno(s)."
-            : "Nenhum desenho no Trabalho fresa. Abra um DXF em CAM › Trabalho fresa e volte aqui.";
+        RefreshDrawingText();
         if (d?.thickness is { } t && t > 0)
         {
             _planThickness.Text = t.ToString("0.##", Br);
         }
     }
 
+    /// <summary>Relê só o texto do desenho do Trabalho fresa (não mexe no plano, nos campos nem no Aplicar).</summary>
+    private void RefreshDrawingText()
+    {
+        int n = PlanDrawing?.Invoke().Contours.Count ?? 0;
+        _planDrawing.Text = n > 0
+            ? $"Desenho do Trabalho fresa: {n} contorno(s)."
+            : "Nenhum desenho no Trabalho fresa. Abra um DXF em CAM › Trabalho fresa e volte aqui.";
+        RefreshFixtureText(); // a fixação também vem do Trabalho e pode ter mudado
+    }
+
     private void SuggestPlan()
     {
         _plan = null;
         _planApply.IsEnabled = false;
-        (IReadOnlyList<Contour> contours, double? thickness)? d = PlanDrawing?.Invoke();
-        if (d is not { } drawing || drawing.contours.Count == 0)
+        ClearPlanTools();
+        (PlanInput? input, string? error) = BuildPlanInput();
+        if (input is null)
         {
-            _planResult.Text = "Abra um DXF em CAM › Trabalho fresa primeiro.";
+            _planResult.Text = error is not null && error.StartsWith("O desenho", StringComparison.Ordinal) ? "Abra um DXF em CAM › Trabalho fresa primeiro." : error;
+            RefreshPlanApply();
             return;
         }
 
-        if (!double.TryParse((_planThickness.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double thick) || !(thick > 0))
+        if (input.Material is null)
         {
-            _planResult.Text = "Confira a espessura do bruto.";
+            _planResult.Text = "⚠ " + AssistPlanner.MissingMaterial;
+            RefreshPlanApply();
             return;
         }
 
-        MaterialEntry? material = _planMaterial.SelectedIndex >= 0 && _planMaterial.SelectedIndex < _lib.Materials.Count ? _lib.Materials[_planMaterial.SelectedIndex] : null;
-        PlanResult plan = AssistPlanner.Plan(new PlanInput(drawing.contours, thick, material, PlanTools?.Invoke() ?? []));
+        PlanResult plan = AssistPlanner.Plan(input);
         var lines = new List<string>();
         for (int i = 0; i < plan.Operations.Count; i++)
         {
-            lines.Add(CamJobInfo.OpTitle(i, plan.Operations[i]) + $" · {plan.Operations[i].Tool.SpindleRpm:0} rpm · F{plan.Operations[i].Tool.FeedXY:0}");
+            CamOperationSpec op = plan.Operations[i];
+            string origin = PlanValidity.ToolsOf(plan, input).First(t => t.Number == op.Tool.Number && t.Diameter == op.Tool.Diameter).Origin == ToolOrigin.New ? "NOVA, fora do banco" : "banco";
+            // de onde vêm rotação e avanço (sem material, a sugestão já parou acima)
+            string cutSource = input.Material.Draft ? " · dados de corte: rascunho" : "";
+            lines.Add(CamJobInfo.OpTitle(i, op) + $" · T{op.Tool.Number} ({origin}) · {op.Tool.SpindleRpm:0} rpm · F{op.Tool.FeedXY:0}{cutSource}");
         }
 
         if (plan.Ok)
@@ -123,6 +570,8 @@ public sealed partial class AssistView
         lines.AddRange(plan.Notes.Select(n => "• " + n));
         _planResult.Text = string.Join("\n", lines);
         _plan = plan;
-        _planApply.IsEnabled = plan.Ok;
+        ShowPlanTools(plan, input);
+        ShowPlanDepths(plan, input);
+        RefreshPlanApply();
     }
 }

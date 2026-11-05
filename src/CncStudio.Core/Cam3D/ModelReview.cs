@@ -4,39 +4,6 @@ using CncStudio.Core.Geometry;
 namespace CncStudio.Core.Cam3D;
 
 /// <summary>
-/// Alturas Z informadas pelo usuário para uma operação gerada a partir do modelo 3D (auditoria R-05). Na coordenada do próprio
-/// modelo, que é a do programa: <see cref="SafeZ"/> é a altura de deslocamento entre pontos e <see cref="ClearanceZ"/> o plano de
-/// aproximação (R). Nada é suposto a partir do modelo. Estar acima do modelo não prova ausência de colisão com morsa, grampos
-/// ou castanhas.
-/// </summary>
-public sealed record ModelZ(double SafeZ, double ClearanceZ)
-{
-    /// <summary>
-    /// Motivo se as alturas são incoerentes; null se servem. <paramref name="modelTopZ"/>: ponto mais alto do modelo (o deslocamento
-    /// tem que passar acima dele). <paramref name="workTopZ"/>: topo da região trabalhada (a aproximação tem que ficar acima dele).
-    /// </summary>
-    public string? Validate(double modelTopZ, double workTopZ)
-    {
-        if (!double.IsFinite(SafeZ) || !double.IsFinite(ClearanceZ))
-        {
-            return "Alturas Z: digite números válidos (Z seguro e aproximação).";
-        }
-
-        if (ClearanceZ <= workTopZ)
-        {
-            return $"Alturas Z: a aproximação ({ClearanceZ:0.##}) precisa ficar acima do topo da região trabalhada (Z {workTopZ:0.##}).";
-        }
-
-        if (SafeZ <= ClearanceZ)
-        {
-            return $"Alturas Z: o Z seguro ({SafeZ:0.##}) precisa ficar acima da aproximação ({ClearanceZ:0.##}).";
-        }
-
-        return SafeZ <= modelTopZ ? $"Alturas Z: o Z seguro ({SafeZ:0.##}) precisa ficar acima do ponto mais alto do modelo (Z {modelTopZ:0.##})." : null;
-    }
-}
-
-/// <summary>
 /// Furação pelos furos verticais escolhidos no modelo. O fundo (Z da ponta da broca) é <b>informado pelo usuário</b>: a profundidade
 /// que a malha mostra vale só como referência, porque não diz se o furo é cego, passante ou tem fundo cônico (auditoria R-05).
 /// </summary>

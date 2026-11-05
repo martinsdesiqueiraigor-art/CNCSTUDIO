@@ -12,8 +12,7 @@ Lido no início de cada sessão. Curto de propósito: detalhe vai em `docs/`, n�
 ## Código
 | Pasta | O que é |
 |---|---|
-| `src/CncStudio.Core` | Toda a lógica e geometria. **Zero pacotes NuGet**, warnings = erro. |
-| `src/CncStudio.Step` (satélites) | Leitura de formatos que exigem biblioteca de terceiros (hoje o STEP, via OpenCASCADE). Só desktop. **Podem ter pacotes**, com a licença conferida antes de adicionar. |
+| `src/CncStudio.Core` | Toda a lógica e geometria. **Sem pacotes NuGet**, warnings = erro. |
 | `src/CncStudio.App` | Desktop Avalonia 11.3 (principal). 3D por OpenGL (`Graphics/GlSceneView`). |
 | `src/CncStudio.Web` | WebAssembly (`net10.0-browser`, fora da .sln). 3D por three.js (`wwwroot/scene3d.js`). |
 | `tests/CncStudio.Core.Tests` | xUnit, só do Core. |
@@ -32,20 +31,32 @@ Desktop sem placa de vídeo (testes): `CASILLAS_SOFTWARE_GL=1 xvfb-run ...`.
 ## Convenções
 - Textos da interface em pt-BR com acentos; comentários em português.
 - Cálculo e geometria no Core, com teste. Uma fonte de verdade por dado.
-- **Duas camadas:** (1) Core = zero pacotes; (2) projetos satélite (ex.: `CncStudio.Step`, leitura de formatos) podem ter pacotes, com a licença conferida antes e sem o Core depender deles. Motivo: o mesmo Core roda no desktop, na web (WebAssembly) e nos testes; dependência de terceiros traz risco de licença, segurança e tamanho, e o cálculo de usinagem precisa ser auditável. (Motivo escrito pelo Claude em 29/10, a confirmar com o Igor.)
 - Commits pequenos, em português, autor `Claude <noreply@anthropic.com>`.
 - Nada de prometer colisão garantida (simulação é 3 eixos, grade de alturas).
 
 ## Regras (sempre)
-- **Nunca**: push/merge/rebase no `main`, `--force`, publicar web oficial ou instalador, mexer em Supabase, painel de ativação, termos ou página de vendas, apagar backup (`origin` local) ou `preview/`, commitar `bin/ obj/ publish/ preview/ screenshots/ .env` ou credenciais, adicionar NuGet ao Core (satélite pode, com licença conferida).
-- Trabalhar num ramo (`fase-N-...`, `ajuste-...`, `dev`). O merge no `main` é do dono, por PR.
+- **Nunca**: push/merge/rebase no `main`, `--force`, publicar web oficial ou instalador, mexer em Supabase, painel de ativação, termos ou página de vendas, apagar backup (`origin` local) ou `preview/`, commitar `bin/ obj/ publish/ preview/ screenshots/ .env` ou credenciais, adicionar NuGet ao Core.
+- Trabalhar num ramo (`fase-N-...`, `ajuste-...`). **Fluxo:** ramo de tarefa → PR para o `dev` → o Igor testa no `dev` → o `dev` entra na `main` por PR do Igor. O `dev` recebe só PR, nunca trabalho direto.
+- A `main` tem regra no GitHub (`proteger-main`): sem exclusão, sem force push, exige `build` e `testes` verdes. Ela publica o site; o merge é do dono, por PR.
 
 ## Como trabalhamos (economia)
-1. **Uma conversa por tarefa ou parada.** Ao começar: ler este arquivo e `docs/ESTADO.md`. Não pedir resumo de conversas antigas.
+1. **Uma conversa por tarefa ou parada.** Ao começar: `git fetch origin` e conferir o commit (`git log -1 origin/main`); se a mensagem de abertura trouxer um commit esperado e ele diferir, avisar o Igor antes de trabalhar. Ler este arquivo e o bloco "Estado atual" de `docs/ESTADO.md` (o histórico em `docs/historico/` só se a tarefa pedir). Não pedir resumo de conversas antigas. Trocar de ramo só com ordem do Igor.
 2. **Prévia pelo GitHub**: todo push num ramo `fase-*`, `ajuste-*` ou `dev` roda `.github/workflows/previa.yml` → testes, web em `https://<ramo>.casillas-code.pages.dev` e o .exe de teste em Actions → Artifacts. Não montar prévia à mão nem publicar artefato com os arquivos do app.
 3. **Conferir com testes, não com fotos.** No máximo uma foto por parada, só em entrega visual.
 4. **Não ler arquivo grande inteiro**: buscar (grep) e ler só o trecho.
-5. Ao terminar: atualizar `docs/ESTADO.md` (3–6 linhas) e relatar em ≤ 10 linhas, com uma caixa de perguntas se houver decisão.
+5. Ao terminar: atualizar o bloco "Estado atual" de `docs/ESTADO.md` (3–6 linhas; manter o arquivo abaixo de 90 linhas, o resto vai para `docs/historico/`), sem escrever contagem de testes (vale o resultado do CI), e relatar em ≤ 10 linhas, com uma caixa de perguntas se houver decisão.
+
+## Roteamento (o que ler, por tarefa)
+Sempre: este arquivo e o bloco "Estado atual" de `docs/ESTADO.md`. Além disso:
+| Tarefa | Ler também |
+|---|---|
+| Academy (aulas, JSON v2) | `docs/tarefas/ACAD-01-academy-piloto.md`, `docs/tarefas/ACAD-02-modulos-2-a-4.md` |
+| CAM, Trabalho, Assist | `docs/tarefas/CAM-01-plano.md`; o resto do CAM está em `docs/historico/` (buscar por grep, não ler inteiro) |
+| STEP, Modelo 3D, seleção 3D | o STEP está na main (`src/CncStudio.Step`); a seleção 3D segue na seção "Em ramo" de `docs/ESTADO.md` |
+| Desktop da plataforma | `docs/tarefas/PLAT-06-desktop-plataforma.md` |
+| Macro, Otimizador | `docs/tarefas/MACRO-01-geradores.md`, `docs/tarefas/OTIM-01-otimizador.md` |
+| Web (tela inicial, módulos) | `src/CncStudio.Web/wwwroot/platform-ui.js`. Mínimo de tela do desktop: 1280×720 lógicos |
+| Conta, licença, Supabase, termos, vendas | **Parar e perguntar ao Igor** |
 
 ## Delegação (GPT, DeepSeek)
 Ver `AGENTS.md` e `docs/tarefas/`. Agentes externos trabalham em ramo próprio `ext-<agente>-<tarefa>` e entregam por PR; o Claude revisa e roda os testes antes do merge. Tarefas com ID por produto (`CODE-<nº>`, `MACRO-`, `ACAD-`…). Ao fechar, a resposta segue a seção **Volta** de `docs/tarefas/MODELO.md`.

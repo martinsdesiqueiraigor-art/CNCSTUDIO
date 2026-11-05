@@ -16,10 +16,12 @@ public static partial class ExerciseChecker
     [GeneratedRegex(@"\([^)]*\)")]
     private static partial Regex CommentRegex();
 
-    public static CheckResult Check(ExerciseEditor editor, string studentText)
+    /// <param name="dialect">"fanuc" ou "siemens" (o da aula; padrão fanuc, como no v1).</param>
+    /// <param name="machine">"fresa" ou "torno" (o da aula; padrão fresa, como no v1).</param>
+    public static CheckResult Check(ExerciseEditor editor, string studentText, string dialect = "fanuc", string machine = "fresa")
     {
         string full = (editor.Prefix.Length > 0 ? editor.Prefix.TrimEnd() + "\n" : "") + studentText.Replace("\r\n", "\n");
-        ProgramAnalysis analysis = ProgramAnalyzer.Analyze(full, Dialect.Fanuc);
+        ProgramAnalysis analysis = ProgramAnalyzer.Analyze(full, AcademyTarget.DialectOf(dialect), AcademyTarget.SettingsOf(machine));
         string code = CommentRegex().Replace(full, " ").ToUpperInvariant();
         List<string> failed = [];
 

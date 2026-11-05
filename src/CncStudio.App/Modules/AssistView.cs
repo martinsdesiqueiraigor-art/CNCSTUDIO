@@ -30,6 +30,58 @@ public sealed partial class AssistView : UserControl
     private AssistLibrary _lib = AssistLibrary.Defaults();
     private readonly TextBlock _message = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
     private readonly TabControl _tabs = new();
+    private readonly List<Avalonia.Controls.Primitives.ToggleButton> _stepButtons = [];
+    private StackPanel _libPage = new();
+    private int _step = -1;
+
+    /// <summary>Marca ✓ nas etapas concluídas e só libera Revisar com um plano sugerido.</summary>
+    private void UpdateSteps()
+    {
+        if (_stepButtons.Count < 5)
+        {
+            return;
+        }
+
+        bool planOk = _plan is { Ok: true };
+        _stepButtons[1].Content = (planOk ? "✓ " : "") + "2 Sugerir";
+        _stepButtons[2].IsEnabled = planOk;
+        _stepButtons[2].Content = (_planApply.IsEnabled ? "✓ " : "") + "3 Revisar";
+        // O orçamento usa o tempo do programa analisado no Code (não o plano): ✓ quando há programa com corte
+        _stepButtons[3].Content = (ProgramSource?.Invoke() is { } p && p.Time > TimeSpan.Zero ? "✓ " : "") + "4 Orçar";
+    }
+
+    /// <summary>Mostra uma etapa: 0 Preparar, 1 Sugerir, 2 Revisar (plano 2D), 3 Orçar, 4 Bibliotecas.</summary>
+    private void ShowStep(int step)
+    {
+        if (step == 2 && _plan is not { Ok: true })
+        {
+            step = 1;
+            _planResult.Text = "Sugira um plano primeiro.";
+        }
+
+        bool wasPlan = _step is >= 0 and <= 2;
+        _step = step;
+        for (int i = 0; i < _stepButtons.Count; i++)
+        {
+            _stepButtons[i].IsChecked = i == step;
+        }
+
+        _planPage.IsVisible = step <= 2;
+        _secPrepare.IsVisible = step == 0;
+        _secSuggest.IsVisible = step == 1;
+        _secReview.IsVisible = step == 2;
+        _quotePage.IsVisible = step == 3;
+        _libPage.IsVisible = step == 4;
+        UpdateSteps();
+        if (step <= 2 && !wasPlan)
+        {
+            LoadPlan();
+        }
+        else if (step == 3)
+        {
+            LoadQuote();
+        }
+    }
     private readonly List<(ListBox List, StackPanel Form, Section Sec)> _sections = [];
     private readonly TextBlock _testResult = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
     private bool _busy;
@@ -51,6 +103,7 @@ public sealed partial class AssistView : UserControl
         stack.Children.Add(new TextBlock { Text = "Casillas Assist", FontSize = 24, FontWeight = FontWeight.Bold });
         stack.Children.Add(Note("Os itens iniciais são rascunho: pontos de partida a conferir com o catálogo do fabricante. O Assist só sugere; confira, simule e rode a primeira vez no ar."));
 
+        var libPage = new StackPanel { Spacing = 12 };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         Button open = new() { Content = "Abrir biblioteca…", Padding = new Thickness(12, 6) };
         Button save = new() { Content = "Salvar em arquivo…", Padding = new Thickness(12, 6) };
@@ -71,8 +124,9 @@ public sealed partial class AssistView : UserControl
         buttons.Children.Add(open);
         buttons.Children.Add(save);
         buttons.Children.Add(reset);
-        stack.Children.Add(buttons);
-        stack.Children.Add(_message);
+        libPage.Children.Add(new TextBlock { Text = "Bibliotecas: materiais, morsas e castanhas usados nas sugestões", FontWeight = FontWeight.SemiBold });
+        libPage.Children.Add(buttons);
+        libPage.Children.Add(_message);
 
         AddSection(new Section("Materiais", () => _lib.Materials.Count, i => _lib.Materials[i].Name, i => _lib.Materials[i].Draft,
             () => _lib.Materials.Add(new MaterialEntry(Unique("Novo material", _lib.Materials.Select(m => m.Name)), MaterialGroup.Steel, 100, 0.05, 0.5)),
@@ -88,10 +142,26 @@ public sealed partial class AssistView : UserControl
             i => _lib.Jaws.RemoveAt(i), JawFields, (i, d) => _lib.Jaws[i] = _lib.Jaws[i] with { Draft = d }));
         AddQuoteTab();
         AddPlanTab();
-        stack.Children.Add(_tabs);
-        Border test = BuildTest();
-        _tabs.SelectionChanged += (_, _) => test.IsVisible = _tabs.SelectedIndex < 3;
-        stack.Children.Add(test);
+        libPage.Children.Add(_tabs);
+        libPage.Children.Add(BuildTest());
+        _libPage = libPage;
+
+        var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        string[] names = ["1 Preparar", "2 Sugerir", "3 Revisar", "4 Orçar", "Bibliotecas"];
+        for (int i = 0; i < names.Length; i++)
+        {
+            int step = i;
+            var b = new Avalonia.Controls.Primitives.ToggleButton { Content = names[i], Padding = new Thickness(14, 6), Margin = i == 4 ? new Thickness(24, 0, 0, 0) : new Thickness(0) };
+            b.Click += (_, _) => ShowStep(step);
+            _stepButtons.Add(b);
+            bar.Children.Add(b);
+        }
+
+        stack.Children.Add(bar);
+        stack.Children.Add(_planPage);
+        stack.Children.Add(_quotePage);
+        stack.Children.Add(_libPage);
+        ShowStep(0);
         root.Content = stack;
         Content = root;
         Reload();
@@ -108,6 +178,7 @@ public sealed partial class AssistView : UserControl
         }
 
         Redraw();
+        RefreshDrawingText(); // ao abrir o módulo: o Trabalho fresa pode ter aberto um DXF ou um trabalho salvo desde a última vez
     }
 
     // ---------------------------------------------------------------- campos
@@ -365,15 +436,8 @@ public sealed partial class AssistView : UserControl
         return candidate;
     }
 
-    private static Border Note(string text) => new()
-    {
-        Background = new SolidColorBrush(Color.Parse("#3B2F12")),
-        BorderBrush = new SolidColorBrush(Color.Parse("#7A6122")),
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(8),
-        Padding = new Thickness(12),
-        Child = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 12 },
-    };
+    // Cor de estado "pendente" do tema (UiKit.Status): legível no escuro, no claro e no CMYK
+    private static Border Note(string text) => UiKit.StatusNote(text, "pending");
 
     // ---------------------------------------------------------------- teste rápido
 
@@ -447,16 +511,16 @@ public sealed partial class AssistView : UserControl
 
         IReadOnlyList<ViseEntry> vises = _lib.FindVises(w, h);
         lines.Add(vises.Count > 0
-            ? "Morsas que servem: " + string.Join("; ", vises.Select(v => v.Name + (v.Draft ? " (rascunho)" : "")))
-            : "Nenhuma morsa da biblioteca serve: " + (_lib.Vises.Count > 0 ? _lib.Vises.OrderByDescending(v => v.MaxOpening).First().Check(w, h).Reason : "biblioteca vazia."));
+            ? "Compatibilidade dimensional preliminar (abertura, comprimento da mandíbula e pega mínima; a altura da mandíbula e do corpo não entram): " + string.Join("; ", vises.Select(v => v.Name + (v.Draft ? " (rascunho)" : ""))) + ". Isso não diz que a peça está segura: confirme a fixação."
+            : "Nenhuma morsa da biblioteca passa na conferência dimensional preliminar: " + (_lib.Vises.Count > 0 ? _lib.Vises.OrderByDescending(v => v.MaxOpening).First().Check(w, h).Reason : "biblioteca vazia."));
         IReadOnlyList<ChuckJawEntry> outer = _lib.FindJaws(d, external: true), inner = _lib.FindJaws(d, external: false);
-        lines.Add("Castanhas por fora: " + (outer.Count > 0 ? string.Join("; ", outer.Select(j => j.Name)) : "nenhuma"));
-        lines.Add("Castanhas por dentro (furo): " + (inner.Count > 0 ? string.Join("; ", inner.Select(j => j.Name)) : "nenhuma"));
+        lines.Add("Castanhas por fora (compatibilidade dimensional; confirme a fixação): " + (outer.Count > 0 ? string.Join("; ", outer.Select(j => j.Name)) : "nenhuma"));
+        lines.Add("Castanhas por dentro, no furo (compatibilidade dimensional; confirme a fixação): " + (inner.Count > 0 ? string.Join("; ", inner.Select(j => j.Name)) : "nenhuma"));
         if (_testMaterial.SelectedIndex >= 0 && _lib.Materials[_testMaterial.SelectedIndex] is { } m)
         {
             (double Rpm, double Feed)? s = m.SuggestMill(tool, teeth);
             lines.Add(s is { } v
-                ? $"{m.Name}, fresa Ø{tool:0.##} Z{teeth}: S{v.Rpm:0} F{v.Feed:0} mm/min, passe ≈ {m.SuggestDepth(tool):0.##} mm" + (m.Draft ? " (rascunho)" : "")
+                ? $"{m.Name}, fresa Ø{tool:0.##} Z{teeth}: S{v.Rpm:0} F{v.Feed:0} mm/min, passe ≈ {m.SuggestDepth(tool):0.##} mm" + (m.Draft ? " · RASCUNHO: valor de partida da biblioteca inicial, não do fabricante; confira no catálogo da ferramenta" : "")
                 : "Dados insuficientes para sugerir o corte.");
         }
 

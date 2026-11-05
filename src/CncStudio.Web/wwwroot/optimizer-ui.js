@@ -79,7 +79,7 @@ export function openOptimizer(call, initialText, initialName) {
 
     // ---------- Resultado ----------
     const stat = (value, label, color) => {
-      const s = make('div', null, 'flex:1;min-width:92px;text-align:center;border:1px solid #303d4b;border-radius:10px;padding:8px 4px;background:#131a22');
+      const s = make('div', null, 'flex:1;min-width:70px;text-align:center;border:1px solid #303d4b;border-radius:10px;padding:8px 4px;background:#131a22');
       s.append(make('div', String(value), `font-size:22px;font-weight:800;color:${color || '#e6edf3'}`), make('div', label, 'font-size:12px;color:#9baab9'));
       return s;
     };
@@ -116,8 +116,9 @@ export function openOptimizer(call, initialText, initialName) {
     const result = (r, profile) => {
       const parts = [header('Resultado', start), safety()];
       const stats = make('div', null, 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px');
-      stats.append(stat(r.originalLines, 'linhas antes'), stat(r.convertedLines, 'linhas depois'), stat(r.savedLines, 'economia', r.savedLines > 0 ? '#6fd39b' : '#e6edf3'));
-      parts.push(stats);
+      const ecoPct = r.originalLines > 0 ? Math.round(r.savedLines / r.originalLines * 100) : 0;
+      stats.append(stat(r.originalLines, 'linhas antes'), stat(r.convertedLines, 'linhas depois'), stat(r.savedLines, 'linhas a menos', r.savedLines > 0 ? '#6fd39b' : '#e6edf3'), stat(ecoPct + '%', 'economia', r.savedLines > 0 ? '#6fd39b' : '#e6edf3'));
+      parts.push(stats, make('div', 'Estimativa: a economia é de linhas do programa, não de tempo de usinagem. O tempo de corte continua o mesmo.', 'font-size:12px;color:#9baab9;margin:-4px 0 10px'));
       const stats2 = make('div', null, 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px');
       stats2.append(stat(r.accepted, 'propostas', '#6fd39b'), stat(r.blocked, 'bloqueadas', r.blocked ? '#ff9a83' : '#e6edf3'), stat(pct(r.coverage), 'blocos entendidos'));
       parts.push(stats2);

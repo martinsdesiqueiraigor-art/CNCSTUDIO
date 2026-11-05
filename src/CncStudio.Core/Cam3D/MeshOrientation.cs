@@ -54,24 +54,29 @@ public static class MeshOrientation
             return id;
         }
 
+        // Triângulo colapsado (dois vértices no mesmo ponto) fica de fora: não liga vizinhos, não vira
+        // aresta não-manifold nem pedaço solto, e volta como estava (não tem área)
         var tri = new int[n][];
+        var collapsed = new bool[n];
         for (int t = 0; t < n; t++)
         {
             (Point3 a, Point3 b, Point3 c) = mesh.Triangle(t);
             tri[t] = [Id(a), Id(b), Id(c)];
+            collapsed[t] = tri[t][0] == tri[t][1] || tri[t][1] == tri[t][2] || tri[t][0] == tri[t][2];
         }
 
         // Aresta (sem sentido) → triângulos que a usam e o sentido em cada um (+1 se vai do menor id ao maior)
         var edges = new Dictionary<(int, int), List<(int Tri, int Dir)>>();
         for (int t = 0; t < n; t++)
         {
+            if (collapsed[t])
+            {
+                continue;
+            }
+
             for (int k = 0; k < 3; k++)
             {
                 int u = tri[t][k], v = tri[t][(k + 1) % 3];
-                if (u == v)
-                {
-                    continue; // triângulo degenerado
-                }
 
                 (int, int) key = u < v ? (u, v) : (v, u);
                 if (!edges.TryGetValue(key, out List<(int, int)>? list))
@@ -105,7 +110,7 @@ public static class MeshOrientation
         var queue = new Queue<int>();
         for (int start = 0; start < n; start++)
         {
-            if (seen[start])
+            if (seen[start] || collapsed[start])
             {
                 continue;
             }

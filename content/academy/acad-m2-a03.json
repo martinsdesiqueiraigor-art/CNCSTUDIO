@@ -1,0 +1,126 @@
+{
+  "versao": 2,
+  "id": "acad-m2-a03",
+  "modulo": "acad-m2",
+  "titulo": "Rotação S e comandos M03/M05",
+  "nivel": "Iniciante",
+  "caminho": "Fresa",
+  "dialeto": "fanuc",
+  "maquina": "fresa",
+  "estado": "rascunho",
+  "objetivo": "Interpretar a programação de rotação S e os comandos de acionamento e parada do spindle.",
+  "pre_requisito": "acad-m2-a02",
+  "secoes": {
+    "visao": {
+      "estado": "rascunho",
+      "abertura": "Programar uma rotação é o mesmo que ligar o spindle?",
+      "texto": "[conceito] Na fresadora CNC, o eixo-árvore, também chamado de spindle, sustenta e normalmente gira a ferramenta de corte. A letra S é utilizada para programar uma referência de rotação. Em um exemplo de fresamento Fanuc com programação convencional, S1000 representa uma referência de mil rotações por minuto. Esse valor serve aqui somente para ensinar a leitura do código. A rotação adequada para uma operação real depende da ferramenta, do material, do diâmetro e das condições de corte: A definir.\n\n[conceito] M03 é normalmente utilizado para comandar a rotação do spindle no sentido horário, conforme a convenção do comando. M05 solicita a parada do spindle. A execução efetiva depende da máquina e de seus recursos. É importante diferenciar S, que estabelece uma referência de rotação, de M03, que solicita o acionamento. Não se deve concluir que uma ferramenta está girando apenas porque existe uma palavra S no programa.\n\n[exemplo] Considere S1000 seguido de M03. O primeiro bloco estabelece uma referência e o segundo solicita a rotação. Quando aparece M05, o comando solicita a parada. A sequência é ilustrativa e não representa um procedimento completo de preparação de máquina. A escolha do sentido de giro depende da ferramenta e da operação. Também não se deve presumir que todos os comandos auxiliares tenham o mesmo comportamento em todas as configurações Fanuc.\n\n[dica] Para ler um programa, identifique separadamente o estado do movimento dos eixos e o estado do spindle. G00 e G01 dizem respeito ao deslocamento. S e M03/M05 dizem respeito à rotação. Uma ferramenta pode estar parada enquanto os eixos se movimentam, ou pode existir uma referência de rotação programada sem que a operação de corte tenha começado. Essa separação ajuda a interpretar a sequência de trabalho.\n\n[atenção] Erro comum no chão de fábrica: interpretar o valor S como avanço da ferramenta. Outro erro é copiar uma rotação de um programa antigo sem verificar a ferramenta instalada e as condições atuais. A rotação programada não é uma garantia de que o valor seja adequado ou seguro. É necessário conferir limites do spindle, ferramenta, fixação e recomendações técnicas antes de qualquer execução física.\n\n[exemplo] Para manter o arquivo desta aula exclusivamente demonstrativo, o programa .nc não aciona o spindle. Ele contém comentários que apresentam a sintaxe S e M03/M05, enquanto os movimentos executáveis permanecem acima da peça. Assim, o aluno pode estudar os comandos sem confundir o exercício com uma operação de usinagem. A interpretação de S1000 e M03/M05 será avaliada no quiz, mas a simulação desta aula não pretende demonstrar a rotação física nem a remoção de material.",
+      "conceitos": [
+        "S representa a referência de rotação programada.",
+        "M03 normalmente solicita rotação horária e M05 solicita parada.",
+        "O exemplo executável não aciona o spindle nem realiza corte."
+      ]
+    },
+    "trajetoria": {
+      "estado": "rascunho",
+      "programa": ""
+    },
+    "sintaxe": {
+      "estado": "rascunho",
+      "blocos": [],
+      "parametros": []
+    },
+    "exemplo": {
+      "estado": "rascunho",
+      "programa": "samples/academy/acad-m2-a03.nc",
+      "etapas": []
+    },
+    "cuidados": {
+      "estado": "rascunho",
+      "erros": [
+        "Descrito no texto da aula."
+      ],
+      "alertas": [
+        "Simule antes de rodar na máquina"
+      ]
+    },
+    "praticar": {
+      "estado": "rascunho",
+      "exercicio": {
+        "tipo": "complete/corrija",
+        "enunciado": "Depois de posicionar a ferramenta, complete o bloco que solicita a parada do spindle: ____",
+        "gabarito": "M05",
+        "editor": {
+          "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y10.0",
+          "inicial": "____",
+          "solucao": "M05",
+          "checagens": [
+            {
+              "tipo": "contem",
+              "texto": "M05",
+              "dica": "M05 solicita a parada do spindle."
+            },
+            {
+              "tipo": "sem_erros"
+            }
+          ]
+        }
+      },
+      "quiz": [
+        {
+          "id": "acad-m2-a03-q01",
+          "enunciado": "Qual endereço normalmente programa a referência de rotação?",
+          "alternativas": [
+            "S",
+            "F",
+            "X",
+            "Z"
+          ],
+          "correta": "A",
+          "explicacao": "A: S estabelece a referência de rotação. B: F representa avanço. C: X representa uma coordenada. D: Z também representa uma coordenada.",
+          "dica": "Separe rotação de avanço."
+        },
+        {
+          "id": "acad-m2-a03-q02",
+          "enunciado": "No trecho S1000 M03, o que M03 normalmente solicita?",
+          "alternativas": [
+            "Parada do spindle",
+            "Rotação horária do spindle",
+            "Movimento rápido",
+            "Encerramento do programa"
+          ],
+          "correta": "B",
+          "explicacao": "A: Parada é solicitada por M05. B: M03 solicita rotação horária na convenção usual. C: Movimento rápido utiliza G00. D: Encerramento pode utilizar M30.",
+          "dica": "Diferencie acionamento e parada."
+        },
+        {
+          "id": "acad-m2-a03-q03",
+          "enunciado": "Qual comando normalmente solicita a parada do spindle?",
+          "alternativas": [
+            "G01",
+            "G54",
+            "M05",
+            "G17"
+          ],
+          "correta": "C",
+          "explicacao": "A: G01 define movimento linear. B: G54 seleciona referência de trabalho. C: M05 solicita a parada do spindle. D: G17 seleciona o plano XY.",
+          "dica": "Procure a função auxiliar de parada."
+        },
+        {
+          "id": "acad-m2-a03-q04",
+          "enunciado": "Qual interpretação é correta para S1000?",
+          "alternativas": [
+            "É sempre uma rotação segura",
+            "Determina a posição X",
+            "É o avanço em milímetros por minuto",
+            "É uma referência de rotação, não uma recomendação universal"
+          ],
+          "correta": "D",
+          "explicacao": "A: Segurança depende das condições reais. B: Posição X utiliza endereço X. C: Avanço utiliza F. D: S programa uma referência cujo valor precisa de validação técnica.",
+          "dica": "Um valor didático não substitui a seleção de parâmetros."
+        }
+      ]
+    }
+  },
+  "observacoes": "S1000 e M03/M05 aparecem somente em comentários do .nc. A execução real desses comandos e a rotação adequada dependem da máquina: A definir."
+}

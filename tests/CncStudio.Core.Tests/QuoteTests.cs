@@ -85,3 +85,91 @@ public class QuoteTests
         Assert.DoesNotContain("<script", html);
     }
 }
+
+public class QuoteLimitsTests
+{
+    private static QuoteInput Base(int qty = 10, double rate = 120) =>
+        new(TimeSpan.FromMinutes(10), 4, qty, rate, SetupHours: 1, MaterialPerPart: 8, ToolWearPerPart: 2, MarginPercent: 25);
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(10, 10)]
+    [InlineData(1_000_000, 1_000_000)]
+    public void QuantidadeInteiraValidaPassa(double typed, int expected)
+    {
+        (int q, string? e) = QuoteInput.ParseQuantity(typed);
+        Assert.Null(e);
+        Assert.Equal(expected, q);
+    }
+
+    [Theory]
+    [InlineData(2.5)]               // não arredonda para 2
+    [InlineData(0.4)]               // não vira 0 nem 1
+    [InlineData(0)]
+    [InlineData(-3)]
+    [InlineData(1_000_001)]
+    [InlineData(1e300)]             // o cast (int) de um valor assim é indefinido
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void QuantidadeInvalidaEhRecusadaSemArredondar(double typed)
+    {
+        (int q, string? e) = QuoteInput.ParseQuantity(typed);
+        Assert.Equal(0, q);
+        Assert.False(string.IsNullOrWhiteSpace(e));
+    }
+
+    [Fact]
+    public void LoteAcimaDoMaximoEhRecusadoNoCalculo()
+    {
+        (QuoteResult? r, string? e) = QuoteCalculator.Calculate(Base(qty: QuoteInput.MaxQuantity + 1));
+        Assert.Null(r);
+        Assert.NotNull(e);
+    }
+
+    [Theory]
+    [InlineData(1e308)]             // hora-máquina que estoura o preço
+    [InlineData(1e300)]             // finito, mas absurdo: recusado por plausibilidade
+    [InlineData(100_001)]
+    [InlineData(double.MaxValue)]
+    public void ValorEnormeNaoViraPrecoInfinito(double rate)
+    {
+        (QuoteResult? r, string? e) = QuoteCalculator.Calculate(Base(rate: rate));
+        Assert.Null(r);
+        Assert.False(string.IsNullOrWhiteSpace(e));
+    }
+
+    [Fact]
+    public void TempoDeTrocaEnormeNaoLancaExcecao()
+    {
+        var input = Base() with { ToolChangeSeconds = 1e300 };
+        (QuoteResult? r, string? e) = QuoteCalculator.Calculate(input);
+        Assert.Null(r);
+        Assert.False(string.IsNullOrWhiteSpace(e));
+    }
+
+    [Fact]
+    public void ImpostoMuitoPertoDe100NaoEstoura()
+    {
+        var input = Base() with { TaxPercent = 99.99999999999999, MaterialPerPart = 100_000_000 };
+        (QuoteResult? r, string? e) = QuoteCalculator.Calculate(input);
+        Assert.True(r is null ? !string.IsNullOrWhiteSpace(e) : double.IsFinite(r.PricePerPart) && double.IsFinite(r.Total));
+    }
+
+    [Fact]
+    public void ValoresNoLimiteAindaCalculam()
+    {
+        var input = Base(rate: 100_000) with { MaterialPerPart = 100_000_000, SetupHours = 10_000, MarginPercent = 1_000, TaxPercent = 99.9 };
+        (QuoteResult? r, string? e) = QuoteCalculator.Calculate(input);
+        Assert.Null(e);
+        Assert.True(double.IsFinite(r!.Total));
+    }
+
+    [Fact]
+    public void ResultadoSempreFinitoQuandoHaResultado()
+    {
+        (QuoteResult? r, string? e) = QuoteCalculator.Calculate(Base());
+        Assert.Null(e);
+        Assert.True(double.IsFinite(r!.PricePerPart) && double.IsFinite(r.Total) && r.PricePerPart > 0);
+    }
+}

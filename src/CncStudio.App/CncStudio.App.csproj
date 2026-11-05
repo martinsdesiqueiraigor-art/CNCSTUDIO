@@ -36,11 +36,38 @@
     <AvaloniaResource Include="..\CncStudio.Web\wwwroot\img\plataforma\*.webp" Link="Assets\plataforma\%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!-- Avisos de terceiros: fonte única, embutida no executável e mostrada em "Licenças de terceiros" -->
+  <ItemGroup>
+    <EmbeddedResource Include="THIRD-PARTY-NOTICES.md" LogicalName="CncStudio.App.THIRD-PARTY-NOTICES.md" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\CncStudio.Core\CncStudio.Core.csproj" />
     <!-- Leitura de STEP (OpenCASCADE): só no desktop -->
     <ProjectReference Include="..\CncStudio.Step\CncStudio.Step.csproj" />
   </ItemGroup>
+
+  <!--
+    LIC-01: o pacote OcctNet.Wrapper (via CncStudio.Step) traz 69 DLLs nativas, mas a leitura de STEP
+    só carrega 36. As 33 abaixo (FFmpeg, FreeImage, OpenVR, TBB, jemalloc, vcomp140, brotlienc e
+    módulos do OpenCASCADE de outros formatos, OpenGL e persistência) ficam fora da publicação:
+    executável menor e menos licenças a declarar. Só afeta o publish; build e testes seguem iguais.
+    Lista conferida em inventario/dlls_nativas.csv (coluna Candidata_remocao).
+  -->
+  <ItemGroup>
+    <NativeOcctNaoUsada Include="avcodec-57.dll;avformat-57.dll;avutil-55.dll;swscale-4.dll" />
+    <NativeOcctNaoUsada Include="FreeImage.dll;openvr_api.dll;tbb12.dll;jemalloc.dll;vcomp140.dll;brotlienc.dll" />
+    <NativeOcctNaoUsada Include="TKBin.dll;TKBinL.dll;TKBinTObj.dll;TKBinXCAF.dll;TKDECascade.dll;TKDEGLTF.dll" />
+    <NativeOcctNaoUsada Include="TKDEOBJ.dll;TKDEPLY.dll;TKDEVRML.dll;TKFeat.dll;TKFillet.dll;TKMeshVS.dll" />
+    <NativeOcctNaoUsada Include="TKOffset.dll;TKOpenGl.dll;TKRWMesh.dll;TKStd.dll;TKStdL.dll;TKTObj.dll" />
+    <NativeOcctNaoUsada Include="TKXMesh.dll;TKXml.dll;TKXmlL.dll;TKXmlTObj.dll;TKXmlXCAF.dll" />
+  </ItemGroup>
+  <Target Name="TirarNativasOcctNaoUsadas" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_NativaFora Include="@(NativeOcctNaoUsada)" RelativePath="%(Identity)" />
+      <ResolvedFileToPublish Remove="@(_NativaFora)" MatchOnMetadata="RelativePath" MatchOnMetadataOptions="CaseInsensitive" />
+    </ItemGroup>
+  </Target>
 
   <!-- Exemplos acessíveis pelos botões "Exemplo Fanuc" / "Exemplo Siemens" -->
   <ItemGroup>

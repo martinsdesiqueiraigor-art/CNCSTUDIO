@@ -12,7 +12,7 @@ internal static partial class WebInterop
 
     [JSImport("editMachiningSetup", Module)]
     [return: JSMarshalAs<JSType.Promise<JSType.String>>]
-    public static partial Task<string?> EditMachiningSetupAsync([JSMarshalAs<JSType.String>] string json);
+    public static partial Task<string?> EditMachiningSetupAsync([JSMarshalAs<JSType.String>] string json, [JSMarshalAs<JSType.Boolean>] bool hasMyTools);
 
     [JSImport("isTouch", Module)]
     [return: JSMarshalAs<JSType.Boolean>]
@@ -112,6 +112,10 @@ internal static partial class WebInterop
 
     [JSImport("storageSet", Module)]
     public static partial void StorageSet([JSMarshalAs<JSType.String>] string key, [JSMarshalAs<JSType.String>] string value);
+
+    /// <summary>Avisa as telas em HTML que um programa entrou no editor (a faixa "Voltar à aula" da Academy some com outro programa).</summary>
+    [JSImport("programLoaded", Module)]
+    public static partial void ProgramLoaded([JSMarshalAs<JSType.String>] string name);
 
     [JSImport("vibrate", Module)]
     public static partial void Vibrate([JSMarshalAs<JSType.Number>] int milliseconds);

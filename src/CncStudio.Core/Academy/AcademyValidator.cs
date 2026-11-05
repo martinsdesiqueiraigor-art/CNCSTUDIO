@@ -9,11 +9,14 @@ public static class AcademyValidator
     public const int QuestionsPerLesson = 4;
     public const int MinFinalQuestions = 12;
     private static readonly string[] AllowedStatus = ["rascunho", "revisado"];
-    private static readonly string[] Levels = ["Introdução", "Iniciante", "Básico", "Intermediário", "Avançado", "Especialista"];
     private static readonly string[] Diagrams = ["eixos", "ponto-xy", "zeros"];
     public static readonly string[] ParagraphTags = ["conceito", "atenção", "dica", "exemplo"];
     private static readonly string[] CheckKinds = ["posicao_final", "contem", "sem_erros"];
-    private static readonly string[] Tracks = ["Comum", "Fresa", "Torno"];
+
+    // trilhas e níveis vêm do plano (academy-plano.json)
+    private static IReadOnlyList<string> Levels => AcademyLibrary.Levels;
+
+    private static IReadOnlyList<string> Tracks => AcademyLibrary.Tracks;
 
     /// <param name="programs">Texto dos programas de exemplo, pelo caminho citado na aula.</param>
     public static List<ContentIssue> Validate(IReadOnlyList<Lesson> lessons, FinalTest? final, IReadOnlyDictionary<string, string> programs)
@@ -30,10 +33,15 @@ public static class AcademyValidator
                 issues.Add(new ContentIssue(where, "Id repetido."));
             }
 
+            bool v2 = lesson.Version >= 2;
             Require(issues, where, lesson.Title, "titulo");
             Require(issues, where, lesson.Goal, "objetivo");
-            Require(issues, where, lesson.Text, "texto");
-            Require(issues, where, lesson.CommonMistake, "erro_comum");
+            Require(issues, where, lesson.Text, v2 ? "secoes.visao.texto" : "texto");
+            Require(issues, where, lesson.CommonMistake, v2 ? "secoes.cuidados.erros" : "erro_comum");
+            if (v2)
+            {
+                CheckV2(issues, where, lesson, programs);
+            }
             if (!AllowedStatus.Contains(lesson.Status))
             {
                 issues.Add(new ContentIssue(where, "status precisa ser \"rascunho\" ou \"revisado\"."));
@@ -51,7 +59,7 @@ public static class AcademyValidator
 
             if (!lesson.Warning.Contains("Simule antes de rodar na máquina", StringComparison.OrdinalIgnoreCase))
             {
-                issues.Add(new ContentIssue(where, "Falta o aviso \"Simule antes de rodar na máquina\"."));
+                issues.Add(new ContentIssue(where, "Falta o aviso \"Simule antes de rodar na máquina\"" + (lesson.Version >= 2 ? " em secoes.cuidados.alertas." : ".")));
             }
 
             int words = lesson.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
@@ -108,7 +116,7 @@ public static class AcademyValidator
     {
         if (lesson.Summary is null || lesson.Summary.Count != 3 || lesson.Summary.Any(string.IsNullOrWhiteSpace))
         {
-            issues.Add(new ContentIssue(where, "\"resumo\" precisa de exatamente 3 pontos (\"O que levar desta aula\")."));
+            issues.Add(new ContentIssue(where, (lesson.Version >= 2 ? "\"secoes.visao.conceitos\"" : "\"resumo\"") + " precisa de exatamente 3 pontos (\"O que levar desta aula\")."));
         }
 
         foreach (string paragraph in lesson.Text.Split("\n\n", StringSplitOptions.RemoveEmptyEntries))
@@ -163,7 +171,7 @@ public static class AcademyValidator
         // o gabarito do exercício precisa passar nas próprias conferências (evita exercício impossível)
         if (lesson.Exercise is { Answer.Length: > 0 } && editor.Checks.Count > 0 && editor.Solution.Length > 0)
         {
-            CheckResult r = ExerciseChecker.Check(editor, editor.Solution);
+            CheckResult r = ExerciseChecker.Check(editor, editor.Solution, lesson.Dialect, lesson.Machine);
             if (!r.Passed)
             {
                 issues.Add(new ContentIssue(where, "A solução do exercício não passa nas conferências: " + string.Join(" ", r.Messages)));
@@ -187,15 +195,76 @@ public static class AcademyValidator
             return;
         }
 
-        ProgramAnalysis analysis = ProgramAnalyzer.Analyze(text, Dialect.Fanuc);
+        CheckProgramText(issues, where, lesson, lesson.ProgramPath, text);
+    }
+
+    private static void CheckProgramText(List<ContentIssue> issues, string where, Lesson lesson, string path, string text)
+    {
+        // o programa é lido no dialeto e na máquina da aula (v1: sempre fanuc/fresa)
+        ProgramAnalysis analysis = ProgramAnalyzer.Analyze(text, AcademyTarget.DialectOf(lesson.Dialect), AcademyTarget.SettingsOf(lesson.Machine));
         foreach (ParseDiagnostic d in analysis.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error))
         {
-            issues.Add(new ContentIssue(where, $"Programa {lesson.ProgramPath}: {d.Message}"));
+            issues.Add(new ContentIssue(where, $"Programa {path}: {d.Message}"));
         }
 
         if (!text.Contains("SIMULE ANTES DE RODAR NA MAQUINA", StringComparison.OrdinalIgnoreCase))
         {
-            issues.Add(new ContentIssue(where, $"Programa {lesson.ProgramPath} sem o comentário \"SIMULE ANTES DE RODAR NA MAQUINA\".", IsError: false));
+            issues.Add(new ContentIssue(where, $"Programa {path} sem o comentário \"SIMULE ANTES DE RODAR NA MAQUINA\".", IsError: false));
+        }
+    }
+
+    /// <summary>
+    /// Regras só do v2: dialeto e máquina válidos, todas as seções com estado, programa da trajetória existente e sem erro,
+    /// parâmetros da sintaxe completos. Trajetória e sintaxe vazias (aula convertida do v1) são aviso, não erro.
+    /// </summary>
+    private static void CheckV2(List<ContentIssue> issues, string where, Lesson lesson, IReadOnlyDictionary<string, string> programs)
+    {
+        if (!AcademyTarget.Dialects.Contains(lesson.Dialect))
+        {
+            issues.Add(new ContentIssue(where, $"dialeto \"{lesson.Dialect}\" inválido (use: {string.Join(", ", AcademyTarget.Dialects)})."));
+        }
+
+        if (!AcademyTarget.Machines.Contains(lesson.Machine))
+        {
+            issues.Add(new ContentIssue(where, $"maquina \"{lesson.Machine}\" inválida (use: {string.Join(", ", AcademyTarget.Machines)})."));
+        }
+
+        LessonSections? s = lesson.Sections;
+        foreach (string name in LessonSections.Names)
+        {
+            string st = s?.Status.GetValueOrDefault(name) ?? "";
+            if (!AllowedStatus.Contains(st))
+            {
+                issues.Add(new ContentIssue(where, $"Seção \"{name}\" sem \"estado\" (\"rascunho\" ou \"revisado\")."));
+            }
+        }
+
+        if (s is null)
+        {
+            return;
+        }
+
+        if (s.TrajectoryPath.Length == 0)
+        {
+            issues.Add(new ContentIssue(where, "Seção \"trajetoria\" vazia.", IsError: false));
+        }
+        else if (!programs.TryGetValue(s.TrajectoryPath, out string? trajectory))
+        {
+            issues.Add(new ContentIssue(where, $"Programa da trajetória não encontrado: {s.TrajectoryPath}."));
+        }
+        else
+        {
+            CheckProgramText(issues, where, lesson, s.TrajectoryPath, trajectory);
+        }
+
+        if (s.SyntaxBlocks.Count == 0 && s.SyntaxParams.Count == 0)
+        {
+            issues.Add(new ContentIssue(where, "Seção \"sintaxe\" vazia.", IsError: false));
+        }
+
+        if (s.SyntaxParams.Any(p => string.IsNullOrWhiteSpace(p.Address) || string.IsNullOrWhiteSpace(p.Concept)))
+        {
+            issues.Add(new ContentIssue(where, "Sintaxe: cada parâmetro precisa de \"endereco\" e \"conceito\"."));
         }
     }
 

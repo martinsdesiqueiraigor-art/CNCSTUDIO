@@ -21,6 +21,35 @@ public sealed record QuoteInput(
     double MarginPercent = 20,
     double TaxPercent = 0)
 {
+    /// <summary>Maior lote aceito. Acima disso quase certamente é erro de digitação.</summary>
+    public const int MaxQuantity = 1_000_000;
+
+    /// <summary>
+    /// Converte a quantidade digitada (número real) em peças inteiras <b>sem arredondar em silêncio</b> (auditoria A-06): 2,5 é
+    /// recusado, não vira 2; NaN, infinito, zero, negativo e acima de <see cref="MaxQuantity"/> também.
+    /// </summary>
+    public static (int Quantity, string? Error) ParseQuantity(double typed)
+    {
+        if (!double.IsFinite(typed))
+        {
+            return (0, "Digite a quantidade do lote como um número inteiro de peças.");
+        }
+
+        if (typed != Math.Floor(typed))
+        {
+            return (0, $"A quantidade precisa ser um número inteiro de peças (você digitou {typed.ToString("0.###", CultureInfo.GetCultureInfo("pt-BR"))}).");
+        }
+
+        if (typed < 1)
+        {
+            return (0, "A quantidade precisa ser de pelo menos 1 peça.");
+        }
+
+        return typed > MaxQuantity
+            ? (0, "A quantidade passa de 1 milhão de peças; confira o número digitado.")
+            : ((int)typed, null);
+    }
+
     /// <summary>Mensagem do primeiro dado inválido, ou null se está tudo certo.</summary>
     public string? Validate()
     {
@@ -29,22 +58,29 @@ public sealed record QuoteInput(
             return "Tempo do programa ou trocas de ferramenta inválidos.";
         }
 
-        if (Quantity < 1)
+        if (Quantity < 1 || Quantity > MaxQuantity)
         {
-            return "A quantidade precisa ser de pelo menos 1 peça.";
+            return Quantity < 1 ? "A quantidade precisa ser de pelo menos 1 peça." : "A quantidade passa de 1 milhão de peças; confira o número digitado.";
         }
 
-        (string Name, double Value)[] nonNegative =
+        // Limites de plausibilidade (A-07): acima disso é erro de digitação, e valores enormes ainda finitos viram preço absurdo
+        (string Name, double Value, double Max, string Unit)[] limits =
         [
-            ("Hora-máquina", MachineRatePerHour), ("Preparo", SetupHours), ("Tempo de troca de ferramenta", ToolChangeSeconds),
-            ("Carga e descarga", LoadUnloadSeconds), ("Folga de segurança", SafetyPercent), ("Material", MaterialPerPart),
-            ("Desgaste de ferramenta", ToolWearPerPart), ("Margem", MarginPercent), ("Impostos", TaxPercent),
+            ("Hora-máquina", MachineRatePerHour, 100_000, "R$/h"), ("Preparo", SetupHours, 10_000, "h"),
+            ("Tempo de troca de ferramenta", ToolChangeSeconds, 36_000, "s"), ("Carga e descarga", LoadUnloadSeconds, 360_000, "s"),
+            ("Folga de segurança", SafetyPercent, 1_000, "%"), ("Material", MaterialPerPart, 100_000_000, "R$"),
+            ("Desgaste de ferramenta", ToolWearPerPart, 100_000_000, "R$"), ("Margem", MarginPercent, 1_000, "%"), ("Impostos", TaxPercent, 100, "%"),
         ];
-        foreach ((string name, double value) in nonNegative)
+        foreach ((string name, double value, double max, string unit) in limits)
         {
             if (!double.IsFinite(value) || value < 0)
             {
                 return $"\"{name}\" precisa ser um número maior ou igual a zero.";
+            }
+
+            if (value > max && name != "Impostos")
+            {
+                return $"\"{name}\" passou de {max.ToString("0.##", CultureInfo.GetCultureInfo("pt-BR"))} {unit}; confira o número digitado.";
             }
         }
 
@@ -123,11 +159,10 @@ public sealed record QuoteResult(
 public static class QuoteCalculator
 {
     /// <summary>Tempo de ciclo por peça: programa + trocas de ferramenta, com folga, mais carga e descarga.</summary>
-    public static TimeSpan CycleTime(QuoteInput i)
-    {
-        double seconds = (i.ProgramTime.TotalSeconds + i.ToolChanges * i.ToolChangeSeconds) * (1 + i.SafetyPercent / 100) + i.LoadUnloadSeconds;
-        return TimeSpan.FromSeconds(seconds);
-    }
+    public static TimeSpan CycleTime(QuoteInput i) => TimeSpan.FromSeconds(CycleSeconds(i));
+
+    private static double CycleSeconds(QuoteInput i) =>
+        (i.ProgramTime.TotalSeconds + i.ToolChanges * i.ToolChangeSeconds) * (1 + i.SafetyPercent / 100) + i.LoadUnloadSeconds;
 
     public static (QuoteResult? Result, string? Error) Calculate(QuoteInput i)
     {
@@ -136,13 +171,26 @@ public static class QuoteCalculator
             return (null, error);
         }
 
-        TimeSpan cycle = CycleTime(i);
+        // Entradas enormes (mas finitas) podem estourar o tempo ou o dinheiro: nunca devolver infinito/NaN como preço (A-07)
+        double seconds = CycleSeconds(i);
+        if (!double.IsFinite(seconds) || seconds >= TimeSpan.MaxValue.TotalSeconds)
+        {
+            return (null, "Os números digitados geram um tempo de ciclo fora do possível; confira os valores.");
+        }
+
+        TimeSpan cycle = TimeSpan.FromSeconds(seconds);
         double machine = cycle.TotalHours * i.MachineRatePerHour;
         double setup = i.SetupHours * i.MachineRatePerHour / i.Quantity;
         double cost = machine + setup + i.MaterialPerPart + i.ToolWearPerPart;
         double margin = cost * i.MarginPercent / 100;
         double beforeTax = cost + margin;
         double price = beforeTax / (1 - i.TaxPercent / 100);
-        return (new QuoteResult(cycle, machine, setup, i.MaterialPerPart, i.ToolWearPerPart, cost, margin, price - beforeTax, price, price * i.Quantity, i.Quantity), null);
+        double total = price * i.Quantity;
+        if (!new[] { machine, setup, cost, margin, beforeTax, price, total }.All(double.IsFinite) || price < 0)
+        {
+            return (null, "Os números digitados geram um preço fora do possível (valor infinito ou inválido); confira os valores.");
+        }
+
+        return (new QuoteResult(cycle, machine, setup, i.MaterialPerPart, i.ToolWearPerPart, cost, margin, price - beforeTax, price, total, i.Quantity), null);
     }
 }

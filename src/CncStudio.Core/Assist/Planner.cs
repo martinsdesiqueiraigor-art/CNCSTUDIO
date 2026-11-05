@@ -6,13 +6,22 @@ namespace CncStudio.Core.Assist;
 /// <summary>Ferramenta da biblioteca vista pelo planejador (o Core não conhece o cadastro do Code).</summary>
 public sealed record PlanTool(int Number, double Diameter, bool IsDrill, string Name = "", int Teeth = 4);
 
-/// <summary>Dados do plano automático 2D. <see cref="Thickness"/>: espessura do bruto (topo da peça em Z0).</summary>
-public sealed record PlanInput(IReadOnlyList<Contour> Contours, double Thickness, MaterialEntry? Material, IReadOnlyList<PlanTool> Tools, double MaxHoleDrillDiameter = 20);
+/// <summary>
+/// Dados do plano automático 2D. <see cref="Thickness"/>: espessura do bruto (topo da peça em Z0).
+/// <see cref="MaxSpindleRpm"/>: limite do fuso do perfil da máquina ativa; null = não informado (rotação "não verificada").
+/// </summary>
+public sealed record PlanInput(IReadOnlyList<Contour> Contours, double Thickness, MaterialEntry? Material, IReadOnlyList<PlanTool> Tools, double MaxHoleDrillDiameter = 20, double? MaxSpindleRpm = null);
 
 /// <summary>Sugestão de plano: operações para o Trabalho e avisos. É só uma sugestão: o usinador revisa, simula e roda no ar.</summary>
 public sealed record PlanResult(IReadOnlyList<CamOperationSpec> Operations, IReadOnlyList<string> Notes)
 {
     public bool Ok => Operations.Count > 0;
+
+    /// <summary>Dados em que o plano se baseou. Serve para recusar a aplicação se algo mudou depois (<see cref="PlanValidity"/>).</summary>
+    public PlanStamp? Stamp { get; init; }
+
+    /// <summary>Impressão digital das operações no momento da sugestão (<see cref="PlanStamp.OfOperations"/>).</summary>
+    public string? OperationsStamp { get; init; }
 }
 
 /// <summary>
@@ -28,7 +37,19 @@ public static class AssistPlanner
 
     private static bool IsCircle(Contour c) => c.Segments.Count == 1 && c.Segments[0].IsArc && c.Segments[0].Start.DistanceTo(c.Segments[0].End) < 1e-6;
 
-    public static PlanResult Plan(PlanInput input)
+    /// <summary>Motivo do bloqueio quando não há material escolhido.</summary>
+    public const string MissingMaterial = "Escolha o material antes de sugerir: sem material o Assist não calcula rotação nem avanço. Nenhuma operação foi sugerida.";
+
+    public static PlanResult Plan(PlanInput input) => Seal(PlanCore(input), input);
+
+    private static PlanResult Seal(PlanResult plan, PlanInput input)
+    {
+        // Cópia própria das operações: quem recebeu o plano não consegue alterar a lista por baixo do registro
+        IReadOnlyList<CamOperationSpec> ops = Array.AsReadOnly(plan.Operations.ToArray());
+        return plan with { Operations = ops, Stamp = PlanStamp.Of(input), OperationsStamp = PlanStamp.OfOperations(ops) };
+    }
+
+    private static PlanResult PlanCore(PlanInput input)
     {
         var notes = new List<string>();
         var ops = new List<CamOperationSpec>();
@@ -43,6 +64,20 @@ public static class AssistPlanner
             return new PlanResult(ops, ["Informe a espessura do bruto."]);
         }
 
+        // Sem material não há rotação nem avanço confiáveis: o plano não sugere com valor genérico
+        if (input.Material is null)
+        {
+            return new PlanResult(ops, [MissingMaterial]);
+        }
+
+        // A-03: desenho ambíguo ou com defeito é recusado com o motivo, em vez de o plano adivinhar qual contorno é a peça
+        ContourFindings findings = ContourAudit.Check(input.Contours);
+        if (findings.Errors.Count > 0)
+        {
+            return new PlanResult(ops, [.. findings.Errors, "Nenhuma operação foi sugerida."]);
+        }
+
+        notes.AddRange(findings.Warnings);
         Contour outer = closed.OrderByDescending(c => Math.Abs(c.SignedArea)).First();
         List<Contour> inside = CamOperations.FindIslands(outer, closed).ToList();
         int ignored = closed.Count - 1 - inside.Count;
@@ -78,6 +113,17 @@ public static class AssistPlanner
                 .OrderByDescending(t => t.Diameter).FirstOrDefault();
             CamTool tool = found is not null ? ToolFor(found.Number, found.Diameter, found.Name, found.Teeth, drill) : ToolFor(nextNumber++, diameter, fallbackName, drill ? 2 : 4, drill);
             used[key] = tool;
+            // R-02: o critério de escolha aparece no plano; é regra de geometria, não avaliação de material, rigidez ou balanço
+            if (found is not null && drill)
+            {
+                double diff = found.Diameter - diameter;
+                notes.Add($"Broca para furo Ø{N(diameter)}: T{found.Number} {found.Name} Ø{N(found.Diameter)} ({(Math.Abs(diff) < 0.005 ? "mesmo diâmetro" : $"diferença {(diff >= 0 ? "+" : "")}{N(diff)} mm")}). Critério: broca do banco com Ø a menos de 0,05 mm do furo.");
+            }
+            else if (found is not null)
+            {
+                notes.Add($"Fresa T{found.Number} {found.Name} Ø{N(found.Diameter)}: a maior do banco que cabe na região (limite Ø{N(diameter)}). Critério só de geometria: não avalia material, balanço nem rigidez.");
+            }
+
             return tool;
         }
 

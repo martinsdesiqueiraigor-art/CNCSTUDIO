@@ -1,0 +1,178 @@
+{
+  "id": "acad-m2-final",
+  "modulo": "acad-m2",
+  "status": "rascunho",
+  "nota_minima_percentual": 70,
+  "pode_pular": true,
+  "politica_de_nota": "12 questoes com peso igual: 1 ponto por acerto. Aprovacao com pelo menos 9 de 12 acertos (75%), pois 8 de 12 = 66,7% e nao atinge 70%. Aluno pode pular o teste conforme regra do piloto.",
+  "questoes": [
+    {
+      "id": "acad-m2-final-q01",
+      "enunciado": "Qual é a função principal de G00?",
+      "alternativas": [
+        "Posicionar os eixos em movimento rápido",
+        "Executar interpolação circular",
+        "Ativar a rotação do spindle",
+        "Selecionar o avanço de corte"
+      ],
+      "correta": "A",
+      "explicacao": "A: G00 solicita posicionamento rápido. B: Arcos utilizam G02 ou G03. C: A rotação depende de funções do spindle. D: O avanço de trabalho é aplicado em movimentos como G01.",
+      "dica": "Associe G00 ao deslocamento entre posições.",
+      "origem_aula": "acad-m2-a01"
+    },
+    {
+      "id": "acad-m2-final-q02",
+      "enunciado": "No trecho G90 G00 X20.0 Y10.0, qual é o destino?",
+      "alternativas": [
+        "Somar 20.0 e 10.0 à posição atual",
+        "X20.0 Y10.0 no sistema ativo",
+        "Mover apenas o eixo Z",
+        "Executar uma interpolação circular"
+      ],
+      "correta": "B",
+      "explicacao": "A: Isso confundiria absoluto com incremental. B: G90 interpreta X e Y como posições absolutas. C: Não existe Z no bloco. D: G00 não especifica interpolação circular.",
+      "dica": "G90 utiliza a origem ativa como referência.",
+      "origem_aula": "acad-m2-a01"
+    },
+    {
+      "id": "acad-m2-final-q03",
+      "enunciado": "Após G01 X30.0 Y10.0 F120.0, o bloco Y30.0 mantém qual movimento?",
+      "alternativas": [
+        "G00",
+        "G03",
+        "G01",
+        "G02"
+      ],
+      "correta": "C",
+      "explicacao": "A: G00 não foi selecionado novamente. B: G03 representa arco anti-horário. C: G01 permanece modal no bloco seguinte. D: G02 representa arco horário.",
+      "dica": "Identifique o último movimento modal.",
+      "origem_aula": "acad-m2-a02"
+    },
+    {
+      "id": "acad-m2-final-q04",
+      "enunciado": "O que deve ser verificado antes de usar F em uma operação real?",
+      "alternativas": [
+        "Somente o nome do programa",
+        "Apenas o número da linha",
+        "Somente a cor da ferramenta",
+        "Modo de avanço e condições de usinagem"
+      ],
+      "correta": "D",
+      "explicacao": "A: O nome não define parâmetros de corte. B: A numeração não valida o avanço. C: A cor não determina a condição de usinagem. D: Modo, ferramenta, material e operação precisam ser avaliados.",
+      "dica": "Diferencie sintaxe correta de parâmetro adequado.",
+      "origem_aula": "acad-m2-a02"
+    },
+    {
+      "id": "acad-m2-final-q05",
+      "enunciado": "Qual endereço normalmente programa a referência de rotação?",
+      "alternativas": [
+        "S",
+        "F",
+        "X",
+        "Z"
+      ],
+      "correta": "A",
+      "explicacao": "A: S estabelece a referência de rotação. B: F representa avanço. C: X representa uma coordenada. D: Z também representa uma coordenada.",
+      "dica": "Separe rotação de avanço.",
+      "origem_aula": "acad-m2-a03"
+    },
+    {
+      "id": "acad-m2-final-q06",
+      "enunciado": "No trecho S1000 M03, o que M03 normalmente solicita?",
+      "alternativas": [
+        "Parada do spindle",
+        "Rotação horária do spindle",
+        "Movimento rápido",
+        "Encerramento do programa"
+      ],
+      "correta": "B",
+      "explicacao": "A: Parada é solicitada por M05. B: M03 solicita rotação horária na convenção usual. C: Movimento rápido utiliza G00. D: Encerramento pode utilizar M30.",
+      "dica": "Diferencie acionamento e parada.",
+      "origem_aula": "acad-m2-a03"
+    },
+    {
+      "id": "acad-m2-final-q07",
+      "enunciado": "O que é necessário para interpretar um arco com R?",
+      "alternativas": [
+        "Somente o número do programa",
+        "Somente o avanço F",
+        "Ponto inicial, destino, plano, sentido e raio",
+        "Somente a ferramenta selecionada"
+      ],
+      "correta": "C",
+      "explicacao": "A: O número identifica o programa, não a curva. B: F não determina o centro. C: Esses elementos permitem interpretar a geometria. D: A ferramenta não determina sozinha a trajetória circular.",
+      "dica": "Desenhe os pontos e procure o centro possível.",
+      "origem_aula": "acad-m2-a04"
+    },
+    {
+      "id": "acad-m2-final-q08",
+      "enunciado": "Qual problema pode impedir a execução de um arco?",
+      "alternativas": [
+        "Um comentário explicativo",
+        "A existência de G90",
+        "A seleção do plano XY",
+        "Um raio incompatível com os pontos"
+      ],
+      "correta": "D",
+      "explicacao": "A: Comentários válidos não impedem a geometria. B: G90 é um modo de coordenadas. C: G17 define o plano de trabalho. D: Um raio impossível não permite construir o arco solicitado.",
+      "dica": "Compare a distância entre os pontos com o diâmetro possível.",
+      "origem_aula": "acad-m2-a04"
+    },
+    {
+      "id": "acad-m2-final-q09",
+      "enunciado": "No formato didático utilizado, o que I representa?",
+      "alternativas": [
+        "Deslocamento em X do início até o centro",
+        "Avanço da ferramenta",
+        "Rotação do spindle",
+        "Coordenada final Z"
+      ],
+      "correta": "A",
+      "explicacao": "A: I indica o deslocamento até o centro na direção X. B: Avanço utiliza F. C: Rotação utiliza S. D: O destino Z é programado pelo endereço Z.",
+      "dica": "Relacione I ao centro do arco.",
+      "origem_aula": "acad-m2-a05"
+    },
+    {
+      "id": "acad-m2-final-q10",
+      "enunciado": "No trecho G01 X30.0 Y10.0 F120.0 seguido de G03 X30.0 Y30.0 R10.0, qual movimento vem depois da reta?",
+      "alternativas": [
+        "Movimento rápido",
+        "Arco anti-horário",
+        "Arco horário",
+        "Parada do spindle"
+      ],
+      "correta": "B",
+      "explicacao": "A: G00 não foi selecionado. B: G03 representa interpolação circular anti-horária. C: Arco horário utiliza G02. D: Parada utiliza M05.",
+      "dica": "Observe o código G que substitui G01.",
+      "origem_aula": "acad-m2-a06"
+    },
+    {
+      "id": "acad-m2-final-p01",
+      "tipo": "leitura_programa",
+      "enunciado": "Leia G21 G90 G17 G94, G00 X10.0 Y10.0, G01 X30.0 Y10.0 F120.0. Qual é a posição final no plano XY?",
+      "alternativas": [
+        "X10.0 Y10.0",
+        "X20.0 Y0.0",
+        "X30.0 Y10.0",
+        "X40.0 Y20.0"
+      ],
+      "correta": "C",
+      "explicacao": "A: Essa é a posição anterior ao G01. B: Confunde deslocamento com posição absoluta. C: Em G90, o bloco G01 define o destino X30.0 Y10.0. D: Soma coordenadas como se fossem incrementais.",
+      "dica": "Em G90, X e Y representam posições absolutas."
+    },
+    {
+      "id": "acad-m2-final-p02",
+      "tipo": "leitura_programa",
+      "enunciado": "Leia G17 G90, G00 X10.0 Y20.0, G03 X30.0 Y20.0 I10.0 J0.0 F120.0. Qual interpretação é correta?",
+      "alternativas": [
+        "O movimento é linear",
+        "O centro está em X10.0 Y20.0",
+        "O movimento é rápido",
+        "O centro está em X20.0 Y20.0 e o arco é anti-horário"
+      ],
+      "correta": "D",
+      "explicacao": "A: G03 indica interpolação circular. B: I10.0 desloca o centro em X a partir do início. C: G00 foi substituído por G03. D: O centro é X20.0 Y20.0 e G03 define o sentido anti-horário.",
+      "dica": "Some I e J à posição inicial do arco."
+    }
+  ]
+}

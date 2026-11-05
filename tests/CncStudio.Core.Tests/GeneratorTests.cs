@@ -190,3 +190,36 @@ public class GeneratorsJsonTests
         Assert.Equal("bhc", (string?)System.Text.Json.Nodes.JsonNode.Parse(GeneratorsJson.RememberLast("{ruim", "bhc", "plain", null))!["id"]);
     }
 }
+
+public class GeneratorGroupTests
+{
+    [Fact]
+    public void Todo_campo_cai_numa_secao_conhecida_e_corte_tem_F_S_T()
+    {
+        foreach (ProgramGenerator g in CncStudio.Core.Generators.Generators.All)
+        {
+            foreach (GeneratorParameter p in g.Parameters)
+            {
+                string group = GeneratorsJson.GroupOf(p);
+                Assert.Contains(group, new[] { "geometry", "depth", "cutting" });
+                if (p.Id is "F" or "S" or "T")
+                {
+                    Assert.Equal("cutting", group);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void Furacao_em_circulo_separa_geometria_profundidade_e_corte()
+    {
+        ProgramGenerator bhc = CncStudio.Core.Generators.Generators.ById("bhc")!;
+        string Of(string id) => GeneratorsJson.GroupOf(bhc.Parameters.First(p => p.Id == id));
+        Assert.Equal("geometry", Of("D"));
+        Assert.Equal("geometry", Of("N"));
+        Assert.Equal("depth", Of("Z"));
+        Assert.Equal("depth", Of("Q"));
+        Assert.Equal("cutting", Of("F"));
+        Assert.Equal("cutting", Of("T"));
+    }
+}

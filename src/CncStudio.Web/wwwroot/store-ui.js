@@ -53,6 +53,11 @@ export async function openStore() {
 
   for (const item of data.itens) {
     const card = make('div', null, 'border:1px solid #30363d;border-radius:12px;padding:14px;margin-bottom:12px;background:#131a22');
+    if (item.imagem) {
+      const im = make('img', null, 'display:block;width:100%;max-height:260px;object-fit:contain;background:#fff;border-radius:10px;margin-bottom:10px');
+      im.src = './' + item.imagem; im.alt = item.nome; im.loading = 'lazy';
+      card.append(im);
+    }
     card.append(make('div', item.categoria, 'font-size:11px;font-weight:700;color:#2fd0c8;text-transform:uppercase;letter-spacing:.04em'));
     card.append(make('h3', item.nome, 'margin:2px 0 4px;font-size:18px'));
     card.append(make('div', item.resumo, 'color:#9baab9;margin-bottom:8px'));

@@ -21,6 +21,9 @@ public sealed class Contour
 
     public IReadOnlyList<Segment2> Segments { get; }
 
+    /// <summary>Cópia com todas as medidas multiplicadas por <paramref name="factor"/> (positivo), a partir da origem.</summary>
+    public Contour Scaled(double factor) => new([.. Segments.Select(s => s.Scaled(factor))]);
+
     /// <summary>Início de cada trecho no fim do anterior (fecha, dentro de uma tolerância).</summary>
     public bool IsClosed
     {
@@ -447,6 +450,13 @@ public sealed class Contour
 
         list.Add(tail);
         return new Contour(list);
+    }
+
+    /// <summary>Verdadeiro se algum trecho deste contorno cruza algum trecho de <paramref name="other"/> (cruzamento franco; encostar não conta).</summary>
+    public bool CrossesContour(Contour other)
+    {
+        List<Point2> a = Sample(0.005), b = other.Sample(0.005);
+        return PolylinesCross(a, b);
     }
 
     /// <summary>Verdadeiro se algum trecho cruza outro que não é vizinho dele.</summary>

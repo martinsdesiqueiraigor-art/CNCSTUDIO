@@ -6,7 +6,11 @@ namespace CncStudio.Core.Cam;
 public enum CamDialect { Fanuc, Siemens }
 
 /// <summary>Opções do pós-processador: dialeto, nome, zero de peça e refrigeração.</summary>
-public sealed record PostOptions(CamDialect Dialect, string ProgramName = "CASILLAS CAM", int ProgramNumber = 1001, int WorkOffset = 54, bool Coolant = true);
+/// <summary>
+/// Opções do pós. <see cref="Machine"/>: perfil da máquina, usado para conferir se o eixo rotativo pode voltar a 0° no fim
+/// (null = não informado: o eixo não volta e o programa avisa).
+/// </summary>
+public sealed record PostOptions(CamDialect Dialect, string ProgramName = "CASILLAS CAM", int ProgramNumber = 1001, int WorkOffset = 54, bool Coolant = true, MachineProfile? Machine = null);
 
 /// <summary>
 /// Pós-processador: transforma as operações do CAM (movimentos neutros) em programa Fanuc ou Siemens de fresa.
@@ -25,14 +29,59 @@ public static class CamPost
             writer.Operation(op);
         }
 
-        writer.Footer();
+        writer.Footer(RotaryAtEnd(operations));
         return writer.ToString();
     }
 
+    /// <summary>
+    /// Eixos rotativos que o programa deixa fora de 0° no fim (último ângulo de cada letra), na ordem do primeiro uso.
+    /// Programa sem eixo rotativo, ou que já termina em 0°, devolve lista vazia.
+    /// </summary>
+    public static IReadOnlyList<(string Letter, double Angle)> RotaryAtEnd(IReadOnlyList<CamOperation> operations)
+    {
+        var last = new Dictionary<string, double>();
+        foreach (CamOperation op in operations)
+        {
+            // 3+2 na furação: o segundo eixo (giratório) gira antes do primeiro, e também precisa voltar a zero
+            if (op.Drill is { RotaryLetter2: { } drillLetter2 } d2)
+            {
+                last[drillLetter2] = Math.Round(d2.RotaryAngle2, 3);
+            }
+
+            if (op.Drill is { RotaryLetter: { } drillLetter } d)
+            {
+                last[drillLetter] = Math.Round(d.RotaryAngle, 3);
+            }
+
+            foreach (ToolMove m in op.Moves)
+            {
+                if (m.RotaryLetter is { } letter)
+                {
+                    last[letter] = Math.Round(m.RotaryAngle, 3);
+                }
+            }
+        }
+
+        return last.Where(kv => Math.Abs(kv.Value) > 1e-9).Select(kv => (kv.Key, kv.Value)).ToList();
+    }
+
+    /// <summary>Eixo rotativo pode voltar a 0° no fim: o perfil informa o eixo e 0° está dentro do curso.</summary>
+    public static bool CanReturnToZero(MachineProfile? machine, string letter) => machine?.AxisOf(letter) is { } axis && axis.Contains(0);
+
+    /// <summary>Aviso fixo do retorno a zero no fim do programa.</summary>
+    public const string ReturnToZeroNotVerified = "NÃO VERIFICADO EM MÁQUINA: no fim do programa o eixo rotativo volta a 0° depois de Z subir à referência. Confira que a peça e a fixação giram livres e rode primeiro no ar.";
+
     /// <summary>Avisos antes de gerar: o mesmo T com diâmetros diferentes (o corretor e o raio do controle seriam os mesmos).</summary>
-    public static IReadOnlyList<string> Check(IReadOnlyList<CamOperation> operations)
+    public static IReadOnlyList<string> Check(IReadOnlyList<CamOperation> operations, MachineProfile? machine = null)
     {
         var warnings = new List<string>();
+        foreach ((string letter, double angle) in RotaryAtEnd(operations))
+        {
+            warnings.Add(CanReturnToZero(machine, letter)
+                ? $"Eixo {letter} termina em {angle.ToString("0.###", Inv)}° e volta a 0° no fim. " + ReturnToZeroNotVerified
+                : $"Eixo {letter} termina em {angle.ToString("0.###", Inv)}° e NÃO volta a 0° no fim: {(machine?.AxisOf(letter) is null ? "o perfil da máquina não informa este eixo" : "0° está fora do curso do eixo no perfil")}. Leve o eixo a zero à mão antes do próximo programa.");
+        }
+
         foreach (IGrouping<int, CamTool> group in operations.Select(o => o.Tool).GroupBy(t => t.Number))
         {
             double[] diameters = group.Select(t => Math.Round(t.Diameter, 3)).Distinct().ToArray();
@@ -73,6 +122,8 @@ public static class CamPost
 
         private void Line(string text) => _sb.Append(text).Append('\n');
 
+        private void Comment(string text) => Line(_fanuc ? $"({text})" : $"; {text}");
+
         public void Header()
         {
             string name = Clean(o.ProgramName);
@@ -93,7 +144,7 @@ public static class CamPost
             Line($"G{o.WorkOffset}");
         }
 
-        public void Footer()
+        public void Footer(IReadOnlyList<(string Letter, double Angle)> rotary)
         {
             if (o.Coolant)
             {
@@ -103,6 +154,20 @@ public static class CamPost
             Line("M5");
             Line(_fanuc ? "G91 G28 Z0" : "G0 G53 Z0");
             Line("G90");
+            // Rotativo a zero só depois de Z na referência; o último eixo usado volta primeiro
+            foreach ((string letter, _) in rotary.Reverse())
+            {
+                if (CanReturnToZero(o.Machine, letter))
+                {
+                    Comment($"EIXO {letter} A ZERO - NAO VERIFICADO EM MAQUINA");
+                    Line($"G0 {letter}{N(0)}");
+                }
+                else
+                {
+                    Comment($"CONFIRA: EIXO {letter} NAO VOLTA A ZERO (FORA DO CURSO OU SEM PERFIL)");
+                }
+            }
+
             Line("M30");
             if (_fanuc)
             {
@@ -295,20 +360,31 @@ public static class CamPost
             _z = z;
         }
 
+        // Gira um eixo rotativo em rápido, numa linha própria, só quando o ângulo muda
+        private void Rotate(string letter, double angle)
+        {
+            angle = Math.Round(angle, 3);
+            if (!_rot.TryGetValue(letter, out double current) || Math.Abs(current - angle) > 1e-9)
+            {
+                Line($"G0 {letter}{N(angle)}");
+                _rot[letter] = angle;
+            }
+        }
+
         private void Drilling(CamTool tool, DrillCycle d)
         {
             ChangeTool(tool, d.SafeZ);
             Point2 first = d.Points[0];
             LengthOffset(tool, first, d.SafeZ);
+            // Na altura segura (acima do cilindro), gira a face para cima antes de descer (3+2: o giratório antes do basculante)
+            if (d.RotaryLetter2 is { } letter2)
+            {
+                Rotate(letter2, d.RotaryAngle2);
+            }
+
             if (d.RotaryLetter is { } letter)
             {
-                // Na altura segura (acima do cilindro), gira a face para cima antes de descer
-                double angle = Math.Round(d.RotaryAngle, 3);
-                if (!_rot.TryGetValue(letter, out double current) || Math.Abs(current - angle) > 1e-9)
-                {
-                    Line($"G0 {letter}{N(angle)}");
-                    _rot[letter] = angle;
-                }
+                Rotate(letter, d.RotaryAngle);
             }
 
             if (_fanuc)

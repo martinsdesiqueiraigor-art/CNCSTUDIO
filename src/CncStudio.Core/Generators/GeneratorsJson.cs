@@ -6,7 +6,21 @@ namespace CncStudio.Core.Generators;
 /// <summary>Ponte em JSON entre os geradores e a tela em HTML da web (catálogo, geração e validação).</summary>
 public static class GeneratorsJson
 {
-    /// <summary>Catálogo para montar o formulário: [{id,title,description,macro,params:[{id,label,unit,def,min,max,integer,hint}],texts:[{id,label,def,max,hint}]}].</summary>
+    /// <summary>
+    /// Seção do formulário em que o campo aparece: "geometry", "depth" ou "cutting". Regra só de apresentação, pelo
+    /// identificador e pelo nome do campo (os valores e o cálculo não dependem dela).
+    /// </summary>
+    public static string GroupOf(GeneratorParameter p)
+    {
+        if (p.Id is "F" or "S" or "T" || p.Label.StartsWith("Avanço", StringComparison.Ordinal) || p.Label.StartsWith("Diâmetro da fresa", StringComparison.Ordinal))
+        {
+            return "cutting";
+        }
+
+        return p.Id is "W" or "Z" or "R" or "Q" ? "depth" : "geometry";
+    }
+
+    /// <summary>Catálogo para montar o formulário: [{id,title,description,macro,params:[{id,label,unit,def,min,max,integer,hint,group}],texts:[{id,label,def,max,hint}]}].</summary>
     public static string Catalog()
     {
         var array = new JsonArray();
@@ -18,7 +32,7 @@ public static class GeneratorsJson
                 parameters.Add(new JsonObject
                 {
                     ["id"] = p.Id, ["label"] = p.Label, ["unit"] = p.Unit, ["def"] = p.Default,
-                    ["min"] = p.Min, ["max"] = p.Max, ["integer"] = p.IsInteger, ["hint"] = p.Hint,
+                    ["min"] = p.Min, ["max"] = p.Max, ["integer"] = p.IsInteger, ["hint"] = p.Hint, ["group"] = GroupOf(p),
                 });
             }
 

@@ -69,6 +69,9 @@ public sealed class LatheJob
     /// <summary>Perfil da peça (null = ainda não definido).</summary>
     public LatheProfile? Profile { get; set; }
 
+    /// <summary>Fixação da peça (null = não informada). Só informativa: não entra no programa.</summary>
+    public LatheFixation? Fixation { get; set; }
+
     public List<LatheOperationSpec> Operations { get; } = [];
 
     public bool MoveOperation(int from, int to)
@@ -239,6 +242,89 @@ public static class LatheJobBuilder
 /// <summary>Textos da árvore do Trabalho de torno e operações novas com valores padrão (os mesmos da tela do torno).</summary>
 public static class LatheJobInfo
 {
+    /// <summary>
+    /// O que impede de gerar o G-code do torno (vazio = pronto). Não inclui fixação nem colisão, que o app não verifica.
+    /// <paramref name="maxRpm"/>: limite do fuso do perfil da máquina; sem ele, a rotação não vira pendência (como na fresa).
+    /// </summary>
+    public static IReadOnlyList<string> Pending(LatheJob job, LatheBuild build, double? maxRpm = null)
+    {
+        var list = new List<string>();
+        if (job.Profile is null)
+        {
+            list.Add("Falta o perfil da peça (DXF ou pontos)");
+        }
+
+        if (job.Operations.Count == 0)
+        {
+            list.Add("Nenhuma operação");
+        }
+
+        for (int i = 0; i < build.Items.Count; i++)
+        {
+            LatheOpResult r = build.Items[i];
+            if (!r.Ok)
+            {
+                list.Add($"Operação {i + 1}: " + (r.Error ?? "não foi possível gerar"));
+            }
+        }
+
+        foreach (int i in OverSpindle(job, maxRpm))
+        {
+            list.Add($"rotação acima do fuso na operação {i + 1}");
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// Linha "Origem" da árvore do torno: o deslocamento de trabalho, X0 no centro da peça e Z0 o do perfil.
+    /// O estado é o mesmo da fresa (<see cref="CamJobInfo.OriginState"/>): nunca conferido pelo app.
+    /// </summary>
+    public static string OriginTitle(LatheJob job) => $"Origem G{job.WorkOffset}: X0 no centro da peça, Z0 do perfil";
+
+    /// <summary>Maior rotação que a operação pode pedir: a fixa ou, em G96, o limite G50 (<see cref="LatheTool.MaxRpm"/>).</summary>
+    public static double SpindleRpm(LatheTool t) => t.Rpm > 0 ? t.Rpm : t.MaxRpm;
+
+    /// <summary>
+    /// Aviso de rotação acima do limite do fuso do perfil da máquina (null = dentro do limite ou limite não informado), mesma conferência
+    /// de <see cref="CamJobInfo.SpindleWarning"/>. O avanço do torno é por rotação, então não muda. Só confere: não altera o programa.
+    /// </summary>
+    public static string? SpindleWarning(LatheTool t, double? maxRpm)
+    {
+        if (CamJobInfo.SpindleWarning(SpindleRpm(t), maxRpm) is null)
+        {
+            return null;
+        }
+
+        string what = t.Rpm > 0 ? "Rotação fixa" : "Rotação máxima (G50)";
+        return $"{what} acima do limite do fuso ({N(maxRpm!.Value)} rpm). Digite até {N(maxRpm.Value)}.";
+    }
+
+    /// <summary>Operações ligadas com rotação acima do limite do fuso (índices).</summary>
+    public static IReadOnlyList<int> OverSpindle(LatheJob job, double? maxRpm) =>
+        job.Operations.Select((o, i) => (o, i)).Where(x => x.o.Enabled && SpindleWarning(x.o.Tool, maxRpm) is not null).Select(x => x.i).ToList();
+
+    /// <summary>Estado de uma operação na árvore (o mesmo texto da fresa): "OK", "desligada", "erro: motivo" ou "aviso: acima do fuso".</summary>
+    public static (string Kind, string Text) OpState(LatheOpResult? r, LatheOperationSpec? spec = null, double? maxRpm = null)
+    {
+        if (r is null)
+        {
+            return ("pending", "a calcular");
+        }
+
+        if (r.Skipped)
+        {
+            return ("off", "desligada");
+        }
+
+        if (!r.Ok)
+        {
+            return ("bad", "erro: " + (r.Error ?? "não foi possível gerar"));
+        }
+
+        return spec is not null && SpindleWarning(spec.Tool, maxRpm) is not null ? ("pending", "aviso: acima do fuso") : ("ok", "OK");
+    }
+
     private static readonly CultureInfo Br = CultureInfo.GetCultureInfo("pt-BR");
 
     private static string N(double v) => v.ToString("0.##", Br);

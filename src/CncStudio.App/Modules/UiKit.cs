@@ -59,6 +59,102 @@ public static class UiKit
         };
     }
 
+    /// <summary>Cores de estado ("ok", "bad", "pending", outro = neutro) legíveis no tema atual: texto e fundo da etiqueta.</summary>
+    public static (IBrush Fg, IBrush Bg) Status(string kind)
+    {
+        bool light = Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Light;
+        (string fg, string bg) = (kind, light) switch
+        {
+            ("ok", false) => ("#2EE6A6", "#0D2A25"),
+            ("bad", false) => ("#FF6B6B", "#33181D"),
+            ("pending", false) => ("#FFC247", "#2A2314"),
+            (_, false) => ("#A3B1C9", "#18263D"),
+            ("ok", true) => ("#0E7A55", "#DDF4EA"),
+            ("bad", true) => ("#B3261E", "#FBE3E1"),
+            ("pending", true) => ("#8A5A00", "#FFEFCC"),
+            _ => ("#4A5668", "#E6EAF1"),
+        };
+        return (Brush.Parse(fg), Brush.Parse(bg));
+    }
+
+    /// <summary>Etiqueta de estado da árvore ("OK", "desligada", "erro: motivo", "não verificada"): sempre com texto, nunca só cor.</summary>
+    public static Border StateTag((string Kind, string Text) st)
+    {
+        // "erro: motivo" mostra só "erro" (o estado inteiro, nunca cortado); o motivo vai na dica e na barra inferior
+        int cut = st.Text.IndexOf(": ", StringComparison.Ordinal);
+        string shown = st.Kind == "bad" && cut > 0 ? st.Text[..cut] : st.Text;
+        var text = new TextBlock { Text = shown, FontSize = 11 };
+        ToolTip.SetTip(text, st.Text);
+        var tag = new Border
+        {
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(7, 1),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = text,
+        };
+        return FollowTheme(tag, st.Kind, text);
+    }
+
+    /// <summary>
+    /// Linha de árvore com estado: controles à esquerda (caixa, ícone), título com reticências no meio e etiqueta inteira à direita.
+    /// Precisa da árvore sem rolagem horizontal e do item esticado (<see cref="StateItem"/>).
+    /// </summary>
+    public static DockPanel StateRow(string title, (string Kind, string Text) st, params Control[] lead)
+    {
+        var row = new DockPanel();
+        foreach (Control c in lead)
+        {
+            DockPanel.SetDock(c, Dock.Left);
+            c.Margin = new Thickness(0, 0, 6, 0);
+            row.Children.Add(c);
+        }
+
+        Border tag = StateTag(st);
+        DockPanel.SetDock(tag, Dock.Right);
+        tag.Margin = new Thickness(6, 0, 0, 0);
+        row.Children.Add(tag);
+        var text = new TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        ToolTip.SetTip(text, title);
+        row.Children.Add(text);
+        return row;
+    }
+
+    /// <summary>Item de árvore que ocupa a largura da árvore (para a etiqueta de <see cref="StateRow"/> ficar sempre à vista).</summary>
+    public static TreeViewItem StateItem(Control header, object? tag = null) =>
+        new() { Header = header, Tag = tag, IsExpanded = true };
+
+    /// <summary>Aviso em bloco com as cores de estado do tema (claro, escuro e CMYK); acompanha a troca de tema.</summary>
+    public static Border StatusNote(string text, string kind = "pending")
+    {
+        var label = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        var note = new Border
+        {
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12),
+            Child = label,
+        };
+        return FollowTheme(note, kind, label);
+    }
+
+    private static Border FollowTheme(Border border, string kind, TextBlock text)
+    {
+        void Apply()
+        {
+            (IBrush fg, IBrush bg) = Status(kind);
+            border.Background = bg;
+            text.Foreground = fg;
+            if (border.BorderThickness != default && fg is ISolidColorBrush s)
+            {
+                border.BorderBrush = new SolidColorBrush(s.Color, 0.55);
+            }
+        }
+
+        Apply();
+        border.ActualThemeVariantChanged += (_, _) => Apply();
+        return border;
+    }
+
     /// <summary>Define o fundo do bloco pelo recurso do tema (claro ou escuro).</summary>
     public static T Themed<T>(this T border, string resourceKey = "CardBackground")
         where T : Border

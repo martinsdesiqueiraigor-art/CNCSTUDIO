@@ -34,7 +34,11 @@ public static class AcademyJson
                 }
 
                 AcademyModule? m = Library.Module(plan.Id);
-                var module = new JsonObject { ["id"] = plan.Id, ["title"] = plan.Title, ["soon"] = m is null || m.Lessons.Count == 0 };
+                var module = new JsonObject
+                {
+                    ["id"] = plan.Id, ["title"] = plan.Title, ["description"] = plan.Description,
+                    ["soon"] = plan.Soon || m is null || m.Lessons.Count == 0,
+                };
                 if (m is not null)
                 {
                     var lessons = new JsonArray();
@@ -67,8 +71,11 @@ public static class AcademyJson
         return new JsonObject { ["levels"] = levelNames, ["tracks"] = tracks, ["streak"] = progress.Streak(today) }.ToJsonString();
     }
 
-    /// <summary>Uma aula completa para ler: texto, programa de exemplo, exercício e quiz (com a resposta e a explicação, para corrigir na hora).</summary>
-    public static string Lesson(string lessonId)
+    /// <summary>
+    /// Uma aula completa para ler: texto, programa de exemplo, exercício e quiz. <paramref name="hideAnswers"/> falso (padrão, tela atual):
+    /// o quiz vem com a resposta e a explicação; verdadeiro: sem elas, e a tela corrige pelo Core (<c>answer</c> e <c>grade</c>).
+    /// </summary>
+    public static string Lesson(string lessonId, bool hideAnswers = false)
     {
         Lesson? l = Library.FindLesson(lessonId);
         if (l is null)
@@ -76,14 +83,18 @@ public static class AcademyJson
             return new JsonObject { ["ok"] = false }.ToJsonString();
         }
 
+        string program = Library.Programs.GetValueOrDefault(l.ProgramPath, "");
         return new JsonObject
         {
+            ["version"] = l.Version, ["dialect"] = AcademyTarget.DialectOf(l.Dialect) == Dialects.Dialect.Siemens ? "siemens" : "fanuc",
+            ["machine"] = l.Machine == "torno" ? "torno" : "fresa",
+            ["sections"] = Sections(l),
             ["ok"] = true, ["id"] = l.Id, ["module"] = l.ModuleId, ["title"] = l.Title, ["level"] = l.Level, ["track"] = l.Track,
             ["draft"] = l.Status != "revisado", ["goal"] = l.Goal, ["text"] = l.Text, ["commonMistake"] = l.CommonMistake,
             ["warning"] = l.Warning,
             ["programName"] = Path.GetFileName(l.ProgramPath),
-            ["program"] = Library.Programs.GetValueOrDefault(l.ProgramPath, ""),
-            ["walk"] = Walk(Library.Programs.GetValueOrDefault(l.ProgramPath, "")),
+            ["program"] = program,
+            ["walk"] = Walk(program, l.Dialect, l.Machine),
             ["opening"] = l.Opening,
             ["summary"] = Strings(l.Summary ?? []),
             ["exercise"] = l.Exercise is null ? null : new JsonObject
@@ -94,19 +105,52 @@ public static class AcademyJson
             ["diagrams"] = Strings(l.Diagrams ?? []),
             ["video"] = l.Video is null ? null : new JsonObject { ["title"] = l.Video.Title, ["url"] = l.Video.Url },
             ["quizId"] = l.Id + "-quiz",
-            ["quiz"] = Questions(l.Quiz),
+            ["quiz"] = Questions(l.Quiz, hideAnswers),
         }.ToJsonString();
     }
 
-    /// <summary>Leitura linha a linha: [{n,text,explain,rapid,path:[[x,y,z],…]}] e o bruto {min,max}.</summary>
-    private static JsonObject? Walk(string program)
+    /// <summary>
+    /// Dados das abas do v2 (null numa aula v1): estado de cada seção, conceitos, imagem, programa e leitura da trajetória,
+    /// blocos e parâmetros da sintaxe, etapas do exemplo, erros e alertas. Só acréscimo: a tela atual não lê este campo.
+    /// </summary>
+    private static JsonObject? Sections(Lesson l)
+    {
+        if (l.Sections is not { } s)
+        {
+            return null;
+        }
+
+        var status = new JsonObject();
+        foreach (string name in LessonSections.Names)
+        {
+            status[name] = s.Status.GetValueOrDefault(name, "");
+        }
+
+        var parameters = new JsonArray();
+        foreach (SyntaxParam p in s.SyntaxParams)
+        {
+            parameters.Add(new JsonObject { ["address"] = p.Address, ["concept"] = p.Concept });
+        }
+
+        string trajectory = Library.Programs.GetValueOrDefault(s.TrajectoryPath, "");
+        return new JsonObject
+        {
+            ["status"] = status, ["concepts"] = Strings(s.Concepts), ["image"] = s.Image,
+            ["trajectoryName"] = Path.GetFileName(s.TrajectoryPath), ["trajectory"] = trajectory, ["trajectoryWalk"] = Walk(trajectory, l.Dialect, l.Machine),
+            ["syntaxBlocks"] = Strings(s.SyntaxBlocks), ["syntaxParams"] = parameters, ["exampleSteps"] = Strings(s.ExampleSteps),
+            ["errors"] = Strings(s.Errors), ["alerts"] = Strings(s.Alerts),
+        };
+    }
+
+    /// <summary>Leitura linha a linha: [{n,text,explain,rapid,path:[[x,y,z],…]}] e o bruto {min,max}, no dialeto e na máquina da aula.</summary>
+    private static JsonObject? Walk(string program, string dialect = "fanuc", string machine = "fresa")
     {
         if (program.Length == 0)
         {
             return null;
         }
 
-        Walkthrough w = ProgramWalkthrough.Build(program);
+        Walkthrough w = ProgramWalkthrough.Build(program, dialect, machine);
         var lines = new JsonArray();
         foreach (WalkLine l in w.Lines)
         {
@@ -128,7 +172,7 @@ public static class AcademyJson
     }
 
     /// <summary>Teste final do módulo: sorteia 10 perguntas do banco mais as de leitura de programa (semente repetível).</summary>
-    public static string FinalTest(string moduleId, int seed)
+    public static string FinalTest(string moduleId, int seed, bool hideAnswers = false)
     {
         FinalTest? f = Library.Module(moduleId)?.Final;
         if (f is null)
@@ -140,13 +184,14 @@ public static class AcademyJson
         return new JsonObject
         {
             ["ok"] = true, ["quizId"] = f.Id, ["module"] = moduleId, ["draft"] = f.Status != "revisado",
-            ["passPercent"] = f.PassPercent, ["canSkip"] = f.CanSkip, ["quiz"] = Questions(drawn),
+            ["passPercent"] = f.PassPercent, ["canSkip"] = f.CanSkip, ["quiz"] = Questions(drawn, hideAnswers),
         }.ToJsonString();
     }
 
     /// <summary>
     /// Corrige: <paramref name="answersJson"/> é uma lista de índices (0–3, ou null/-1 em branco), na ordem de <paramref name="questionIdsJson"/>.
-    /// Guarda a nota e, em quiz de aula aprovado, marca a aula como feita. Devolve {percent,passed,correct,total,progress}.
+    /// Guarda a nota e, em quiz de aula aprovado, marca a aula como feita. Devolve {percent,passed,correct,total,progress,results},
+    /// com results[i] = {id, ok, right, explanation}: a resposta certa só sai do Core depois da correção.
     /// </summary>
     public static string Grade(string quizId, string questionIdsJson, string answersJson, string? progressJson, string? today = null)
     {
@@ -154,9 +199,7 @@ public static class AcademyJson
         List<string> ids = StringList(questionIdsJson);
         List<int> answers = IntList(answersJson);
 
-        IEnumerable<QuizQuestion> pool = Library.FindLesson(quizId.EndsWith("-quiz", StringComparison.Ordinal) ? quizId[..^5] : "")?.Quiz
-            ?? Library.Module(ModuleOfFinal(quizId))?.Final?.Questions
-            ?? [];
+        IEnumerable<QuizQuestion> pool = QuizPool(quizId);
         List<QuizQuestion> questions = [.. ids.Select(id => pool.FirstOrDefault(q => q.Id == id)).Where(q => q is not null).Select(q => q!)];
         if (questions.Count == 0 || questions.Count != ids.Count)
         {
@@ -172,16 +215,45 @@ public static class AcademyJson
             progress.MarkDone(quizId[..^5]);
         }
 
+        var results = new JsonArray();
+        for (int i = 0; i < questions.Count; i++)
+        {
+            results.Add(new JsonObject
+            {
+                ["id"] = questions[i].Id, ["ok"] = !r.WrongIndexes.Contains(i), ["right"] = questions[i].CorrectIndex,
+                ["explanation"] = questions[i].Explanation,
+            });
+        }
+
         return new JsonObject
         {
             ["ok"] = true, ["percent"] = r.Percent, ["passed"] = r.Passed, ["correct"] = r.Correct, ["total"] = r.Total,
-            ["progress"] = progress.ToJson(),
+            ["progress"] = progress.ToJson(), ["results"] = results,
         }.ToJsonString();
     }
 
     /// <summary>
-    /// Ponto único de entrada da tela: <paramref name="command"/> = catalog | lesson | final | grade | done, com os argumentos
-    /// em <paramref name="argsJson"/> ({progress, id, module, seed, quizId, ids, answers}). Devolve o JSON do comando.
+    /// Corrige uma pergunta só (resposta na hora, sem guardar nota): {ok, correct, right, explanation}. É o que a tela usa
+    /// quando o quiz chega sem gabarito (<c>hideAnswers</c>).
+    /// </summary>
+    public static string Answer(string quizId, string questionId, int choice)
+    {
+        QuizQuestion? q = QuizPool(quizId).FirstOrDefault(x => x.Id == questionId);
+        return q is null
+            ? new JsonObject { ["ok"] = false }.ToJsonString()
+            : new JsonObject { ["ok"] = true, ["correct"] = choice == q.CorrectIndex, ["right"] = q.CorrectIndex, ["explanation"] = q.Explanation }.ToJsonString();
+    }
+
+    /// <summary>Perguntas do quiz da aula ("…-quiz") ou do teste final ("…-teste-final").</summary>
+    private static IEnumerable<QuizQuestion> QuizPool(string quizId) =>
+        Library.FindLesson(quizId.EndsWith("-quiz", StringComparison.Ordinal) ? quizId[..^5] : "")?.Quiz
+            ?? Library.Module(ModuleOfFinal(quizId))?.Final?.Questions
+            ?? [];
+
+    /// <summary>
+    /// Ponto único de entrada da tela: <paramref name="command"/> = catalog | lesson | final | grade | answer | check | done, com os
+    /// argumentos em <paramref name="argsJson"/> ({progress, id, module, seed, quizId, ids, answers, qid, choice, hideAnswers}).
+    /// Devolve o JSON do comando.
     /// </summary>
     public static string Dispatch(string command, string argsJson)
     {
@@ -210,12 +282,14 @@ public static class AcademyJson
 
         string Text(string key) => args[key] is JsonValue v && v.TryGetValue(out string? s) ? s ?? "" : "";
         string progress = Text("progress");
+        bool hide = args["hideAnswers"] is JsonValue hv && hv.TryGetValue(out bool h) && h;
         return command switch
         {
             "catalog" => Catalog(progress, Text("today")),
-            "lesson" => Lesson(Text("id")),
-            "final" => FinalTest(Text("module"), args["seed"] is JsonValue sv && sv.TryGetValue(out int seed) ? seed : 1),
+            "lesson" => Lesson(Text("id"), hide),
+            "final" => FinalTest(Text("module"), args["seed"] is JsonValue sv && sv.TryGetValue(out int seed) ? seed : 1, hide),
             "grade" => Grade(Text("quizId"), args["ids"]?.ToJsonString() ?? "[]", args["answers"]?.ToJsonString() ?? "[]", progress, Text("today")),
+            "answer" => Answer(Text("quizId"), Text("qid"), args["choice"] is JsonValue cv && cv.TryGetValue(out int choice) ? choice : -1),
             "check" => CheckExercise(Text("id"), Text("text")),
             "done" => new JsonObject { ["ok"] = true, ["progress"] = MarkDone(Text("id"), progress, Text("today")) }.ToJsonString(),
             _ => new JsonObject { ["ok"] = false }.ToJsonString(),
@@ -249,20 +323,26 @@ public static class AcademyJson
     /// <summary>Confere o programa digitado no exercício da aula: {ok, passed, messages[]}.</summary>
     public static string CheckExercise(string lessonId, string studentText)
     {
-        ExerciseEditor? editor = Library.FindLesson(lessonId)?.Exercise?.Editor;
-        if (editor is null)
+        Lesson? lesson = Library.FindLesson(lessonId);
+        ExerciseEditor? editor = lesson?.Exercise?.Editor;
+        if (lesson is null || editor is null)
         {
             return new JsonObject { ["ok"] = false }.ToJsonString();
         }
 
-        CheckResult r = ExerciseChecker.Check(editor, studentText);
+        CheckResult r = ExerciseChecker.Check(editor, studentText, lesson.Dialect, lesson.Machine);
         return new JsonObject { ["ok"] = true, ["passed"] = r.Passed, ["messages"] = Strings(r.Messages) }.ToJsonString();
     }
 
+    /// <summary>
+    /// Módulo do teste final pelo id do teste (o conteúdo real usa "acad-m1-final"); se nenhum casar, aceita o padrão
+    /// "&lt;módulo&gt;-teste-final".
+    /// </summary>
     private static string ModuleOfFinal(string quizId) =>
-        quizId.EndsWith("-teste-final", StringComparison.Ordinal) ? quizId[..^"-teste-final".Length] : "";
+        AcademyLibrary.Plan.Select(p => Library.Module(p.Id)).FirstOrDefault(m => m?.Final is { } f && f.Id == quizId)?.Id
+            ?? (quizId.EndsWith("-teste-final", StringComparison.Ordinal) ? quizId[..^"-teste-final".Length] : "");
 
-    private static JsonArray Questions(IEnumerable<QuizQuestion> questions)
+    private static JsonArray Questions(IEnumerable<QuizQuestion> questions, bool hideAnswers = false)
     {
         var array = new JsonArray();
         foreach (QuizQuestion q in questions)
@@ -273,11 +353,19 @@ public static class AcademyJson
                 options.Add(JsonValue.Create(o));
             }
 
-            array.Add(new JsonObject
+            var item = new JsonObject
             {
-                ["id"] = q.Id, ["prompt"] = q.Prompt, ["options"] = options, ["correct"] = q.CorrectIndex,
-                ["explanation"] = q.Explanation, ["hint"] = q.Hint, ["reading"] = q.Kind.Contains("leitura", StringComparison.OrdinalIgnoreCase),
-            });
+                ["id"] = q.Id, ["prompt"] = q.Prompt, ["options"] = options,
+                ["hint"] = q.Hint, ["reading"] = q.Kind.Contains("leitura", StringComparison.OrdinalIgnoreCase),
+            };
+            if (!hideAnswers)
+            {
+                // compatível com a tela atual, que corrige na hora com a resposta em mãos
+                item["correct"] = q.CorrectIndex;
+                item["explanation"] = q.Explanation;
+            }
+
+            array.Add(item);
         }
 
         return array;

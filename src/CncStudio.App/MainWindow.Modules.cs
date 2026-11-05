@@ -122,6 +122,8 @@ public partial class MainWindow
             return (files[0].Name, await reader.ReadToEndAsync());
         };
         Assist.PlanDrawing = () => (Cam.JobContours, Cam.JobStockInfo?.Thickness);
+        Assist.PlanFixture = () => Cam.JobFixtureInfo;
+        Assist.PlanMaxRpm = () => _settings.MachineProfiles.FirstOrDefault(p => p.Name == _settings.ActiveMachineProfile)?.MaxSpindleRpm;
         Assist.PlanTools = () => _settings.Tools.Select(t => new PlanTool(
             t.Number, t.Diameter, Enum.TryParse(t.Kind, out ToolKind kind) && kind == ToolKind.Drill, t.Description)).ToList();
         Assist.ApplyPlan = operations =>
@@ -336,6 +338,7 @@ public partial class MainWindow
         if (id == "cam")
         {
             Cam.RefreshBank();
+            Cam.CheckJobFresh();
         }
 
         if (id == "otimizador")

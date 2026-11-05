@@ -25,6 +25,25 @@ public partial class JobView
     private void BuildProps()
     {
         PropsPanel.Children.Clear();
+        _fixtureKind = null;
+        if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" })
+        {
+            StockProps();
+            return;
+        }
+
+        if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "part" })
+        {
+            PartProps();
+            return;
+        }
+
+        if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "fixture" })
+        {
+            FixtureProps();
+            return;
+        }
+
         if (SelectedOp() is not { } i || i >= _job.Operations.Count)
         {
             PropsPanel.Children.Add(new TextBlock { Text = "Propriedades", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
@@ -35,6 +54,11 @@ public partial class JobView
         CamOperationSpec s = _job.Operations[i];
         PropsPanel.Children.Add(new TextBlock { Text = "Propriedades", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
         PropsPanel.Children.Add(new TextBlock { Text = CamJobInfo.OpTitle(i, s), Opacity = 0.75, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
+        if (OpOrigin.Describe(s.Origin) is { } origin)
+        {
+            // marca de origem (missão 11): sempre com texto; rascunho em âmbar
+            PropsPanel.Children.Add(UiKit.StatusNote(origin.Text + " (informado, não verificado)", origin.Kind));
+        }
 
         Text(i, "Nome", s.Label, "padrão", (x, v) => x with { Label = v.Trim() });
 
@@ -68,11 +92,18 @@ public partial class JobView
 
         Section("Ferramenta");
         BankPicker(i);
+        BankButtons(i);
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Fresa topo Z4", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
         Num(i, "Ferramenta (T)", "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } });
         Num(i, "Diâmetro", "mm", s.Tool.Diameter, (x, v) => x with { Tool = x.Tool with { Diameter = v } });
         Section("Condição de corte");
-        Num(i, "Rotação", "rpm", s.Tool.SpindleRpm, (x, v) => x with { Tool = x.Tool with { SpindleRpm = v } });
+        Num(i, "Rotação", "rpm", s.Tool.SpindleRpm, (x, v) => x with { Tool = x.Tool with { SpindleRpm = v } }, rebuild: true);
+        if (CamJobInfo.SpindleWarning(s.Tool.SpindleRpm, MachineSource?.Invoke()?.MaxSpindleRpm) is { } spindle)
+        {
+            // só conferência: a rotação e o programa continuam os digitados
+            PropsPanel.Children.Add(UiKit.StatusNote(spindle, "pending"));
+        }
+
         Num(i, s.Kind == JobOpKind.WrapText ? "Avanço na superfície" : "Avanço no plano", "mm/min", s.Tool.FeedXY, (x, v) => x with { Tool = x.Tool with { FeedXY = v } });
         Num(i, "Avanço de descida", "mm/min", s.Tool.FeedZ, (x, v) => x with { Tool = x.Tool with { FeedZ = v } });
 
@@ -130,9 +161,31 @@ public partial class JobView
 
         if (s.Kind != JobOpKind.WrapText)
         {
-            Section("4º eixo");
+            Section("4º eixo e 3+2");
             Check(i, "Face girada (perfil da máquina)", s.Face is not null, (x, b) => x with { Face = b ? new RotaryFaceSpec("A", 90, 25) : null }, rebuild: true);
-            if (s.Face is { } f)
+            MachineProfile? machine = MachineSource?.Invoke();
+            bool tableTable = machine?.Configuration == MachineConfiguration.FiveAxisTableTable;
+            if (s.Face is { Axis2: not null } || (s.Face is not null && tableTable))
+            {
+                // 3+2 só se oferece com perfil de mesa dupla; uma face 3+2 já salva aparece sempre (o erro do perfil vem no percurso)
+                Check(i, "3+2: usar os dois eixos da mesa", s.Face?.Axis2 is not null, (x, b) => x with
+                {
+                    Face = b && machine is { Axes.Count: 2 } m
+                        ? x.Face! with { Axis = m.Axes[0].Letter, Axis2 = m.Axes[1].Letter, Angle2 = 0 }
+                        : x.Face! with { Axis = x.Face!.Axis is "A" or "B" ? x.Face.Axis : "A", Axis2 = null, Angle2 = 0 },
+                }, rebuild: true);
+            }
+
+            if (s.Face is { Axis2: { } axis2 } t)
+            {
+                PropsPanel.Children.Add(new TextBlock { Text = $"Basculante {t.Axis} carrega o giratório {axis2} (ordem do perfil da máquina).", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                Num(i, $"Ângulo do basculante ({t.Axis})", "°", t.Angle, (x, v) => x with { Face = t with { Angle = v } });
+                Num(i, $"Ângulo do giratório ({axis2})", "°", t.Angle2, (x, v) => x with { Face = t with { Angle2 = v } });
+                Num(i, $"Do centro do eixo {t.Axis} até a face", "mm", t.AxisToFace, (x, v) => x with { Face = t with { AxisToFace = v } });
+                PropsPanel.Children.Add(new TextBlock { Text = $"Desenhe a face de cima (Z 0 na face), como fica com os dois giros. O programa gira {axis2} e depois {t.Axis} na altura segura; os cursos vêm do perfil da máquina.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                PropsPanel.Children.Add(UiKit.StatusNote("⚠ " + RotaryIndexing.NotMachineVerified + " Colisão da mesa e da fixação nos giros não é verificada.", "pending"));
+            }
+            else if (s.Face is { } f)
             {
                 Pick(i, "Eixo", ["A", "B"], f.Axis == "B" ? 1 : 0, (x, n) => x with { Face = f with { Axis = n == 1 ? "B" : "A" } });
                 Num(i, "Ângulo da face", "°", f.Angle, (x, v) => x with { Face = f with { Angle = v } });
@@ -169,7 +222,8 @@ public partial class JobView
 
         Snap();
         CamTool before = _job.Operations[i].Tool;
-        _job.Operations[i] = change(_job.Operations[i]);
+        CamOperationSpec old = _job.Operations[i];
+        _job.Operations[i] = OpOrigin.Track(old, change(old));
         CamTool after = _job.Operations[i].Tool;
         if (after.Number == before.Number && (after.Diameter != before.Diameter || after.Name != before.Name))
         {
@@ -180,7 +234,7 @@ public partial class JobView
         Refresh(op: i, props: rebuild);
     }
 
-    private void Num(int i, string label, string unit, double value, Func<CamOperationSpec, double, CamOperationSpec> apply)
+    private void Num(int i, string label, string unit, double value, Func<CamOperationSpec, double, CamOperationSpec> apply, bool rebuild = false)
     {
         var box = new TextBox { Text = Fmt(value), MinHeight = 26 };
         void Commit()
@@ -197,7 +251,7 @@ public partial class JobView
             if (Math.Abs(v - value) > 1e-9)
             {
                 value = v;
-                Edit(i, x => apply(x, v));
+                Edit(i, x => apply(x, v), rebuild);
             }
         }
 
@@ -272,7 +326,292 @@ public partial class JobView
         PropsPanel.Children.Add(box);
     }
 
+    // ---------------------------------------------------------------- peça (forma sem DXF)
+
+    private readonly Dictionary<string, string> _shapeText = [];
+
+    /// <summary>
+    /// Desenhar forma sem DXF (migrado da aba Fresa antiga): retângulo e círculo, com os mesmos campos e valores iniciais de lá.
+    /// Cada forma entra no fim da lista de contornos, então as operações que já apontam para contornos não mudam.
+    /// </summary>
+    private void PartProps()
+    {
+        PropsPanel.Children.Add(new TextBlock { Text = "Peça", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        PropsPanel.Children.Add(new TextBlock
+        {
+            Text = _job.Contours.Count == 0
+                ? "Sem desenho. Abra um DXF ou desenhe uma forma abaixo."
+                : $"{_job.Contours.Count} contorno(s). A forma desenhada entra no fim da lista.",
+            Opacity = 0.75, FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        });
+        var error = new ContentControl();
+
+        // os campos guardam o último valor digitado (como na aba antiga), mesmo depois de refazer o painel
+        var fields = new List<(string Label, TextBox Box)>();
+        TextBox Field(string label, double value)
+        {
+            var b = new TextBox { Text = _shapeText.GetValueOrDefault(label, Fmt(value)), MinHeight = 26 };
+            fields.Add((label, b));
+            PropsPanel.Children.Add(Row(label, b, "mm"));
+            return b;
+        }
+
+        // o Desfazer cobre só operações: a forma fica (como na aba antiga, que também não desfazia)
+        void Added()
+        {
+            foreach ((string label, TextBox box) in fields)
+            {
+                _shapeText[label] = box.Text ?? "";
+            }
+
+            Refresh(keep: true);
+        }
+
+        PropsPanel.Children.Add(new TextBlock { Text = "Retângulo", FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
+        TextBox rx = Field("Canto X", 0), ry = Field("Canto Y", 0), rw = Field("Largura", 60), rh = Field("Altura", 40);
+        var addRect = new Button { Content = "Adicionar retângulo", Padding = new Avalonia.Thickness(10, 5) };
+        addRect.Click += (_, _) =>
+        {
+            double x = ParseNum(rx.Text), y = ParseNum(ry.Text), w = ParseNum(rw.Text), h = ParseNum(rh.Text);
+            if (CamJobInfo.RectangleError(x, y, w, h) is { } bad)
+            {
+                error.Content = UiKit.StatusNote("✕ inválido: " + bad, "bad");
+                return;
+            }
+
+            _job.Contours.Add(Contour.Rectangle(x, y, w, h));
+            Added();
+        };
+        PropsPanel.Children.Add(addRect);
+
+        PropsPanel.Children.Add(new TextBlock { Text = "Círculo", FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
+        TextBox cx = Field("Centro X", 30), cy = Field("Centro Y", 20), cd = Field("Diâmetro", 20);
+        var addCircle = new Button { Content = "Adicionar círculo", Padding = new Avalonia.Thickness(10, 5) };
+        addCircle.Click += (_, _) =>
+        {
+            double x = ParseNum(cx.Text), y = ParseNum(cy.Text), d = ParseNum(cd.Text);
+            if (CamJobInfo.CircleError(x, y, d) is { } bad)
+            {
+                error.Content = UiKit.StatusNote("✕ inválido: " + bad, "bad");
+                return;
+            }
+
+            _job.Contours.Add(Contour.Circle(new Point2(x, y), d / 2));
+            Added();
+        };
+        PropsPanel.Children.Add(addCircle);
+        PropsPanel.Children.Add(error);
+    }
+
+    // ---------------------------------------------------------------- bruto
+
+    /// <summary>
+    /// Editor do bruto (UX-01 rodada 3): comprimento, largura, altura e canto, nos campos que o Trabalho já tem (<see cref="JobStock"/>).
+    /// Sem bruto, as medidas vêm do desenho e a altura fica vazia: só vale depois de "Definir bruto".
+    /// </summary>
+    private void StockProps()
+    {
+        PropsPanel.Children.Add(new TextBlock { Text = "Bruto", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        JobStock? st = _job.Stock;
+        (double X, double Y, double Width, double Length)? box = st is { } s0 ? (s0.X, s0.Y, s0.Width, s0.Length) : CamJobInfo.DrawingBox(_job.Contours);
+        if (st is null)
+        {
+            PropsPanel.Children.Add(UiKit.StatusNote(
+                box is null ? "Bruto não definido. Digite as medidas e clique em Definir bruto." : "Bruto não definido. Medidas preenchidas pelo desenho: confira, digite a altura e clique em Definir bruto.",
+                "pending"));
+        }
+
+        TextBox Field(string label, string unit, double? value)
+        {
+            var b = new TextBox { Text = value is { } v ? Fmt(v) : "", MinHeight = 26 };
+            PropsPanel.Children.Add(Row(label, b, unit));
+            return b;
+        }
+
+        TextBox width = Field("Comprimento (X)", "mm", box?.Width);
+        TextBox length = Field("Largura (Y)", "mm", box?.Length);
+        TextBox height = Field("Altura (Z)", "mm", st?.Thickness);
+        TextBox x = Field("Canto X", "mm", box?.X ?? 0);
+        TextBox y = Field("Canto Y", "mm", box?.Y ?? 0);
+        PropsPanel.Children.Add(new TextBlock
+        {
+            Text = "Topo do bruto em Z0 (desce até Z −altura). O Z topo de cada operação continua nas propriedades dela. O bruto ainda não altera o programa gerado.",
+            Opacity = 0.7, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        });
+        var error = new ContentControl();
+        var apply = new Button { Content = "Definir bruto", Padding = new Avalonia.Thickness(12, 5), FontWeight = Avalonia.Media.FontWeight.SemiBold };
+        apply.Click += (_, _) =>
+        {
+            double w = ParseNum(width.Text), l = ParseNum(length.Text), h = ParseNum(height.Text), cx = ParseNum(x.Text), cy = ParseNum(y.Text);
+            string? problem = CamJobInfo.StockError(w, l, h) ?? (double.IsNaN(cx) || double.IsNaN(cy) ? "Confira o canto X e Y do bruto." : null);
+            if (problem is not null)
+            {
+                error.Content = UiKit.StatusNote("✕ inválido: " + problem, "bad");
+                return;
+            }
+
+            _job.Stock = new JobStock(cx, cy, w, l, h);
+            Refresh(keep: true);
+        };
+        PropsPanel.Children.Add(apply);
+        PropsPanel.Children.Add(error);
+    }
+
+    // ---------------------------------------------------------------- fixação
+
+    /// <summary>Campo do tipo de fixação aberto nas propriedades (a barra leva o foco até ele).</summary>
+    private ComboBox? _fixtureKind;
+
+    /// <summary>
+    /// Editor da fixação (UX-01 rodada 3): tipo e descrição curta. É só registro do que o usuário informa; o app não confere
+    /// fixação nem colisão. Fonte única: o Assist lê daqui.
+    /// </summary>
+    private void FixtureProps()
+    {
+        PropsPanel.Children.Add(new TextBlock { Text = "Fixação", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        JobFixture? fx = _job.Fixture;
+        PropsPanel.Children.Add(UiKit.StatusNote(
+            fx is null
+                ? "Fixação não definida. Escolha como a peça fica presa e clique em Definir fixação."
+                : "Fixação informada por você e não verificada: o app não confere morsa, grampos, vácuo nem colisão.",
+            fx is null ? "pending" : "neutral"));
+
+        var kind = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Escolha o tipo…" };
+        foreach ((_, string name) in JobFixture.Kinds)
+        {
+            kind.Items.Add(new ComboBoxItem { Content = name });
+        }
+
+        kind.SelectedIndex = fx is null ? -1 : JobFixture.Kinds.ToList().FindIndex(k => k.Code == fx.Kind);
+        _fixtureKind = kind;
+        // rótulo em cima e campo na largura toda: o nome do tipo e a descrição não cabem na coluna estreita dos números
+        PropsPanel.Children.Add(new TextBlock { Text = "Tipo", FontSize = 12 });
+        PropsPanel.Children.Add(kind);
+        var description = new TextBox { Text = fx?.Description ?? "", Watermark = "ex.: morsa de 150 mm, mordente liso", MinHeight = 26, MaxLength = JobFixture.MaxDescription };
+        PropsPanel.Children.Add(new TextBlock { Text = "Descrição", FontSize = 12 });
+        PropsPanel.Children.Add(description);
+        PropsPanel.Children.Add(new TextBlock
+        {
+            Text = "Opcional, até " + JobFixture.MaxDescription + " letras (obrigatória no tipo \"Outro\").",
+            Opacity = 0.7, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        });
+
+        var error = new ContentControl();
+        var apply = new Button { Content = "Definir fixação", Padding = new Avalonia.Thickness(12, 5), FontWeight = Avalonia.Media.FontWeight.SemiBold };
+        apply.Click += (_, _) =>
+        {
+            if (kind.SelectedIndex < 0)
+            {
+                error.Content = UiKit.StatusNote("✕ inválido: escolha o tipo de fixação.", "bad");
+                return;
+            }
+
+            var chosen = new JobFixture(JobFixture.Kinds[kind.SelectedIndex].Code, (description.Text ?? "").Trim());
+            if (chosen.Validate() is { } problem)
+            {
+                error.Content = UiKit.StatusNote("✕ inválido: " + problem + ".", "bad");
+                return;
+            }
+
+            _job.Fixture = chosen;
+            Refresh(keep: true);
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        row.Children.Add(apply);
+        if (fx is not null)
+        {
+            var clear = new Button { Content = "Limpar", Padding = new Avalonia.Thickness(12, 5) };
+            clear.Click += (_, _) =>
+            {
+                _job.Fixture = null;
+                Refresh(keep: true);
+            };
+            row.Children.Add(clear);
+        }
+
+        PropsPanel.Children.Add(row);
+        PropsPanel.Children.Add(error);
+    }
+
     // ---------------------------------------------------------------- banco de ferramentas
+
+    /// <summary>
+    /// Salvar e excluir a ferramenta da operação no banco (migrado da aba Fresa antiga). Salvar grava ou atualiza pelo T; excluir pede
+    /// confirmação na própria tela (a aba antiga apagava direto). Ferramenta de torno com o mesmo T não é tocada.
+    /// </summary>
+    private void BankButtons(int i)
+    {
+        List<ToolEntry>? bank = ToolsSource?.Invoke();
+        if (bank is null)
+        {
+            return;
+        }
+
+        CamTool tool = _job.Operations[i].Tool;
+        ToolEntry? existing = bank.FirstOrDefault(t => t.Number == tool.Number);
+        var message = new ContentControl();
+        var row = new WrapPanel();
+        var save = new Button { Content = existing is null ? $"Salvar T{tool.Number} no banco" : $"Atualizar T{tool.Number} no banco", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 0, 6, 6), FontSize = 12 };
+        save.Click += (_, _) =>
+        {
+            if (CamJobInfo.BankToolError(tool.Number, tool.Diameter) is { } bad)
+            {
+                message.Content = UiKit.StatusNote("✕ inválido: " + bad, "bad");
+                return;
+            }
+
+            ToolEntry? entry = bank.FirstOrDefault(t => t.Number == tool.Number);
+            if (entry is not null && !IsMillTool(entry))
+            {
+                message.Content = UiKit.StatusNote($"✕ inválido: T{tool.Number} do banco é ferramenta de torno; use outro número.", "bad");
+                return;
+            }
+
+            if (entry is null)
+            {
+                entry = new ToolEntry { Number = tool.Number };
+                bank.Add(entry);
+            }
+
+            entry.Diameter = tool.Diameter;
+            entry.Description = tool.Name.Trim();
+            entry.SpindleRpm = Math.Max(0, tool.SpindleRpm);
+            entry.FeedXY = Math.Max(0, tool.FeedXY);
+            entry.FeedZ = Math.Max(0, tool.FeedZ);
+            SaveTools?.Invoke();
+            BuildProps();
+        };
+        row.Children.Add(save);
+
+        if (existing is not null && IsMillTool(existing))
+        {
+            var delete = new Button { Content = $"Excluir T{tool.Number} do banco…", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 0, 6, 6), FontSize = 12 };
+            delete.Click += (_, _) =>
+            {
+                // confirmação na tela: diz o que sai e que a operação continua com a ferramenta
+                var confirm = new Button { Content = $"Sim, excluir T{tool.Number}", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 6, 6, 0) };
+                var cancel = new Button { Content = "Cancelar", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 6, 0, 0) };
+                var panel = new StackPanel();
+                panel.Children.Add(UiKit.StatusNote($"Excluir T{tool.Number} (Ø{Fmt(existing.Diameter)}) do banco? A operação continua com a ferramenta; o simulador do Code deixa de achar T{tool.Number} no banco.", "pending"));
+                var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+                buttons.Children.Add(confirm);
+                buttons.Children.Add(cancel);
+                panel.Children.Add(buttons);
+                message.Content = panel;
+                cancel.Click += (_, _) => message.Content = null;
+                confirm.Click += (_, _) =>
+                {
+                    bank.RemoveAll(t => t.Number == tool.Number && IsMillTool(t));
+                    SaveTools?.Invoke();
+                    BuildProps();
+                };
+            };
+            row.Children.Add(delete);
+        }
+
+        PropsPanel.Children.Add(row);
+        PropsPanel.Children.Add(message);
+    }
 
     private static bool IsMillTool(ToolEntry e) =>
         !(Enum.TryParse(e.Kind, out ToolKind kind) && new SetupTool { Kind = kind }.IsLathe);

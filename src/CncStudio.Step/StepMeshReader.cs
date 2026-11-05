@@ -1,11 +1,17 @@
+using System.Text;
+using System.Text.RegularExpressions;
 using CncStudio.Core.Cam3D;
 using CncStudio.Core.Geometry;
 using OcctNet.Wrapper;
 
 namespace CncStudio.Step;
 
-/// <summary>Resultado da leitura de um STEP: a malha (em mm, com os triângulos orientados) ou o erro em português.</summary>
-public sealed record StepResult(TriangleMesh? Mesh, string? Error, MeshOrientationResult? Orientation = null)
+/// <summary>
+/// Resultado da leitura de um STEP: a malha (em mm, com os triângulos orientados) ou o erro em português.
+/// <paramref name="Collapsed"/>: triângulos colapsados (dois vértices no mesmo ponto) descartados da triangulação.
+/// <paramref name="Notice"/>: aviso curto para a tela sobre o que foi lido (superfícies ignoradas, malha facetada).
+/// </summary>
+public sealed record StepResult(TriangleMesh? Mesh, string? Error, MeshOrientationResult? Orientation = null, int Collapsed = 0, string? Notice = null)
 {
     public bool Ok => Mesh is not null;
 }
@@ -37,7 +43,7 @@ public static class StepMeshReader
         string path = Path.Combine(Path.GetTempPath(), "casillas-" + Guid.NewGuid().ToString("N") + ".step");
         try
         {
-            File.WriteAllBytes(path, data);
+            File.WriteAllBytes(path, PrepareGeometry(data, out string? notice));
             using OcctShape shape = OcctShape.ImportStep(path);
             if (shape.IsNull)
             {
@@ -59,8 +65,16 @@ public static class StepMeshReader
                 triangles.Add((P(ix[i]), P(ix[i + 1]), P(ix[i + 2])));
             }
 
-            MeshOrientationResult oriented = MeshOrientation.MakeConsistent(new TriangleMesh(triangles));
-            return new StepResult(oriented.Mesh, null, oriented);
+            // O OpenCASCADE às vezes gera triângulos com dois vértices no mesmo ponto: sem área, mas faziam a
+            // malha fechada parecer aberta e em pedaços. Saem antes de orientar (diagnóstico CAM-08-T2)
+            TriangleMesh clean = new TriangleMesh(triangles).WithoutCollapsed(out int collapsed);
+            if (clean.TriangleCount == 0)
+            {
+                return new StepResult(null, "O STEP foi lido, mas não gerou triângulos (só curvas ou pontos?).");
+            }
+
+            MeshOrientationResult oriented = MeshOrientation.MakeConsistent(clean);
+            return new StepResult(oriented.Mesh, null, oriented, collapsed, notice);
         }
         catch (OcctException)
         {
@@ -81,5 +95,74 @@ public static class StepMeshReader
                 // arquivo temporário: o sistema limpa depois
             }
         }
+    }
+
+    // Sólidos B-rep do STEP (o que a peça é de verdade)
+    private static readonly Regex Solid = new(@"\b(MANIFOLD_SOLID_BREP|BREP_WITH_VOIDS|FACETED_BREP)\s*\(", RegexOptions.CultureInvariant);
+
+    // Modelos de superfície: "#12=SHELL_BASED_SURFACE_MODEL(" → 12
+    private static readonly Regex SurfaceModel = new(@"#(\d+)\s*=\s*SHELL_BASED_SURFACE_MODEL\s*\(", RegexOptions.CultureInvariant);
+
+    // Lista de itens de uma representação de forma: "#5=MANIFOLD_SURFACE_SHAPE_REPRESENTATION('nome',(#1,#2),#3)"
+    private static readonly Regex RepresentationItems = new(
+        @"(#\d+\s*=\s*[A-Z_]*SHAPE_REPRESENTATION\s*\(\s*'(?:[^']|'')*'\s*,\s*\()([^()]*)(\))", RegexOptions.CultureInvariant);
+
+    // Malha facetada (AP242 tesselado), sem B-rep
+    private static readonly Regex Faceted = new(
+        @"\b(TESSELLATED_SOLID|TESSELLATED_SHELL|COMPLEX_TRIANGULATED_FACE|TRIANGULATED_FACE|COMPLEX_TRIANGULATED_SURFACE_SET|TRIANGULATED_SURFACE_SET)\s*\(",
+        RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Escolhe o que o OpenCASCADE vai ler. Muitos STEP (ex.: os do NIST com PMI) trazem, além do sólido, modelos de
+    /// superfície auxiliares (SHELL_BASED_SURFACE_MODEL com OPEN_SHELL: planos e geometria de apoio das cotas).
+    /// O OpenCASCADE junta tudo numa malha só, que fica aberta, com caixa e volume errados (CAM-08-FIX).
+    /// Por isso: com pelo menos 1 sólido, as superfícies saem das listas de itens das representações e só o sólido é
+    /// lido. Sem sólido, o arquivo segue como veio (superfícies ou malha facetada, com aviso).
+    /// </summary>
+    internal static byte[] PrepareGeometry(byte[] data, out string? notice)
+    {
+        notice = null;
+
+        // Latin-1 devolve os mesmos bytes ao gravar: o arquivo só muda onde a lista de itens foi editada
+        string text = Encoding.Latin1.GetString(data);
+        if (!Solid.IsMatch(text))
+        {
+            if (Faceted.IsMatch(text))
+            {
+                notice = "O arquivo só tem malha facetada, sem sólido: volume aproximado.";
+            }
+
+            return data;
+        }
+
+        var surfaces = new HashSet<string>(SurfaceModel.Matches(text).Select(m => "#" + m.Groups[1].Value));
+        if (surfaces.Count == 0)
+        {
+            return data;
+        }
+
+        var ignored = new HashSet<string>();
+        string edited = RepresentationItems.Replace(text, m =>
+        {
+            string[] items = m.Groups[2].Value.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
+            string[] kept = items.Where(s => !surfaces.Contains(s)).ToArray();
+            if (kept.Length == items.Length)
+            {
+                return m.Value;
+            }
+
+            ignored.UnionWith(items.Except(kept));
+            return m.Groups[1].Value + string.Join(",", kept) + m.Groups[3].Value;
+        });
+
+        if (ignored.Count == 0)
+        {
+            return data;
+        }
+
+        notice = ignored.Count == 1
+            ? "Ignorei 1 superfície auxiliar; usei só o sólido."
+            : $"Ignorei {ignored.Count} superfícies auxiliares; usei só o sólido.";
+        return Encoding.Latin1.GetBytes(edited);
     }
 }

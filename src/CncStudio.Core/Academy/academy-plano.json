@@ -1,0 +1,14 @@
+{
+  "versao": 1,
+  "trilhas": ["Comum", "Fresa", "Torno"],
+  "niveis": ["Introdução", "Iniciante", "Básico", "Intermediário", "Avançado", "Especialista"],
+  "modulos": [
+    { "id": "acad-m1", "titulo": "Introdução ao CNC", "trilha": "Comum", "nivel": "Introdução", "descricao": "", "em_breve": false },
+    { "id": "acad-m2", "titulo": "Fresa: primeiros movimentos", "trilha": "Fresa", "nivel": "Iniciante", "descricao": "primeiros movimentos", "em_breve": false },
+    { "id": "acad-m3", "titulo": "Fresa: ciclos, subprogramas e compensação", "trilha": "Fresa", "nivel": "Básico", "descricao": "ciclos, subprogramas e compensação", "em_breve": true },
+    { "id": "acad-m4", "titulo": "Fresa: macro", "trilha": "Fresa", "nivel": "Avançado", "descricao": "macro", "em_breve": true },
+    { "id": "acad-m5", "titulo": "Fresa: apalpador e ciclos próprios", "trilha": "Fresa", "nivel": "Especialista", "descricao": "apalpador e ciclos próprios", "em_breve": true },
+    { "id": "acad-m6", "titulo": "Torno: primeiros movimentos", "trilha": "Torno", "nivel": "Iniciante", "descricao": "primeiros movimentos", "em_breve": true },
+    { "id": "acad-m7", "titulo": "Torno: G71", "trilha": "Torno", "nivel": "Intermediário", "descricao": "G71", "em_breve": true }
+  ]
+}

@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using CncStudio.Core.Cam;
 
@@ -17,6 +18,31 @@ public sealed class CamPreview : Control
     private int _selected = -1;
     private IReadOnlyList<List<Point2>> _path = [];
 
+    // Mapeamento da última pintura (para converter clique em ponto do desenho)
+    private double _minX, _minY, _scale, _ox, _oy;
+    private bool _mapped;
+
+    /// <summary>Clique na vista: índice do contorno escolhido (-1 = clicou fora de todos).</summary>
+    public event EventHandler<int>? ContourPicked;
+
+    public CamPreview()
+    {
+        Cursor = new Cursor(StandardCursorType.Hand);
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (!_mapped || _contours.Count == 0 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        Point at = e.GetPosition(this);
+        var world = new Point2(_minX + ((at.X - _ox) / _scale), _minY + ((Bounds.Height - _oy - at.Y) / _scale));
+        ContourPicked?.Invoke(this, ContourPick.At(_contours, world, 8 / _scale));
+    }
+
     public void Set(IReadOnlyList<Contour> contours, int selected, IReadOnlyList<List<Point2>> path)
     {
         _contours = contours;
@@ -28,6 +54,8 @@ public sealed class CamPreview : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        _mapped = false;
+        context.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size)); // recebe o clique em toda a área
         double minX = 0, minY = 0, maxX = 0, maxY = 0;
         bool any = false;
         void Include(Point2 p)
@@ -66,6 +94,7 @@ public sealed class CamPreview : Control
         }
 
         double ox = (Bounds.Width - (w * scale)) / 2, oy = (Bounds.Height - (h * scale)) / 2;
+        (_minX, _minY, _scale, _ox, _oy, _mapped) = (minX, minY, scale, ox, oy, true);
         Point Map(Point2 p) => new(ox + ((p.X - minX) * scale), Bounds.Height - oy - ((p.Y - minY) * scale));
 
         // Eixos X e Y no zero da peça

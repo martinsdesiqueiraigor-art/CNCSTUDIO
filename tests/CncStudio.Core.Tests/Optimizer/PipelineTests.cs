@@ -170,15 +170,42 @@ public class PipelineTests
     [Fact]
     public void LargeProgramsStayFast()
     {
-        var many = new List<string>(Preamble);
-        for (int k = 0; many.Count < 49000; k++) many.AddRange(Pass(-(k % 50 + 1), ox: k % 7));
-        var rnd = new Random(1);
-        var surface = Preamble.Concat(Enumerable.Range(0, 49000).Select(_ =>
-            $"G01 X{rnd.Next(100)}.{rnd.Next(1000)} Y{rnd.Next(100)}.{rnd.Next(1000)} Z-{rnd.Next(5)}.{rnd.Next(100)} F1000.")).ToArray();
-        var watch = Stopwatch.StartNew();
-        Run(many);
-        Run(surface);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), "Pipeline levou " + watch.Elapsed);
+        // Antes: limite fixo de 20 s, que falhava com a máquina ocupada (testes em paralelo, build ao lado).
+        // Agora: o programa grande (49 000 linhas) é comparado com um de referência 5× menor, medido no mesmo
+        // teste, um antes e outro depois do grande; a carga da máquina pesa nos dois. O grande também é medido
+        // duas vezes (vale o menor), para um pico de ruído do runner não contar como lentidão do pipeline
+        // (04/11: uma única medição deu 15,2×). O pipeline é linear (medido: ~5×); um algoritmo que vire
+        // quadrático passa de 25×. O teto absoluto só pega travamento.
+        (string[] Many, string[] Surface) Programs(int lines)
+        {
+            var many = new List<string>(Preamble);
+            for (int k = 0; many.Count < lines; k++) many.AddRange(Pass(-(k % 50 + 1), ox: k % 7));
+            var rnd = new Random(1);
+            var surface = Preamble.Concat(Enumerable.Range(0, lines).Select(_ =>
+                $"G01 X{rnd.Next(100)}.{rnd.Next(1000)} Y{rnd.Next(100)}.{rnd.Next(1000)} Z-{rnd.Next(5)}.{rnd.Next(100)} F1000.")).ToArray();
+            return (many.ToArray(), surface);
+        }
+
+        TimeSpan Time((string[] Many, string[] Surface) p)
+        {
+            var watch = Stopwatch.StartNew();
+            Run(p.Many);
+            Run(p.Surface);
+            return watch.Elapsed;
+        }
+
+        var reference = Programs(9800);
+        var large = Programs(49000);
+        Time(Programs(1000)); // aquece o JIT
+        TimeSpan before = Time(reference);
+        TimeSpan big1 = Time(large);
+        TimeSpan after = Time(reference);
+        TimeSpan big2 = Time(large);
+        TimeSpan big = big1 < big2 ? big1 : big2;
+        TimeSpan refTime = before < after ? before : after;
+        double ratio = big / refTime;
+        Assert.True(ratio < 15, $"Programa 5× maior levou {ratio:0.0}× mais tempo ({big} contra {refTime}): o pipeline deixou de ser linear?");
+        Assert.True(big < TimeSpan.FromSeconds(120), "Pipeline levou " + big);
     }
 
     [Fact]

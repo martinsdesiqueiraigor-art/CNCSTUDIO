@@ -1,6 +1,6 @@
 import { mountToolEditor } from './tools-ui.js';
 // Casillas Code: configurador de setup no celular. O SVG é uma projeção ilustrativa, não geometria de colisão.
-export function openSetup(json) {
+export function openSetup(json, hasMyTools) {
   return new Promise(resolve => {
     let data;
     try { data = JSON.parse(json); } catch { resolve(null); return; }
@@ -53,6 +53,13 @@ export function openSetup(json) {
     const originFields=document.createElement('div');originFields.style.cssText='display:flex;flex-direction:column;gap:8px';originBox.append(originFields);
     const toolBox=section('04 · Ferramenta');
     const toolEditor = mountToolEditor(toolBox, data);
+    // Minhas ferramentas: guardadas neste aparelho; todo programa sem setup salvo começa com elas.
+    const mineRow=document.createElement('label');mineRow.style.cssText='display:flex;gap:10px;align-items:center;min-height:44px;color:#e6edf3;font-size:14px';
+    const mineBox=document.createElement('input');mineBox.type='checkbox';mineBox.style.cssText='width:22px;height:22px;flex:none';
+    mineRow.append(mineBox,document.createTextNode(hasMyTools?'Substituir minhas ferramentas por esta lista':'Guardar esta lista como minhas ferramentas'));
+    const mineHint=document.createElement('p');mineHint.style.cssText='color:#9baab9;font-size:12px;margin:0';
+    mineHint.textContent='Programa novo (sem setup salvo) já abre com minhas ferramentas. Só vale neste navegador.';
+    toolBox.append(mineRow,mineHint);
     fixtureBox.after(dimensionCard);
     const error=document.createElement('div');error.style.cssText='color:#ff9a83;font-size:13px';
     const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px';
@@ -173,6 +180,7 @@ export function openSetup(json) {
       const stockBottom=lyingSave?origin.Z-stock.Diameter/2:stock.Z;
       if(fixKind!==0){fixture.Kind=fixKind-1;fixture.Depth=fixKind===3?fixture.Width:fixture.Depth;fixture.X=origin.X-fixture.Width/2;fixture.Y=origin.Y-fixture.Depth/2;fixture.Z=stockBottom-fixture.Height;data.Fixtures=[fixture];}else data.Fixtures=[];
       toolEditor.save();
+      data.SaveAsMyTools=mineBox.checked;
       close(JSON.stringify(data));
     });
     renderFields();

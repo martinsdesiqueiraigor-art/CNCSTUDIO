@@ -19,9 +19,11 @@ public static partial class ProgramWalkthrough
     [GeneratedRegex(@"BLOCO\s+(\d+(?:[.,]\d+)?)\s*X\s*(\d+(?:[.,]\d+)?)\s*X\s*(\d+(?:[.,]\d+)?)", RegexOptions.IgnoreCase)]
     private static partial Regex StockRegex();
 
-    public static Walkthrough Build(string program)
+    /// <param name="dialect">"fanuc" ou "siemens" (o da aula; padrão fanuc, como no v1).</param>
+    /// <param name="machine">"fresa" ou "torno" (o da aula; padrão fresa, como no v1).</param>
+    public static Walkthrough Build(string program, string dialect = "fanuc", string machine = "fresa")
     {
-        ProgramAnalysis analysis = ProgramAnalyzer.Analyze(program, Dialect.Fanuc);
+        ProgramAnalysis analysis = ProgramAnalyzer.Analyze(program, AcademyTarget.DialectOf(dialect), AcademyTarget.SettingsOf(machine));
         string[] source = program.Replace("\r\n", "\n").Split('\n');
         Dictionary<int, Move> byLine = [];
         foreach (Move m in analysis.ToolPath.Moves)

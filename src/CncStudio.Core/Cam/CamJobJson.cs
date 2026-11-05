@@ -7,6 +7,9 @@ namespace CncStudio.Core.Cam;
 public sealed record JobLoadResult(CamJob? Job, string? Error)
 {
     public bool Ok => Job is not null;
+
+    /// <summary>Avisos de um Job que abriu (ex.: fixação inválida, que fica "não definida").</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
 /// <summary>
@@ -34,6 +37,12 @@ public static class CamJobJson
         if (job.Stock is { } st)
         {
             root["stock"] = new JsonObject { ["x"] = st.X, ["y"] = st.Y, ["width"] = st.Width, ["length"] = st.Length, ["thickness"] = st.Thickness };
+        }
+
+        // campo opcional: versões antigas do app ignoram; sem ele, a fixação abre como "não definida"
+        if (job.Fixture is { } fx)
+        {
+            root["fixture"] = new JsonObject { ["kind"] = fx.Kind, ["description"] = fx.Description };
         }
 
         var contours = new JsonArray();
@@ -143,7 +152,27 @@ public static class CamJobJson
 
         if (s.Face is { } f)
         {
-            o["face"] = new JsonObject { ["axis"] = f.Axis, ["angle"] = f.Angle, ["axisToFace"] = f.AxisToFace };
+            var face = new JsonObject { ["axis"] = f.Axis, ["angle"] = f.Angle, ["axisToFace"] = f.AxisToFace };
+            if (f.Axis2 is { } axis2)
+            {
+                // 3+2: campos opcionais (arquivos sem eles continuam abrindo como face de um eixo)
+                face["axis2"] = axis2;
+                face["angle2"] = f.Angle2;
+            }
+
+            o["face"] = face;
+        }
+
+        // campo opcional (missão 11): versões antigas do app ignoram; sem ele, a operação abre sem marca
+        if (s.Origin is { } origin)
+        {
+            var org = new JsonObject { ["source"] = origin.Source, ["typed"] = new JsonArray([.. origin.Typed.Select(t => (JsonNode)t)]) };
+            if (origin.CutData is { } cut)
+            {
+                org["cutData"] = cut;
+            }
+
+            o["origin"] = org;
         }
 
         return o;
@@ -197,13 +226,48 @@ public static class CamJobJson
                 job.Contours.Add(ContourFrom(cn));
             }
 
+            var warnings = new List<string>();
             foreach (JsonNode? on in Arr(root, "operations"))
             {
-                job.Operations.Add(OpFrom(on as JsonObject ?? throw new FormatException("Operação inválida.")));
+                JsonObject oo = on as JsonObject ?? throw new FormatException("Operação inválida.");
+                CamOperationSpec spec = OpFrom(oo);
+                if (oo["origin"] is not null)
+                {
+                    // marca estragada não impede de abrir: a operação fica sem marca, com aviso
+                    if (OriginFrom(oo["origin"]) is { } origin && origin.Validate() is null)
+                    {
+                        spec = spec with { Origin = origin };
+                    }
+                    else
+                    {
+                        warnings.Add($"Operação {job.Operations.Count + 1}: marca de origem do arquivo ignorada (formato inválido); ficou sem marca.");
+                    }
+                }
+
+                job.Operations.Add(spec);
+            }
+
+            if (root["fixture"] is JsonObject fx)
+            {
+                string Text(string key) => fx[key] is JsonValue v && v.TryGetValue(out string? s) ? s ?? "" : "";
+                var fixture = new JobFixture(Text("kind"), Text("description").Trim());
+                if (fixture.Validate() is { } bad)
+                {
+                    // arquivo com fixação estragada abre mesmo assim, sem inventar: fica "não definida"
+                    warnings.Add($"Fixação do arquivo ignorada ({bad}): ficou como não definida.");
+                }
+                else
+                {
+                    job.Fixture = fixture;
+                }
+            }
+            else if (root["fixture"] is not null)
+            {
+                warnings.Add("Fixação do arquivo ignorada (formato inválido): ficou como não definida.");
             }
 
             IReadOnlyList<string> problems = job.Validate();
-            return problems.Count > 0 ? new JobLoadResult(null, problems[0]) : new JobLoadResult(job, null);
+            return problems.Count > 0 ? new JobLoadResult(null, problems[0]) : new JobLoadResult(job, null) { Warnings = warnings };
         }
         catch (JsonException)
         {
@@ -281,10 +345,39 @@ public static class CamJobJson
 
         if (o["face"] is JsonObject f)
         {
-            spec = spec with { Face = new RotaryFaceSpec(Str(f, "axis"), Num(f, "angle"), Num(f, "axisToFace")) };
+            var face = new RotaryFaceSpec(Str(f, "axis"), Num(f, "angle"), Num(f, "axisToFace"));
+            spec = spec with { Face = f["axis2"] is null ? face : face with { Axis2 = Str(f, "axis2"), Angle2 = Num(f, "angle2") } };
         }
 
         return spec;
+    }
+
+    private static OpOrigin? OriginFrom(JsonNode? node)
+    {
+        if (node is not JsonObject g || g["source"] is not JsonValue sv || !sv.TryGetValue(out string? source) || source is null
+            || g["typed"] is not JsonArray ta)
+        {
+            return null;
+        }
+
+        string? cut = null;
+        if (g["cutData"] is { } cn && (cn is not JsonValue cv || !cv.TryGetValue(out cut)))
+        {
+            return null;
+        }
+
+        var typed = new List<string>();
+        foreach (JsonNode? t in ta)
+        {
+            if (t is not JsonValue tv || !tv.TryGetValue(out string? s) || s is null)
+            {
+                return null;
+            }
+
+            typed.Add(s);
+        }
+
+        return new OpOrigin(source, cut, typed);
     }
 
     internal static JsonObject Obj(JsonObject o, string key) => o[key] as JsonObject ?? throw new FormatException($"Falta o bloco \"{key}\" no arquivo.");
