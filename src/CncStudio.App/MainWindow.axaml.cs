@@ -136,6 +136,7 @@ public partial class MainWindow : Window
         ViewTabs.SelectionChanged += (_, _) => SimulationTools.IsVisible = ViewTabs.SelectedIndex == 0;
         CollapseEditorButton.Click += (_, _) => SetEditorCollapsed(!_editorCollapsed);
         ThemeButton.Click += (_, _) => ApplyTheme(_settings.Theme == "Light" ? "Dark" : "Light");
+        LicensesButton.Click += async (_, _) => await new ThirdPartyLicensesWindow().ShowDialog(this);
         ApplyTheme(_settings.Theme);
         InitModules();
         RecentButton.Click += (_, _) => ShowRecentMenu();
