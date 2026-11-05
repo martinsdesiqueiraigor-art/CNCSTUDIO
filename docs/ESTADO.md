@@ -1,6 +1,6 @@
 # Estado atual
 
-Atualizado em 04/11/2026 · base: `origin/main` em `eb34cc4` (merge do PR #134).
+Atualizado em 05/11/2026 · base: `origin/main` em `ed0c5e5` (merge do PR #137).
 Histórico completo em docs/historico/. Ler só se a tarefa pedir.
 Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:linha) e `git log`.
 
@@ -19,7 +19,7 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 
 ## Em ramo, sem merge na main (git, 02/11; PRs conferidos em 04/11)
 - **CAM-08 STEP:** `fase-cam-step-malha` → `fase-cam-step-correcao` → `fase-cam-step-orientacao`; `fase-cam3d-selecao` vai em cima da malha. Há também `fase-cam-step-estudo`.
-- **Não ir à main** antes do teste do Igor com STEP real e da revisão de licença (LIC-01).
+- **Não ir à main** antes do teste do Igor com STEP real. Licença: o advogado liberou o uso em 05/11 (condições a confirmar; ver LIC-01).
 - Partem de uma main antiga: o merge dará conflito em `docs/ESTADO.md` e `ModelView.cs`; apagar o `ModelZ` duplicado em `ModelReview.cs` (H:346).
 - `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02`, além de ramos antigos de 22/10.
 - PRs abertos: nenhum (conferido em 04/11).
@@ -29,13 +29,14 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - Conferir no .exe da prévia: Trabalho 3D, DXF em polegadas e clique, STL real (H:256, H:264, H:334); telas do Assist e do Trabalho marcadas “tela não conferida” (H:453, H:468, H:486, H:489).
 - Decidir/ativar: produto `cam` no Supabase (H:240); publicação do texto de termos (H:273); origem/direitos da foto da Loja (H:399); STEP real de peça para o teste de viabilidade (H:283).
 - Revisar o módulo 2 da Academy (já na main, #109) e marcar `revisado`.
-- Autorizar: Handoff 18 (remover DLLs não usadas, ver LIC-01) e CODE-14 (avisos do simulador); Handoff 21 (módulo 1 em v2); PLAT-07 (conta e licença no desktop).
+- Autorizar: CODE-14 (avisos do simulador); Handoff 21 (módulo 1 em v2); PLAT-07 (conta e licença no desktop).
+- Dizer quais condições o advogado pôs (aviso visível do OpenCASCADE; DLLs LGPL no `.exe` único ou em arquivos separados) e guardar a resposta por escrito.
 
 ## Limites que valem hoje
 - Nada do CAM rodou em máquina real: rosca, 4º eixo, 3+2, rotativo a zero, F com rotativo no Fanuc 21i, CYCLE95/FALX no Siemens (H:95, H:101, H:151, H:177, H:471, H:474).
 - Fixação e colisão nunca são verificadas; simular e rodar a primeira vez no ar (H:311, H:370).
 - Simulação web em 3 eixos com voxel aproximado; tempo no celular não medido (H:163, H:166).
-- Termos não revisados por advogado; licença OCCT do STEP a confirmar com profissional (H:273, H:282).
+- Termos de uso não revisados por advogado (H:273). Licença OCCT do STEP: liberada pelo advogado em 05/11, segundo o Igor; condições a confirmar (H:282).
 - Conteúdo técnico da Academy e itens iniciais do Assist são rascunho (H:210, H:435).
 - O .exe e o instalador oficiais **não** estão publicados.
 - O merge na main publica na hora a web (casillas.com.br) e o painel.
@@ -43,8 +44,9 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 
 ## Licenças (LIC-01)
 - Inventário feito em `C:\Projetos\inventario\` (fora do repositório).
-- 33 das 69 DLLs nativas do OpenCASCADE não são usadas; a remoção (Handoff 18) aguarda autorização do Igor.
-- Revisão jurídica pendente: o Igor envia o inventário ao advogado/contador.
+- 33 das 69 DLLs nativas do OpenCASCADE não são usadas (FFmpeg, FreeImage, OpenVR, TBB, jemalloc e 23 TK*); nenhum arquivo do repositório cita ffmpeg/FreeImage.
+- 05/11: o advogado liberou o uso das licenças, segundo o Igor; condições a confirmar.
+- Autorizados em 05/11, ainda não feitos: Handoff 18 (remover as 33 DLLs, nos ramos do STEP) e tela/arquivo de avisos de terceiros (LIC-02). Nada é publicado.
 
 ## Próximos passos já registrados
 - CAM desktop, na ordem de 28/10: desbaste (feito), DXF e seleção de contornos, estudo do STEP, seleção de faces e arestas no 3D; depois o Assist (H:281-283).
