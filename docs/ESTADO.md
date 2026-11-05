@@ -24,6 +24,9 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02`, além de ramos antigos de 22/10.
 - PRs abertos: nenhum, fora o desta atualização (conferido em 05/11).
 
+## Fluxo de ramos (05/11)
+`main` protegida (regra `proteger-main`: build + testes, sem force push/exclusão). Ramo `dev` = integração e teste do Igor; tarefas entram no `dev` por PR e o `dev` vai à `main` por PR do Igor.
+
 ## Aguarda o Igor
 - Conferir na prévia/celular o que ficou “não conferido”: telas web do Code, Macro, Otimizador, Loja e Academy dentro do app (H:395-409, H:419); vista de frente para o eixo e peça girando na web (H:146, H:171).
 - Conferir no .exe da prévia: Trabalho 3D, DXF em polegadas e clique, STL real (H:256, H:264, H:334); telas do Assist e do Trabalho marcadas “tela não conferida” (H:453, H:468, H:486, H:489).
