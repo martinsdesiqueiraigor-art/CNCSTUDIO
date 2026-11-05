@@ -1,6 +1,6 @@
 # Estado atual
 
-Atualizado em 02/11/2026 · base: `origin/main` em `fb1c10c` (merge do PR #132).
+Atualizado em 04/11/2026 · base: `origin/main` em `eb34cc4` (merge do PR #134).
 Histórico completo em docs/historico/. Ler só se a tarefa pedir.
 Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:linha) e `git log`.
 
@@ -15,13 +15,14 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - **CAM web:** CAM rápido; trava de licença “soft”, livre enquanto o produto `cam` estiver inativo no servidor (H:139, H:238-241). Merges de 27/10 a 28/10 (#73).
 - **Assist (só desktop):** bibliotecas, orçamento, proposta HTML, plano 2D com travas (plano obsoleto, ferramenta nova, profundidade, peça solta, alturas Z, rpm do fuso, material obrigatório), etapas e marca de origem por operação (H:208-236, H:286-329, H:451, H:484-489). Merges de 28/10 a 02/11 (#120, #127, #129, #131).
 - **Web, Setup:** “minhas ferramentas” guardadas no navegador; desktop ainda sem isso (H:491-493). Merge em 02/11 (#132).
+- **Documentação (03/11):** `ESTADO.md` enxuto com histórico em `docs/historico/` (#133); `CLAUDE.md` com `git fetch` no início e roteamento por tarefa (#134).
 
-## Em ramo, sem merge na main (git, 02/11)
+## Em ramo, sem merge na main (git, 02/11; PRs conferidos em 04/11)
 - **CAM-08 STEP:** `fase-cam-step-malha` → `fase-cam-step-correcao` → `fase-cam-step-orientacao`; `fase-cam3d-selecao` vai em cima da malha. Há também `fase-cam-step-estudo`.
 - **Não ir à main** antes do teste do Igor com STEP real e da revisão de licença (LIC-01).
 - Partem de uma main antiga: o merge dará conflito em `docs/ESTADO.md` e `ModelView.cs`; apagar o `ModelZ` duplicado em `ModelReview.cs` (H:346).
 - `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02`, além de ramos antigos de 22/10.
-- PRs abertos: nenhum listado por `gh pr list` em 02/11.
+- PRs abertos: nenhum (conferido em 04/11).
 
 ## Aguarda o Igor
 - Conferir na prévia/celular o que ficou “não conferido”: telas web do Code, Macro, Otimizador, Loja e Academy dentro do app (H:395-409, H:419); vista de frente para o eixo e peça girando na web (H:146, H:171).
@@ -29,7 +30,6 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - Decidir/ativar: produto `cam` no Supabase (H:240); publicação do texto de termos (H:273); origem/direitos da foto da Loja (H:399); STEP real de peça para o teste de viabilidade (H:283).
 - Revisar o módulo 2 da Academy (já na main, #109) e marcar `revisado`.
 - Autorizar: Handoff 18 (remover DLLs não usadas, ver LIC-01) e CODE-14 (avisos do simulador); Handoff 21 (módulo 1 em v2); PLAT-07 (conta e licença no desktop).
-- Testar no .exe a Fixação (#119) a 100% e 125%, se ainda não testada (H:457).
 
 ## Limites que valem hoje
 - Nada do CAM rodou em máquina real: rosca, 4º eixo, 3+2, rotativo a zero, F com rotativo no Fanuc 21i, CYCLE95/FALX no Siemens (H:95, H:101, H:151, H:177, H:471, H:474).
@@ -58,17 +58,19 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - Fichas: `docs/tarefas/` (modelo em `docs/tarefas/MODELO.md`); ex.: `docs/tarefas/CAM-01-plano.md`, `docs/tarefas/PLAT-06-desktop-plataforma.md`, `docs/tarefas/ACAD-02-modulos-2-a-4.md`.
 - Histórico: `docs/historico/ESTADO-ate-2026-11-02.md`.
 
-## Divergências a resolver (não decididas aqui)
-- H:5, H:9, H:14: “Na main (21/10)” e “Próximo: CODE-09, depois CODE-08 DNC” desatualizados; CODE-08 DNC não aparece de novo.
-- H:10 a H:493: contagens de testes diferentes ao longo do arquivo (473 a 1332), fora de ordem cronológica (H:480 1307, H:483 1308, H:474 1245).
-- H:22 e H:23: parágrafo do PLAT-03 duplicado.
-- H:8 cita o Supabase “Casillas Code”; H:22 cita o projeto “Casillas”. Qual vale para a conta mestre?
-- H:52 “Loja nativa no desktop” × H:54 “Loja nativa removida”.
-- H:20 (8 cartões, CAM “em breve”) × H:140 e H:394 (CAM ativo, 9 cartões).
-- H:284: “PR #85 aguarda conferir e o OK do merge”, mas o git mostra o #85 mesclado.
-- H:342 × git: `ajuste-cam3d-desbaste-protecao` entrou pelo #94; já o remoto `ajuste-cam3d-protecao` (outro ramo) segue sem merge na main.
-- H:371 e H:413 (teste instável, correção não feita) × H:423 (corrigido).
-- H:427 e H:440 listam como pendentes itens feitos depois (H:437, H:441, H:443, H:477).
-- STEP: ramos `fase-cam-step-*` existem no git, mas o arquivo não registra o estado deles.
-- H:118 e H:182 apontam planos “no Projeto” (fora deste repositório).
-- ffmpeg/FreeImage: não aparecem no arquivo de histórico; se descritos como usados, é em outro documento.
+## Decisões do Igor (04/11)
+- CODE-08 DNC: mais adiante, fora do “Próximo”.
+- Loja: a nativa foi removida do desktop; a Loja abre a web.
+- Tela inicial: 9 cartões (a web confirma no código; o desktop não foi verificado).
+- Fixação (#119): testada no .exe pelo Igor.
+- Supabase da conta mestre: o Igor acredita já estar resolvido; o nome do projeto (“Casillas Code” ou “Casillas”) não foi conferido. Não mexer em Supabase sem ordem.
+
+## Divergências do histórico, fechadas em 04/11
+- Contagem de testes: vale o resultado do CI; os números do histórico não são fonte.
+- PR #85 está mesclado. Teste instável corrigido (#111, H:423). `ajuste-cam3d-desbaste-protecao` entrou pelo #94; `ajuste-cam3d-protecao` segue fora da main.
+- H:427 e H:440: já feitos o campo Bruto (H:437), o Assist relendo o desenho (H:443), a rotação acima do fuso (H:441) e Origem/Máquina no torno (H:477). Seguem pendentes: menu lateral no tema claro e botão 3D do torno.
+- “Na main (21/10)” e “Próximo: CODE-09, depois CODE-08” (H:5, H:9, H:14): desatualizados; ignorar.
+- Parágrafo duplicado do PLAT-03 (H:22-23): só histórico.
+- Planos “no Projeto” (H:118, H:182): ficam no Projeto “Casillas CNC — Plataforma” do claude.ai, fora do repositório.
+- ffmpeg/FreeImage: nenhum arquivo do repositório os cita (grep em 04/11); a menção vem do relatório do inventário (LIC-01), fora do repositório.
+- Ramos do STEP: estado registrado em “Em ramo”.
