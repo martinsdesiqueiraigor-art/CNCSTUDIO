@@ -52,10 +52,24 @@ public class ThirdPartyNoticesTests
                  {
                      "Avalonia", "AvaloniaEdit", "SkiaSharp", "HarfBuzzSharp",
                      "MicroCom.Runtime", "Tmds.DBus.Protocol", "ANGLE", ".NET (runtime)",
+                     // Leitura de STEP: OpenCASCADE e as DLLs do pacote OcctNet
+                     "OpenCASCADE Technology", "OcctNet.Wrapper", "zlib", "libpng", "bzip2", "brotli", "FreeType",
+                     "Visual C++ (redistribuível)",
                  })
         {
             Assert.Contains(expected, names);
         }
+    }
+
+    [Fact]
+    public void Has_the_Open_CASCADE_notice_and_license_texts()
+    {
+        // Exceção Open CASCADE 1.0: aviso destacado de que o programa usa o OCCT
+        string text = File.ReadAllText(NoticesPath);
+        Assert.Contains("Este programa usa o Open CASCADE Technology", text);
+        Assert.Contains("Open CASCADE exception (version 1.0) to GNU LGPL version 2.1.", text);
+        Assert.Contains("GNU LESSER GENERAL PUBLIC LICENSE", text);
+        Assert.Contains("V7_9_3", text);
     }
 
     /// <summary>Seções "### Nome" dentro de "## Componentes", até o próximo "## ".</summary>
