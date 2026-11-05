@@ -51,7 +51,7 @@ Sempre: este arquivo e o bloco "Estado atual" de `docs/ESTADO.md`. Além disso:
 |---|---|
 | Academy (aulas, JSON v2) | `docs/tarefas/ACAD-01-academy-piloto.md`, `docs/tarefas/ACAD-02-modulos-2-a-4.md` |
 | CAM, Trabalho, Assist | `docs/tarefas/CAM-01-plano.md`; o resto do CAM está em `docs/historico/` (buscar por grep, não ler inteiro) |
-| STEP, Modelo 3D, seleção 3D | seção "Em ramo" de `docs/ESTADO.md`. **Não ir ao `main` antes do teste do Igor com STEP real e da revisão de licença** |
+| STEP, Modelo 3D, seleção 3D | o STEP está na main (`src/CncStudio.Step`); a seleção 3D segue na seção "Em ramo" de `docs/ESTADO.md` |
 | Desktop da plataforma | `docs/tarefas/PLAT-06-desktop-plataforma.md` |
 | Macro, Otimizador | `docs/tarefas/MACRO-01-geradores.md`, `docs/tarefas/OTIM-01-otimizador.md` |
 | Web (tela inicial, módulos) | `src/CncStudio.Web/wwwroot/platform-ui.js`. Mínimo de tela do desktop: 1280×720 lógicos |

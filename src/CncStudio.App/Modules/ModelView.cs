@@ -9,6 +9,7 @@ using CncStudio.Core.Cam;
 using CncStudio.Core.Cam3D;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Scene;
+using CncStudio.Step;
 
 namespace CncStudio.App.Modules;
 
@@ -28,7 +29,7 @@ public sealed class ModelView : Grid
     private readonly TextBlock _info = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
     private readonly TextBlock _hint = new()
     {
-        Text = "Abra um arquivo STL para ver o modelo.",
+        Text = "Abra um arquivo STL ou STEP para ver o modelo.",
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
         Opacity = 0.6,
@@ -44,6 +45,19 @@ public sealed class ModelView : Grid
     private readonly TextBlock _pendingTitle = new() { FontWeight = FontWeight.Bold };
     private readonly WrapPanel _pendingItems = new();
     private Button? _openButton;
+    private bool _glFailed;
+
+    // Giros pedidos para o modelo aberto (voltam a zero ao abrir outro arquivo); o arquivo e _raw não mudam
+    private readonly List<ModelTurn> _turns = [];
+    private readonly List<Button> _turnButtons = [];
+    private readonly TextBlock _turnInfo = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.75 };
+
+    private static readonly (string Label, ModelTurn? Turn)[] TurnButtons =
+    [
+        ("X +90°", ModelTurn.XPlus90), ("X −90°", ModelTurn.XMinus90), ("Y +90°", ModelTurn.YPlus90), ("Y −90°", ModelTurn.YMinus90),
+        ("Virar", ModelTurn.Flip), ("Zerar orientação", null),
+    ];
+
     private TriangleMesh? _current;
     private string _program = "";
     private string _programSuffix = "-varredura";
@@ -65,23 +79,41 @@ public sealed class ModelView : Grid
         }
 
         _unit.SelectedIndex = 0;
-        Button open = new() { Content = "Abrir STL…", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold };
+        Button open = new() { Content = "Abrir STL ou STEP…", Padding = new Thickness(14, 7), FontWeight = FontWeight.SemiBold };
         open.Click += async (_, _) => await Open();
         _unit.SelectionChanged += (_, _) => Show();
         _top.IsCheckedChanged += (_, _) => Show();
 
         var panel = new StackPanel { Margin = new Thickness(16, 14), Spacing = 8 };
-        panel.Children.Add(new TextBlock { Text = "Modelo 3D (STL)", FontSize = 20, FontWeight = FontWeight.Bold });
+        panel.Children.Add(new TextBlock { Text = "Modelo 3D (STL ou STEP)", FontSize = 20, FontWeight = FontWeight.Bold });
         panel.Children.Add(new TextBlock
         {
             Text = "CAM 3D: abrir o modelo, conferir medidas e malha, gerar desbaste por níveis e varredura de acabamento.",
             Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12,
         });
         panel.Children.Add(open);
-        panel.Children.Add(new TextBlock { Text = "Unidade do arquivo (o STL não guarda a unidade)", Opacity = 0.75, FontSize = 12 });
+        panel.Children.Add(new TextBlock { Text = "Unidade do arquivo (o STL não guarda a unidade; o STEP já é lido em mm)", Opacity = 0.75, FontSize = 12 });
         panel.Children.Add(_unit);
         panel.Children.Add(_top);
         panel.Children.Add(_info);
+
+        panel.Children.Add(new TextBlock { Text = "Orientação da peça", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
+        var turns = new WrapPanel();
+        foreach ((string label, ModelTurn? turn) in TurnButtons)
+        {
+            var button = new Button { Content = label, Padding = new Thickness(10, 5), Margin = new Thickness(0, 0, 6, 6), IsEnabled = false };
+            button.Click += (_, _) => Turn(turn);
+            _turnButtons.Add(button);
+            turns.Children.Add(button);
+        }
+
+        panel.Children.Add(turns);
+        panel.Children.Add(_turnInfo);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Confira a orientação: o Z+ é o lado de cima da usinagem.",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold,
+        });
 
         panel.Children.Add(new TextBlock { Text = "Varredura de acabamento (fresa esférica)", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
         panel.Children.Add(new TextBlock
@@ -170,6 +202,7 @@ public sealed class ModelView : Grid
         ActualThemeVariantChanged += (_, _) => UpdatePending();
         _gl.Failed += (_, message) =>
         {
+            _glFailed = true;
             _gl.IsVisible = false;
             _hint.Text = "3D pela placa de vídeo indisponível (" + message + ").";
             _hint.IsVisible = true;
@@ -255,7 +288,7 @@ public sealed class ModelView : Grid
         _openEditor.IsEnabled = false;
         if (_current is not { } model)
         {
-            _result.Text = "• Abra um STL primeiro.";
+            _result.Text = "• Abra um STL ou STEP primeiro.";
             return;
         }
 
@@ -371,22 +404,109 @@ public sealed class ModelView : Grid
             return;
         }
 
-        StlResult r = await Task.Run(() => StlReader.Read(file.Data));
-        if (!r.Ok)
+        bool isStep = file.Name.EndsWith(".step", StringComparison.OrdinalIgnoreCase) || file.Name.EndsWith(".stp", StringComparison.OrdinalIgnoreCase);
+        if (isStep)
         {
-            _info.Text = "• " + r.Error;
+            _info.Text = "Lendo o STEP…";
+            StepResult step = await Task.Run(() => StepMeshReader.Read(file.Data));
+            if (!step.Ok)
+            {
+                Clear(step.Error!);
+                return;
+            }
+
+            _turns.Clear(); // arquivo novo começa como veio
+            _raw = step.Mesh;
+            _fileName = file.Name;
+            _unit.SelectedIndex = 0; // o OpenCASCADE já entrega em milímetros
+            _unit.IsEnabled = false;
+            string collapsed = step.Collapsed > 0 ? $"; {step.Collapsed:N0} triângulos sem área descartados" : "";
+            string notice = step.Notice is { } n ? "\n" + n : "";
+            Show(0, $"STEP lido em milímetros (malha de 0,05 mm de desvio; {step.Orientation!.FlippedTriangles:N0} triângulos reorientados{collapsed}).{notice}");
             return;
         }
 
+        StlResult r = await Task.Run(() => StlReader.Read(file.Data));
+        if (!r.Ok)
+        {
+            Clear(r.Error!);
+            return;
+        }
+
+        _turns.Clear();
         _raw = r.Mesh;
         _fileName = file.Name;
+        _unit.IsEnabled = true;
         Show(r.Skipped);
     }
 
+    // Botão de orientação: null = zerar. O programa gerado antes era do modelo na posição antiga: descarta
+    private void Turn(ModelTurn? turn)
+    {
+        if (_raw is null)
+        {
+            return;
+        }
+
+        if (turn is { } t)
+        {
+            _turns.Add(t);
+        }
+        else
+        {
+            _turns.Clear();
+        }
+
+        _program = "";
+        _result.Text = "";
+        Show();
+    }
+
+    private static string TurnName(ModelTurn turn) => turn switch
+    {
+        ModelTurn.XPlus90 => "X +90°",
+        ModelTurn.XMinus90 => "X −90°",
+        ModelTurn.YPlus90 => "Y +90°",
+        ModelTurn.YMinus90 => "Y −90°",
+        _ => "virada",
+    };
+
+    // Leitura falhou: nada do modelo anterior fica na tela nem vai para a varredura
+    private void Clear(string error)
+    {
+        _raw = null;
+        _current = null;
+        _fileName = "";
+        _sourceNote = "";
+        _program = "";
+        _unit.IsEnabled = true;
+        _openEditor.IsEnabled = false;
+        _result.Text = "";
+        _turns.Clear();
+        _turnInfo.Text = "";
+        _turnButtons.ForEach(b => b.IsEnabled = false);
+        _info.Text = "• " + error;
+        _gl.IsVisible = false;
+        if (!_glFailed)
+        {
+            _hint.Text = "Abra um arquivo STL ou STEP para ver o modelo.";
+        }
+
+        _hint.IsVisible = true;
+        UpdatePending(); // sem modelo: a barra de pendências volta a pedir o arquivo
+    }
+
+    private string _sourceNote = "";
+
     private int _lastSkipped;
 
-    private void Show(int? skipped = null)
+    private void Show(int? skipped = null, string? note = null)
     {
+        if (note is not null || skipped is not null)
+        {
+            _sourceNote = note ?? "";
+        }
+
         if (_raw is null)
         {
             return;
@@ -395,6 +515,13 @@ public sealed class ModelView : Grid
         _lastSkipped = skipped ?? _lastSkipped;
         double factor = Units[Math.Max(0, _unit.SelectedIndex)].Factor;
         TriangleMesh mesh = _raw.Scaled(factor);
+        foreach (ModelTurn turn in _turns)
+        {
+            mesh = mesh.Turned(turn);
+        }
+
+        _turnInfo.Text = _turns.Count == 0 ? "Orientação: como veio no arquivo." : "Orientação: " + string.Join(", ", _turns.Select(TurnName)) + ".";
+        _turnButtons.ForEach(b => b.IsEnabled = true);
         if (_top.IsChecked == true)
         {
             mesh = mesh.PlacedTopAtZero();
@@ -404,17 +531,19 @@ public sealed class ModelView : Grid
         _openEditor.IsEnabled = false;
 
         var size = mesh.Size;
-        bool closed = mesh.IsClosed;
+        MeshCheck check = MeshCheck.Of(mesh);
         string F(double v) => v.ToString("0.##", Pt);
         _info.Text =
-            $"{_fileName}\n" +
+            $"{_fileName}\n" + (_sourceNote.Length > 0 ? _sourceNote + "\n" : "") +
             $"{mesh.TriangleCount:N0} triângulos" + (_lastSkipped > 0 ? $" ({_lastSkipped} inválidos descartados)" : "") + "\n" +
             $"Tamanho: X {F(size.X)} × Y {F(size.Y)} × Z {F(size.Z)} mm\n" +
             $"Z: de {F(mesh.Bounds.Min.Z)} a {F(mesh.Bounds.Max.Z)} mm\n" +
             $"Área da superfície: {F(mesh.SurfaceArea / 100)} cm²\n" +
-            (closed
+            (check.IsClosed
                 ? $"Malha fechada. Volume: {F(mesh.Volume / 1000)} cm³ (peso e custo dependem do material)."
-                : "⚠ Malha aberta (furos na superfície): dá para ver, mas o volume e o CAM 3D ficam incertos. Repare o modelo no CAD.") +
+                : $"⚠ Malha aberta: {check.BorderEdges:N0} arestas de borda ({F(check.BorderLength)} mm no total), " +
+                  $"{check.NonManifoldEdges:N0} arestas com mais de 2 triângulos, {check.Pieces:N0} pedaço(s). " +
+                  "Pode ser defeito do próprio arquivo; o volume é só estimativa. Confira o modelo no CAD.") +
             "\nConfira as medidas: se o tamanho está 25× ou 1000× fora, troque a unidade.";
 
         UpdatePending();
