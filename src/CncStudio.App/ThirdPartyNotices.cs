@@ -20,9 +20,7 @@ public static partial class ThirdPartyNotices
         }
 
         using var reader = new StreamReader(stream);
-        string text = reader.ReadToEnd().Replace("
-", "
-");
+        string text = reader.ReadToEnd().Replace("\r\n", "\n");
         return HtmlComment().Replace(text, string.Empty).Replace("\n\n\n", "\n\n");
     }
 
