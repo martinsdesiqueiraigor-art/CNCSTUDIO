@@ -172,8 +172,10 @@ public class PipelineTests
     {
         // Antes: limite fixo de 20 s, que falhava com a máquina ocupada (testes em paralelo, build ao lado).
         // Agora: o programa grande (49 000 linhas) é comparado com um de referência 5× menor, medido no mesmo
-        // teste, um antes e outro depois do grande; a carga da máquina pesa nos dois. O pipeline é linear
-        // (medido: ~5×); um algoritmo que vire quadrático passa de 25×. O teto absoluto só pega travamento.
+        // teste, um antes e outro depois do grande; a carga da máquina pesa nos dois. O grande também é medido
+        // duas vezes (vale o menor), para um pico de ruído do runner não contar como lentidão do pipeline
+        // (04/11: uma única medição deu 15,2×). O pipeline é linear (medido: ~5×); um algoritmo que vire
+        // quadrático passa de 25×. O teto absoluto só pega travamento.
         (string[] Many, string[] Surface) Programs(int lines)
         {
             var many = new List<string>(Preamble);
@@ -196,8 +198,10 @@ public class PipelineTests
         var large = Programs(49000);
         Time(Programs(1000)); // aquece o JIT
         TimeSpan before = Time(reference);
-        TimeSpan big = Time(large);
+        TimeSpan big1 = Time(large);
         TimeSpan after = Time(reference);
+        TimeSpan big2 = Time(large);
+        TimeSpan big = big1 < big2 ? big1 : big2;
         TimeSpan refTime = before < after ? before : after;
         double ratio = big / refTime;
         Assert.True(ratio < 15, $"Programa 5× maior levou {ratio:0.0}× mais tempo ({big} contra {refTime}): o pipeline deixou de ser linear?");
