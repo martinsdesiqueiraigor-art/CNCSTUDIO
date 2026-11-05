@@ -85,9 +85,14 @@ public partial class MainWindow
         {
             IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Abrir modelo STL",
+                Title = "Abrir modelo 3D (STL ou STEP)",
                 AllowMultiple = false,
-                FileTypeFilter = [new FilePickerFileType("Modelo STL") { Patterns = ["*.stl", "*.STL"] }],
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("Modelo 3D (STL, STEP)") { Patterns = ["*.stl", "*.STL", "*.step", "*.STEP", "*.stp", "*.STP"] },
+                    new FilePickerFileType("Modelo STL") { Patterns = ["*.stl", "*.STL"] },
+                    new FilePickerFileType("Modelo STEP") { Patterns = ["*.step", "*.STEP", "*.stp", "*.STP"] },
+                ],
             });
             if (files.Count == 0)
             {
