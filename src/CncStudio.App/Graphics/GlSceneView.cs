@@ -45,12 +45,17 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
     private int _uLineModel, _uLineMvp, _uLineR, _uLineG, _uLineB, _uLineLift, _uLineOffX, _uLineOffY, _uLineOffZ;
     private bool _ready;
     private Point? _drag;
+    private Point _pressedAt;
+    private bool _moved;
     private bool _panning;
 
     /// <summary>Câmera atual (vistas prontas, ajustar e o mouse mudam).</summary>
     public SceneCamera Camera { get; set; } = new(Point3.Origin, 200, 35, 30);
 
     public bool LightTheme { get; set; }
+
+    /// <summary>Clique simples (sem arrastar) com o botão esquerdo: raio do olho pelo ponto clicado.</summary>
+    public event EventHandler<SceneClickEventArgs>? SceneClicked;
 
     /// <summary>Trajetória inteira por cima da peça (padrão desligado: só o trecho atual aparece).</summary>
     public bool ShowPath { get; set; }
@@ -561,6 +566,8 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         PointerPointProperties props = e.GetCurrentPoint(this).Properties;
         _panning = props.IsRightButtonPressed || props.IsMiddleButtonPressed;
         _drag = e.GetPosition(this);
+        _pressedAt = _drag.Value;
+        _moved = false;
         e.Pointer.Capture(this);
     }
 
@@ -573,6 +580,11 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         }
 
         Point to = e.GetPosition(this);
+        if (Math.Abs(to.X - _pressedAt.X) + Math.Abs(to.Y - _pressedAt.Y) > 4)
+        {
+            _moved = true;
+        }
+
         double dx = to.X - from.X, dy = to.Y - from.Y;
         if (_panning)
         {
@@ -591,8 +603,30 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        bool click = _drag is not null && !_moved && !_panning;
         _drag = null;
         e.Pointer.Capture(null);
+        if (click)
+        {
+            Point at = e.GetPosition(this);
+            (Point3 origin, Point3 direction, double tolerance) = RayAt(at.X, at.Y);
+            SceneClicked?.Invoke(this, new SceneClickEventArgs(origin, direction, tolerance, e.KeyModifiers.HasFlag(KeyModifiers.Control)));
+        }
+    }
+
+    /// <summary>Raio do olho pelo ponto da tela e tolerância angular de ~6 pixels (radianos).</summary>
+    public (Point3 Origin, Point3 Direction, double Tolerance) RayAt(double x, double y)
+    {
+        double width = Math.Max(1, Bounds.Width), height = Math.Max(1, Bounds.Height);
+        double tan = Math.Tan(Camera.FieldOfView * Math.PI / 360);
+        double nx = ((x / width) * 2) - 1, ny = 1 - ((y / height) * 2);
+        (Point3 right, Point3 up, Point3 back) = Camera.Axes();
+        double kx = nx * tan * (width / height), ky = ny * tan;
+        double dx = (right.X * kx) + (up.X * ky) - back.X;
+        double dy = (right.Y * kx) + (up.Y * ky) - back.Y;
+        double dz = (right.Z * kx) + (up.Z * ky) - back.Z;
+        double len = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        return (Camera.Eye, new Point3(dx / len, dy / len, dz / len), 6 * 2 * tan / height);
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
@@ -602,4 +636,16 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         RequestNextFrameRendering();
         e.Handled = true;
     }
+}
+
+/// <summary>Clique na tela 3D: raio (origem e direção unitária), tolerância angular e se Ctrl estava apertado.</summary>
+public sealed class SceneClickEventArgs(Point3 origin, Point3 direction, double tolerance, bool additive) : EventArgs
+{
+    public Point3 Origin { get; } = origin;
+
+    public Point3 Direction { get; } = direction;
+
+    public double Tolerance { get; } = tolerance;
+
+    public bool Additive { get; } = additive;
 }

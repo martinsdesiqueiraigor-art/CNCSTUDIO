@@ -36,7 +36,8 @@ Desktop sem placa de vídeo (testes): `CASILLAS_SOFTWARE_GL=1 xvfb-run ...`.
 
 ## Regras (sempre)
 - **Nunca**: push/merge/rebase no `main`, `--force`, publicar web oficial ou instalador, mexer em Supabase, painel de ativação, termos ou página de vendas, apagar backup (`origin` local) ou `preview/`, commitar `bin/ obj/ publish/ preview/ screenshots/ .env` ou credenciais, adicionar NuGet ao Core.
-- Trabalhar num ramo (`fase-N-...`, `ajuste-...`, `dev`). O merge no `main` é do dono, por PR.
+- Trabalhar num ramo (`fase-N-...`, `ajuste-...`). **Fluxo:** ramo de tarefa → PR para o `dev` → o Igor testa no `dev` → o `dev` entra na `main` por PR do Igor. O `dev` recebe só PR, nunca trabalho direto.
+- A `main` tem regra no GitHub (`proteger-main`): sem exclusão, sem force push, exige `build` e `testes` verdes. Ela publica o site; o merge é do dono, por PR.
 
 ## Como trabalhamos (economia)
 1. **Uma conversa por tarefa ou parada.** Ao começar: `git fetch origin` e conferir o commit (`git log -1 origin/main`); se a mensagem de abertura trouxer um commit esperado e ele diferir, avisar o Igor antes de trabalhar. Ler este arquivo e o bloco "Estado atual" de `docs/ESTADO.md` (o histórico em `docs/historico/` só se a tarefa pedir). Não pedir resumo de conversas antigas. Trocar de ramo só com ordem do Igor.

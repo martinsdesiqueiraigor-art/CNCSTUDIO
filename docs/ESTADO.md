@@ -19,10 +19,13 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - **Documentação (03/11):** `ESTADO.md` enxuto com histórico em `docs/historico/` (#133); `CLAUDE.md` com `git fetch` no início e roteamento por tarefa (#134).
 
 ## Em ramo, sem merge na main (git, 05/11)
-- **CAM-09 seleção 3D:** `fase-cam3d-selecao` (parte da malha do STEP antigo) ainda precisa se juntar à main, agora com o STEP nela; esperar conflito em `ModelView.cs` e apagar o `ModelZ` duplicado em `ModelReview.cs` (H:346). Há também `fase-cam-step-estudo` (só estudo).
+- **CAM-09 seleção 3D (PR para o `dev`, 05/11):** `fase-cam3d-selecao-2` = ramo antigo + main (STEP e fluxo dev). Clique numa face a deixa laranja; faces e arestas geram furação e bolsão; virar ou girar o modelo limpa a seleção. **Limite conhecido:** em STEP, o topo plano pode sair como “Superfície livre” (junta-se às bordas arredondadas) e o botão de bolsão não liga; ajuste previsto como CAM-10, antes de o `dev` ir à `main`. O ramo antigo `fase-cam3d-selecao` fica como está. Há também `fase-cam-step-estudo` (só estudo).
 - Ramos do STEP já mesclados (`fase-cam-step-malha`, `-correcao`, `-orientacao`, `ajuste-step-enxugar-dlls`, `ajuste-step-solidos`, `fase-cam-step-integracao`): podem ser apagados com cópia de segurança.
 - `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02`, além de ramos antigos de 22/10.
-- PRs abertos: nenhum, fora o desta atualização (conferido em 05/11).
+- PRs abertos: o do CAM-09 para o `dev`.
+
+## Fluxo de ramos (05/11)
+`main` protegida (regra `proteger-main`: build + testes, sem force push/exclusão). Ramo `dev` = integração e teste do Igor; tarefas entram no `dev` por PR e o `dev` vai à `main` por PR do Igor.
 
 ## Aguarda o Igor
 - Conferir na prévia/celular o que ficou “não conferido”: telas web do Code, Macro, Otimizador, Loja e Academy dentro do app (H:395-409, H:419); vista de frente para o eixo e peça girando na web (H:146, H:171).
