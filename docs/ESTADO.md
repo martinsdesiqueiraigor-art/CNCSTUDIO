@@ -1,6 +1,6 @@
 # Estado atual
 
-Atualizado em 05/11/2026 · base: `origin/main` em `ed0c5e5` (merge do PR #137).
+Atualizado em 05/11/2026 · base: `origin/main` em `7f12ff0` (merge do PR #139) + ramo `fase-cam-step-integracao` (STEP).
 Histórico completo em docs/historico/. Ler só se a tarefa pedir.
 Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:linha) e `git log`.
 
@@ -12,15 +12,14 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - **Academy (só web):** leitor v1 e v2, tela nova; módulo 1 em v1, módulo 2 em v2, conteúdo em rascunho (H:52, H:415, H:428-435). Merges de 24/10 a 02/11 (#109, #110, #116, #118).
 - **CAM desktop:** Trabalho fresa e torno (árvore, propriedades, barra de pendências, Bruto, Origem, Máquina, Fixação, desfazer, 3D), DXF com unidade, bolsão com ilhas, torno (rosca, canal, rebaixo), 4º eixo, 3+2 na mesa dupla (só Core e Trabalho), rotativo a zero no fim, aba Fresa antiga removida (H:58-206, H:331, H:436-489). Merges de 26/10 a 02/11 (#119, #121-#126, #128).
 - **CAM 3D desktop:** STL, varredura e desbaste por níveis com Z digitado (H:261-269, H:342-345). Merges de 28/10 a 30/10 (#81, #82, #94).
+- **STEP no desktop (CAM-08, PR de `fase-cam-step-integracao`):** leitura de STEP pelo OpenCASCADE 7.9.3 (projeto `CncStudio.Step`), orientação da peça (X/Y ±90°, Virar, Zerar), só os sólidos quando há sólido (superfícies auxiliares ignoradas, com aviso; só malha facetada, com aviso), 33 DLLs nativas fora (.exe ~61,7 MB), avisos do OCCT em “Licenças de terceiros”. Lote NIST: 32 de 33 fechadas.
 - **CAM web:** CAM rápido; trava de licença “soft”, livre enquanto o produto `cam` estiver inativo no servidor (H:139, H:238-241). Merges de 27/10 a 28/10 (#73).
 - **Assist (só desktop):** bibliotecas, orçamento, proposta HTML, plano 2D com travas (plano obsoleto, ferramenta nova, profundidade, peça solta, alturas Z, rpm do fuso, material obrigatório), etapas e marca de origem por operação (H:208-236, H:286-329, H:451, H:484-489). Merges de 28/10 a 02/11 (#120, #127, #129, #131).
 - **Web, Setup:** “minhas ferramentas” guardadas no navegador; desktop ainda sem isso (H:491-493). Merge em 02/11 (#132).
 - **Documentação (03/11):** `ESTADO.md` enxuto com histórico em `docs/historico/` (#133); `CLAUDE.md` com `git fetch` no início e roteamento por tarefa (#134).
 
 ## Em ramo, sem merge na main (git, 02/11; PRs conferidos em 04/11)
-- **CAM-08 STEP:** `fase-cam-step-malha` → `fase-cam-step-correcao` → `fase-cam-step-orientacao`; `fase-cam3d-selecao` vai em cima da malha. Há também `fase-cam-step-estudo`.
-- **Não ir à main** antes do teste do Igor com STEP real. Licença: o advogado liberou o uso em 05/11 (condições a confirmar; ver LIC-01).
-- Partem de uma main antiga: o merge dará conflito em `docs/ESTADO.md` e `ModelView.cs`; apagar o `ModelZ` duplicado em `ModelReview.cs` (H:346).
+- **CAM-08 seleção 3D:** `fase-cam3d-selecao` (em cima da malha do STEP) ainda precisa se juntar à main depois do STEP; esperar conflito em `ModelView.cs` e apagar o `ModelZ` duplicado em `ModelReview.cs` (H:346). Há também `fase-cam-step-estudo`.
 - `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02`, além de ramos antigos de 22/10.
 - PRs abertos: nenhum (conferido em 04/11).
 
@@ -46,7 +45,7 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - Inventário feito em `C:\Projetos\inventario\` (fora do repositório).
 - 33 das 69 DLLs nativas do OpenCASCADE não são usadas (FFmpeg, FreeImage, OpenVR, TBB, jemalloc e 23 TK*); nenhum arquivo do repositório cita ffmpeg/FreeImage.
 - 05/11: o advogado liberou o uso das licenças, segundo o Igor; condições a confirmar.
-- Autorizados em 05/11, ainda não feitos: Handoff 18 (remover as 33 DLLs, nos ramos do STEP) e tela/arquivo de avisos de terceiros (LIC-02). Nada é publicado.
+- Feitos: Handoff 18 (33 DLLs fora, #140) e tela/arquivo de avisos de terceiros (LIC-02, #139); seções do OCCT e das DLLs do OcctNet no PR do STEP, com itens “a confirmar” e o texto do aviso do OCCT para o advogado conferir. Nada é publicado.
 
 ## Próximos passos já registrados
 - CAM desktop, na ordem de 28/10: desbaste (feito), DXF e seleção de contornos, estudo do STEP, seleção de faces e arestas no 3D; depois o Assist (H:281-283).
