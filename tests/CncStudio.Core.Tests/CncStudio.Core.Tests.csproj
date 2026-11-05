@@ -24,6 +24,12 @@
     <None Include="..\..\samples\**\*.*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Avisos de terceiros do desktop: o teste confere o arquivo e que o App o embute como recurso -->
+  <ItemGroup>
+    <None Include="..\..\src\CncStudio.App\THIRD-PARTY-NOTICES.md" Link="terceiros\THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\CncStudio.App\CncStudio.App.csproj" Link="terceiros\CncStudio.App.csproj.xml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Programas CAM sintéticos do Otimizador (gerados no estilo de pós-processadores Fanuc; não são programas de produção) -->
   <ItemGroup>
     <None Include="Optimizer\fixtures\cam-sinteticos\*.nc" Link="otimizador-fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

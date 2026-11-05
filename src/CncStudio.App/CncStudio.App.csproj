@@ -36,6 +36,11 @@
     <AvaloniaResource Include="..\CncStudio.Web\wwwroot\img\plataforma\*.webp" Link="Assets\plataforma\%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!-- Avisos de terceiros: fonte única, embutida no executável e mostrada em "Licenças de terceiros" -->
+  <ItemGroup>
+    <EmbeddedResource Include="THIRD-PARTY-NOTICES.md" LogicalName="CncStudio.App.THIRD-PARTY-NOTICES.md" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\CncStudio.Core\CncStudio.Core.csproj" />
   </ItemGroup>

@@ -153,6 +153,9 @@
           <ComboBoxItem Content="Siemens" />
         </ComboBox>
         <Button x:Name="ThemeButton" Classes="tool" Content="☀" ToolTip.Tip="Tema claro / escuro" />
+        <Button x:Name="LicensesButton" Classes="tool" ToolTip.Tip="Licenças de terceiros">
+          <PathIcon Data="F0 M12,2 A10,10 0 1 1 11.99,2 Z M12,4 A8,8 0 1 0 12.01,4 Z M11,10 H13 V17 H11 Z M11,7 H13 V9 H11 Z" />
+        </Button>
       </StackPanel>
     </Grid>
 

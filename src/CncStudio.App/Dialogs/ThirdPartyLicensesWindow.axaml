@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ae="using:AvaloniaEdit"
+        x:Class="CncStudio.App.Dialogs.ThirdPartyLicensesWindow"
+        Title="Licenças de terceiros"
+        Width="900" Height="640" MinWidth="560" MinHeight="400"
+        WindowStartupLocation="CenterOwner">
+  <!-- Mostra o THIRD-PARTY-NOTICES.md embutido no executável (fonte única dos avisos). -->
+  <DockPanel Margin="12">
+    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" TextWrapping="Wrap"
+               Text="Componentes de terceiros usados pelo Casillas Code, com versão, licença e texto da licença." />
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+      <Button x:Name="CloseButton" Content="Fechar" IsDefault="True" IsCancel="True" />
+    </StackPanel>
+    <Border BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
+      <ae:TextEditor x:Name="NoticesText"
+                     IsReadOnly="True"
+                     Background="{DynamicResource PanelBackground}"
+                     WordWrap="True"
+                     ShowLineNumbers="False"
+                     FontFamily="Cascadia Mono, Consolas, Menlo, monospace"
+                     FontSize="13"
+                     Padding="8"
+                     HorizontalScrollBarVisibility="Disabled"
+                     VerticalScrollBarVisibility="Auto" />
+    </Border>
+  </DockPanel>
+</Window>
