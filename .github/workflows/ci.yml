@@ -26,7 +26,27 @@ jobs:
         run: dotnet build --no-restore -c Release
 
       - name: Testes
-        run: dotnet test --no-build -c Release --logger "console;verbosity=normal"
+        run: dotnet test --no-build -c Release --logger "console;verbosity=normal" --logger trx --results-directory "$RUNNER_TEMP/testes"
+
+      - name: Resumo dos testes (contagem gerada, ninguém digita)
+        if: always()
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import glob, os, re
+          total = passed = failed = skipped = 0
+          arquivos = glob.glob(os.path.join(os.environ["RUNNER_TEMP"], "testes", "*.trx"))
+          for a in arquivos:
+              m = re.search(r"<Counters\s[^>]*>", open(a, encoding="utf-8-sig").read())
+              if not m:
+                  continue
+              n = lambda k: int((re.search(k + r'="(\d+)"', m.group(0)) or [0, 0])[1])
+              total += n("total"); passed += n("passed"); failed += n("failed"); skipped += n("notExecuted")
+          print("### Testes")
+          if arquivos:
+              print(f"**{total} testes**: {passed} passaram, {failed} falharam, {skipped} não executados.")
+          else:
+              print("Sem resultado de testes (o passo anterior não chegou a rodar).")
+          EOF
 
       - name: Fotos da interface (headless)
         run: dotnet run --project tools/CncStudio.Screenshots -c Release -- screenshots
