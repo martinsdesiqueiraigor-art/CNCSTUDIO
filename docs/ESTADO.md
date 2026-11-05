@@ -1,6 +1,6 @@
 # Estado atual
 
-Atualizado em 05/11/2026 · base: `origin/main` em `ed0c5e5` (merge do PR #137).
+Atualizado em 05/11/2026 · base: `origin/main` em `7f12ff0` (LIC-02, PR #139).
 Histórico completo em docs/historico/. Ler só se a tarefa pedir.
 Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:linha) e `git log`.
 
@@ -15,6 +15,7 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - **CAM web:** CAM rápido; trava de licença “soft”, livre enquanto o produto `cam` estiver inativo no servidor (H:139, H:238-241). Merges de 27/10 a 28/10 (#73).
 - **Assist (só desktop):** bibliotecas, orçamento, proposta HTML, plano 2D com travas (plano obsoleto, ferramenta nova, profundidade, peça solta, alturas Z, rpm do fuso, material obrigatório), etapas e marca de origem por operação (H:208-236, H:286-329, H:451, H:484-489). Merges de 28/10 a 02/11 (#120, #127, #129, #131).
 - **Web, Setup:** “minhas ferramentas” guardadas no navegador; desktop ainda sem isso (H:491-493). Merge em 02/11 (#132).
+- **Licenças de terceiros (05/11):** botão ⓘ no desktop abre a tela com `THIRD-PARTY-NOTICES.md`, embutido no `.exe` (Avalonia, AvaloniaEdit, SkiaSharp, HarfBuzzSharp, MicroCom, Tmds.DBus, ANGLE, .NET); o OpenCASCADE entra com a pilha do STEP (#139).
 - **Documentação (03/11):** `ESTADO.md` enxuto com histórico em `docs/historico/` (#133); `CLAUDE.md` com `git fetch` no início e roteamento por tarefa (#134).
 
 ## Em ramo, sem merge na main (git, 02/11; PRs conferidos em 04/11)
@@ -30,7 +31,7 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - Decidir/ativar: produto `cam` no Supabase (H:240); publicação do texto de termos (H:273); origem/direitos da foto da Loja (H:399); STEP real de peça para o teste de viabilidade (H:283).
 - Revisar o módulo 2 da Academy (já na main, #109) e marcar `revisado`.
 - Autorizar: CODE-14 (avisos do simulador); Handoff 21 (módulo 1 em v2); PLAT-07 (conta e licença no desktop).
-- Dizer quais condições o advogado pôs (aviso visível do OpenCASCADE; DLLs LGPL no `.exe` único ou em arquivos separados) e guardar a resposta por escrito.
+- Guardar por escrito a resposta do advogado (condições abaixo, em Licenças); abrir a tela ⓘ no .exe da prévia a 100%, 125% e 150%.
 
 ## Limites que valem hoje
 - Nada do CAM rodou em máquina real: rosca, 4º eixo, 3+2, rotativo a zero, F com rotativo no Fanuc 21i, CYCLE95/FALX no Siemens (H:95, H:101, H:151, H:177, H:471, H:474).
@@ -45,8 +46,9 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 ## Licenças (LIC-01)
 - Inventário feito em `C:\Projetos\inventario\` (fora do repositório).
 - 33 das 69 DLLs nativas do OpenCASCADE não são usadas (FFmpeg, FreeImage, OpenVR, TBB, jemalloc e 23 TK*); nenhum arquivo do repositório cita ffmpeg/FreeImage.
-- 05/11: o advogado liberou o uso das licenças, segundo o Igor; condições a confirmar.
-- Autorizados em 05/11, ainda não feitos: Handoff 18 (remover as 33 DLLs, nos ramos do STEP) e tela/arquivo de avisos de terceiros (LIC-02). Nada é publicado.
+- 05/11: o advogado liberou o uso das licenças (segundo o Igor, repassado ao Code). Condições: o aviso na tela “Licenças de terceiros” basta; as DLLs podem ficar no `.exe` único; .NET sob MIT.
+- Feito: tela e arquivo de avisos (#139, na main) e Handoff 18 (#140, em `fase-cam-step-orientacao`: 33 DLLs fora da publicação, `.exe` 75,5 → 61,7 MB; não está na main).
+- Falta: seção do OpenCASCADE/OcctNet, zlib, libpng, bzip2, brotli, FreeType e Visual C++ nos avisos (entram com o STEP); texto da licença do MicroCom e do Tmds.DBus e versão do patch do .NET (a confirmar). Nada é publicado.
 
 ## Próximos passos já registrados
 - CAM desktop, na ordem de 28/10: desbaste (feito), DXF e seleção de contornos, estudo do STEP, seleção de faces e arestas no 3D; depois o Assist (H:281-283).
