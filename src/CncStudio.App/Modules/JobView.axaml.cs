@@ -231,6 +231,13 @@ public partial class JobView : UserControl
             return;
         }
 
+        if (CamJobInfo.SaveBlockers(_job) is { Count: > 0 } blockers)
+        {
+            // o arquivo guardaria o número antigo que não aparece na tela (CAM-12): só salva com todos os campos preenchidos
+            Errors.Text = "• Não foi salvo. Preencha antes:\n" + string.Join("\n", blockers.Select(b => "• " + b));
+            return;
+        }
+
         await SaveJobFile(FileBase() + ".casillas-job", CamJobJson.ToJson(_job));
     }
 
@@ -591,9 +598,9 @@ public partial class JobView : UserControl
         MachineProfile? machine = MachineSource?.Invoke();
         Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
-        foreach (CamTool t in CamJobInfo.ToolsUsed(_job))
+        foreach (string line in CamJobInfo.ToolLines(_job))
         {
-            tools.Items.Add(Node($"T{t.Number} · Ø{t.Diameter:0.##} · {t.SpindleRpm:0} rpm"));
+            tools.Items.Add(Node(line));
         }
 
         Tree.Items.Add(tools);
