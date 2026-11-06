@@ -19,7 +19,7 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - **Documentação (03/11):** `ESTADO.md` enxuto com histórico em `docs/historico/` (#133); `CLAUDE.md` com `git fetch` no início e roteamento por tarefa (#134).
 
 ## Em ramo, sem merge na main (git, 05/11)
-- **CAM-09 seleção 3D (PR para o `dev`, 05/11):** `fase-cam3d-selecao-2` = ramo antigo + main (STEP e fluxo dev). Clique numa face a deixa laranja; faces e arestas geram furação e bolsão; virar ou girar o modelo limpa a seleção. **Limite conhecido:** em STEP, o topo plano pode sair como “Superfície livre” (junta-se às bordas arredondadas) e o botão de bolsão não liga; ajuste previsto como CAM-10, antes de o `dev` ir à `main`. O ramo antigo `fase-cam3d-selecao` fica como está. Há também `fase-cam-step-estudo` (só estudo).
+- **CAM-09 seleção 3D (PR para o `dev`, 05/11):** `fase-cam3d-selecao-2` = ramo antigo + main (STEP e fluxo dev). Clique numa face a deixa laranja; faces e arestas geram furação e bolsão; virar ou girar o modelo limpa a seleção. **Limite conhecido:** em STEP, o topo plano pode sair como “Superfície livre” (junta-se às bordas arredondadas) e o botão de bolsão não liga; ajuste previsto como CAM-11, antes de o `dev` ir à `main`. O ramo antigo `fase-cam3d-selecao` fica como está. Há também `fase-cam-step-estudo` (só estudo).
 - Ramos do STEP já mesclados (`fase-cam-step-malha`, `-correcao`, `-orientacao`, `ajuste-step-enxugar-dlls`, `ajuste-step-solidos`, `fase-cam-step-integracao`): podem ser apagados com cópia de segurança.
 - `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02`, além de ramos antigos de 22/10.
 - PRs abertos: o do CAM-09 para o `dev`.
