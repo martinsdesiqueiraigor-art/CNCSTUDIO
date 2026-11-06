@@ -231,6 +231,13 @@ public partial class JobView : UserControl
             return;
         }
 
+        if (CamJobInfo.SaveBlockers(_job) is { Count: > 0 } blockers)
+        {
+            // o arquivo guardaria o número antigo que não aparece na tela (CAM-12): só salva com todos os campos preenchidos
+            Errors.Text = "• Não foi salvo. Preencha antes:\n" + string.Join("\n", blockers.Select(b => "• " + b));
+            return;
+        }
+
         await SaveJobFile(FileBase() + ".casillas-job", CamJobJson.ToJson(_job));
     }
 

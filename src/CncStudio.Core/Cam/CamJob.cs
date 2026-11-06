@@ -99,6 +99,13 @@ public sealed record CamOperationSpec(JobOpKind Kind, CamTool Tool, CamLevels Le
 
     /// <summary>De onde vieram os valores (só o Assist marca); null = sem marca. Campo opcional do arquivo.</summary>
     public OpOrigin? Origin { get; init; }
+
+    /// <summary>
+    /// Campos numéricos que o usuário deixou vazios ou com valor inválido (nome como aparece na tela). Enquanto houver um que a
+    /// operação usa, ela fica Incompleta e não gera (<see cref="CamJobInfo.MissingError"/>): o número antigo guardado não vale.
+    /// Não vai para o arquivo; o Salvar fica bloqueado enquanto houver (<see cref="CamJobInfo.SaveBlockers"/>).
+    /// </summary>
+    public IReadOnlyList<string> MissingFields { get; init; } = [];
 }
 
 /// <summary>
@@ -289,6 +296,12 @@ public static class CamJobBuilder
 
     private static OperationResult BuildOne(CamJob job, CamOperationSpec s, MachineProfile? machine)
     {
+        if (CamJobInfo.MissingError(s) is { } missing)
+        {
+            // campo vazio ou inválido: não gera com o número antigo (regra "nada suposto")
+            return new OperationResult(null, missing);
+        }
+
         if (s.Tool.Validate() is { } toolError)
         {
             return new OperationResult(null, toolError);
