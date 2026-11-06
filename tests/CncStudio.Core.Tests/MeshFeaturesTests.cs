@@ -180,6 +180,70 @@ public class MeshFeaturesTests
         Assert.DoesNotContain(r.Operation.Moves, m => m.Z < 5 - 1e-6);
     }
 
+    // ---- CAM-11: topo plano com bordas arredondadas (como chega do STEP)
+
+    /// <summary>
+    /// Bloco 40×30×10 com as duas bordas longas do topo arredondadas (raio 3, <paramref name="steps"/> facetas):
+    /// perfil em XZ puxado em Y. Topo plano de X=3 a 37, em Z=10; normais para fora.
+    /// </summary>
+    private static TriangleMesh FilletBlock(int steps = 8)
+    {
+        var profile = new List<(double X, double Z)> { (0, 0), (40, 0), (40, 7) };
+        for (int i = 1; i <= steps; i++)
+        {
+            double a = Math.PI / 2 * i / steps;
+            profile.Add((37 + (3 * Math.Cos(a)), 7 + (3 * Math.Sin(a))));
+        }
+
+        for (int i = 0; i <= steps; i++)
+        {
+            double a = (Math.PI / 2) + (Math.PI / 2 * i / steps);
+            profile.Add((3 + (3 * Math.Cos(a)), 7 + (3 * Math.Sin(a))));
+        }
+
+        var t = new List<(Point3, Point3, Point3)>();
+        double gx = profile.Average(p => p.X), gz = profile.Average(p => p.Z);
+        for (int i = 0; i < profile.Count; i++)
+        {
+            (double ax, double az) = profile[i];
+            (double bx, double bz) = profile[(i + 1) % profile.Count];
+            Quad(t, P(ax, 0, az), P(ax, 30, az), P(bx, 30, bz), P(bx, 0, bz)); // lado
+            t.Add((P(gx, 0, gz), P(ax, 0, az), P(bx, 0, bz)));    // tampa Y=0 (normal -Y)
+            t.Add((P(gx, 30, gz), P(bx, 30, bz), P(ax, 30, az))); // tampa Y=30 (normal +Y)
+        }
+
+        return new TriangleMesh(t);
+    }
+
+    [Fact]
+    public void Topo_plano_com_filete_continua_plano_e_o_bolsao_liga()
+    {
+        MeshFeatures f = MeshFeatures.Analyze(FilletBlock());
+        MeshFace top = Assert.Single(f.Faces, x => x.Kind == FaceKind.Plane && x.Normal.Z >= 0.99 && Math.Abs(x.Center.Z - 10) < 1e-6);
+        Assert.Equal(34 * 30, top.Area, 6);
+        Assert.Single(f.BoundaryLoops(top));
+        Assert.DoesNotContain(f.Faces, x => x.Kind == FaceKind.Free);
+
+        // os dois filetes saem como arredondamento (convexo, raio 3), não somem no plano
+        Assert.Equal(2, f.Faces.Count(x => x.Kind == FaceKind.ConvexCurve && Math.Abs(x.Diameter - 6) < 0.01));
+
+        // mesma condição do botão "Gerar bolsão" na seleção 3D
+        Assert.True(top is { Kind: FaceKind.Plane, Normal.Z: >= 0.99 });
+        OperationResult r = FacePocket.Build(f, top, new CamTool(1, 6, 8000, 800, 300, "Topo"), new ModelZ(35, 15), 9, 10, 1, new PocketParams());
+        Assert.True(r.Ok, r.Error);
+        Assert.Contains(r.Operation!.Moves, m => Math.Abs(m.Z - 9) < 1e-6);
+    }
+
+    [Fact]
+    public void Cilindro_facetado_nao_vira_varios_planos()
+    {
+        // arruela com 16 facetas: cada faixa da parede é plana, mas nenhuma é plano "de verdade"
+        MeshFeatures f = MeshFeatures.Analyze(Washer(16));
+        Assert.Equal(2, f.Faces.Count(x => x.Kind == FaceKind.Plane));
+        Assert.Single(f.Faces, x => x.Kind == FaceKind.Hole);
+        Assert.Single(f.Faces, x => x.Kind == FaceKind.Boss);
+    }
+
     // ---- R-05: alturas Z e fundo informados pelo usuário nas operações 3D
 
     private static readonly CamTool Drill6 = new(1, 6, 2500, 600, 150, "Broca 6");
