@@ -17,7 +17,7 @@ namespace CncStudio.App.Modules;
 /// CAM 3D, parte 1: abre um modelo STL, confere medidas e malha e mostra no 3D (a mesma vista
 /// da simulação). Gera varredura de acabamento e desbaste por níveis.
 /// </summary>
-public sealed class ModelView : Grid
+public sealed partial class ModelView : Grid
 {
     private static readonly CultureInfo Pt = CultureInfo.GetCultureInfo("pt-BR");
     private static readonly (string Name, double Factor)[] Units =
@@ -181,6 +181,7 @@ public sealed class ModelView : Grid
             Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12,
         });
         panel.Children.Add(_zInfo);
+        panel.Children.Add(_originInfo);
         AddField(panel, "DZ", "Furação: Z do fundo do furo (ponta da broca)", "");
         AddField(panel, "PZB", "Bolsão: Z do fundo do bolsão", "");
         AddField(panel, "DD", "Broca (mm)", "6");
@@ -218,6 +219,7 @@ public sealed class ModelView : Grid
         var view = new Grid { Margin = new Thickness(12) };
         view.Children.Add(_gl);
         view.Children.Add(_hint);
+        view.Children.Add(_menuLayer);
         var frame = new Border { Margin = new Thickness(12, 12, 12, 8), CornerRadius = new CornerRadius(8), ClipToBounds = true, Background = new SolidColorBrush(Color.Parse("#0B1216")), Child = view };
 
         // Barra de pendências: as mesmas regras da fresa e do torno; tocar num item leva ao campo
@@ -625,6 +627,8 @@ public sealed class ModelView : Grid
         _features = null;
         _selFaces.Clear();
         _selEdges.Clear();
+        CloseFaceMenu();
+        _originInfo.IsVisible = false;
         _drillButton.IsEnabled = false;
         _pocketButton.IsEnabled = false;
         _sel.Text = "Lendo faces e arestas…";
@@ -670,6 +674,20 @@ public sealed class ModelView : Grid
         }
 
         PublishSelection(features, _current);
+
+        // Menu da face (UX-03b): abre para o que acabou de ser escolhido; desmarcar fecha
+        if (face is not null && _selFaces.Contains(face.Id))
+        {
+            ShowFaceMenu(FaceMenuRules.For(features, face, _current.Bounds.Max.Z), e.Screen, face.Id);
+        }
+        else if (edge is not null && _selEdges.Contains(edge.Id))
+        {
+            ShowFaceMenu(FaceMenuRules.For(edge), e.Screen, null);
+        }
+        else
+        {
+            CloseFaceMenu();
+        }
     }
 
     private IEnumerable<MeshFace> SelectedHoles(MeshFeatures features) =>
@@ -710,6 +728,11 @@ public sealed class ModelView : Grid
         UpdateZReference(features, mesh);
         _drillButton.IsEnabled = SelectedHoles(features).Any();
         _pocketButton.IsEnabled = _selFaces.Count == 1 && features.Faces[_selFaces.First()] is { Kind: FaceKind.Plane, Normal.Z: >= 0.99 };
+        if (_originFace is { } of && !_selFaces.Contains(of))
+        {
+            _originFace = null;
+            _originInfo.IsVisible = false; // a face de origem saiu da seleção
+        }
     }
 
     /// <summary>Referências da malha (só dicas cinza nos campos; nenhum valor é preenchido).</summary>

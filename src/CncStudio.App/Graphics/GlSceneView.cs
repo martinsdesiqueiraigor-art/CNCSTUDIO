@@ -610,7 +610,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         {
             Point at = e.GetPosition(this);
             (Point3 origin, Point3 direction, double tolerance) = RayAt(at.X, at.Y);
-            SceneClicked?.Invoke(this, new SceneClickEventArgs(origin, direction, tolerance, e.KeyModifiers.HasFlag(KeyModifiers.Control)));
+            SceneClicked?.Invoke(this, new SceneClickEventArgs(origin, direction, tolerance, e.KeyModifiers.HasFlag(KeyModifiers.Control), at));
         }
     }
 
@@ -638,9 +638,12 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
     }
 }
 
-/// <summary>Clique na tela 3D: raio (origem e direção unitária), tolerância angular e se Ctrl estava apertado.</summary>
-public sealed class SceneClickEventArgs(Point3 origin, Point3 direction, double tolerance, bool additive) : EventArgs
+/// <summary>Clique na tela 3D: raio (origem e direção unitária), tolerância angular, se Ctrl estava apertado e o ponto na vista.</summary>
+public sealed class SceneClickEventArgs(Point3 origin, Point3 direction, double tolerance, bool additive, Point screen = default) : EventArgs
 {
+    /// <summary>Ponto do clique em coordenadas da vista 3D (para abrir o menu da face perto dele).</summary>
+    public Point Screen { get; } = screen;
+
     public Point3 Origin { get; } = origin;
 
     public Point3 Direction { get; } = direction;
