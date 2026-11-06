@@ -1,6 +1,6 @@
 # Estado atual
 
-Atualizado em 05/11/2026 · base: `origin/main` em `5add2ce` (merge do PR #143, STEP).
+Atualizado em 06/11/2026 (CAM-11) · base: `origin/main` em `5add2ce` (merge do PR #143, STEP).
 Histórico completo em docs/historico/. Ler só se a tarefa pedir.
 Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:linha) e `git log`.
 
@@ -19,7 +19,8 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - **Documentação (03/11):** `ESTADO.md` enxuto com histórico em `docs/historico/` (#133); `CLAUDE.md` com `git fetch` no início e roteamento por tarefa (#134).
 
 ## Em ramo, sem merge na main (git, 05/11)
-- **CAM-09 seleção 3D (PR para o `dev`, 05/11):** `fase-cam3d-selecao-2` = ramo antigo + main (STEP e fluxo dev). Clique numa face a deixa laranja; faces e arestas geram furação e bolsão; virar ou girar o modelo limpa a seleção. **Limite conhecido:** em STEP, o topo plano pode sair como “Superfície livre” (junta-se às bordas arredondadas) e o botão de bolsão não liga; ajuste previsto como CAM-11, antes de o `dev` ir à `main`. O ramo antigo `fase-cam3d-selecao` fica como está. Há também `fase-cam-step-estudo` (só estudo).
+- **CAM-09 seleção 3D (PR para o `dev`, 05/11):** `fase-cam3d-selecao-2` = ramo antigo + main (STEP e fluxo dev). Clique numa face a deixa laranja; faces e arestas geram furação e bolsão; virar ou girar o modelo limpa a seleção. Limite do topo plano em STEP tratado no CAM-11 (abaixo). O ramo antigo `fase-cam3d-selecao` fica como está. Há também `fase-cam-step-estudo` (só estudo).
+- **CAM-11 topo plano (PR rascunho para o `dev`, 06/11):** `ajuste-cam11-topo-plano`. Causa: o agrupador de faces (`MeshFeatures.Analyze`) espalha por dobras < 30°, então o topo e as facetas do filete viravam uma região só, “Superfície livre”. Agora a região livre é partida em peças planas; a peça bem mais larga que as vizinhas sai como plano e o filete volta a ser arredondamento. Furos e arestas iguais em 5 arquivos NIST (ctc_01, ctc_02, ctc_04, ftc_06, ftc_08). Não conferido no .exe.
 - Ramos do STEP já mesclados (`fase-cam-step-malha`, `-correcao`, `-orientacao`, `ajuste-step-enxugar-dlls`, `ajuste-step-solidos`, `fase-cam-step-integracao`): podem ser apagados com cópia de segurança.
 - `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02`, além de ramos antigos de 22/10.
 - PRs abertos: o do CAM-09 para o `dev`.

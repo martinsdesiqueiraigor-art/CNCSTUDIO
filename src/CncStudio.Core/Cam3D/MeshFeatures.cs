@@ -181,7 +181,23 @@ public sealed class MeshFeatures
                 }
             }
 
-            faces.Add(BuildFace(faces.Count, members, tri, points, normal, area));
+            MeshFace face = BuildFace(faces.Count, members, tri, points, normal, area);
+            List<List<int>>? parts = face.Kind == FaceKind.Free ? SplitPlanes(members, tri, points, normal, edgeTris, cosCrease) : null;
+            if (parts is null)
+            {
+                faces.Add(face);
+                continue;
+            }
+
+            foreach (List<int> part in parts)
+            {
+                foreach (int t in part)
+                {
+                    faceOf[t] = faces.Count;
+                }
+
+                faces.Add(BuildFace(faces.Count, part, tri, points, normal, area));
+            }
         }
 
         List<MeshEdge> edges = BuildEdges(edgeTris, points, normal, cosCrease);
@@ -469,6 +485,178 @@ public sealed class MeshFeatures
             ? (concave ? FaceKind.Hole : FaceKind.Boss)
             : (concave ? FaceKind.ConcaveCurve : FaceKind.ConvexCurve);
         return new MeshFace(id, kind, members, total, avg, axisCenter, box, radius * 2, axis, tMax - tMin);
+    }
+
+    /// <summary>Normal igual à do primeiro triângulo da peça plana (sem deriva: compara sempre com a semente).</summary>
+    private static readonly double CosFlat = Math.Cos(1 * Math.PI / 180);
+
+    /// <summary>Um plano de verdade é bem mais largo que as faixas vizinhas (as facetas do filete).</summary>
+    private const double PlaneWidthRatio = 4;
+
+    /// <summary>
+    /// CAM-11. Uma região "livre" pode ser um plano emendado a um filete (a dobra entre o plano e a primeira
+    /// faceta do filete é pequena, então o espalhamento passa). Aqui a região é partida em peças planas; a
+    /// peça bem mais larga que todas as vizinhas é um plano de verdade e sai sozinha. O resto (as facetas)
+    /// volta a ser agrupado por vizinhança, sem atravessar os planos. Um cilindro facetado tem faixas de
+    /// largura parecida e não é partido. Devolve null se não há plano a separar.
+    /// </summary>
+    private static List<List<int>>? SplitPlanes(List<int> members, int[][] tri, List<Point3> points, Point3[] normal, Dictionary<(int, int), List<int>> edgeTris, double cosCrease)
+    {
+        var inRegion = new HashSet<int>(members);
+
+        // vizinhos dentro da região, pelo mesmo critério do espalhamento
+        List<int> Neighbors(int t)
+        {
+            var result = new List<int>(3);
+            for (int k = 0; k < 3; k++)
+            {
+                int p = tri[t][k], q = tri[t][(k + 1) % 3];
+                if (p == q || !edgeTris.TryGetValue(p < q ? (p, q) : (q, p), out List<int>? list) || list.Count != 2)
+                {
+                    continue;
+                }
+
+                int other = list[0] == t ? list[1] : list[0];
+                if (inRegion.Contains(other) && Dot(normal[t], normal[other]) >= cosCrease)
+                {
+                    result.Add(other);
+                }
+            }
+
+            return result;
+        }
+
+        // peças planas
+        var piece = new Dictionary<int, int>();
+        var pieces = new List<List<int>>();
+        foreach (int seed in members)
+        {
+            if (piece.ContainsKey(seed))
+            {
+                continue;
+            }
+
+            var list = new List<int>();
+            var stack = new Stack<int>();
+            stack.Push(seed);
+            piece[seed] = pieces.Count;
+            while (stack.Count > 0)
+            {
+                int t = stack.Pop();
+                list.Add(t);
+                foreach (int o in Neighbors(t))
+                {
+                    if (!piece.ContainsKey(o) && Dot(normal[seed], normal[o]) >= CosFlat)
+                    {
+                        piece[o] = pieces.Count;
+                        stack.Push(o);
+                    }
+                }
+            }
+
+            pieces.Add(list);
+        }
+
+        if (pieces.Count < 2)
+        {
+            return null;
+        }
+
+        double[] width = [.. pieces.Select(p => PieceWidth(p, tri, points, normal[p[0]]))];
+        var adjacent = new HashSet<int>[pieces.Count];
+        for (int i = 0; i < pieces.Count; i++)
+        {
+            adjacent[i] = [];
+            foreach (int t in pieces[i])
+            {
+                foreach (int o in Neighbors(t))
+                {
+                    if (piece[o] != i)
+                    {
+                        adjacent[i].Add(piece[o]);
+                    }
+                }
+            }
+        }
+
+        var isPlane = new bool[pieces.Count];
+        for (int i = 0; i < pieces.Count; i++)
+        {
+            isPlane[i] = width[i] > 1e-9 && adjacent[i].Count > 0 && adjacent[i].All(j => width[i] >= PlaneWidthRatio * width[j]);
+        }
+
+        if (!isPlane.Any(x => x))
+        {
+            return null;
+        }
+
+        var parts = new List<List<int>>();
+        for (int i = 0; i < pieces.Count; i++)
+        {
+            if (isPlane[i])
+            {
+                parts.Add(pieces[i]);
+            }
+        }
+
+        // o resto: agrupa de novo por vizinhança, sem passar pelos planos
+        var done = new HashSet<int>();
+        foreach (int seed in members)
+        {
+            if (isPlane[piece[seed]] || !done.Add(seed))
+            {
+                continue;
+            }
+
+            var list = new List<int>();
+            var stack = new Stack<int>();
+            stack.Push(seed);
+            while (stack.Count > 0)
+            {
+                int t = stack.Pop();
+                list.Add(t);
+                foreach (int o in Neighbors(t))
+                {
+                    if (!isPlane[piece[o]] && done.Add(o))
+                    {
+                        stack.Push(o);
+                    }
+                }
+            }
+
+            parts.Add(list);
+        }
+
+        return parts;
+    }
+
+    /// <summary>Largura de uma peça plana: extensão dos vértices na direção mais curta do plano.</summary>
+    private static double PieceWidth(List<int> piece, int[][] tri, List<Point3> points, Point3 n)
+    {
+        (Point3 u, Point3 v) = Basis(n);
+        var verts = new HashSet<int>(piece.SelectMany(t => tri[t]));
+        var uv = verts.Select(i => (points[i].Dot(u), points[i].Dot(v))).ToList();
+        double mu = uv.Average(p => p.Item1), mv = uv.Average(p => p.Item2);
+        double suu = 0, suv = 0, svv = 0;
+        foreach ((double a, double b) in uv)
+        {
+            suu += (a - mu) * (a - mu);
+            suv += (a - mu) * (b - mv);
+            svv += (b - mv) * (b - mv);
+        }
+
+        // direção do menor autovalor da covariância 2×2
+        double angle = 0.5 * Math.Atan2(2 * suv, suu - svv) + (Math.PI / 2);
+        double dx = Math.Cos(angle), dy = Math.Sin(angle);
+        double min = double.MaxValue, max = double.MinValue;
+        foreach ((double a, double b) in uv)
+        {
+            double s = (a * dx) + (b * dy);
+            min = Math.Min(min, s);
+            max = Math.Max(max, s);
+        }
+
+        return max - min;
     }
 
     // ---------------------------------------------------------------- arestas
