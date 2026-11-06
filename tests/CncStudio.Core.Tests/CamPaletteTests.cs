@@ -53,8 +53,8 @@ public class CamPaletteTests
         var job = new CamJob();
         job.Contours.Add(new Contour([Segment2.Line(new Point2(0, 0), new Point2(50, 0)), Segment2.Line(new Point2(50, 0), new Point2(50, 30))]));
         Assert.False(job.Contours[0].IsClosed);
-        Assert.Contains("não está fechado", CamPalette.Unavailable(Item("bolsao"), job, 0));
-        Assert.Contains("não está fechado", CamPalette.Unavailable(Item("contorno-linha"), job, 0));
+        Assert.Contains("Contorno 1 aberto", CamPalette.Unavailable(Item("bolsao"), job, 0));
+        Assert.Contains("Feche a cadeia no DXF", CamPalette.Unavailable(Item("contorno-linha"), job, 0));
         Assert.Null(CamPalette.Unavailable(Item("faceamento"), job, 0));
     }
 
@@ -79,5 +79,27 @@ public class CamPaletteTests
         Assert.Equal(-1, CamPalette.NewOperation(Item("furacao"), 1)!.ContourIndex);
         Assert.Equal("contorno-dentro", CamPalette.ItemFor(s!)!.Id);
         Assert.Equal("bolsao", CamPalette.ItemFor(CamJobInfo.NewOperation(JobOpKind.Pocket, ContourSide.Outside, 0))!.Id);
+    }
+
+    [Fact]
+    public void Dica_diferencia_sem_desenho_de_dxf_so_com_contorno_aberto()
+    {
+        // DXF só com linha aberta: a cadeia fica fora da Peça (0 contornos), mas a dica não pode mandar "abrir um DXF"
+        var job = new CamJob();
+        DxfImportResult r = DxfImporter.ParseInMillimeters(string.Join('\n', "0", "SECTION", "2", "ENTITIES", "0", "LWPOLYLINE", "8", "0", "90", "4", "70", "0", "10", "0", "20", "0", "10", "50", "20", "0", "10", "50", "20", "50", "10", "0", "20", "50", "0", "ENDSEC", "0", "EOF", ""));
+        Assert.Empty(r.Contours);
+        Assert.Single(r.OpenChains);
+        job.Contours.AddRange(r.Contours);
+        int target = CamPalette.TargetContour(job, null, null);
+        foreach (string id in new[] { "faceamento", "contorno-fora", "contorno-dentro", "contorno-linha", "bolsao" })
+        {
+            string why = CamPalette.Unavailable(Item(id), job, target, r.OpenChains.Count)!;
+            Assert.StartsWith("Contorno aberto", why);
+            Assert.DoesNotContain("Abra um DXF", why);
+        }
+
+        Assert.StartsWith("Abra um DXF", CamPalette.Unavailable(Item("bolsao"), job, target));
+        Assert.Contains("círculo", CamPalette.Unavailable(Item("furacao"), job, target, r.OpenChains.Count));
+        Assert.Null(CamPalette.Unavailable(Item("texto-cilindro"), job, target, r.OpenChains.Count));
     }
 }

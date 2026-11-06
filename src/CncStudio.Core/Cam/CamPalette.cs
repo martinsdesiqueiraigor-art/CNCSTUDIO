@@ -60,8 +60,9 @@ public static class CamPalette
     /// <summary>
     /// Por que o botão não serve à seleção atual (null = serve). Mesmas condições em que a operação daria erro ao gerar:
     /// contorno e bolsão pedem contorno fechado; faceamento pede um contorno; furação pede círculo no desenho.
+    /// <paramref name="openChains"/> = cadeias abertas que o DXF trouxe e ficaram fora da Peça: a dica diz isso, não "abra um DXF".
     /// </summary>
-    public static string? Unavailable(CamPaletteItem item, CamJob job, int targetContour)
+    public static string? Unavailable(CamPaletteItem item, CamJob job, int targetContour, int openChains = 0)
     {
         if (item.Kind is not { } kind)
         {
@@ -78,11 +79,13 @@ public static class CamPalette
 
         if (targetContour < 0 || targetContour >= job.Contours.Count)
         {
-            return "Abra um DXF, um trabalho com desenho ou desenhe uma forma (item Peça) primeiro.";
+            return openChains > 0
+                ? $"Contorno aberto: o DXF só tem {openChains} cadeia(s) aberta(s) (as pontas não se encontram). Feche a cadeia no CAD e abra o DXF de novo."
+                : "Abra um DXF, um trabalho com desenho ou desenhe uma forma (item Peça) primeiro.";
         }
 
         return kind is JobOpKind.Contour or JobOpKind.Pocket && !job.Contours[targetContour].IsClosed
-            ? $"O contorno {targetContour + 1} não está fechado."
+            ? $"Contorno {targetContour + 1} aberto: as pontas não se encontram. Feche a cadeia no DXF."
             : null;
     }
 

@@ -38,7 +38,7 @@
             <Button Grid.Column="3" x:Name="RemoveButton" Content="Remover" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
             <Button Grid.Column="4" x:Name="UndoButton" Content="Desfazer" Padding="2,4" FontSize="12" IsEnabled="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
           </Grid>
-          <ScrollViewer MaxHeight="40" HorizontalScrollBarVisibility="Disabled">
+          <ScrollViewer MaxHeight="64" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False">
             <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="#FF9A83" FontSize="12" />
           </ScrollViewer>
         </StackPanel>

@@ -16,6 +16,9 @@ namespace CncStudio.App.Modules;
 public partial class JobView : UserControl
 {
     private readonly CamJob _job = new() { Name = "TRABALHO" };
+
+    /// <summary>Cadeias abertas do último DXF (ficam fora da Peça); só para a dica dos botões apagados.</summary>
+    private int _openChains;
     private JobBuild _build = new("", [], [], [], []);
 
     /// <summary>Perfil da máquina com que <see cref="_build"/> foi feito (o Trabalho refaz a cada mudança dele mesmo, não do perfil).</summary>
@@ -176,6 +179,7 @@ public partial class JobView : UserControl
 
         _job.Contours.Clear();
         _job.Contours.AddRange(r.Contours);
+        _openChains = r.OpenChains.Count;
         _job.Name = Path.GetFileNameWithoutExtension(file.Name).ToUpperInvariant();
         Refresh();
         if (r.Warnings.Count > 0)
@@ -208,6 +212,7 @@ public partial class JobView : UserControl
         _job.Fixture = j.Fixture;
         _job.Contours.Clear();
         _job.Contours.AddRange(j.Contours);
+        _openChains = 0;
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
@@ -287,7 +292,7 @@ public partial class JobView : UserControl
         int target = PaletteTarget();
         foreach ((CamPaletteItem item, Button button) in _paletteButtons)
         {
-            string? why = CamPalette.Unavailable(item, _job, target);
+            string? why = CamPalette.Unavailable(item, _job, target, _openChains);
             button.IsEnabled = why is null;
             ToolTip.SetTip(button, why is null ? item.Hint : $"{item.Hint}\nAgora não: {why}");
         }
@@ -297,7 +302,7 @@ public partial class JobView : UserControl
     {
         Errors.Text = "";
         int contour = PaletteTarget();
-        if (CamPalette.Unavailable(item, _job, contour) is { } why)
+        if (CamPalette.Unavailable(item, _job, contour, _openChains) is { } why)
         {
             Errors.Text = "• " + why;
             return;
