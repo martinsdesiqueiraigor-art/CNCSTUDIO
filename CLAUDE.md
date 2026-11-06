@@ -6,8 +6,8 @@ Lido no início de cada sessão. Curto de propósito: detalhe vai em `docs/`, n�
 - Editor e simulador CNC (Fanuc e Siemens, fresa e torno), estilo CIMCO Edit. Nome interno: `CncStudio`.
 - Dono: Igor Martins (vende como MEI). Respostas **em português, curtas** (ele lê no celular).
 - Plataforma **Casillas CNC**: Code (este repositório), CAM, Macro (geradores de programa com prévia 3D), Academy, Biblioteca CNC e Ferramentas (a calculadora Casillas). Referência: MacroMill CNC.
-- Plano mestre, missões, regras e modelo de handoff ficam no repositório **privado** `martinsdesiqueiraigor-art/casillas-plataforma` (cópias no Projeto "Casillas CNC — Plataforma" do claude.ai). Preços e estratégia nunca neste repositório (é público). No fim de cada tarefa, atualizar `missoes.md` de lá e o Painel Casillas CNC.
-- Ordem das fases: Fundação ✅ → Simulação ✅ (ajustes pendentes) → Macro e geradores → Academy piloto → CAM 2,5D → Avançado.
+- Plano mestre, missões, regras e modelo de handoff ficam no repositório **privado** `martinsdesiqueiraigor-art/casillas-plataforma` (cópias no Projeto "Casillas CNC — Plataforma" do claude.ai). Preços e estratégia nunca neste repositório (é público). O Projeto no claude.ai é a fonte de verdade; o repositório privado é cópia de segurança. O Code NÃO edita o `missoes.md` nem o Painel: ao terminar, entrega a Volta (formato em `docs/tarefas/MODELO.md`) ao Igor, e o Claude da nuvem atualiza.
+- Ordem das fases: Fundação → Simulação → Macro e geradores → Academy piloto → CAM 2,5D → Avançado. O status de cada etapa fica no `missoes.md` (Projeto no claude.ai); o estado técnico do código, em `docs/ESTADO.md`. Não repetir status aqui.
 
 ## Código
 | Pasta | O que é |
@@ -38,6 +38,7 @@ Desktop sem placa de vídeo (testes): `CASILLAS_SOFTWARE_GL=1 xvfb-run ...`.
 - **Nunca**: push/merge/rebase no `main`, `--force`, publicar web oficial ou instalador, mexer em Supabase, painel de ativação, termos ou página de vendas, apagar backup (`origin` local) ou `preview/`, commitar `bin/ obj/ publish/ preview/ screenshots/ .env` ou credenciais, adicionar NuGet ao Core.
 - Trabalhar num ramo (`fase-N-...`, `ajuste-...`). **Fluxo:** ramo de tarefa → PR para o `dev` → o Igor testa no `dev` → o `dev` entra na `main` por PR do Igor. O `dev` recebe só PR, nunca trabalho direto.
 - A `main` tem regra no GitHub (`proteger-main`): sem exclusão, sem force push, exige `build` e `testes` verdes. Ela publica o site; o merge é do dono, por PR.
+- Nunca rodar `git remote update --prune` no espelho `C:\Projetos\backup\CNCSTUDIO.git`, nem `git worktree prune` por causa do aviso "prunable" (as pastas de trabalho existem; o aviso é falso).
 
 ## Como trabalhamos (economia)
 1. **Uma conversa por tarefa ou parada.** Ao começar: `git fetch origin` e conferir o commit (`git log -1 origin/main`); se a mensagem de abertura trouxer um commit esperado e ele diferir, avisar o Igor antes de trabalhar. Ler este arquivo e o bloco "Estado atual" de `docs/ESTADO.md` (o histórico em `docs/historico/` só se a tarefa pedir). Não pedir resumo de conversas antigas. Trocar de ramo só com ordem do Igor.
