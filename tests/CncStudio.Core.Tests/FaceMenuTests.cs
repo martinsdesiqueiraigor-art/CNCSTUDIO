@@ -17,13 +17,15 @@ public class FaceMenuTests
 
     private static string? Why(FaceMenu m, string id) => m.All.Single(i => i.Item.Id == id).Unavailable;
 
+    private static string[] Short(FaceMenu m) => [.. m.Short.Select(i => i.Item.Id)];
+
     [Fact]
     public void Fundo_de_bolsao_com_um_contorno_oferece_so_bolsao()
     {
         FaceMenu m = FaceMenuRules.For(Face(FaceKind.Plane, Up, 12), 1, Top);
         Assert.Equal("Face plana · Z = 12,0 mm", m.Header);
         Assert.Equal(["bolsao"], Fits(m));
-        Assert.Contains("Faceamento a partir do 3D ainda não existe", Why(m, "faceamento"));
+        Assert.Contains("Faceamento ainda não existe a partir do 3D", Why(m, "faceamento"));
     }
 
     [Fact]
@@ -41,7 +43,7 @@ public class FaceMenuTests
         Assert.Equal("Face plana de topo · Z = 30,0 mm", m.Header);
         Assert.Empty(m.Fits);
         Assert.Contains("topo do modelo", Why(m, "bolsao"));
-        Assert.StartsWith("Faceamento a partir do 3D ainda não existe", Why(m, "faceamento"));
+        Assert.StartsWith("Faceamento ainda não existe a partir do 3D", Why(m, "faceamento"));
     }
 
     [Fact]
@@ -123,5 +125,66 @@ public class FaceMenuTests
         FaceMenu sideMenu = FaceMenuRules.For(features, side, mesh.Bounds.Max.Z);
         Assert.Equal("Face plana vertical", sideMenu.Header);
         Assert.Empty(sideMenu.Fits);
+    }
+
+    [Fact]
+    public void Topo_plano_menu_curto_mostra_faceamento_e_bolsao_apagados_com_motivo()
+    {
+        FaceMenu m = FaceMenuRules.For(Face(FaceKind.Plane, Up, Top), 1, Top);
+        Assert.Equal(["faceamento", "bolsao"], Short(m));
+        Assert.All(m.Short, i => Assert.False(i.Fits));
+        Assert.Equal("Faceamento ainda não existe a partir do 3D: use o Faceamento do Trabalho fresa.", Why(m, "faceamento"));
+    }
+
+    [Fact]
+    public void Fundo_com_ilhas_menu_curto_mostra_bolsao_apagado()
+    {
+        FaceMenu m = FaceMenuRules.For(Face(FaceKind.Plane, Up, 12), 3, Top);
+        Assert.Equal(["faceamento", "bolsao"], Short(m));
+        Assert.Equal("Bolsão com ilhas ainda não sai do 3D.", m.Short.Single(i => i.Item.Id == "bolsao").Unavailable);
+    }
+
+    [Fact]
+    public void Fundo_com_um_contorno_menu_curto_tem_bolsao_habilitado_e_faceamento_apagado()
+    {
+        FaceMenu m = FaceMenuRules.For(Face(FaceKind.Plane, Up, 12), 1, Top);
+        Assert.Equal(["faceamento", "bolsao"], Short(m));
+        Assert.True(m.Short.Single(i => i.Item.Id == "bolsao").Fits);
+        Assert.False(m.Short.Single(i => i.Item.Id == "faceamento").Fits);
+    }
+
+    [Fact]
+    public void Furo_vertical_menu_curto_so_furacao()
+    {
+        FaceMenu m = FaceMenuRules.For(Face(FaceKind.Hole, Up, 30, 8, new Point3(0, 0, -1)), 0, Top);
+        Assert.Equal(["furacao"], Short(m));
+    }
+
+    [Theory]
+    [InlineData(FaceKind.Hole)]
+    [InlineData(FaceKind.Boss)]
+    [InlineData(FaceKind.ConcaveCurve)]
+    [InlineData(FaceKind.ConvexCurve)]
+    [InlineData(FaceKind.Free)]
+    public void Selecao_sem_relacao_menu_curto_vazio(FaceKind kind)
+    {
+        MeshFace f = Face(kind, new Point3(1, 0, 0), 15, 6, kind == FaceKind.Hole ? new Point3(1, 0, 0) : null);
+        Assert.Empty(FaceMenuRules.For(f, 0, Top).Short);
+    }
+
+    [Fact]
+    public void Faces_planas_vertical_e_para_baixo_menu_curto_vazio()
+    {
+        Assert.Empty(FaceMenuRules.For(Face(FaceKind.Plane, new Point3(1, 0, 0), 15), 1, Top).Short);
+        Assert.Empty(FaceMenuRules.For(Face(FaceKind.Plane, new Point3(0, 0, -1), 15), 1, Top).Short);
+    }
+
+    [Theory]
+    [InlineData(EdgeKind.Line)]
+    [InlineData(EdgeKind.Circle)]
+    public void Aresta_menu_curto_vazio(EdgeKind kind)
+    {
+        var e = new MeshEdge(1, kind, [new Point3(0, 0, 0), new Point3(10, 0, 0)], kind == EdgeKind.Circle, 10, new Point3(5, 0, 0), 4);
+        Assert.Empty(FaceMenuRules.For(e).Short);
     }
 }

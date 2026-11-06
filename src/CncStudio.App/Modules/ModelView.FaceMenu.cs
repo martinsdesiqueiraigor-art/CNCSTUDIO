@@ -11,9 +11,11 @@ namespace CncStudio.App.Modules;
 
 /// <summary>
 /// Menu da face (UX-03b): ao escolher uma face ou aresta na vista 3D, abre perto do clique um menu com o tipo e a cota,
-/// só as operações que servem e "Ver todas as operações…" (as que não servem, apagadas, com o motivo). A regra vem do
+/// as operações que servem e as do tipo da seleção que estão apagadas (com o motivo), e "Ver todas as operações…"
+/// (o catálogo inteiro). A regra vem do
 /// Core (<see cref="FaceMenuRules"/>). A operação continua na aba Modelo 3D (não entra na árvore do Trabalho) e nada é
-/// preenchido: o menu leva ao campo do fundo, que o usuário digita. Teclado: setas, Enter e Esc.
+/// preenchido: o menu leva ao campo do fundo, que o usuário digita. Teclado: setas, Enter e Esc (Esc fecha nos dois
+/// estados do menu e devolve o foco ao 3D; Enter leva ao campo do fundo).
 /// </summary>
 public sealed partial class ModelView
 {
@@ -25,6 +27,7 @@ public sealed partial class ModelView
     private ScrollViewer? _menuScroll;
     private Point _menuAt;
     private int? _originFace;
+    private TopLevel? _escRoot;
 
     private void CloseFaceMenu()
     {
@@ -33,6 +36,34 @@ public sealed partial class ModelView
             _menuLayer.Children.Remove(_menu);
             _menu = null;
         }
+    }
+
+    /// <summary>
+    /// Esc na janela inteira enquanto o menu está aberto: em "Ver todas" pode não haver botão com foco (tudo apagado),
+    /// e aí a tecla não passa pelo menu.
+    /// </summary>
+    private void HookEsc()
+    {
+        if (_escRoot is null && TopLevel.GetTopLevel(this) is { } root)
+        {
+            _escRoot = root;
+            root.AddHandler(KeyDownEvent, OnRootKey, RoutingStrategies.Tunnel);
+        }
+    }
+
+    private void OnRootKey(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && _menu is not null)
+        {
+            CloseMenuToScene();
+            e.Handled = true;
+        }
+    }
+
+    private void CloseMenuToScene()
+    {
+        CloseFaceMenu();
+        _gl.Focus(NavigationMethod.Directional);
     }
 
     private void ShowFaceMenu(FaceMenu menu, Point at, int? faceId)
@@ -61,17 +92,18 @@ public sealed partial class ModelView
         };
         border.Bind(Border.BackgroundProperty, border.GetResourceObservable("CardBackground"));
         border.Bind(Border.BorderBrushProperty, border.GetResourceObservable("SubtleBorder"));
+        border.Focusable = true;
         border.AddHandler(KeyDownEvent, OnMenuKey, RoutingStrategies.Tunnel);
 
         void Fill(bool showAll)
         {
             items.Children.Clear();
-            foreach (FaceMenuItem item in showAll ? menu.All : menu.Fits)
+            foreach (FaceMenuItem item in showAll ? menu.All : menu.Short)
             {
                 items.Children.Add(MenuRow(item, menu.Header, faceId));
             }
 
-            // Sem nada que sirva: só o cabeçalho e "Ver todas" (nunca menu vazio)
+            // Sem nada do tipo da seleção: só o cabeçalho e "Ver todas" (nunca menu vazio)
             items.IsVisible = items.Children.Count > 0;
             all.IsVisible = !showAll;
         }
@@ -88,6 +120,7 @@ public sealed partial class ModelView
         Fill(false);
         _menu = border;
         _menuLayer.Children.Add(border);
+        HookEsc();
         PlaceMenu();
         Dispatcher.UIThread.Post(FocusFirst, DispatcherPriority.Loaded);
     }
@@ -161,7 +194,18 @@ public sealed partial class ModelView
     private List<Button> MenuButtons() =>
         _menu?.GetVisualDescendantsOf<Button>().Where(b => b.IsEffectivelyVisible && b.IsEffectivelyEnabled).ToList() ?? [];
 
-    private void FocusFirst() => MenuButtons().FirstOrDefault()?.Focus(NavigationMethod.Directional);
+    /// <summary>Foco no primeiro botão habilitado; sem nenhum (tudo apagado), no próprio menu, para setas e Esc.</summary>
+    private void FocusFirst()
+    {
+        if (MenuButtons().FirstOrDefault() is { } first)
+        {
+            first.Focus(NavigationMethod.Directional);
+        }
+        else
+        {
+            _menu?.Focus(NavigationMethod.Directional);
+        }
+    }
 
     private void OnMenuKey(object? sender, KeyEventArgs e)
     {
@@ -170,8 +214,7 @@ public sealed partial class ModelView
         switch (e.Key)
         {
             case Key.Escape:
-                CloseFaceMenu();
-                _gl.Focus();
+                CloseMenuToScene();
                 e.Handled = true;
                 break;
             case Key.Down or Key.Up when buttons.Count > 0:

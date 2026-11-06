@@ -217,6 +217,7 @@ public sealed partial class ModelView : Grid
 
         _gl.IsVisible = false;
         var view = new Grid { Margin = new Thickness(12) };
+        _gl.Focusable = true; // Esc no menu da face devolve o foco ao 3D
         view.Children.Add(_gl);
         view.Children.Add(_hint);
         view.Children.Add(_menuLayer);

@@ -3,8 +3,12 @@ using CncStudio.Core.Cam;
 
 namespace CncStudio.Core.Cam3D;
 
-/// <summary>Linha do menu da face: o botão do catálogo (<see cref="CamPalette"/>) e, se não serve, o porquê.</summary>
-public sealed record FaceMenuItem(CamPaletteItem Item, string? Unavailable)
+/// <summary>
+/// Linha do menu da face: o botão do catálogo (<see cref="CamPalette"/>) e, se não serve, o porquê.
+/// <paramref name="Related"/> = operação do tipo da seleção (ex.: Faceamento numa face plana para cima): entra no menu curto
+/// mesmo apagada, com o motivo.
+/// </summary>
+public sealed record FaceMenuItem(CamPaletteItem Item, string? Unavailable, bool Related = false)
 {
     public bool Fits => Unavailable is null;
 }
@@ -12,11 +16,14 @@ public sealed record FaceMenuItem(CamPaletteItem Item, string? Unavailable)
 /// <summary>
 /// Menu que abre ao clicar numa face ou aresta na aba Modelo 3D (UX-03b). <see cref="Header"/> = o que foi clicado
 /// (ex.: "Face plana · Z = 30,0 mm", cota lida da malha). <see cref="Fits"/> = só o que serve (pode ser vazia);
+/// <see cref="Short"/> = menu curto: o que serve e o que seria do tipo mas está apagado (com o motivo);
 /// <see cref="All"/> = catálogo inteiro, com o motivo de cada item que não serve.
 /// </summary>
 public sealed record FaceMenu(string Header, IReadOnlyList<FaceMenuItem> All)
 {
     public IReadOnlyList<FaceMenuItem> Fits => [.. All.Where(i => i.Fits)];
+
+    public IReadOnlyList<FaceMenuItem> Short => [.. All.Where(i => i.Fits || i.Related)];
 }
 
 /// <summary>
@@ -39,8 +46,15 @@ public static class FaceMenuRules
     public static FaceMenu For(MeshFace face, int boundaryLoops, double modelTopZ)
     {
         string header = Header(face, modelTopZ);
-        return new FaceMenu(header, [.. Catalog().Select(item => new FaceMenuItem(item, Why(item.Id, face, boundaryLoops, modelTopZ)))]);
+        return new FaceMenu(header, [.. Catalog().Select(item => new FaceMenuItem(item, Why(item.Id, face, boundaryLoops, modelTopZ), IsRelated(item.Id, face)))]);
     }
+
+    /// <summary>
+    /// Operações do tipo da seleção, que entram no menu curto mesmo apagadas: numa face plana para cima (topo ou fundo),
+    /// Faceamento e Bolsão. Furo inclinado, pino, curva e aresta não têm (menu curto = só o que serve).
+    /// </summary>
+    private static bool IsRelated(string id, MeshFace f) =>
+        f.Kind == FaceKind.Plane && f.Normal.Z >= 0.99 && id is "faceamento" or "bolsao";
 
     /// <summary>Menu de uma aresta: nada do catálogo sai de uma aresta hoje (o menu mostra só o cabeçalho e "Ver todas").</summary>
     public static FaceMenu For(MeshEdge edge) =>
@@ -82,7 +96,7 @@ public static class FaceMenuRules
     /// <summary>Motivo comum aos itens que não dependem da seleção (null = depende, ver Bolsão e Furação).</summary>
     private static string? Fixed(string id) => id switch
     {
-        "faceamento" => "Faceamento a partir do 3D ainda não existe: use o Faceamento do Trabalho fresa.",
+        "faceamento" => "Faceamento ainda não existe a partir do 3D: use o Faceamento do Trabalho fresa.",
         "contorno-fora" or "contorno-dentro" or "contorno-linha" => "Contorno a partir do 3D ainda não existe: use um DXF no Trabalho fresa.",
         "texto-cilindro" => "Texto no cilindro é do Trabalho fresa (4º eixo), não sai do 3D.",
         "varredura" => "Não depende da face: usa o modelo inteiro (botão “Gerar varredura” no painel).",
