@@ -16,6 +16,9 @@ namespace CncStudio.App.Modules;
 public partial class JobView : UserControl
 {
     private readonly CamJob _job = new() { Name = "TRABALHO" };
+
+    /// <summary>Cadeias abertas do último DXF (ficam fora da Peça); só para a dica dos botões apagados.</summary>
+    private int _openChains;
     private JobBuild _build = new("", [], [], [], []);
 
     /// <summary>Perfil da máquina com que <see cref="_build"/> foi feito (o Trabalho refaz a cada mudança dele mesmo, não do perfil).</summary>
@@ -26,16 +29,10 @@ public partial class JobView : UserControl
     public JobView()
     {
         InitializeComponent();
-        foreach ((string name, _, _) in CamJobInfo.NewKinds)
-        {
-            KindCombo.Items.Add(new ComboBoxItem { Content = name });
-        }
-
-        KindCombo.SelectedIndex = 0;
+        BuildPalette();
         OpenDxfButton.Click += async (_, _) => await OpenDxf();
         OpenJobButton.Click += async (_, _) => await OpenJob();
         SaveJobButton.Click += async (_, _) => await SaveJob();
-        AddButton.Click += (_, _) => AddOperation();
         UndoButton.Click += (_, _) => Undo();
         UpButton.Click += (_, _) => MoveSelected(-1);
         DownButton.Click += (_, _) => MoveSelected(1);
@@ -84,6 +81,7 @@ public partial class JobView : UserControl
             {
                 BuildProps();
                 UpdatePreview();
+                UpdatePalette();
             }
         };
         Preview.ContourPicked += (_, index) =>
@@ -181,6 +179,7 @@ public partial class JobView : UserControl
 
         _job.Contours.Clear();
         _job.Contours.AddRange(r.Contours);
+        _openChains = r.OpenChains.Count;
         _job.Name = Path.GetFileNameWithoutExtension(file.Name).ToUpperInvariant();
         Refresh();
         if (r.Warnings.Count > 0)
@@ -213,6 +212,7 @@ public partial class JobView : UserControl
         _job.Fixture = j.Fixture;
         _job.Contours.Clear();
         _job.Contours.AddRange(j.Contours);
+        _openChains = 0;
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
@@ -242,25 +242,80 @@ public partial class JobView : UserControl
 
     private int? SelectedContour() => (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "contour" } t ? t.Index : null;
 
-    private void AddOperation()
+    /// <summary>Botões da faixa, na ordem de <see cref="CamPalette.VisibleGroups"/> (para apagar/acender conforme a seleção).</summary>
+    private readonly List<(CamPaletteItem Item, Button Button)> _paletteButtons = [];
+
+    /// <summary>Monta a faixa de operações a partir dos grupos do Core (grupo oculto, como o 3D, não entra).</summary>
+    private void BuildPalette()
     {
-        Errors.Text = "";
-        (_, JobOpKind kind, ContourSide side) = CamJobInfo.NewKinds[Math.Max(0, KindCombo.SelectedIndex)];
-        int contour = SelectedContour() ?? (SelectedOp() is { } o ? _job.Operations[o].ContourIndex : -1);
-        if (kind is not (JobOpKind.Drilling or JobOpKind.WrapText) && (contour < 0 || contour >= _job.Contours.Count))
+        Palette.Children.Clear();
+        _paletteButtons.Clear();
+        bool first = true;
+        foreach (CamPaletteGroup group in CamPalette.VisibleGroups)
         {
-            contour = _job.Contours.Count > 0 ? 0 : -1;
+            if (!first)
+            {
+                Palette.Children.Add(new Border { Width = 1, Margin = new Avalonia.Thickness(6, 4), Background = Avalonia.Media.Brushes.Gray, Opacity = 0.35 });
+            }
+
+            first = false;
+            var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 2 };
+            foreach (CamPaletteItem item in group.Items)
+            {
+                var content = new StackPanel { Spacing = 2, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center };
+                content.Children.Add(UiKit.Icon(item.Icon, "#8FB4FF", 20));
+                content.Children.Add(new TextBlock { Text = item.Name, FontSize = 11, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
+                var button = new Button { Content = content, Padding = new Avalonia.Thickness(8, 4), MinWidth = 64, MinHeight = 0, Background = Avalonia.Media.Brushes.Transparent };
+                ToolTip.SetShowOnDisabled(button, true);
+                Avalonia.Automation.AutomationProperties.SetName(button, "Adicionar " + item.Name);
+                CamPaletteItem picked = item;
+                button.Click += (_, _) => AddOperation(picked);
+                buttons.Children.Add(button);
+                _paletteButtons.Add((item, button));
+            }
+
+            var box = new StackPanel { Spacing = 0 };
+            box.Children.Add(new TextBlock { Text = group.Title, FontSize = 10, Opacity = 0.65, Margin = new Avalonia.Thickness(4, 0, 0, 0) });
+            box.Children.Add(buttons);
+            Palette.Children.Add(box);
         }
 
-        if (kind is not (JobOpKind.Drilling or JobOpKind.WrapText) && contour < 0)
+        UpdatePalette();
+    }
+
+    private int PaletteTarget() =>
+        CamPalette.TargetContour(_job, SelectedContour(), SelectedOp() is { } o && o < _job.Operations.Count ? _job.Operations[o].ContourIndex : null);
+
+    /// <summary>Apaga o botão que não serve à seleção atual; a dica diz o porquê.</summary>
+    private void UpdatePalette()
+    {
+        int target = PaletteTarget();
+        foreach ((CamPaletteItem item, Button button) in _paletteButtons)
         {
-            Errors.Text = "• Abra um DXF, um trabalho com desenho ou desenhe uma forma (item Peça) antes de adicionar operações.";
+            string? why = CamPalette.Unavailable(item, _job, target, _openChains);
+            button.IsEnabled = why is null;
+            ToolTip.SetTip(button, why is null ? item.Hint : $"{item.Hint}\nAgora não: {why}");
+        }
+    }
+
+    private void AddOperation(CamPaletteItem item)
+    {
+        Errors.Text = "";
+        int contour = PaletteTarget();
+        if (CamPalette.Unavailable(item, _job, contour, _openChains) is { } why)
+        {
+            Errors.Text = "• " + why;
             return;
         }
 
         CamTool? tool = _job.Operations.Count > 0 ? _job.Operations[^1].Tool : null;
+        if (CamPalette.NewOperation(item, contour, tool) is not { } spec)
+        {
+            return;
+        }
+
         Snap();
-        _job.Operations.Add(CamJobInfo.NewOperation(kind, side, contour, tool));
+        _job.Operations.Add(spec);
         Refresh(op: _job.Operations.Count - 1);
     }
 
@@ -282,14 +337,8 @@ public partial class JobView : UserControl
     }
 
     /// <summary>Guarda o estado das operações antes de uma alteração (para Desfazer).</summary>
-    private static string OpIcon(CamOperationSpec s) => s.Kind switch
-    {
-        JobOpKind.Contour => "contorno",
-        JobOpKind.Pocket => "bolsao",
-        JobOpKind.Facing => "faceamento",
-        JobOpKind.Drilling => "furo",
-        _ => "texto",
-    };
+    /// <summary>Ícone da operação na árvore: o mesmo do botão da faixa que a cria (operação nova só precisa entrar em CamPalette).</summary>
+    private static string OpIcon(CamOperationSpec s) => CamPalette.ItemFor(s)?.Icon ?? "operacoes";
 
     private void Snap()
     {
@@ -353,6 +402,7 @@ public partial class JobView : UserControl
             _busy = false;
         }
 
+        UpdatePalette();
         if (props)
         {
             BuildProps();
@@ -426,7 +476,7 @@ public partial class JobView : UserControl
 
         if (_job.Operations.Count == 0)
         {
-            targets.Add(("pending", () => KindCombo.Focus(NavigationMethod.Tab)));
+            targets.Add(("pending", () => _paletteButtons.FirstOrDefault(b => b.Button.IsEnabled).Button?.Focus(NavigationMethod.Tab)));
         }
 
         for (int i = 0; i < _build.Items.Count; i++)
@@ -499,6 +549,14 @@ public partial class JobView : UserControl
         }
     }
 
+    /// <summary>Estado da operação na árvore como Pronta/Incompleta (UX-03a); a cor e o motivo vêm do Core.</summary>
+    private static (string Kind, string Text) TreeState((string Kind, string Text) st) => st.Kind switch
+    {
+        "ok" => ("ok", "Pronta"),
+        "bad" => ("bad", "Incompleta: " + (st.Text.StartsWith("erro: ", StringComparison.Ordinal) ? st.Text[6..] : st.Text)),
+        _ => st,
+    };
+
     private void BuildTree(int? selectOp, int? selectContour)
     {
         Tree.Items.Clear();
@@ -546,7 +604,7 @@ public partial class JobView : UserControl
             CamOperationSpec spec = _job.Operations[i];
             var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
             // título com reticências: a etiqueta de estado (texto) nunca sai da árvore
-            DockPanel row = UiKit.StateRow(CamJobInfo.OpTitle(i, spec), CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
+            DockPanel row = UiKit.StateRow(CamJobInfo.OpTitle(i, spec), TreeState(CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm)), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
             row.Opacity = spec.Enabled ? 1 : 0.5;
             if (OpOrigin.Describe(spec.Origin) is { } origin)
             {

@@ -1,6 +1,6 @@
 # Estado atual
 
-Atualizado em 06/11/2026 (CAM-11) · base: `origin/main` em `5add2ce` (merge do PR #143, STEP).
+Atualizado em 06/11/2026 (UX-03a) · base: `origin/main` em `5add2ce` (merge do PR #143, STEP).
 Histórico completo em docs/historico/. Ler só se a tarefa pedir.
 Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:linha) e `git log`.
 
@@ -21,9 +21,10 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 ## Em ramo, sem merge na main (git, 05/11)
 - **CAM-09 seleção 3D (PR para o `dev`, 05/11):** `fase-cam3d-selecao-2` = ramo antigo + main (STEP e fluxo dev). Clique numa face a deixa laranja; faces e arestas geram furação e bolsão; virar ou girar o modelo limpa a seleção. Limite do topo plano em STEP tratado no CAM-11 (abaixo). O ramo antigo `fase-cam3d-selecao` fica como está. Há também `fase-cam-step-estudo` (só estudo).
 - **CAM-11 topo plano (PR rascunho para o `dev`, 06/11):** `ajuste-cam11-topo-plano`. Causa: o agrupador de faces (`MeshFeatures.Analyze`) espalha por dobras < 30°, então o topo e as facetas do filete viravam uma região só, “Superfície livre”. Agora a região livre é partida em peças planas; a peça bem mais larga que as vizinhas sai como plano e o filete volta a ser arredondamento. Furos e arestas iguais em 5 arquivos NIST (ctc_01, ctc_02, ctc_04, ftc_06, ftc_08). Não conferido no .exe.
+- **UX-03a faixa de operações (PR rascunho para o `dev`, 06/11):** `ajuste-cam-paleta`. Só desktop: a web tem apenas o CAM rápido, sem árvore. No Trabalho fresa, a caixa de escolha com o botão “Adicionar” virou uma faixa no topo com 3 grupos: 2D (Faceamento, Contorno fora/dentro/sobre a linha, Bolsão), Furação e 4º eixo (Texto no cilindro). Os grupos são dados no Core (`Cam/CamPalette.cs`), e o grupo 3D (varredura, desbaste) fica definido mas oculto até o Modelo 3D entrar na árvore. Botão que não serve à seleção fica apagado, com a dica do porquê. A árvore mostra Pronta/Incompleta. Geração igual. Conferido no .exe (UX-03a-teste); ajuste: dica separa sem desenho / contorno aberto (DXF só com cadeia aberta) / outras causas, e a caixa de avisos abaixo da árvore cresce para 4 linhas com barra visível. Pendente fora deste PR: campo numérico vazio mantém o valor antigo e a operação segue Pronta (já era assim; vira CAM-12).
 - Ramos do STEP já mesclados (`fase-cam-step-malha`, `-correcao`, `-orientacao`, `ajuste-step-enxugar-dlls`, `ajuste-step-solidos`, `fase-cam-step-integracao`): podem ser apagados com cópia de segurança.
 - `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02`, além de ramos antigos de 22/10.
-- PRs abertos: o do CAM-09 para o `dev`.
+- PRs abertos: UX-03a para o `dev` (rascunho). CAM-09 (#146) e CAM-11 (#151) já estão no `dev`.
 
 ## Fluxo de ramos (05/11)
 `main` protegida (regra `proteger-main`: build + testes, sem force push/exclusão). Ramo `dev` = integração e teste do Igor; tarefas entram no `dev` por PR e o `dev` vai à `main` por PR do Igor.
