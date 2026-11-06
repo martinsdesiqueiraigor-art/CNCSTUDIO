@@ -106,6 +106,12 @@ public sealed record CamOperationSpec(JobOpKind Kind, CamTool Tool, CamLevels Le
     /// Não vai para o arquivo; o Salvar fica bloqueado enquanto houver (<see cref="CamJobInfo.SaveBlockers"/>).
     /// </summary>
     public IReadOnlyList<string> MissingFields { get; init; } = [];
+
+    /// <summary>
+    /// Campos com valor digitado mas inválido (hoje só o T: texto, decimal ou menor que 1). Mesmo efeito de <see cref="MissingFields"/>
+    /// (Incompleta, não gera, não salva), com motivo próprio (<see cref="CamJobInfo.InvalidMessage"/>). Não vai para o arquivo.
+    /// </summary>
+    public IReadOnlyList<string> InvalidFields { get; init; } = [];
 }
 
 /// <summary>

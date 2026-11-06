@@ -140,7 +140,7 @@ public partial class JobView
                 break;
             case JobOpKind.Drilling when s.Drill is { } d:
                 Section("Furação");
-                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco"], (int)d.Cycle, (x, n) => x with { Drill = x.Drill! with { Cycle = (DrillCycleKind)n } });
+                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco"], (int)d.Cycle, (x, n) => x with { Drill = x.Drill! with { Cycle = (DrillCycleKind)n } }, rebuild: true);
                 Num(i, CamJobInfo.PeckField, "mm", d.Peck, (x, v) => x with { Drill = x.Drill! with { Peck = v } });
                 Num(i, CamJobInfo.DwellField, "s", d.DwellSeconds, (x, v) => x with { Drill = x.Drill! with { DwellSeconds = v } });
                 break;
@@ -249,8 +249,10 @@ public partial class JobView
     /// </summary>
     private void Num(int i, string label, string unit, double value, Func<CamOperationSpec, double, CamOperationSpec> apply, bool rebuild = false, Func<double, string?>? check = null)
     {
-        bool missing = i < _job.Operations.Count && _job.Operations[i].MissingFields.Contains(label);
-        var box = new TextBox { Text = missing ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
+        CamOperationSpec? spec = i < _job.Operations.Count ? _job.Operations[i] : null;
+        bool missing = spec?.MissingFields.Contains(label) == true;
+        bool invalid = spec?.InvalidFields.Contains(label) == true;
+        var box = new TextBox { Text = missing || invalid ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
         void Mark(string? why)
         {
             if (why is null)
@@ -268,37 +270,52 @@ public partial class JobView
             ToolTip.SetTip(box, why);
         }
 
-        if (missing)
+        // só fica vermelho o campo que a operação usa agora (ex.: Bicada vazia em G81 não conta)
+        bool Counts() => i < _job.Operations.Count && CamJobInfo.Counts(_job.Operations[i], label);
+        if ((missing || invalid) && Counts())
         {
-            Mark($"Falta {label}: digite um valor. O valor antigo não é usado.");
+            Mark(invalid ? CamJobInfo.InvalidMessage(label) + ". O valor antigo não é usado." : $"Falta {label}: digite um valor. O valor antigo não é usado.");
         }
 
         void Commit()
         {
             string typed = (box.Text ?? "").Trim();
             double v = ParseNum(typed);
-            string? why = typed.Length == 0 ? $"Falta {label}: digite um valor."
-                : double.IsNaN(v) ? $"\"{typed}\" não é um número. Falta {label}."
-                : check?.Invoke(v);
-            if (why is not null)
+            bool empty = typed.Length == 0;
+
+            // com regra própria (T), texto ou número fora da regra é "inválido"; nos outros campos, texto conta como vazio
+            bool bad = !empty && check is not null && (double.IsNaN(v) || check(v) is not null);
+            bool none = empty || (!bad && double.IsNaN(v));
+            if (none || bad)
             {
-                Mark(why);
-                if (!missing)
+                string why = bad ? CamJobInfo.InvalidMessage(label)
+                    : empty ? $"Falta {label}: digite um valor." : $"\"{typed}\" não é um número. Falta {label}.";
+                if (none != missing || bad != invalid)
                 {
-                    missing = true;
-                    Edit(i, x => CamJobInfo.SetMissing(x, label, true), rebuild);
+                    missing = none;
+                    invalid = bad;
+                    Edit(i, x => CamJobInfo.SetFieldState(x, label, none, bad), rebuild);
                 }
 
-                Errors.Text = "• " + why;
+                if (Counts())
+                {
+                    Mark(why);
+                    Errors.Text = "• " + why;
+                }
+                else
+                {
+                    Mark(null);
+                }
+
                 return;
             }
 
             Mark(null);
-            if (missing || Math.Abs(v - value) > 1e-9)
+            if (missing || invalid || Math.Abs(v - value) > 1e-9)
             {
-                missing = false;
+                missing = invalid = false;
                 value = v;
-                Edit(i, x => CamJobInfo.SetMissing(apply(x, v), label, false), rebuild);
+                Edit(i, x => CamJobInfo.SetFieldState(apply(x, v), label, false, false), rebuild);
             }
         }
 
@@ -688,8 +705,8 @@ public partial class JobView
             Edit(i, x =>
             {
                 // o banco preenche T e Ø (e rotação e avanços quando tem): esses deixam de estar vazios; o resto segue como está
-                CamOperationSpec y = CamJobInfo.SetMissing(CamJobInfo.SetMissing(x, CamJobInfo.ToolNumberField, false), CamJobInfo.DiameterField, false);
-                y = t.SpindleRpm > 0 ? CamJobInfo.SetMissing(y, "Rotação", false) : y;
+                CamOperationSpec y = CamJobInfo.SetFieldState(CamJobInfo.SetFieldState(x, CamJobInfo.ToolNumberField, false, false), CamJobInfo.DiameterField, false, false);
+                y = t.SpindleRpm > 0 ? CamJobInfo.SetMissing(y, CamJobInfo.SpindleField, false) : y;
                 y = t.FeedXY > 0 ? CamJobInfo.SetMissing(CamJobInfo.SetMissing(y, "Avanço no plano", false), "Avanço na superfície", false) : y;
                 y = t.FeedZ > 0 ? CamJobInfo.SetMissing(y, "Avanço de descida", false) : y;
                 return y with

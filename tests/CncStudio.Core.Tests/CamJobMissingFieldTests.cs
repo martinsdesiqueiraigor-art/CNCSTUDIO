@@ -190,4 +190,73 @@ public class CamJobMissingFieldTests
         Assert.Empty(loaded.Job!.Operations[0].MissingFields);
         Assert.True(CamJobBuilder.Build(loaded.Job, null).Ok);
     }
+
+    // ---------------------------------------------------------------- ajustes do teste no .exe (CAM-12-ajuste)
+
+    [Fact]
+    public void No_Ferramentas_mostra_interrogacao_no_lugar_do_valor_antigo()
+    {
+        CamJob job = Job(Op(JobOpKind.Pocket));
+        Assert.Equal(["T1 · Ø10 · 3000 rpm"], CamJobInfo.ToolLines(job));
+        job.Operations[0] = CamJobInfo.SetMissing(job.Operations[0], CamJobInfo.DiameterField, true);
+        Assert.Equal(["T1 · Ø? · 3000 rpm"], CamJobInfo.ToolLines(job));
+        job.Operations[0] = CamJobInfo.SetMissing(job.Operations[0], CamJobInfo.SpindleField, true);
+        job.Operations[0] = CamJobInfo.SetInvalid(job.Operations[0], CamJobInfo.ToolNumberField, true);
+        Assert.Equal(["T? · Ø? · ? rpm"], CamJobInfo.ToolLines(job));
+
+        // a outra operação com a mesma ferramenta, completa, continua aparecendo com os números dela
+        job.Operations.Add(Op(JobOpKind.Contour));
+        Assert.Equal(["T1 · Ø10 · 3000 rpm", "T? · Ø? · ? rpm"], CamJobInfo.ToolLines(job));
+    }
+
+    [Fact]
+    public void T_invalido_tem_motivo_proprio_e_vazio_continua_Falta()
+    {
+        CamOperationSpec s = Op(JobOpKind.Pocket);
+        Assert.Equal("T inválido: use inteiro ≥ 1", CamJobInfo.ToolNumberError(3.5));
+
+        CamOperationSpec bad = CamJobInfo.SetFieldState(s, CamJobInfo.ToolNumberField, false, true);
+        Assert.Equal("T inválido: use inteiro ≥ 1", CamJobInfo.MissingError(bad));
+        Assert.Contains("T? Ø10", CamJobInfo.OpTitle(0, bad));
+        CamJob job = Job(bad);
+        JobBuild build = CamJobBuilder.Build(job, null);
+        Assert.False(build.Ok);
+        Assert.Equal("T inválido: use inteiro ≥ 1", build.Items[0].Error);
+        Assert.Equal(["Operação 1 (Bolsão): T inválido: use inteiro ≥ 1"], CamJobInfo.SaveBlockers(job));
+
+        // vazio x inválido: um exclui o outro
+        CamOperationSpec empty = CamJobInfo.SetFieldState(bad, CamJobInfo.ToolNumberField, true, false);
+        Assert.Equal("Falta Ferramenta (T)", CamJobInfo.MissingError(empty));
+        Assert.Empty(empty.InvalidFields);
+        CamOperationSpec ok = CamJobInfo.SetFieldState(empty, CamJobInfo.ToolNumberField, false, false);
+        Assert.Null(CamJobInfo.MissingError(ok));
+        Assert.True(CamJobBuilder.Build(Job(ok), null).Ok);
+
+        // junto com campo vazio
+        CamOperationSpec both = CamJobInfo.SetMissing(bad, "Z fundo", true);
+        Assert.Equal("Falta Z fundo; T inválido: use inteiro ≥ 1", CamJobInfo.MissingError(both));
+    }
+
+    [Theory]
+    [InlineData(DrillCycleKind.Drill, false, false)]
+    [InlineData(DrillCycleKind.Dwell, false, true)]
+    [InlineData(DrillCycleKind.Peck, true, false)]
+    [InlineData(DrillCycleKind.ChipBreak, true, false)]
+    public void Bicada_e_pausa_so_contam_para_marcar_quando_o_ciclo_usa(DrillCycleKind cycle, bool peck, bool dwell)
+    {
+        CamOperationSpec s = CamJobInfo.SetMissing(CamJobInfo.SetMissing(Op(JobOpKind.Drilling) with { Drill = new DrillSpec(cycle, 2, 1) },
+            CamJobInfo.PeckField, true), CamJobInfo.DwellField, true);
+        Assert.Equal(peck, CamJobInfo.Counts(s, CamJobInfo.PeckField));
+        Assert.Equal(dwell, CamJobInfo.Counts(s, CamJobInfo.DwellField));
+        Assert.True(CamJobInfo.Counts(s, "Z fundo"));
+
+        // G81: os dois vazios e a operação Pronta (sem motivo)
+        if (!peck && !dwell)
+        {
+            JobBuild build = CamJobBuilder.Build(Job(s), null);
+            Assert.True(build.Ok);
+            Assert.Equal("ok", CamJobInfo.OpState(build.Items[0], s).Kind);
+            Assert.Null(CamJobInfo.MissingError(s));
+        }
+    }
 }

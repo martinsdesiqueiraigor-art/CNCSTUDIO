@@ -598,9 +598,9 @@ public partial class JobView : UserControl
         MachineProfile? machine = MachineSource?.Invoke();
         Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
-        foreach (CamTool t in CamJobInfo.ToolsUsed(_job))
+        foreach (string line in CamJobInfo.ToolLines(_job))
         {
-            tools.Items.Add(Node($"T{t.Number} · Ø{t.Diameter:0.##} · {t.SpindleRpm:0} rpm"));
+            tools.Items.Add(Node(line));
         }
 
         Tree.Items.Add(tools);
