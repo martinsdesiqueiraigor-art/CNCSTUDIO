@@ -30,6 +30,13 @@ public static class UiKit
         ["faceamento"] = "M3 7h18M3 12h18M3 17h18",
         ["furo"] = "M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
         ["texto"] = "M5 6h14M12 6v13M9 19h6",
+        // faixa de operações do Trabalho (UX-03a): peça cheia + caminho da ferramenta com seta
+        ["contorno-fora"] = "M8 8h8v8H8zM4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9M11 18l-2 2 2 2",
+        ["contorno-dentro"] = "M3 3h18v18H3zM7 12V8a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-4M14 15l-2 2 2 2",
+        ["contorno-linha"] = "M4 6h16v14H4zM12 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z",
+        ["texto-cilindro"] = "M5 6a7 2.5 0 1 0 14 0 7 2.5 0 1 0-14 0zM5 6v12a7 2.5 0 0 0 14 0V6M9 12h6M12 12v5",
+        ["varredura"] = "M3 18c3-7 6-9 9-9s6 2 9 9M5 15l2-4 2 4 2-4 2 4 2-4 2 4",
+        ["desbaste-niveis"] = "M3 20h18M5 20v-4h14v4M8 16v-4h8v4M11 12V8h2v4",
         ["rosca"] = "M6 5h12M6 9l12 2M6 13l12 2M6 17l12 2",
         ["canal"] = "M3 8h6v8h6V8h6",
         ["torneamento"] = "M3 6h18M3 18h18M8 6v12M17 6v8",
