@@ -41,7 +41,7 @@ Desktop sem placa de vídeo (testes): `CASILLAS_SOFTWARE_GL=1 xvfb-run ...`.
 - Nunca rodar `git remote update --prune` no espelho `C:\Projetos\backup\CNCSTUDIO.git`, nem `git worktree prune` por causa do aviso "prunable" (as pastas de trabalho existem; o aviso é falso).
 
 ## Como trabalhamos (economia)
-1. **Uma conversa por tarefa ou parada.** Ao começar: `git fetch origin` e conferir o commit (`git log -1 origin/main`); se a mensagem de abertura trouxer um commit esperado e ele diferir, avisar o Igor antes de trabalhar. Ler este arquivo e o bloco "Estado atual" de `docs/ESTADO.md` (o histórico em `docs/historico/` só se a tarefa pedir). Não pedir resumo de conversas antigas. Trocar de ramo só com ordem do Igor.
+1. **Uma conversa por tarefa ou parada.** Ao começar: `git fetch origin` e conferir o commit (`git log -1 origin/dev`, ou o ramo base que a tarefa indicar); se a mensagem de abertura trouxer um commit esperado e ele diferir, avisar o Igor antes de trabalhar. Ler este arquivo e o bloco "Estado atual" de `docs/ESTADO.md` (o histórico em `docs/historico/` só se a tarefa pedir). Não pedir resumo de conversas antigas. Trocar de ramo só com ordem do Igor.
 2. **Prévia pelo GitHub**: todo push num ramo `fase-*`, `ajuste-*` ou `dev` roda `.github/workflows/previa.yml` → testes, web em `https://<ramo>.casillas-code.pages.dev` e o .exe de teste em Actions → Artifacts. Não montar prévia à mão nem publicar artefato com os arquivos do app.
 3. **Conferir com testes, não com fotos.** No máximo uma foto por parada, só em entrega visual.
 4. **Não ler arquivo grande inteiro**: buscar (grep) e ler só o trecho.
