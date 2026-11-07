@@ -110,6 +110,15 @@ public sealed class AppSettings
 
     public double EditorFontSize { get; set; } = 14;
 
+    /// <summary>Largura da árvore do Trabalho fresa arrastada pela divisória (0 = padrão de 240 px). Preferência local, fora do trabalho.</summary>
+    public double CamTreeWidth { get; set; }
+
+    /// <summary>Largura do painel de propriedades do Trabalho fresa (0 = padrão de 290 px).</summary>
+    public double CamPropsWidth { get; set; }
+
+    /// <summary>Chips do 3D do Trabalho fresa (texto de CamViewOptions; vazio = padrões). Preferência local, fora do trabalho.</summary>
+    public string CamView3D { get; set; } = "";
+
     /// <summary>Tema da interface: "Dark" ou "Light".</summary>
     public string Theme { get; set; } = "Dark";
 

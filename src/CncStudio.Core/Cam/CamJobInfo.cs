@@ -131,13 +131,150 @@ public static class CamJobInfo
     /// <summary>Estado do bruto: definido ou pendente.</summary>
     public static (string Kind, string Text) StockState(JobStock? s) => s is null ? ("bad", "falta definir") : ("ok", "OK");
 
+    // ---------------------------------------------------------------- campos vazios ou inválidos (CAM-12)
+
+    /// <summary>Nomes dos campos (como aparecem na tela) que têm regra própria de uso.</summary>
+    public const string ToolNumberField = "Ferramenta (T)";
+    public const string DiameterField = "Diâmetro";
+    public const string PeckField = "Bicada (Q)";
+    public const string DwellField = "Pausa";
+    public const string SpindleField = "Rotação";
+
+    /// <summary>
+    /// Nomes dos campos da face girada na tela, na ordem: ângulo, (segundo ângulo no 3+2), distância do centro do eixo até a face.
+    /// Sem face, nenhum. Fonte única para a tela e para saber se um campo vazio da face ainda vale.
+    /// </summary>
+    public static IReadOnlyList<string> FaceFields(RotaryFaceSpec? f) => f switch
+    {
+        null => [],
+        { Axis2: { } axis2 } => [$"Ângulo do basculante ({f.Axis})", $"Ângulo do giratório ({axis2})", $"Do centro do eixo {f.Axis} até a face"],
+        _ => ["Ângulo da face", "Do centro do eixo até a face"],
+    };
+
+    private static bool IsFaceField(string field) =>
+        field.StartsWith("Ângulo da face", StringComparison.Ordinal) || field.StartsWith("Ângulo do basculante", StringComparison.Ordinal)
+        || field.StartsWith("Ângulo do giratório", StringComparison.Ordinal) || field.StartsWith("Do centro do eixo", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Campos vazios ou inválidos que a operação usa agora. Bicada (Q) só conta em G83/G73 e Pausa só em G82 (decisão do Igor);
+    /// campos da face só contam com a face ligada e no modo atual (simples ou 3+2).
+    /// </summary>
+    public static IReadOnlyList<string> MissingFields(CamOperationSpec s) => s.MissingFields.Where(f => Counts(s, f)).ToList();
+
+    /// <summary>Campos com valor inválido que a operação usa agora (mesma regra de uso de <see cref="MissingFields(CamOperationSpec)"/>).</summary>
+    public static IReadOnlyList<string> InvalidFields(CamOperationSpec s) => s.InvalidFields.Where(f => Counts(s, f)).ToList();
+
+    /// <summary>
+    /// Se a operação usa o campo agora: Bicada (Q) só em G83/G73, Pausa só em G82, campos da face só com a face ligada e no modo
+    /// atual. A tela usa isto para só marcar de vermelho o campo que conta.
+    /// </summary>
+    public static bool Counts(CamOperationSpec s, string field) => field switch
+    {
+        PeckField when s.Kind == JobOpKind.Drilling => s.Drill?.Cycle is DrillCycleKind.Peck or DrillCycleKind.ChipBreak,
+        DwellField when s.Kind == JobOpKind.Drilling => s.Drill?.Cycle == DrillCycleKind.Dwell,
+        _ when IsFaceField(field) => FaceFields(s.Face).Contains(field),
+        _ => true,
+    };
+
+    /// <summary>Texto do campo com valor inválido ("T inválido: use inteiro ≥ 1").</summary>
+    public static string InvalidMessage(string field) => field == ToolNumberField ? "T inválido: use inteiro ≥ 1" : $"{field} inválido";
+
+    /// <summary>
+    /// Motivo da operação Incompleta por campo vazio ou inválido ("Falta Z fundo", "Falta Diâmetro e Z fundo",
+    /// "T inválido: use inteiro ≥ 1"); null = nenhum.
+    /// </summary>
+    public static string? MissingError(CamOperationSpec s)
+    {
+        IReadOnlyList<string> m = MissingFields(s);
+        var parts = new List<string>();
+        if (m.Count > 0)
+        {
+            parts.Add(m.Count == 1 ? "Falta " + m[0] : "Falta " + string.Join(", ", m.Take(m.Count - 1)) + " e " + m[^1]);
+        }
+
+        parts.AddRange(InvalidFields(s).Select(InvalidMessage));
+        return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
+    /// <summary>O campo está vazio ou inválido (guardado na operação, conte ou não agora): a tela mostra "?" no lugar do número.</summary>
+    public static bool Unknown(CamOperationSpec s, string field) => s.MissingFields.Contains(field) || s.InvalidFields.Contains(field);
+
+    /// <summary>Marca (ou desmarca) um campo como inválido na operação. Não mexe no valor guardado.</summary>
+    public static CamOperationSpec SetInvalid(CamOperationSpec s, string field, bool invalid)
+    {
+        bool has = s.InvalidFields.Contains(field);
+        if (has == invalid)
+        {
+            return s;
+        }
+
+        return s with { InvalidFields = invalid ? [.. s.InvalidFields, field] : s.InvalidFields.Where(f => f != field).ToList() };
+    }
+
+    /// <summary>Estado do campo na operação: vazio, inválido ou válido (null). Um exclui o outro.</summary>
+    public static CamOperationSpec SetFieldState(CamOperationSpec s, string field, bool missing, bool invalid) =>
+        SetInvalid(SetMissing(s, field, missing), field, invalid);
+
+    /// <summary>
+    /// Linhas do nó "Ferramentas" da árvore ("T1 · Ø10 · 3000 rpm"). T, Ø ou rotação vazios ou inválidos numa operação aparecem
+    /// como "?" (nunca o número antigo); a mesma ferramenta aparece uma vez.
+    /// </summary>
+    public static IReadOnlyList<string> ToolLines(CamJob job) =>
+        job.Operations.Select(o => (
+                Number: Unknown(o, ToolNumberField) ? int.MaxValue : o.Tool.Number,
+                Text: $"T{(Unknown(o, ToolNumberField) ? "?" : o.Tool.Number.ToString(CultureInfo.InvariantCulture))}"
+                    + $" · Ø{(Unknown(o, DiameterField) ? "?" : N(o.Tool.Diameter))}"
+                    + $" · {(Unknown(o, SpindleField) ? "?" : o.Tool.SpindleRpm.ToString("0", CultureInfo.InvariantCulture))} rpm",
+                Key: (Unknown(o, ToolNumberField) ? "?" : o.Tool.Number.ToString(CultureInfo.InvariantCulture), Unknown(o, DiameterField) ? "?" : N(o.Tool.Diameter))))
+            .GroupBy(x => x.Key).Select(g => g.First()).OrderBy(x => x.Number).Select(x => x.Text).ToList();
+
+    /// <summary>Marca (ou desmarca) um campo como vazio/inválido na operação. Não mexe no valor guardado.</summary>
+    public static CamOperationSpec SetMissing(CamOperationSpec s, string field, bool missing)
+    {
+        bool has = s.MissingFields.Contains(field);
+        if (has == missing)
+        {
+            return s;
+        }
+
+        return s with { MissingFields = missing ? [.. s.MissingFields, field] : s.MissingFields.Where(f => f != field).ToList() };
+    }
+
+    /// <summary>
+    /// O que impede salvar o Trabalho: uma linha por operação com campo vazio ("Operação 2 (Bolsão): falta Z fundo"), inclusive as
+    /// desligadas, porque o arquivo guardaria o número antigo que o usuário não vê. Vazio = pode salvar.
+    /// </summary>
+    public static IReadOnlyList<string> SaveBlockers(CamJob job)
+    {
+        var list = new List<string>();
+        for (int i = 0; i < job.Operations.Count; i++)
+        {
+            CamOperationSpec s = job.Operations[i];
+            if (MissingError(s) is { } why)
+            {
+                string name = s.Label.Length > 0 ? s.Label : KindName(s);
+                list.Add($"Operação {i + 1} ({name}): " + (why.StartsWith("Falta ", StringComparison.Ordinal) ? "f" + why[1..] : why));
+            }
+        }
+
+        return list;
+    }
+
+    /// <summary>Número de ferramenta (T): só inteiro ≥ 1. Devolve o erro para mostrar no campo, ou null se vale.</summary>
+    public static string? ToolNumberError(double v) =>
+        double.IsFinite(v) && v >= 1 && Math.Abs(v - Math.Round(v)) < 1e-9 ? null : InvalidMessage(ToolNumberField);
+
     /// <summary>Linha da árvore: "3 · Bolsão — T1 Ø10". Usa o nome personalizado, se houver.</summary>
     public static string OpTitle(int index, CamOperationSpec s)
     {
         string name = s.Label.Length > 0 ? s.Label : KindName(s);
-        string face = s.Face is { } f ? $" · face {f.Axis}{N(f.Angle)}°" + (f.Axis2 is { } a2 ? $" {a2}{N(f.Angle2)}° (3+2)" : "") : "";
+        string Ang(RotaryFaceSpec f, int k, double v) => s.MissingFields.Contains(FaceFields(f)[k]) ? "?" : N(v);
+        string face = s.Face is { } f ? $" · face {f.Axis}{Ang(f, 0, f.Angle)}°" + (f.Axis2 is { } a2 ? $" {a2}{Ang(f, 1, f.Angle2)}° (3+2)" : "") : "";
         string tool = s.Tool.Name.Length > 0 ? " " + s.Tool.Name : "";
-        return $"{index + 1} · {name} — T{s.Tool.Number} Ø{N(s.Tool.Diameter)}{tool}{face}";
+        // campo vazio não mostra o número antigo (CAM-12)
+        string t = Unknown(s, ToolNumberField) ? "?" : s.Tool.Number.ToString(CultureInfo.InvariantCulture);
+        string d = Unknown(s, DiameterField) ? "?" : N(s.Tool.Diameter);
+        return $"{index + 1} · {name} — T{t} Ø{d}{tool}{face}";
     }
 
     /// <summary>Linha de um contorno do desenho: "2 · Círculo Ø20 (20 × 20 mm)".</summary>
