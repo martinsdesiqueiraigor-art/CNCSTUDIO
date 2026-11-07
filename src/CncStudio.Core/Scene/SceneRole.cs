@@ -32,4 +32,10 @@ public enum SceneRole
 
     /// <summary>Só o movimento que está sendo executado agora (a trajetória inteira fica escondida por padrão).</summary>
     CurrentPath,
+
+    /// <summary>Contorno da peça desenhado como aramado (Trabalho fresa: os contornos 2D em Z 0).</summary>
+    PartOutline,
+
+    /// <summary>Seta de eixo do zero (X vermelho, Y verde, Z azul); a cor vem na própria linha.</summary>
+    Axis,
 }

@@ -112,6 +112,19 @@ public partial class CamView : UserControl
         set => JobPanel.SetPanes(value.Tree, value.Props);
     }
 
+    /// <summary>Escolhas guardadas dos chips do 3D do Trabalho fresa (texto do config).</summary>
+    public string JobViewOptions
+    {
+        set => JobPanel.ViewOptions = value;
+    }
+
+    /// <summary>Guarda as escolhas dos chips do 3D do Trabalho fresa.</summary>
+    public Action<string>? SaveJobViewOptions
+    {
+        get => JobPanel.SaveViewOptions;
+        set => JobPanel.SaveViewOptions = value;
+    }
+
     /// <summary>Guarda as larguras depois de arrastar uma divisória do Trabalho fresa.</summary>
     public Action<double, double>? SaveJobPanes
     {

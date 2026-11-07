@@ -77,6 +77,13 @@ public partial class MainWindow
             _settings.CamPropsWidth = props;
             _settings.Save();
         };
+        // chips do 3D do Trabalho fresa (UX-04d): preferência local do app, fora do .casillas-job
+        Cam.JobViewOptions = _settings.CamView3D;
+        Cam.SaveJobViewOptions = text =>
+        {
+            _settings.CamView3D = text;
+            _settings.Save();
+        };
         Cam.MachineProfilesSource = () => _settings.MachineProfiles;
         Cam.ActiveMachineSource = () => _settings.ActiveMachineProfile;
         Cam.SetActiveMachine = name =>

@@ -290,7 +290,7 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
         LineModel(gl, SimulationScene.IdentityMatrix);
 
         // Trajetória; o rápido que encostou no material vai por último, por cima de tudo
-        foreach (SceneLinesState lines in snapshot.Lines.OrderBy(l => l.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath))
+        foreach (SceneLinesState lines in snapshot.Lines.OrderBy(l => l.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath or SceneRole.Axis))
         {
             bool visible = lines.Role switch
             {
@@ -305,7 +305,8 @@ public sealed class GlSceneView : OpenGlControlBase, ICustomHitTest
 
             GpuLines gpu = UploadLines(gl, lines);
             LineModel(gl, SceneSnapshot.RotatesWithTable(lines.Role) ? snapshot.PartMatrix : SimulationScene.IdentityMatrix);
-            bool onTop = lines.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath;
+            // as setas do zero também: elas saem do canto do desenho e ficariam sob o contorno da peça
+            bool onTop = lines.Role is SceneRole.RapidInMaterial or SceneRole.CurrentPath or SceneRole.Axis;
             if (onTop)
             {
                 gl.Disable(DepthTest);
