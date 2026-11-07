@@ -41,7 +41,12 @@ public static class UiKit
         ["canal"] = "M3 8h6v8h6V8h6",
         ["torneamento"] = "M3 6h18M3 18h18M8 6v12M17 6v8",
         ["perfil"] = "M3 18l5-8 4 4 4-9 5 8",
-        ["moeda"] = "M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 7v10M9.5 9.5c0-1 1-1.5 2.5-1.5s2.5.8 2.5 1.8-1 1.4-2.5 1.7-2.5.7-2.5 1.8 1 1.7 2.5 1.7 2.5-.5 2.5-1.5",
+        // árvore do Trabalho (UX-04c)
+        ["olho"] = "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+        ["olho-fechado"] = "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM4 4l16 16",
+        ["material"] = "M4 7l8-4 8 4-8 4zM4 12l8 4 8-4M4 17l8 4 8-4",
+        ["zero"] = "M12 3v18M3 12h18M9 12a3 3 0 1 0 6 0 3 3 0 1 0-6 0",
+        ["moeda"] ="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 7v10M9.5 9.5c0-1 1-1.5 2.5-1.5s2.5.8 2.5 1.8-1 1.4-2.5 1.7-2.5.7-2.5 1.8 1 1.7 2.5 1.7 2.5-.5 2.5-1.5",
     };
 
     /// <summary>Ícone de linha pelo nome; vazio se o nome não existe.</summary>
@@ -64,6 +69,54 @@ public static class UiKit
             Stretch = Stretch.Uniform,
             VerticalAlignment = VerticalAlignment.Center,
         };
+    }
+
+    /// <summary>
+    /// Ícones de 2 cores da faixa do Trabalho (UX-04c), grade 24 × 24: traço neutro (peça, máquina) e detalhe no destaque
+    /// (o que a operação faz). Desenhados para o Casillas.
+    /// </summary>
+    private static readonly Dictionary<string, (string Base, string Accent)> Icons2 = new()
+    {
+        ["abrir-dxf"] = ("M6 3h8l4 4v14H6zM14 3v4h4", "M9 12l3 3 3-3M12 15V9"),
+        ["abrir"] = ("M3 7h6l2 2h10v10H3z", "M3 12h18"),
+        ["salvar"] = ("M5 3h12l2 2v16H5z", "M8 3v6h8V3M8 21v-7h8v7"),
+        ["nova-fixacao"] = ("M3 18h18M6 18V8h4v10M14 18V8h4v10", "M10 13h4"),
+        ["zero"] = ("M12 3v18M3 12h18", "M9 12a3 3 0 1 0 6 0 3 3 0 1 0-6 0"),
+        ["faceamento"] = ("M4 19h16", "M4 6h16M4 10h16M4 14h16"),
+        ["contorno-fora"] = ("M7 7h10v10H7z", "M4 4h16v16H4z"),
+        ["contorno-dentro"] = ("M3 3h18v18H3z", "M7 7h10v10H7z"),
+        ["contorno-linha"] = ("M4 4h16v16H4z", "M12 2v4M12 18v4M2 12h4M18 12h4"),
+        ["bolsao"] = ("M4 4h16v16H4z", "M8.5 8.5h7v7h-7z"),
+        ["chanfro"] = ("M4 20V10l6-6h10", "M4 10l6-6"),
+        ["ranhura"] = ("M3 8h18v8H3z", "M7 12h10"),
+        ["furo"] = ("M12 3v6M12 15v6", "M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0"),
+        ["macho"] = ("M12 3v18", "M8 7l8 2M8 11l8 2M8 15l8 2"),
+        ["mandrilhar"] = ("M9 3h6v10l-3 5-3-5z", "M12 18v3"),
+        ["texto-cilindro"] = ("M5 6a7 2.5 0 1 0 14 0 7 2.5 0 1 0-14 0zM5 6v12a7 2.5 0 0 0 14 0V6", "M9 12h6M12 12v5"),
+    };
+
+    /// <summary>Ícone de 2 cores (traço <paramref name="color"/>, detalhe <paramref name="accent"/>); sem o nome, cai no ícone de linha.</summary>
+    public static Control Icon2(string name, string color, string accent, double size = 24)
+    {
+        if (!Icons2.TryGetValue(name, out (string Base, string Accent) d))
+        {
+            return Icon(name, color, size);
+        }
+
+        Avalonia.Controls.Shapes.Path Part(string data, string c) => new()
+        {
+            Data = Geometry.Parse(data),
+            Stroke = new SolidColorBrush(Color.Parse(c)),
+            StrokeThickness = 1.6,
+            StrokeLineCap = PenLineCap.Round,
+            StrokeJoin = PenLineJoin.Round,
+        };
+
+        // as duas partes na mesma grade 24 × 24 (sem esticar cada uma), escaladas juntas
+        var canvas = new Canvas { Width = 24, Height = 24 };
+        canvas.Children.Add(Part(d.Base, color));
+        canvas.Children.Add(Part(d.Accent, accent));
+        return new Viewbox { Width = size, Height = size, Child = canvas, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
     }
 
     /// <summary>Cores de estado ("ok", "bad", "pending", outro = neutro) legíveis no tema atual: texto e fundo da etiqueta.</summary>

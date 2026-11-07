@@ -60,8 +60,12 @@ public static class FaceMenuRules
     public static FaceMenu For(MeshEdge edge) =>
         new(Header(edge), [.. Catalog().Select(item => new FaceMenuItem(item, Why(item.Id, edge)))]);
 
-    /// <summary>Catálogo na ordem da faixa, com o grupo 3D (oculto na faixa do Trabalho, mas é deste aba).</summary>
-    private static IEnumerable<CamPaletteItem> Catalog() => CamPalette.Groups.SelectMany(g => g.Items);
+    /// <summary>
+    /// Catálogo de operações na ordem da faixa, com o grupo 3D (oculto na faixa do Trabalho, mas é desta aba). Arquivo e Fixação
+    /// não são operações e ficam fora (UX-04c).
+    /// </summary>
+    private static IEnumerable<CamPaletteItem> Catalog() =>
+        CamPalette.Groups.Where(g => g.Id is not ("arquivo" or "fixacao")).SelectMany(g => g.Items).Where(i => i.Action is null);
 
     private static string F(double x) => x.ToString("0.0", Pt);
 
