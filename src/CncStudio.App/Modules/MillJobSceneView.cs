@@ -89,7 +89,7 @@ public sealed class MillJobSceneView : Grid
             ("Oculto", () => Set(_options with { Stock = StockDisplay.Hidden }), () => _options.Stock == StockDisplay.Hidden, null));
         _partChip.Flyout = Menu(
             ("Sólida", () => Set(_options with { Part = PartDisplay.Solid }), () => _options.Part == PartDisplay.Solid, CamViewOptions.MissingPartHeight),
-            ("Aramado", () => Set(_options with { Part = PartDisplay.Wireframe }), () => _options.Part == PartDisplay.Wireframe, null),
+            ("Aramado", () => Set(_options with { Part = PartDisplay.Wireframe }), () => _options.EffectivePart(hasSolidPart: false) == PartDisplay.Wireframe, null),
             ("Oculta", () => Set(_options with { Part = PartDisplay.Hidden }), () => _options.Part == PartDisplay.Hidden, null));
 
         _edgesChip.IsCheckedChanged += (_, _) => FromToggle(o => o with { Edges = _edgesChip.IsChecked == true });
