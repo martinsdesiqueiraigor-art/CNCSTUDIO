@@ -1,0 +1,178 @@
+{
+  "id": "acad-m3-final",
+  "modulo": "acad-m3",
+  "status": "rascunho",
+  "nota_minima_percentual": 70,
+  "pode_pular": true,
+  "politica_de_nota": "12 questoes com peso igual; minimo 9 acertos (75%), pois 8/12 = 66,7%. Pode pular conforme piloto.",
+  "questoes": [
+    {
+      "id": "acad-m3-final-q01",
+      "enunciado": "Qual funcao realiza furacao simples em ciclo fixo?",
+      "alternativas": [
+        "G81",
+        "G80",
+        "G00",
+        "G03"
+      ],
+      "correta": "A",
+      "explicacao": "Resposta A: G81. G81 inicia furacao; G80 cancela ciclos; G00 e rapido; G03 interpola arco. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a01"
+    },
+    {
+      "id": "acad-m3-final-q02",
+      "enunciado": "Qual ciclo normalmente usa retiradas sucessivas?",
+      "alternativas": [
+        "G83",
+        "G81",
+        "G80",
+        "G00"
+      ],
+      "correta": "A",
+      "explicacao": "Resposta A: G83. G83 usa etapas de furacao; G81 e furacao simples; G80 cancela; G00 posiciona. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a02"
+    },
+    {
+      "id": "acad-m3-final-q03",
+      "enunciado": "Em ciclos compativeis, G98 solicita qual retorno?",
+      "alternativas": [
+        "Nivel inicial",
+        "Plano R sempre",
+        "Zero maquina",
+        "Fim do programa"
+      ],
+      "correta": "A",
+      "explicacao": "Resposta A: Nivel inicial. G98 seleciona nivel inicial; G99 seleciona plano R; nao e zero maquina nem fim. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a03"
+    },
+    {
+      "id": "acad-m3-final-q04",
+      "enunciado": "Qual codigo e comumente usado para chamar subprograma Fanuc?",
+      "alternativas": [
+        "M99",
+        "M98",
+        "M30",
+        "M05"
+      ],
+      "correta": "B",
+      "explicacao": "Resposta B: M98. M98 chama; M99 retorna; M30 termina; M05 para spindle. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a04"
+    },
+    {
+      "id": "acad-m3-final-q05",
+      "enunciado": "Em relacao ao sentido do percurso, G41 representa qual lado?",
+      "alternativas": [
+        "Direita",
+        "Esquerda",
+        "Sempre lado positivo X",
+        "Sempre lado negativo Y"
+      ],
+      "correta": "B",
+      "explicacao": "Resposta B: Esquerda. G41 e esquerda; G42 e direita; lados nao dependem apenas dos sinais X/Y. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a05"
+    },
+    {
+      "id": "acad-m3-final-q06",
+      "enunciado": "Em Fanuc compativel, H costuma referenciar qual corretor?",
+      "alternativas": [
+        "Raio da ferramenta",
+        "Comprimento da ferramenta",
+        "Avanco",
+        "Rotacao"
+      ],
+      "correta": "B",
+      "explicacao": "Resposta B: Comprimento da ferramenta. H e comprimento; D e raio; F e avanco; S e rotacao. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a06"
+    },
+    {
+      "id": "acad-m3-final-q07",
+      "enunciado": "Qual codigo cancela G81 modal?",
+      "alternativas": [
+        "G99",
+        "G98",
+        "G80",
+        "G90"
+      ],
+      "correta": "C",
+      "explicacao": "Resposta C: G80. G99 e G98 selecionam retorno; G80 cancela ciclo; G90 seleciona absoluto. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a01"
+    },
+    {
+      "id": "acad-m3-final-q08",
+      "enunciado": "Qual acao evita repetir o ciclo ao mover para outro ponto?",
+      "alternativas": [
+        "Acrescentar S",
+        "Trocar G54",
+        "Programar G80",
+        "Retirar F"
+      ],
+      "correta": "C",
+      "explicacao": "Resposta C: Programar G80. S nao cancela ciclo; G54 troca origem; G80 cancela; retirar F nao cancela. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a02"
+    },
+    {
+      "id": "acad-m3-final-q09",
+      "enunciado": "Qual codigo cancela um ciclo fixo ativo?",
+      "alternativas": [
+        "G98",
+        "G99",
+        "G80",
+        "G17"
+      ],
+      "correta": "C",
+      "explicacao": "Resposta C: G80. G98/G99 definem retorno; G80 cancela; G17 seleciona plano XY. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a03"
+    },
+    {
+      "id": "acad-m3-final-q10",
+      "enunciado": "Qual comando normalmente retorna do subprograma?",
+      "alternativas": [
+        "M03",
+        "G80",
+        "G54",
+        "M99"
+      ],
+      "correta": "D",
+      "explicacao": "Resposta D: M99. M03 liga spindle; G80 cancela ciclo; M99 retorna; G54 seleciona origem. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Revise a funcao e o estado modal.",
+      "origem_aula": "acad-m3-a04"
+    },
+    {
+      "id": "acad-m3-final-p01",
+      "tipo": "leitura_programa",
+      "enunciado": "Leia G90 G99 G81 X10.0 Y10.0 Z-5.0 R2.0 F100.0 seguido de G80. O que faz G80?",
+      "alternativas": [
+        "Seleciona G98",
+        "Liga spindle",
+        "Chama subprograma",
+        "Cancela o ciclo"
+      ],
+      "correta": "D",
+      "explicacao": "Resposta D: Cancela o ciclo. G80 cancela; G98 seleciona retorno; M03 liga spindle; M98 chama subprograma. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Separe o comportamento do controle do suporte do simulador."
+    },
+    {
+      "id": "acad-m3-final-p02",
+      "tipo": "leitura_programa",
+      "enunciado": "Leia G41 D01 G01 X20.0 Y10.0 F100.0. O que se pode concluir no simulador atual?",
+      "alternativas": [
+        "O raio D01 foi aplicado",
+        "Colisao foi evitada",
+        "H01 foi ativado",
+        "Somente a trajetoria programada pode ser exibida"
+      ],
+      "correta": "D",
+      "explicacao": "Resposta D: Somente a trajetoria programada pode ser exibida. Nao aplica D nem garante colisao; H nao aparece; a trajetoria exibida e programada. (As letras da explicacao original referem-se a ordem de origem; conferir os distratores pelo significado.)",
+      "dica": "Separe o comportamento do controle do suporte do simulador."
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "versao": 2,
+  "id": "acad-m3-a06",
+  "modulo": "acad-m3",
+  "titulo": "Corretores H e D: leitura de programa",
+  "nivel": "Básico",
+  "caminho": "Fresa",
+  "dialeto": "fanuc",
+  "maquina": "fresa",
+  "estado": "rascunho",
+  "objetivo": "Diferenciar referencias de comprimento H e de raio D na leitura de codigo.",
+  "pre_requisito": "acad-m3-a05",
+  "secoes": {
+    "visao": {
+      "estado": "rascunho",
+      "abertura": "Como interpretar esta instrucao sem confundir simulacao e execucao real?",
+      "texto": "[conceito] H normalmente referencia o corretor de comprimento e D o de raio em comandos Fanuc compativeis. G43 H nao deve ser interpretado como uma altura segura por si so; depende do ajuste real. Esta aula trata da interpretacao de programas Fanuc em uma fresadora de tres eixos. O sistema G54 e a origem Z0 na superficie superior sao convencoes didaticas e nao substituem a preparacao da maquina. O operador deve compreender o modo G90 absoluto, G17 plano XY e G94 avanco por minuto antes de interpretar as instrucoes.\n\n[exemplo] O trecho de leitura e: G43 H01 Z20.0. Leia cada endereco na ordem e diferencie o comando modal dos valores de coordenadas. Os numeros sao exemplos de sintaxe, nao parametros recomendados para cortar material. O programa .nc associado apresenta uma trajetoria geometrica simplificada usando G00 e G01, para ser aberta no editor e no 3D mesmo quando a implementacao nao interpreta o recurso ensinado. Nao se deve confundir essa aproximacao com a execucao do ciclo ou do corretor.\n\n[atenção] O simulador atual nao aplica G43/H nem D; exemplos executaveis usam somente movimentos programados. Erro comum no chao de fabrica: copiar um programa de outra maquina sem conferir versao de comando, altura livre, ferramenta, offsets e fixacao. A simulacao geometrica nao garante ausencia de colisao nem a validade dos parametros de usinagem. A distancia segura, a ferramenta adequada, a rotacao e o avanco reais ficam A definir.\n\n[dica] Primeiro identifique o que o bloco solicita; depois verifique qual estado modal permanece nos blocos seguintes. Compare o trecho de leitura com o exemplo simplificado. No exercicio, altere apenas a instrucao pedida e explique por que o resultado mudou. Antes de qualquer uso real, valide os dados na documentacao do controle e na preparacao da maquina.\n\n[conceito] A verificacao deve distinguir tres camadas: sintaxe escrita, comportamento efetivo do CNC e visualizacao do simulador. Uma trajetoria exibida corretamente pode nao representar a usinagem real. Todos os dados tecnicos que dependem de configuracao especifica da maquina permanecem A definir.\n\n[atenção] O simulador atual não aplica o corretor; a trajetória mostrada é a programada.",
+      "conceitos": [
+        "H normalmente referencia o corretor de comprimento e D o de raio em comandos Fanuc compativeis.",
+        "G43 H nao deve ser interpretado como uma altura segura por si so; depende do ajuste real.",
+        "O simulador atual nao aplica G43/H nem D; exemplos executaveis usam somente movimentos programados."
+      ]
+    },
+    "trajetoria": {
+      "estado": "rascunho",
+      "programa": ""
+    },
+    "sintaxe": {
+      "estado": "rascunho",
+      "blocos": [],
+      "parametros": []
+    },
+    "exemplo": {
+      "estado": "rascunho",
+      "programa": "samples/academy/acad-m3-a06.nc",
+      "etapas": []
+    },
+    "cuidados": {
+      "estado": "rascunho",
+      "erros": [
+        "Nao assumir que a simulacao reproduz o recurso do controle."
+      ],
+      "alertas": [
+        "Simule antes de rodar na máquina"
+      ]
+    },
+    "praticar": {
+      "estado": "rascunho",
+      "exercicio": {
+        "tipo": "complete/corrija",
+        "enunciado": "Complete a linha de trajetoria didatica: ____ X30.0 Y10.0 F100.0",
+        "gabarito": "G01",
+        "editor": {
+          "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y10.0",
+          "inicial": "____ X30.0 Y10.0 F100.0",
+          "solucao": "G01 X30.0 Y10.0 F100.0",
+          "checagens": [
+            {
+              "tipo": "contem",
+              "texto": "G01",
+              "dica": "Escolha o modo de movimento."
+            },
+            {
+              "tipo": "sem_erros"
+            }
+          ]
+        }
+      },
+      "quiz": [
+        {
+          "id": "acad-m3-a06-q01",
+          "enunciado": "Em Fanuc compativel, H costuma referenciar qual corretor?",
+          "alternativas": [
+            "Comprimento da ferramenta",
+            "Raio da ferramenta",
+            "Avanco",
+            "Rotacao"
+          ],
+          "correta": "A",
+          "explicacao": "H e comprimento; D e raio; F e avanco; S e rotacao.",
+          "dica": "Compare os codigos e seus efeitos."
+        },
+        {
+          "id": "acad-m3-a06-q02",
+          "enunciado": "No trecho G43 H01 Z20.0, H01 costuma indicar o que?",
+          "alternativas": [
+            "Origem da peca",
+            "Registro de comprimento",
+            "Plano de furacao",
+            "Codigo de spindle"
+          ],
+          "correta": "B",
+          "explicacao": "H seleciona registro de comprimento; nao e origem, plano R nem comando spindle.",
+          "dica": "Leia o trecho e identifique a funcao de cada endereco."
+        },
+        {
+          "id": "acad-m3-a06-q03",
+          "enunciado": "Qual endereco costuma indicar corretor de raio?",
+          "alternativas": [
+            "S",
+            "F",
+            "D",
+            "Z"
+          ],
+          "correta": "C",
+          "explicacao": "S e rotacao, F avanco, D raio, Z coordenada.",
+          "dica": "Compare os codigos e seus efeitos."
+        },
+        {
+          "id": "acad-m3-a06-q04",
+          "enunciado": "Qual cuidado e necessario antes de usar G43 H na maquina?",
+          "alternativas": [
+            "Confiar apenas na animacao",
+            "Ignorar montagem",
+            "Assumir que H01 vale zero",
+            "Conferir tabela e ferramenta real"
+          ],
+          "correta": "D",
+          "explicacao": "A animacao nao aplica H; montagem e registros precisam ser verificados.",
+          "dica": "Compare os codigos e seus efeitos."
+        }
+      ]
+    }
+  },
+  "observacoes": "Fanuc didatico. Valores de corte, fixacao e corretor real: A definir. Arquivo .nc e demonstracao simplificada, nao ciclo real."
+}
