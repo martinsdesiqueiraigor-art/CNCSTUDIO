@@ -1,3 +1,4 @@
+using System.Globalization;
 using CncStudio.Core.Dialects;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -9,9 +10,9 @@ using CncStudio.Core.Setup;
 namespace CncStudio.App.Modules;
 
 /// <summary>
-/// Tela de trabalho do CAM (fresa): árvore do Job (peça, bruto, fixação, ferramentas, operações), vista 2D e programa.
-/// J2: criar, ligar/desligar, reordenar, duplicar e remover operações; salvar e abrir o trabalho. Os números da operação
-/// ainda não se editam aqui (painel de propriedades na J3): a operação nova nasce com os valores padrão.
+/// Tela de trabalho do CAM (fresa): árvore do Job (máquina, material, peça, bruto, ferramentas, fixação 1 com zero e operações),
+/// vista 2D/3D e programa. UX-04c: abas Preparação, Operações e Código NC (<see cref="TabStrip"/>, posta no topo pelo CamView),
+/// faixa grande de ícones e painel de parâmetros à direita. Só layout: os dados e o arquivo .casillas-job são os de antes.
 /// </summary>
 public partial class JobView : UserControl
 {
@@ -29,10 +30,8 @@ public partial class JobView : UserControl
     public JobView()
     {
         InitializeComponent();
+        TabStrip = BuildTabs();
         BuildPalette();
-        OpenDxfButton.Click += async (_, _) => await OpenDxf();
-        OpenJobButton.Click += async (_, _) => await OpenJob();
-        SaveJobButton.Click += async (_, _) => await SaveJob();
         UndoButton.Click += (_, _) => Undo();
         UpButton.Click += (_, _) => MoveSelected(-1);
         DownButton.Click += (_, _) => MoveSelected(1);
@@ -100,9 +99,12 @@ public partial class JobView : UserControl
                 OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
             }
         };
+        // um zero só no Core: o programa gerado é o da fixação 1
+        Bar.GenerateButton.Content = "Gerar G-code da fixação 1";
         Bar.GenerateButton.Click += (_, _) =>
         {
             Refresh(keep: true, props: false);
+            SetTab(2);
             Output.CaretIndex = 0;
             Output.Focus();
         };
@@ -115,6 +117,93 @@ public partial class JobView : UserControl
         };
         NameBox.Text = _job.Name;
         Refresh();
+        SetTab(1);
+    }
+
+    // ---------------------------------------------------------------- abas (UX-04c)
+
+    private readonly Button[] _tabs = new Button[3];
+    private int _tab = 1;
+
+    /// <summary>Abas Preparação, Operações e Código NC; o CamView põe esta faixa no topo do módulo.</summary>
+    public Control TabStrip { get; }
+
+    private StackPanel BuildTabs()
+    {
+        var strip = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 2, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom };
+        string[] names = ["Preparação", "Operações", "Código NC"];
+        for (int k = 0; k < names.Length; k++)
+        {
+            int index = k;
+            var tab = new Button
+            {
+                Content = names[k], Padding = new Avalonia.Thickness(16, 7), FontSize = 13, CornerRadius = new Avalonia.CornerRadius(8, 8, 0, 0),
+                BorderThickness = new Avalonia.Thickness(0, 0, 0, 2), Background = Avalonia.Media.Brushes.Transparent,
+            };
+            tab.Click += (_, _) => SetTab(index);
+            _tabs[k] = tab;
+            strip.Children.Add(tab);
+        }
+
+        return strip;
+    }
+
+    /// <summary>Mostra a aba (0 Preparação, 1 Operações, 2 Código NC). A faixa de ícones e o painel direito são só de Operações.</summary>
+    private void SetTab(int tab)
+    {
+        _tab = tab;
+        for (int k = 0; k < _tabs.Length; k++)
+        {
+            bool on = k == tab;
+            // a aba escolhida fica laranja (seleção) com traço embaixo; as outras, cinza
+            _tabs[k].Foreground = Avalonia.Media.Brush.Parse(on ? "#ffb066" : "#9aa7b5");
+            _tabs[k].BorderBrush = on ? Avalonia.Media.Brush.Parse("#ff8a1f") : Avalonia.Media.Brushes.Transparent;
+            _tabs[k].FontWeight = on ? Avalonia.Media.FontWeight.SemiBold : Avalonia.Media.FontWeight.Normal;
+        }
+
+        PrepCenter.IsVisible = tab == 0;
+        OpsCenter.IsVisible = tab == 1;
+        CodeCenter.IsVisible = tab == 2;
+        PaletteBar.IsVisible = tab == 1;
+        RightColumn.IsVisible = tab == 1;
+        if (tab == 0)
+        {
+            BuildPrep();
+        }
+    }
+
+    /// <summary>Onde os editores escrevem: o painel direito, ou um cartão da Preparação enquanto ele é montado.</summary>
+    private StackPanel? _propsTarget;
+
+    private StackPanel PropsPanel => _propsTarget ?? OpPanel;
+
+    /// <summary>Campo do tipo de fixação no cartão da Preparação (a barra leva o foco até ele nessa aba).</summary>
+    private ComboBox? _prepFixtureKind;
+
+    /// <summary>Cartões da Preparação com os mesmos editores do painel direito (bruto e fixação) e a origem atual (só texto).</summary>
+    private void BuildPrep()
+    {
+        ComboBox? keep = _fixtureKind;
+        try
+        {
+            _propsTarget = PrepStock;
+            PrepStock.Children.Clear();
+            StockProps();
+            _propsTarget = PrepFixture;
+            PrepFixture.Children.Clear();
+            FixtureProps();
+            _prepFixtureKind = _fixtureKind;
+        }
+        finally
+        {
+            _propsTarget = null;
+            _fixtureKind = keep;
+        }
+
+        PrepOrigin.Children.Clear();
+        PrepOrigin.Children.Add(new TextBlock { Text = "Zero da fixação 1", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        PrepOrigin.Children.Add(new TextBlock { Text = CamJobInfo.OriginTitle(_job), TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
+        PrepOrigin.Children.Add(UiKit.StatusNote("Origem " + CamJobInfo.OriginState().Text + ": confira na máquina. Escolher o zero pela peça e ter um zero por fixação vêm em breve.", "pending"));
     }
 
     /// <summary>Contornos e bruto do Trabalho aberto (o Assist lê para sugerir um plano).</summary>
@@ -252,7 +341,10 @@ public partial class JobView : UserControl
     /// <summary>Botões da faixa, na ordem de <see cref="CamPalette.VisibleGroups"/> (para apagar/acender conforme a seleção).</summary>
     private readonly List<(CamPaletteItem Item, Button Button)> _paletteButtons = [];
 
-    /// <summary>Monta a faixa de operações a partir dos grupos do Core (grupo oculto, como o 3D, não entra).</summary>
+    /// <summary>
+    /// Monta a faixa grande a partir dos grupos do Core (grupo oculto, como o 3D, não entra): ícone de 2 cores, nome e, nos
+    /// botões que ainda não existem, o selo "em breve" (apagados). Arquivo abre e salva como os botões antigos da coluna.
+    /// </summary>
     private void BuildPalette()
     {
         Palette.Children.Clear();
@@ -262,32 +354,66 @@ public partial class JobView : UserControl
         {
             if (!first)
             {
-                Palette.Children.Add(new Border { Width = 1, Margin = new Avalonia.Thickness(6, 4), Background = Avalonia.Media.Brushes.Gray, Opacity = 0.35 });
+                Palette.Children.Add(new Border { Width = 1, Margin = new Avalonia.Thickness(6, 2), Background = Avalonia.Media.Brush.Parse("#1f2733") });
             }
 
             first = false;
-            var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 2 };
+            var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 3 };
             foreach (CamPaletteItem item in group.Items)
             {
                 var content = new StackPanel { Spacing = 2, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center };
-                content.Children.Add(UiKit.Icon(item.Icon, "#8FB4FF", 20));
-                content.Children.Add(new TextBlock { Text = item.Name, FontSize = 11, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
-                var button = new Button { Content = content, Padding = new Avalonia.Thickness(8, 4), MinWidth = 64, MinHeight = 0, Background = Avalonia.Media.Brushes.Transparent };
+                content.Children.Add(UiKit.Icon2(item.Icon, "#e6edf3", "#ff8a1f", 24));
+                content.Children.Add(new TextBlock
+                {
+                    Text = item.Name, FontSize = 11, LineHeight = 13, MaxLines = 2, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                    TextAlignment = Avalonia.Media.TextAlignment.Center, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                });
+                if (item.Soon)
+                {
+                    content.Children.Add(new TextBlock { Text = "em breve", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
+                }
+
+                var button = new Button
+                {
+                    Content = content, Width = 66, Height = 70, Padding = new Avalonia.Thickness(2, 4), MinHeight = 0,
+                    VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    Background = Avalonia.Media.Brush.Parse("#18202b"), BorderBrush = Avalonia.Media.Brush.Parse("#243040"),
+                    BorderThickness = new Avalonia.Thickness(1), CornerRadius = new Avalonia.CornerRadius(8),
+                    Opacity = item.Soon ? 0.45 : 1,
+                };
                 ToolTip.SetShowOnDisabled(button, true);
-                Avalonia.Automation.AutomationProperties.SetName(button, "Adicionar " + item.Name);
+                Avalonia.Automation.AutomationProperties.SetName(button, item.Action is not null ? item.Name : item.Soon ? item.Name + " (em breve)" : "Adicionar " + item.Name);
                 CamPaletteItem picked = item;
-                button.Click += (_, _) => AddOperation(picked);
+                button.Click += async (_, _) => await PaletteClick(picked);
                 buttons.Children.Add(button);
                 _paletteButtons.Add((item, button));
             }
 
-            var box = new StackPanel { Spacing = 0 };
-            box.Children.Add(new TextBlock { Text = group.Title, FontSize = 10, Opacity = 0.65, Margin = new Avalonia.Thickness(4, 0, 0, 0) });
+            var box = new StackPanel { Spacing = 3 };
             box.Children.Add(buttons);
+            box.Children.Add(new TextBlock { Text = group.Title.ToUpperInvariant(), FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
             Palette.Children.Add(box);
         }
 
         UpdatePalette();
+    }
+
+    private async Task PaletteClick(CamPaletteItem item)
+    {
+        switch (item.Action)
+        {
+            case "abrir-dxf":
+                await OpenDxf();
+                return;
+            case "abrir-trabalho":
+                await OpenJob();
+                return;
+            case "salvar-trabalho":
+                await SaveJob();
+                return;
+        }
+
+        AddOperation(item);
     }
 
     private int PaletteTarget() =>
@@ -424,8 +550,35 @@ public partial class JobView : UserControl
         CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
         Bar.Update(PendingItems(), ready, gcode && ready > 0, gcode);
         CopyButton.IsEnabled = gcode;
+        UpdateStatus();
+        if (props && _tab == 0)
+        {
+            BuildPrep();
+        }
+
         UpdatePreview();
         Update3D();
+    }
+
+    /// <summary>
+    /// Linha de status: operações incompletas (campo vazio, inválido ou erro ao gerar) e o número do programa que está no trabalho
+    /// (o Core sempre tem um; nada é inventado aqui).
+    /// </summary>
+    private void UpdateStatus()
+    {
+        int incomplete = _job.Operations.Where((o, i) => o.Enabled && OpIncomplete(i)).Count();
+        StatusIncomplete.Text = incomplete == 0
+            ? (_job.Operations.Count == 0 ? "Nenhuma operação" : "Nenhuma operação incompleta")
+            : $"⚠ {incomplete} {(incomplete == 1 ? "operação incompleta" : "operações incompletas")}";
+        StatusIncomplete.Foreground = incomplete == 0 ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        StatusProgram.Text = "Programa nº: " + _job.ProgramNumber.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Operação incompleta: campo vazio ou inválido que ela usa (CAM-12) ou erro ao gerar.</summary>
+    private bool OpIncomplete(int i)
+    {
+        CamOperationSpec s = _job.Operations[i];
+        return CamJobInfo.MissingFields(s).Count > 0 || CamJobInfo.InvalidFields(s).Count > 0 || (i < _build.Items.Count && !_build.Items[i].Skipped && !_build.Items[i].Ok);
     }
 
     /// <summary>
@@ -463,12 +616,20 @@ public partial class JobView : UserControl
         if (_job.Contours.Count == 0)
         {
             // leva ao item Peça: lá dá para desenhar uma forma; o "Abrir DXF…" fica logo acima da árvore
-            targets.Add(("pending", () => GoToTree(t => t.Kind == "part")));
+            targets.Add(("pending", () =>
+            {
+                SetTab(1);
+                GoToTree(t => t.Kind == "part");
+            }));
         }
 
         if (_job.Stock is null)
         {
-            targets.Add(("pending", () => GoToTree(t => t.Kind == "stock")));
+            targets.Add(("pending", () =>
+            {
+                GoToTree(t => t.Kind == "stock");
+                SetTab(0);
+            }));
         }
 
         if (_job.Fixture is null)
@@ -477,13 +638,18 @@ public partial class JobView : UserControl
             targets.Add(("pending", () =>
             {
                 GoToTree(t => t.Kind == "fixture");
-                _fixtureKind?.Focus(NavigationMethod.Tab);
+                SetTab(0);
+                _prepFixtureKind?.Focus(NavigationMethod.Tab);
             }));
         }
 
         if (_job.Operations.Count == 0)
         {
-            targets.Add(("pending", () => _paletteButtons.FirstOrDefault(b => b.Button.IsEnabled).Button?.Focus(NavigationMethod.Tab)));
+            targets.Add(("pending", () =>
+            {
+                SetTab(1);
+                _paletteButtons.FirstOrDefault(b => b.Button.IsEnabled && b.Item.Kind is not null).Button?.Focus(NavigationMethod.Tab);
+            }));
         }
 
         for (int i = 0; i < _build.Items.Count; i++)
@@ -491,13 +657,21 @@ public partial class JobView : UserControl
             int index = i;
             if (!_build.Items[i].Ok)
             {
-                targets.Add(("bad", () => GoToTree(t => t.Kind == "op" && t.Index == index)));
+                targets.Add(("bad", () =>
+                {
+                    SetTab(1);
+                    GoToTree(t => t.Kind == "op" && t.Index == index);
+                }));
             }
         }
 
         foreach (int index in CamJobInfo.OverSpindle(_job, maxRpm))
         {
-            targets.Add(("pending", () => GoToTree(t => t.Kind == "op" && t.Index == index)));
+            targets.Add(("pending", () =>
+            {
+                SetTab(1);
+                GoToTree(t => t.Kind == "op" && t.Index == index);
+            }));
         }
 
         // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho).
@@ -568,11 +742,18 @@ public partial class JobView : UserControl
     {
         Tree.Items.Clear();
         TreeViewItem? select = null;
-        TreeViewItem Node(string text, object? tag = null, string? icon = null) => new() { Header = icon is null ? text : UiKit.IconLabel(icon, text), Tag = tag, IsExpanded = true };
+        TreeViewItem Node(string text, object? tag = null, string? icon = null) => new() { Header = icon is null ? text : UiKit.IconLabel(icon, text, "#9aa7b5"), Tag = tag, IsExpanded = true };
 
         TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon, TreeTag? tag = null) =>
-            UiKit.StateItem(UiKit.StateRow(text, st, UiKit.Icon(icon, "#8FB4FF", 15)), tag);
+            UiKit.StateItem(UiKit.StateRow(text, st, UiKit.Icon(icon, "#9aa7b5", 15)), tag);
 
+        MachineProfile? machine = MachineSource?.Invoke();
+        Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
+        // material ainda não existe no CAM: aparece apagado, sem valor suposto
+        TreeViewItem material = Node("Material: não definido", null, "material");
+        material.Opacity = 0.5;
+        ToolTip.SetTip(material, "Em breve: o material entra numa próxima etapa.");
+        Tree.Items.Add(material);
         TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", new TreeTag("part", 0), "peca");
         for (int i = 0; i < _job.Contours.Count; i++)
         {
@@ -584,6 +765,7 @@ public partial class JobView : UserControl
             }
         }
 
+        part.IsExpanded = _job.Contours.Count <= 4;
         Tree.Items.Add(part);
         // bruto ausente é pendência (âmbar, como na barra); o texto continua o do Core
         (string Kind, string Text) stock = CamJobInfo.StockState(_job.Stock);
@@ -593,51 +775,90 @@ public partial class JobView : UserControl
         }
 
         Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), stock, "bruto", new TreeTag("stock", 0)));
-        Tree.Items.Add(NodeState(CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "preparo"));
-        Tree.Items.Add(NodeState(CamJobInfo.FixtureTitle(_job.Fixture), CamJobInfo.FixtureState(_job.Fixture), "fixacao", new TreeTag("fixture", 0)));
-        MachineProfile? machine = MachineSource?.Invoke();
-        Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
         foreach (string line in CamJobInfo.ToolLines(_job))
         {
             tools.Items.Add(Node(line));
         }
 
+        tools.IsExpanded = false;
         Tree.Items.Add(tools);
-        TreeViewItem ops = Node($"Operações ({_job.Operations.Count})", null, "operacoes");
+
+        // Fixação 1: o trabalho tem uma fixação e um zero só (Core); dentro, o zero e as operações
+        string fixtureName = _job.Fixture is { } fx ? JobFixture.NameOf(fx.Kind) ?? fx.Kind : "não definida";
+        TreeViewItem setup = NodeState($"Fixação 1 · G{_job.WorkOffset} · {fixtureName}", CamJobInfo.FixtureState(_job.Fixture), "fixacao", new TreeTag("fixture", 0));
+        ToolTip.SetTip(setup, CamJobInfo.FixtureTitle(_job.Fixture));
+        setup.Items.Add(NodeState("Zero: " + CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "zero"));
         for (int i = 0; i < _job.Operations.Count; i++)
         {
-            int index = i;
-            CamOperationSpec spec = _job.Operations[i];
-            var check = new CheckBox { IsChecked = spec.Enabled, MinWidth = 0 };
-            // título com reticências: a etiqueta de estado (texto) nunca sai da árvore
-            DockPanel row = UiKit.StateRow(CamJobInfo.OpTitle(i, spec), TreeState(CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm)), check, UiKit.Icon(OpIcon(spec), "#8FB4FF", 15));
-            row.Opacity = spec.Enabled ? 1 : 0.5;
-            if (OpOrigin.Describe(spec.Origin) is { } origin)
-            {
-                ToolTip.SetTip(row, origin.Text);
-            }
-
-            check.IsCheckedChanged += (_, _) =>
-            {
-                if (!_busy)
-                {
-                    SetEnabled(index, check.IsChecked == true);
-                }
-            };
-            TreeViewItem item = UiKit.StateItem(row, new TreeTag("op", i));
-            ops.Items.Add(item);
+            TreeViewItem item = OpNode(i, machine);
+            setup.Items.Add(item);
             if (selectOp == i)
             {
                 select = item;
             }
         }
 
-        Tree.Items.Add(ops);
+        Tree.Items.Add(setup);
         if (select is not null)
         {
             Tree.SelectedItem = select;
         }
+    }
+
+    /// <summary>
+    /// Linha da operação: selo ✓ (pronta) ou ! (incompleta: campo vazio ou inválido, ou erro ao gerar), ícone, título e olho
+    /// (liga e desliga, o mesmo Enabled de antes). O motivo fica na dica.
+    /// </summary>
+    private TreeViewItem OpNode(int i, MachineProfile? machine)
+    {
+        int index = i;
+        CamOperationSpec spec = _job.Operations[i];
+        (string Kind, string Text) st = TreeState(CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm));
+        bool incomplete = OpIncomplete(i);
+        (string mark, string kind) = !spec.Enabled ? ("–", "neutral") : incomplete ? ("!", "pending") : st.Kind == "ok" ? ("✓", "ok") : ("!", "pending");
+        (Avalonia.Media.IBrush fg, Avalonia.Media.IBrush bg) = UiKit.Status(kind);
+        var badge = new Border
+        {
+            Width = 17, Height = 17, CornerRadius = new Avalonia.CornerRadius(9), Background = bg, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            Child = new TextBlock { Text = mark, FontSize = 11, FontWeight = Avalonia.Media.FontWeight.Bold, Foreground = fg, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center },
+        };
+        var eye = new Button
+        {
+            Content = UiKit.Icon(spec.Enabled ? "olho" : "olho-fechado", spec.Enabled ? "#9aa7b5" : "#5b6675", 15),
+            Padding = new Avalonia.Thickness(3), MinHeight = 0, MinWidth = 0, Background = Avalonia.Media.Brushes.Transparent, BorderThickness = new Avalonia.Thickness(0),
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+        };
+        string eyeText = spec.Enabled ? "Desligar a operação (não entra no programa)" : "Ligar a operação";
+        ToolTip.SetTip(eye, eyeText);
+        Avalonia.Automation.AutomationProperties.SetName(eye, eyeText);
+        eye.Click += (_, _) =>
+        {
+            if (!_busy)
+            {
+                SetEnabled(index, !spec.Enabled);
+            }
+        };
+
+        var row = new DockPanel();
+        DockPanel.SetDock(badge, Dock.Left);
+        DockPanel.SetDock(eye, Dock.Right);
+        Control icon = UiKit.Icon(OpIcon(spec), "#9aa7b5", 15);
+        DockPanel.SetDock(icon, Dock.Left);
+        icon.Margin = new Avalonia.Thickness(6, 0);
+        row.Children.Add(badge);
+        row.Children.Add(icon);
+        row.Children.Add(eye);
+        row.Children.Add(new TextBlock { Text = CamJobInfo.OpTitle(i, spec), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis });
+        row.Opacity = spec.Enabled ? 1 : 0.55;
+        string tip = CamJobInfo.OpTitle(i, spec) + "\n" + (incomplete && st.Kind == "ok" ? "Incompleta: falta preencher campo" : st.Text);
+        if (OpOrigin.Describe(spec.Origin) is { } origin)
+        {
+            tip += "\n" + origin.Text;
+        }
+
+        ToolTip.SetTip(row, tip);
+        return UiKit.StateItem(row, new TreeTag("op", i));
     }
 
     private void UpdatePreview()

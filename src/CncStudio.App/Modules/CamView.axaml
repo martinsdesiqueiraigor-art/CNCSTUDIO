@@ -3,15 +3,26 @@
              xmlns:modules="using:CncStudio.App.Modules"
              x:Class="CncStudio.App.Modules.CamView">
   <DockPanel>
-  <Border DockPanel.Dock="Top" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,0,1" Padding="14,6">
-    <StackPanel Orientation="Horizontal" Spacing="8">
-      <TextBlock Text="Máquina:" VerticalAlignment="Center" />
-      <ToggleButton x:Name="LatheTab" Content="Torno" Padding="16,5" />
-      <ToggleButton x:Name="MachineTab" Content="Perfil 4/5 eixos" Padding="16,5" />
-      <ToggleButton x:Name="JobTab" Content="Trabalho fresa" Padding="16,5" IsChecked="True" />
-      <ToggleButton x:Name="LatheJobTab" Content="Trabalho torno" Padding="16,5" />
-      <ToggleButton x:Name="ModelTab" Content="Modelo 3D (STL/STEP)" Padding="16,5" />
-    </StackPanel>
+  <!-- Topo (UX-04c): nome, abas do Trabalho fresa (vêm do JobView), seletor Fresa/Torno e o menu Mais com as telas antigas -->
+  <Border DockPanel.Dock="Top" Background="#090c11" BorderBrush="#1f2733" BorderThickness="0,0,0,1" Padding="14,0" Height="40">
+    <Grid ColumnDefinitions="Auto,*,Auto">
+      <TextBlock Text="Casillas CAM" Foreground="#ff8a1f" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,18,0" />
+      <ContentControl Grid.Column="1" x:Name="HeaderSlot" VerticalAlignment="Bottom" />
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <TextBlock x:Name="OtherTitle" Foreground="#9aa7b5" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+        <ToggleButton x:Name="JobTab" Content="Fresa" Padding="14,4" IsChecked="True" ToolTip.Tip="Trabalho de fresa" />
+        <ToggleButton x:Name="LatheJobTab" Content="Torno" Padding="14,4" ToolTip.Tip="Trabalho de torno" />
+        <Button x:Name="MoreButton" Content="Mais ▾" Padding="12,4" ToolTip.Tip="Torno rápido, Perfil 4/5 eixos e Modelo 3D (STL/STEP)">
+          <Button.Flyout>
+            <MenuFlyout Placement="BottomEdgeAlignedRight">
+              <MenuItem x:Name="LatheTab" Header="Torno rápido" />
+              <MenuItem x:Name="MachineTab" Header="Perfil 4/5 eixos" />
+              <MenuItem x:Name="ModelTab" Header="Modelo 3D (STL/STEP)" />
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
+      </StackPanel>
+    </Grid>
   </Border>
   <Grid>
   <modules:LatheCamView x:Name="LathePanel" IsVisible="False" />

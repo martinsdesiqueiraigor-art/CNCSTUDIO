@@ -9,8 +9,7 @@ public class CamPaletteTests
     [Fact]
     public void Faixa_tem_as_mesmas_operacoes_da_lista_antiga_uma_vez_cada()
     {
-        var visible = CamPalette.VisibleGroups.SelectMany(g => g.Items).ToList();
-        Assert.All(visible, i => Assert.NotNull(i.Kind));
+        var visible = CamPalette.VisibleGroups.SelectMany(CamPalette.OperationItems).ToList();
         Assert.Equal(CamJobInfo.NewKinds.Count, visible.Count);
         foreach ((string _, JobOpKind kind, ContourSide side) in CamJobInfo.NewKinds)
         {
@@ -21,7 +20,7 @@ public class CamPaletteTests
     [Fact]
     public void Grupos_na_ordem_e_3D_definido_mas_oculto()
     {
-        Assert.Equal(["2D", "Furação", "4º eixo"], CamPalette.VisibleGroups.Select(g => g.Title));
+        Assert.Equal(["Arquivo", "Fixação", "2D", "Furação", "4º eixo"], CamPalette.VisibleGroups.Select(g => g.Title));
         CamPaletteGroup g3d = CamPalette.Groups.Single(g => g.Id == "3d");
         Assert.False(g3d.Visible);
         Assert.All(g3d.Items, i => Assert.Null(i.Kind));
@@ -42,7 +41,7 @@ public class CamPaletteTests
         var job = new CamJob();
         int target = CamPalette.TargetContour(job, null, null);
         Assert.Equal(-1, target);
-        var ok = CamPalette.VisibleGroups.SelectMany(g => g.Items).Where(i => CamPalette.Unavailable(i, job, target) is null).Select(i => i.Id);
+        var ok = CamPalette.VisibleGroups.SelectMany(CamPalette.OperationItems).Where(i => CamPalette.Unavailable(i, job, target) is null).Select(i => i.Id);
         Assert.Equal(["texto-cilindro"], ok);
         Assert.Contains("círculo", CamPalette.Unavailable(Item("furacao"), job, target));
     }
@@ -101,5 +100,34 @@ public class CamPaletteTests
         Assert.StartsWith("Abra um DXF", CamPalette.Unavailable(Item("bolsao"), job, target));
         Assert.Contains("círculo", CamPalette.Unavailable(Item("furacao"), job, target, r.OpenChains.Count));
         Assert.Null(CamPalette.Unavailable(Item("texto-cilindro"), job, target, r.OpenChains.Count));
+    }
+
+    [Fact]
+    public void Em_breve_aparece_apagado_e_nao_cria_operacao()
+    {
+        var soon = CamPalette.VisibleGroups.SelectMany(g => g.Items).Where(i => i.Soon).Select(i => i.Id).ToList();
+        Assert.Equal(["nova-fixacao", "zero", "chanfro", "ranhura", "macho", "mandrilhar"], soon);
+        var job = new CamJob();
+        job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
+        foreach (string id in soon)
+        {
+            Assert.Null(Item(id).Kind);
+            Assert.Null(Item(id).Action);
+            Assert.Equal(CamPalette.SoonMessage, CamPalette.Unavailable(Item(id), job, 0));
+            Assert.Null(CamPalette.NewOperation(Item(id), 0));
+        }
+
+        // o grupo Fixação inteiro é "em breve": o Core ainda tem um zero só
+        Assert.All(CamPalette.Groups.Single(g => g.Id == "fixacao").Items, i => Assert.True(i.Soon));
+    }
+
+    [Fact]
+    public void Arquivo_tem_acoes_sempre_ligadas_sem_operacao()
+    {
+        CamPaletteGroup file = CamPalette.Groups.Single(g => g.Id == "arquivo");
+        Assert.Equal(["abrir-dxf", "abrir-trabalho", "salvar-trabalho"], file.Items.Select(i => i.Action));
+        Assert.Empty(CamPalette.OperationItems(file));
+        Assert.All(file.Items, i => Assert.Null(CamPalette.Unavailable(i, new CamJob(), -1)));
+        Assert.All(file.Items, i => Assert.Null(CamPalette.NewOperation(i, 0)));
     }
 }

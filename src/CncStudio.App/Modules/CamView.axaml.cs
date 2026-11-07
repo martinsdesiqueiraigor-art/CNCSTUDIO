@@ -5,7 +5,8 @@ using CncStudio.Core.Cam;
 namespace CncStudio.App.Modules;
 
 /// <summary>
-/// Casillas CAM no desktop: abas Torno, Perfil 4/5 eixos, Trabalho fresa, Trabalho torno e Modelo 3D.
+/// Casillas CAM no desktop: seletor Fresa/Torno (Trabalho fresa e Trabalho torno) e, no menu Mais, Torno rápido, Perfil 4/5
+/// eixos e Modelo 3D (UX-04c). As abas do Trabalho fresa vêm do <see cref="JobView.TabStrip"/>.
 /// Todo o cálculo é do Core (<c>Core/Cam</c>); aqui só se troca de aba e se repassam as ligações com o app.
 /// </summary>
 public partial class CamView : UserControl
@@ -130,6 +131,7 @@ public partial class CamView : UserControl
     public CamView()
     {
         InitializeComponent();
+        HeaderSlot.Content = JobPanel.TabStrip;
         LatheTab.Click += (_, _) => ShowMachine(lathe: true);
         MachineTab.Click += (_, _) => ShowMachine(profile: true);
         JobTab.Click += (_, _) => ShowMachine(job: true);
@@ -147,16 +149,16 @@ public partial class CamView : UserControl
 
     private void ShowMachine(bool lathe = false, bool profile = false, bool job = false, bool latheJob = false, bool model = false)
     {
-        LatheTab.IsChecked = lathe;
-        MachineTab.IsChecked = profile;
         JobTab.IsChecked = job;
         LatheJobTab.IsChecked = latheJob;
-        ModelTab.IsChecked = model;
         LathePanel.IsVisible = lathe;
         MachinePanel.IsVisible = profile;
         JobPanel.IsVisible = job;
         LatheJobPanel.IsVisible = latheJob;
         ModelPanel.IsVisible = model;
+        // as abas Preparação/Operações/Código NC são só do Trabalho fresa; nas telas do Mais, o nome dela aparece no topo
+        HeaderSlot.IsVisible = job;
+        OtherTitle.Text = lathe ? "Torno rápido" : profile ? "Perfil 4/5 eixos" : model ? "Modelo 3D (STL/STEP)" : "";
         if (profile)
         {
             MachinePanel.Refresh();
