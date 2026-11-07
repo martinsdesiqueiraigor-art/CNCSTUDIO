@@ -1,0 +1,126 @@
+{
+  "versao": 2,
+  "id": "acad-m3-a02",
+  "modulo": "acad-m3",
+  "titulo": "G83: furacao com retiradas",
+  "nivel": "Básico",
+  "caminho": "Fresa",
+  "dialeto": "fanuc",
+  "maquina": "fresa",
+  "estado": "rascunho",
+  "objetivo": "Interpretar Q e as retiradas sucessivas de um ciclo G83.",
+  "pre_requisito": "acad-m3-a01",
+  "secoes": {
+    "visao": {
+      "estado": "rascunho",
+      "abertura": "Como interpretar esta instrucao sem confundir simulacao e execucao real?",
+      "texto": "[conceito] G83 realiza avancos sucessivos e retiradas para facilitar a evacuacao de cavacos. Q representa o incremento de profundidade na configuracao didatica Fanuc; sua unidade e formato dependem do comando. Esta aula trata da interpretacao de programas Fanuc em uma fresadora de tres eixos. O sistema G54 e a origem Z0 na superficie superior sao convencoes didaticas e nao substituem a preparacao da maquina. O operador deve compreender o modo G90 absoluto, G17 plano XY e G94 avanco por minuto antes de interpretar as instrucoes.\n\n[exemplo] O trecho de leitura e: G83 X10.0 Y10.0 Z-12.0 R2.0 Q3.0 F100.0. Leia cada endereco na ordem e diferencie o comando modal dos valores de coordenadas. Os numeros sao exemplos de sintaxe, nao parametros recomendados para cortar material. O programa .nc associado apresenta uma trajetoria geometrica simplificada usando G00 e G01, para ser aberta no editor e no 3D mesmo quando a implementacao nao interpreta o recurso ensinado. Nao se deve confundir essa aproximacao com a execucao do ciclo ou do corretor.\n\n[atenção] G80 cancela o ciclo e evita repeticao involuntaria. Erro comum no chao de fabrica: copiar um programa de outra maquina sem conferir versao de comando, altura livre, ferramenta, offsets e fixacao. A simulacao geometrica nao garante ausencia de colisao nem a validade dos parametros de usinagem. A distancia segura, a ferramenta adequada, a rotacao e o avanco reais ficam A definir.\n\n[dica] Primeiro identifique o que o bloco solicita; depois verifique qual estado modal permanece nos blocos seguintes. Compare o trecho de leitura com o exemplo simplificado. No exercicio, altere apenas a instrucao pedida e explique por que o resultado mudou. Antes de qualquer uso real, valide os dados na documentacao do controle e na preparacao da maquina.\n\n[conceito] A verificacao deve distinguir tres camadas: sintaxe escrita, comportamento efetivo do CNC e visualizacao do simulador. Uma trajetoria exibida corretamente pode nao representar a usinagem real. Todos os dados tecnicos que dependem de configuracao especifica da maquina permanecem A definir.",
+      "conceitos": [
+        "G83 realiza avancos sucessivos e retiradas para facilitar a evacuacao de cavacos.",
+        "Q representa o incremento de profundidade na configuracao didatica Fanuc; sua unidade e formato dependem do comando.",
+        "G80 cancela o ciclo e evita repeticao involuntaria."
+      ]
+    },
+    "trajetoria": {
+      "estado": "rascunho",
+      "programa": ""
+    },
+    "sintaxe": {
+      "estado": "rascunho",
+      "blocos": [],
+      "parametros": []
+    },
+    "exemplo": {
+      "estado": "rascunho",
+      "programa": "samples/academy/acad-m3-a02.nc",
+      "etapas": []
+    },
+    "cuidados": {
+      "estado": "rascunho",
+      "erros": [
+        "Nao assumir que a simulacao reproduz o recurso do controle."
+      ],
+      "alertas": [
+        "Simule antes de rodar na máquina"
+      ]
+    },
+    "praticar": {
+      "estado": "rascunho",
+      "exercicio": {
+        "tipo": "complete/corrija",
+        "enunciado": "Complete a linha de trajetoria didatica: ____ X30.0 Y10.0",
+        "gabarito": "G00",
+        "editor": {
+          "prefixo": "G21 G90 G17 G94\nG54\nG00 Z20.0\nG00 X10.0 Y10.0",
+          "inicial": "____ X30.0 Y10.0",
+          "solucao": "G00 X30.0 Y10.0",
+          "checagens": [
+            {
+              "tipo": "contem",
+              "texto": "G00",
+              "dica": "Escolha o modo de movimento."
+            },
+            {
+              "tipo": "sem_erros"
+            }
+          ]
+        }
+      },
+      "quiz": [
+        {
+          "id": "acad-m3-a02-q01",
+          "enunciado": "Qual ciclo normalmente usa retiradas sucessivas?",
+          "alternativas": [
+            "G83",
+            "G81",
+            "G80",
+            "G00"
+          ],
+          "correta": "A",
+          "explicacao": "G83 usa etapas de furacao; G81 e furacao simples; G80 cancela; G00 posiciona.",
+          "dica": "Compare os codigos e seus efeitos."
+        },
+        {
+          "id": "acad-m3-a02-q02",
+          "enunciado": "Em G83 X10.0 Y10.0 Z-12.0 R2.0 Q3.0 F100.0, Q representa o que no exemplo?",
+          "alternativas": [
+            "Rotacao do spindle",
+            "Incremento de profundidade",
+            "Raio da ferramenta",
+            "Corretor de comprimento"
+          ],
+          "correta": "B",
+          "explicacao": "Q indica incremento; rotacao usa S; raio usa corretor; comprimento usa H.",
+          "dica": "Leia o trecho e identifique a funcao de cada endereco."
+        },
+        {
+          "id": "acad-m3-a02-q03",
+          "enunciado": "Qual acao evita repetir o ciclo ao mover para outro ponto?",
+          "alternativas": [
+            "Acrescentar S",
+            "Trocar G54",
+            "Programar G80",
+            "Retirar F"
+          ],
+          "correta": "C",
+          "explicacao": "S nao cancela ciclo; G54 troca origem; G80 cancela; retirar F nao cancela.",
+          "dica": "Compare os codigos e seus efeitos."
+        },
+        {
+          "id": "acad-m3-a02-q04",
+          "enunciado": "Por que Q precisa de verificacao no controle?",
+          "alternativas": [
+            "Porque sempre e em polegadas",
+            "Porque Q define o zero peca",
+            "Porque Q e um codigo M",
+            "Porque formato e unidade podem variar"
+          ],
+          "correta": "D",
+          "explicacao": "As tres primeiras alternativas atribuem significados falsos; o formato do comando precisa ser confirmado.",
+          "dica": "Compare os codigos e seus efeitos."
+        }
+      ]
+    }
+  },
+  "observacoes": "Fanuc didatico. Valores de corte, fixacao e corretor real: A definir. Arquivo .nc e demonstracao simplificada, nao ciclo real."
+}
