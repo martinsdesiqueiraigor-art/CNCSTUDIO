@@ -30,6 +30,8 @@ public partial class JobView : UserControl
     public JobView()
     {
         InitializeComponent();
+        // chips do 3D: cada mudança vai para o config do app
+        Scene3D.OptionsChanged += (_, o) => SaveViewOptions?.Invoke(o.ToText());
         TabStrip = BuildTabs();
         BuildPalette();
         UndoButton.Click += (_, _) => Undo();
@@ -143,6 +145,15 @@ public partial class JobView : UserControl
 
     /// <summary>Guarda as larguras (árvore, painel) nas preferências do app.</summary>
     public Action<double, double>? SavePanes { get; set; }
+
+    /// <summary>Escolhas dos chips do 3D (texto do config do app; inválido = padrão). Não vão para o .casillas-job.</summary>
+    public string ViewOptions
+    {
+        set => Scene3D.Options = CamViewOptions.Parse(value);
+    }
+
+    /// <summary>Guarda as escolhas dos chips do 3D nas preferências do app.</summary>
+    public Action<string>? SaveViewOptions { get; set; }
 
     /// <summary>Larguras guardadas (0 = padrão); fora dos limites, volta ao limite.</summary>
     public void SetPanes(double tree, double props)
@@ -812,7 +823,7 @@ public partial class JobView : UserControl
 
         if (on)
         {
-            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc);
+            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, _job.Stock, [.. _job.Contours]);
         }
     }
 
