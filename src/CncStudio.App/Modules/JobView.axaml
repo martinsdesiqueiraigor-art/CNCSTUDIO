@@ -33,9 +33,18 @@
       <StackPanel x:Name="Palette" Orientation="Horizontal" Spacing="0" />
     </ScrollViewer>
   </Border>
-  <Grid Grid.Row="1" ColumnDefinitions="240,*,Auto">
-    <!-- Árvore (240 px): Máquina, Material, Peça, Bruto, Ferramentas e Fixação 1 com o zero e as operações -->
-    <Border Grid.Column="0" Background="#131922" BorderBrush="#1f2733" BorderThickness="0,0,1,0">
+  <!-- Árvore | divisória | centro | divisória | painel. Divisórias arrastáveis (duplo clique volta ao padrão 240 e 290);
+       as larguras ficam nas preferências do app, nunca no .casillas-job -->
+  <Grid x:Name="Panes" Grid.Row="1">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="240" MinWidth="200" MaxWidth="420" />
+      <ColumnDefinition Width="5" />
+      <ColumnDefinition Width="*" MinWidth="480" />
+      <ColumnDefinition Width="5" />
+      <ColumnDefinition Width="290" MinWidth="260" MaxWidth="520" />
+    </Grid.ColumnDefinitions>
+    <!-- Árvore: Máquina, Material, Peça, Bruto, Ferramentas e Fixação 1 com o zero e as operações -->
+    <Border Grid.Column="0" Background="#131922">
       <DockPanel Margin="8,8">
         <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" ColumnSpacing="6">
           <TextBlock Text="Trabalho:" FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -56,7 +65,8 @@
         <TreeView x:Name="Tree" Margin="0,6,0,0" FontSize="12" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
       </DockPanel>
     </Border>
-    <DockPanel Grid.Column="1">
+    <GridSplitter x:Name="TreeSplitter" Grid.Column="1" ResizeDirection="Columns" Background="#1f2733" ToolTip.Tip="Arraste para mudar a largura da árvore. Duplo clique volta ao padrão." />
+    <DockPanel Grid.Column="2">
       <ScrollViewer x:Name="WarningsBox" DockPanel.Dock="Bottom" MaxHeight="44" Margin="10,0,10,4" HorizontalScrollBarVisibility="Disabled">
         <TextBlock x:Name="Warnings" TextWrapping="Wrap" Foreground="#F2C45A" FontSize="12" />
       </ScrollViewer>
@@ -108,14 +118,15 @@
       </Grid>
     </DockPanel>
     <!-- Painel direito (290 px): parâmetros da operação ou do item escolhido na árvore; só na aba Operações -->
-    <Border x:Name="RightColumn" Grid.Column="2" Width="290" Background="#131922" BorderBrush="#1f2733" BorderThickness="1,0,0,0">
+    <GridSplitter x:Name="PropsSplitter" Grid.Column="3" ResizeDirection="Columns" Background="#1f2733" ToolTip.Tip="Arraste para mudar a largura do painel. Duplo clique volta ao padrão." />
+    <Border x:Name="RightColumn" Grid.Column="4" Background="#131922">
       <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel x:Name="OpPanel" Margin="12,10" Spacing="6" />
       </ScrollViewer>
     </Border>
   </Grid>
   <!-- Barra por último no XAML: no Tab ela vem depois da coluna da esquerda e da árvore -->
-  <modules:JobBar x:Name="Bar" Grid.Row="2" />
+  <modules:JobBar x:Name="Bar" Grid.Row="2" Compact="True" />
   <!-- Linha de status: incompletas, fixação atual, número do programa (o valor que está no trabalho) e controle -->
   <Border Grid.Row="3" Background="#090c11" BorderBrush="#1f2733" BorderThickness="0,1,0,0" Padding="12,2">
     <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="16">

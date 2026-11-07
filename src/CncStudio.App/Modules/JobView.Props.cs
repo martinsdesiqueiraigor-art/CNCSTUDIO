@@ -44,6 +44,12 @@ public partial class JobView
             return;
         }
 
+        if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "zero" })
+        {
+            ZeroProps();
+            return;
+        }
+
         if (SelectedOp() is not { } i || i >= _job.Operations.Count)
         {
             PropsPanel.Children.Add(new TextBlock { Text = "Propriedades", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });

@@ -7,7 +7,7 @@
   <Border DockPanel.Dock="Top" Background="#090c11" BorderBrush="#1f2733" BorderThickness="0,0,0,1" Padding="14,0" Height="40">
     <Grid ColumnDefinitions="Auto,*,Auto">
       <TextBlock Text="Casillas CAM" Foreground="#ff8a1f" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,18,0" />
-      <ContentControl Grid.Column="1" x:Name="HeaderSlot" VerticalAlignment="Bottom" />
+      <ContentControl Grid.Column="1" x:Name="HeaderSlot" VerticalAlignment="Bottom" ClipToBounds="True" />
       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <TextBlock x:Name="OtherTitle" Foreground="#9aa7b5" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
         <ToggleButton x:Name="JobTab" Content="Fresa" Padding="14,4" IsChecked="True" ToolTip.Tip="Trabalho de fresa" />

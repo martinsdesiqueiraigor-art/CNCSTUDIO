@@ -106,6 +106,19 @@ public partial class CamView : UserControl
 
     private Action? _saveTools;
 
+    /// <summary>Larguras guardadas da árvore e do painel do Trabalho fresa (0 = padrão).</summary>
+    public (double Tree, double Props) JobPanes
+    {
+        set => JobPanel.SetPanes(value.Tree, value.Props);
+    }
+
+    /// <summary>Guarda as larguras depois de arrastar uma divisória do Trabalho fresa.</summary>
+    public Action<double, double>? SaveJobPanes
+    {
+        get => JobPanel.SavePanes;
+        set => JobPanel.SavePanes = value;
+    }
+
     /// <summary>Seletor de trabalho salvo (.casillas-job) da tela Trabalho.</summary>
     public Func<Task<(string Name, string Text)?>>? PickJob
     {

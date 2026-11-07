@@ -78,6 +78,13 @@ public partial class JobView : UserControl
         {
             if (!_busy)
             {
+                // Zero da fixação: o lugar dele é o cartão Zero da Preparação
+                if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "zero" } && _tab != 0)
+                {
+                    SetTab(0);
+                    PrepOrigin.BringIntoView();
+                }
+
                 BuildProps();
                 UpdatePreview();
                 UpdatePalette();
@@ -115,9 +122,88 @@ public partial class JobView : UserControl
                 await CopyText(_build.Program);
             }
         };
+        TreeSplitter.DragCompleted += (_, _) => PanesDragged();
+        PropsSplitter.DragCompleted += (_, _) => PanesDragged();
+        TreeSplitter.DoubleTapped += (_, _) => ResetPanes();
+        PropsSplitter.DoubleTapped += (_, _) => ResetPanes();
+        Panes.SizeChanged += (_, _) => FitPanes();
         NameBox.Text = _job.Name;
         Refresh();
         SetTab(1);
+    }
+
+    // ---------------------------------------------------------------- divisórias (UX-04c)
+
+    private const double TreeDefault = 240, TreeMin = 200, TreeMax = 420;
+    private const double PropsDefault = 290, PropsMin = 260, PropsMax = 520;
+    private const double CenterMin = 480, SplitterWidth = 5;
+
+    /// <summary>Larguras escolhidas (arrastadas ou guardadas); a tela pode mostrar menos se a janela for estreita.</summary>
+    private double _treeWidth = TreeDefault, _propsWidth = PropsDefault;
+
+    /// <summary>Guarda as larguras (árvore, painel) nas preferências do app.</summary>
+    public Action<double, double>? SavePanes { get; set; }
+
+    /// <summary>Larguras guardadas (0 = padrão); fora dos limites, volta ao limite.</summary>
+    public void SetPanes(double tree, double props)
+    {
+        _treeWidth = tree > 0 ? Math.Clamp(tree, TreeMin, TreeMax) : TreeDefault;
+        _propsWidth = props > 0 ? Math.Clamp(props, PropsMin, PropsMax) : PropsDefault;
+        FitPanes();
+    }
+
+    private void PanesDragged()
+    {
+        _treeWidth = Math.Clamp(Panes.ColumnDefinitions[0].ActualWidth, TreeMin, TreeMax);
+        if (_tab == 1)
+        {
+            _propsWidth = Math.Clamp(Panes.ColumnDefinitions[4].ActualWidth, PropsMin, PropsMax);
+        }
+
+        SavePanes?.Invoke(_treeWidth, _propsWidth);
+        FitPanes();
+    }
+
+    private void ResetPanes()
+    {
+        _treeWidth = TreeDefault;
+        _propsWidth = PropsDefault;
+        SavePanes?.Invoke(0, 0);
+        FitPanes();
+    }
+
+    /// <summary>
+    /// Aplica as larguras sem passar da janela: o centro fica com pelo menos 480 px; se não couber, o painel e depois a árvore
+    /// encolhem até o mínimo, e só então o centro cede (nada fica além da borda direita). Fora da aba Operações o painel some.
+    /// </summary>
+    private void FitPanes()
+    {
+        bool props = _tab == 1;
+        double avail = Panes.Bounds.Width;
+        double tree = _treeWidth, side = props ? _propsWidth : 0;
+        double fixedParts = SplitterWidth + (props ? SplitterWidth : 0);
+        if (avail > 0)
+        {
+            double over = tree + side + fixedParts + CenterMin - avail;
+            if (over > 0 && props)
+            {
+                double cut = Math.Min(over, side - PropsMin);
+                side -= cut;
+                over -= cut;
+            }
+
+            if (over > 0)
+            {
+                tree -= Math.Min(over, tree - TreeMin);
+            }
+        }
+
+        Panes.ColumnDefinitions[0].Width = new GridLength(tree);
+        Panes.ColumnDefinitions[4].MinWidth = props ? PropsMin : 0;
+        Panes.ColumnDefinitions[4].Width = new GridLength(side);
+        Panes.ColumnDefinitions[3].Width = new GridLength(props ? SplitterWidth : 0);
+        PropsSplitter.IsVisible = props;
+        Panes.ColumnDefinitions[2].MinWidth = avail > 0 ? Math.Max(0, Math.Min(CenterMin, avail - tree - side - fixedParts)) : 0;
     }
 
     // ---------------------------------------------------------------- abas (UX-04c)
@@ -166,6 +252,7 @@ public partial class JobView : UserControl
         CodeCenter.IsVisible = tab == 2;
         PaletteBar.IsVisible = tab == 1;
         RightColumn.IsVisible = tab == 1;
+        FitPanes();
         if (tab == 0)
         {
             BuildPrep();
@@ -201,9 +288,23 @@ public partial class JobView : UserControl
         }
 
         PrepOrigin.Children.Clear();
-        PrepOrigin.Children.Add(new TextBlock { Text = "Zero da fixação 1", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
-        PrepOrigin.Children.Add(new TextBlock { Text = CamJobInfo.OriginTitle(_job), TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
-        PrepOrigin.Children.Add(UiKit.StatusNote("Origem " + CamJobInfo.OriginState().Text + ": confira na máquina. Escolher o zero pela peça e ter um zero por fixação vêm em breve.", "pending"));
+        _propsTarget = PrepOrigin;
+        try
+        {
+            ZeroProps();
+        }
+        finally
+        {
+            _propsTarget = null;
+        }
+    }
+
+    /// <summary>Zero da fixação 1: só o que o trabalho já tem (G5x, X0 Y0 do desenho, topo das operações). Sem campo novo.</summary>
+    private void ZeroProps()
+    {
+        PropsPanel.Children.Add(new TextBlock { Text = "Zero da fixação 1", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        PropsPanel.Children.Add(new TextBlock { Text = CamJobInfo.OriginTitle(_job), TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
+        PropsPanel.Children.Add(UiKit.StatusNote("Origem " + CamJobInfo.OriginState().Text + ": confira na máquina. Escolher o zero pela peça e ter um zero por fixação vêm em breve.", "pending"));
     }
 
     /// <summary>Contornos e bruto do Trabalho aberto (o Assist lê para sugerir um plano).</summary>
@@ -375,7 +476,7 @@ public partial class JobView : UserControl
 
                 var button = new Button
                 {
-                    Content = content, Width = 66, Height = 70, Padding = new Avalonia.Thickness(2, 4), MinHeight = 0,
+                    Content = content, Width = 66, Height = 76, Padding = new Avalonia.Thickness(2, 4), MinHeight = 0,
                     VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                     Background = Avalonia.Media.Brush.Parse("#18202b"), BorderBrush = Avalonia.Media.Brush.Parse("#243040"),
                     BorderThickness = new Avalonia.Thickness(1), CornerRadius = new Avalonia.CornerRadius(8),
@@ -523,11 +624,11 @@ public partial class JobView : UserControl
             _build = CamJobBuilder.Build(_job, machine);
             _builtWith = DataStamp.OfMachine(machine);
             // peça, bruto e fixação: o item continua selecionado depois de refazer a árvore (o editor fica aberto)
-            string? keepItem = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" or "part" or "fixture" } kt ? kt.Kind : null;
+            string? keepItem = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" or "part" or "fixture" or "zero" } kt ? kt.Kind : null;
             BuildTree(keepOp, keepContour);
             if (keepItem is not null)
             {
-                Tree.SelectedItem = Tree.Items.OfType<TreeViewItem>().FirstOrDefault(x => x.Tag is TreeTag t && t.Kind == keepItem);
+                Tree.SelectedItem = AllItems(Tree).FirstOrDefault(x => x.Tag is TreeTag t && t.Kind == keepItem);
             }
         }
         finally
@@ -681,11 +782,12 @@ public partial class JobView : UserControl
             : new JobBarItem("pending", text, () => { }, CamJobInfo.Blocks(text))).ToList();
     }
 
+    private static IEnumerable<TreeViewItem> AllItems(ItemsControl parent) => parent.Items.OfType<TreeViewItem>().SelectMany(x => AllItems(x).Prepend(x));
+
     /// <summary>Seleciona e foca o item da árvore (as propriedades acompanham a seleção).</summary>
     private void GoToTree(Func<TreeTag, bool> match)
     {
-        IEnumerable<TreeViewItem> All(ItemsControl parent) => parent.Items.OfType<TreeViewItem>().SelectMany(x => All(x).Prepend(x));
-        if (All(Tree).FirstOrDefault(x => x.Tag is TreeTag t && match(t)) is { } item)
+        if (AllItems(Tree).FirstOrDefault(x => x.Tag is TreeTag t && match(t)) is { } item)
         {
             Tree.SelectedItem = item;
             item.BringIntoView();
@@ -742,10 +844,11 @@ public partial class JobView : UserControl
     {
         Tree.Items.Clear();
         TreeViewItem? select = null;
-        TreeViewItem Node(string text, object? tag = null, string? icon = null) => new() { Header = icon is null ? text : UiKit.IconLabel(icon, text, "#9aa7b5"), Tag = tag, IsExpanded = true };
+        TreeViewItem Node(string text, object? tag = null, string? icon = null) =>
+            UiKit.StateItem(TreeRow(text, null, icon is null ? null : UiKit.Icon(icon, "#9aa7b5", 15)), tag);
 
         TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon, TreeTag? tag = null) =>
-            UiKit.StateItem(UiKit.StateRow(text, st, UiKit.Icon(icon, "#9aa7b5", 15)), tag);
+            UiKit.StateItem(TreeRow(text, st, UiKit.Icon(icon, "#9aa7b5", 15)), tag);
 
         MachineProfile? machine = MachineSource?.Invoke();
         Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
@@ -787,8 +890,7 @@ public partial class JobView : UserControl
         // Fixação 1: o trabalho tem uma fixação e um zero só (Core); dentro, o zero e as operações
         string fixtureName = _job.Fixture is { } fx ? JobFixture.NameOf(fx.Kind) ?? fx.Kind : "não definida";
         TreeViewItem setup = NodeState($"Fixação 1 · G{_job.WorkOffset} · {fixtureName}", CamJobInfo.FixtureState(_job.Fixture), "fixacao", new TreeTag("fixture", 0));
-        ToolTip.SetTip(setup, CamJobInfo.FixtureTitle(_job.Fixture));
-        setup.Items.Add(NodeState("Zero: " + CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "zero"));
+        setup.Items.Add(NodeState("Zero: " + CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "zero", new TreeTag("zero", 0)));
         for (int i = 0; i < _job.Operations.Count; i++)
         {
             TreeViewItem item = OpNode(i, machine);
@@ -840,25 +942,61 @@ public partial class JobView : UserControl
             }
         };
 
-        var row = new DockPanel();
-        DockPanel.SetDock(badge, Dock.Left);
-        DockPanel.SetDock(eye, Dock.Right);
-        Control icon = UiKit.Icon(OpIcon(spec), "#9aa7b5", 15);
-        DockPanel.SetDock(icon, Dock.Left);
-        icon.Margin = new Avalonia.Thickness(6, 0);
-        row.Children.Add(badge);
-        row.Children.Add(icon);
-        row.Children.Add(eye);
-        row.Children.Add(new TextBlock { Text = CamJobInfo.OpTitle(i, spec), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis });
-        row.Opacity = spec.Enabled ? 1 : 0.55;
+        var lead = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6 };
+        lead.Children.Add(badge);
+        lead.Children.Add(UiKit.Icon(OpIcon(spec), "#9aa7b5", 15));
         string tip = CamJobInfo.OpTitle(i, spec) + "\n" + (incomplete && st.Kind == "ok" ? "Incompleta: falta preencher campo" : st.Text);
         if (OpOrigin.Describe(spec.Origin) is { } origin)
         {
             tip += "\n" + origin.Text;
         }
 
-        ToolTip.SetTip(row, tip);
+        Grid row = TreeRow(CamJobInfo.OpTitle(i, spec), null, lead, eye, tip);
+        row.Opacity = spec.Enabled ? 1 : 0.55;
         return UiKit.StateItem(row, new TreeTag("op", i));
+    }
+
+    /// <summary>
+    /// Linha da árvore em 240 px: ícone (e selo) à esquerda, nome com reticências (a dica mostra inteiro), estado em segunda linha
+    /// pequena e uma coluna fixa à direita (olho nas operações), que nunca cobre o nome.
+    /// </summary>
+    private static Grid TreeRow(string title, (string Kind, string Text)? state, Control? lead, Control? right = null, string? tip = null)
+    {
+        var g = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,24"),
+            RowDefinitions = new RowDefinitions("Auto,Auto"),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+        };
+        if (lead is not null)
+        {
+            lead.Margin = new Avalonia.Thickness(0, 0, 6, 0);
+            lead.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+            Grid.SetRowSpan(lead, 2);
+            g.Children.Add(lead);
+        }
+
+        var text = new TextBlock { Text = title, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis };
+        Grid.SetColumn(text, 1);
+        g.Children.Add(text);
+        if (state is { } st)
+        {
+            var small = new TextBlock { Text = st.Text, FontSize = 10.5, Foreground = UiKit.Status(st.Kind).Fg, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis };
+            Grid.SetColumn(small, 1);
+            Grid.SetRow(small, 1);
+            g.Children.Add(small);
+        }
+
+        if (right is not null)
+        {
+            Grid.SetColumn(right, 2);
+            Grid.SetRowSpan(right, 2);
+            right.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center;
+            g.Children.Add(right);
+        }
+
+        ToolTip.SetTip(text, tip ?? (state is { } s2 ? title + "\n" + s2.Text : title));
+        return g;
     }
 
     private void UpdatePreview()
