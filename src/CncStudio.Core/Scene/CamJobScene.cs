@@ -28,9 +28,11 @@ public static class CamJobScene
 
     /// <summary>
     /// Monta a cena com o bruto resolvido (<see cref="CamJobStock.Check"/>): caixa, cilindro ou tubo, na posição do programa.
-    /// Bruto incompleto chega null e não aparece (nada suposto).
+    /// Bruto incompleto chega null e não aparece (nada suposto). <paramref name="zero"/>: onde fica o zero da peça no referencial interno
+    /// (<see cref="CamJobZero.Position"/>; UX-04g PR B). As setas saem dele, e a trajetória (lida do programa, que sai nesse zero) volta ao
+    /// referencial interno para ficar sobre a peça e o bruto. Só visualização: não verifica colisão nem simula.
     /// </summary>
-    public static SceneSnapshot BuildResolved(StockSolid? stock, IReadOnlyList<Contour> contours, ToolPath? path, CamViewOptions options, bool hasSolidPart = false)
+    public static SceneSnapshot BuildResolved(StockSolid? stock, IReadOnlyList<Contour> contours, ToolPath? path, CamViewOptions options, bool hasSolidPart = false, Point3 zero = default)
     {
         ScenePalette palette = ScenePalette.Realistic;
         var objects = new List<SceneObjectState>();
@@ -80,16 +82,18 @@ public static class CamJobScene
         if (path is { Moves.Count: > 0 })
         {
             (SceneLines feed, SceneLines rapid, _) = SceneLines.FromToolPath(path, partFrame: path.PartFrame);
-            bounds = Include(bounds, feed.PositionArray);
-            bounds = Include(bounds, rapid.PositionArray);
+            float[] feedPositions = Shift(feed.PositionArray, zero);
+            float[] rapidPositions = Shift(rapid.PositionArray, zero);
+            bounds = Include(bounds, feedPositions);
+            bounds = Include(bounds, rapidPositions);
             if (options.Path)
             {
-                lines.Add(new SceneLinesState(SceneRole.FeedPath, feed.PositionArray, palette.FeedPath));
+                lines.Add(new SceneLinesState(SceneRole.FeedPath, feedPositions, palette.FeedPath));
             }
 
             if (options.ShowsRapids)
             {
-                lines.Add(new SceneLinesState(SceneRole.RapidPath, rapid.PositionArray, palette.RapidPath));
+                lines.Add(new SceneLinesState(SceneRole.RapidPath, rapidPositions, palette.RapidPath));
             }
         }
 
@@ -99,11 +103,11 @@ public static class CamJobScene
             foreach ((Point3 tip, uint color) in Axes(length))
             {
                 var axis = new List<float>();
-                AddSegment(axis, Point3.Origin, tip);
+                AddSegment(axis, zero, new Point3(zero.X + tip.X, zero.Y + tip.Y, zero.Z + tip.Z));
                 lines.Add(new SceneLinesState(SceneRole.Axis, [.. axis], color));
             }
 
-            bounds = bounds.Include(Point3.Origin);
+            bounds = bounds.Include(zero);
         }
 
         if (bounds.IsEmpty)
@@ -115,6 +119,25 @@ public static class CamJobScene
         {
             MaterialOpacity = options.Stock == StockDisplay.Transparent ? SimulationScene.TransparentOpacity : 1f,
         };
+    }
+
+    /// <summary>Desloca as posições (x, y, z em sequência) pelo zero; zero na origem devolve o mesmo vetor.</summary>
+    public static float[] Shift(float[] positions, Point3 zero)
+    {
+        if (zero.X == 0 && zero.Y == 0 && zero.Z == 0)
+        {
+            return positions;
+        }
+
+        var shifted = new float[positions.Length];
+        for (int i = 0; i + 2 < positions.Length; i += 3)
+        {
+            shifted[i] = (float)(positions[i] + zero.X);
+            shifted[i + 1] = (float)(positions[i + 1] + zero.Y);
+            shifted[i + 2] = (float)(positions[i + 2] + zero.Z);
+        }
+
+        return shifted;
     }
 
     /// <summary>Lados do cilindro e do tubo na malha.</summary>

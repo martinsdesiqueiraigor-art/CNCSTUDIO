@@ -12,7 +12,7 @@ public class CamJobStockShapeTests
     /// <summary>Peça 60 × 40 com canto em (0, 0) e um contorno por fora.</summary>
     private static CamJob Job()
     {
-        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Name = "BRUTO NOVO" };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy, Name = "BRUTO NOVO" };
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Contour, Tool, Levels) { ContourIndex = 0, ContourParams = new ContourParams(ContourSide.Outside) });
         return job;

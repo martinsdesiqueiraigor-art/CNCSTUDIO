@@ -11,7 +11,7 @@ public class CamJob3Plus2Tests
 
     private static CamJob Job(RotaryFaceSpec? face)
     {
-        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Name = "PECA 3+2", Dialect = CamDialect.Fanuc, Stock = new JobStock(-5, -5, 70, 50, 20) };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy, Name = "PECA 3+2", Dialect = CamDialect.Fanuc, Stock = new JobStock(-5, -5, 70, 50, 20) };
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         job.Contours.Add(Contour.Circle(new Point2(30, 20), 4));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Contour, Tool, Levels) { ContourIndex = 0, ContourParams = new ContourParams(ContourSide.Outside, true, false, 0, 3), Face = face });

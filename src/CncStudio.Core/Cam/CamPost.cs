@@ -10,7 +10,11 @@ public enum CamDialect { Fanuc, Siemens }
 /// Opções do pós. <see cref="Machine"/>: perfil da máquina, usado para conferir se o eixo rotativo pode voltar a 0° no fim
 /// (null = não informado: o eixo não volta e o programa avisa).
 /// </summary>
-public sealed record PostOptions(CamDialect Dialect, string ProgramName = "CASILLAS CAM", int ProgramNumber = 1001, int WorkOffset = 54, bool Coolant = true, MachineProfile? Machine = null);
+public sealed record PostOptions(CamDialect Dialect, string ProgramName = "CASILLAS CAM", int ProgramNumber = 1001, int WorkOffset = 54, bool Coolant = true, MachineProfile? Machine = null)
+{
+    /// <summary>Linha de comentário do zero da peça no cabeçalho (UX-04g PR B); null = nenhuma linha (como antes).</summary>
+    public string? ZeroNote { get; init; }
+}
 
 /// <summary>
 /// Pós-processador: transforma as operações do CAM (movimentos neutros) em programa Fanuc ou Siemens de fresa.
@@ -139,6 +143,11 @@ public static class CamPost
                 Line($"; {name}");
                 Line("; GERADO PELO CASILLAS CAM - SIMULE ANTES DE RODAR NA MAQUINA");
                 Line("G71 G17 G40 G90 G94");
+            }
+
+            if (o.ZeroNote is { } zero)
+            {
+                Comment(Clean(zero));
             }
 
             Line($"G{o.WorkOffset}");

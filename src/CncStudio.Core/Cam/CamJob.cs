@@ -137,6 +137,12 @@ public sealed class CamJob
     /// <summary>Zero de peça (54 = G54). Null = vazio: nada suposto, o trabalho fica Incompleto (<see cref="CamJobProgram"/>).</summary>
     public int? WorkOffset { get; set; }
 
+    /// <summary>
+    /// Zero da peça (UX-04g PR B). Null = não escolhido: nada suposto, o trabalho fica Incompleto (<see cref="CamJobZero"/>). Arquivo antigo
+    /// abre como <see cref="JobZero.Legacy"/> ("Origem do desenho (como antes)") e gera igual.
+    /// </summary>
+    public JobZero? Zero { get; set; }
+
     public bool Coolant { get; set; } = true;
 
     /// <summary>Bloco absoluto (canto e medidas, topo em Z0): o bruto de antes. Arquivo antigo abre assim, sem mudança.</summary>
@@ -319,10 +325,15 @@ public static class CamJobBuilder
         }
 
         // Programa nº e G5x: só o digitado (UX-04g). Faltando, as operações continuam geradas (a árvore mostra o estado), mas não há programa
-        IReadOnlyList<string> program0 = CamJobProgram.Problems(job);
+        IReadOnlyList<string> program0 = [.. CamJobProgram.Problems(job), .. CamJobZero.Problems(job)];
         if (program0.Count > 0)
         {
             return new JobBuild("", ops, items, program0, []);
+        }
+
+        if (CamJobZero.Position(job) is null)
+        {
+            return new JobBuild("", ops, items, ["Zero da peça: falta o desenho para achar o ponto"], []);
         }
 
         var warnings = new List<string>(CamPost.Check(ops, machine));
@@ -331,7 +342,10 @@ public static class CamJobBuilder
         warnings.AddRange(CamJobProgram.Warnings(job));
         // Siemens não escreve o número (sai só o nome): o valor passado não aparece no programa
         int number = job.ProgramNumber ?? 0;
-        string program = CamPost.Generate(ops, new PostOptions(job.Dialect, job.Name, number, job.WorkOffset!.Value, job.Coolant, machine));
+        // zero da peça (UX-04g PR B): translação das operações já geradas; o Z digitado segue medido do topo da peça pronta
+        IReadOnlyList<CamOperation> placed = CamJobZero.Translate(ops, CamJobZero.Position(job)!.Value);
+        var options = new PostOptions(job.Dialect, job.Name, number, job.WorkOffset!.Value, job.Coolant, machine) { ZeroNote = CamJobZero.HeaderNote(job) };
+        string program = CamPost.Generate(placed, options);
         return new JobBuild(program, ops, items, errors, warnings);
     }
 
