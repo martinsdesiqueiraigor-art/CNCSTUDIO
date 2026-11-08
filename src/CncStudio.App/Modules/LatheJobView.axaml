@@ -2,90 +2,154 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:modules="using:CncStudio.App.Modules"
              x:Class="CncStudio.App.Modules.LatheJobView">
-  <Grid RowDefinitions="*,Auto">
-  <Grid ColumnDefinitions="330,*,330">
-    <!-- Coluna compacta (UX-01, mínimo 1280×720): botões em uma linha cada, para a árvore ter ~8 linhas -->
-    <Border Grid.Column="0" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,1,0">
-      <DockPanel Margin="10,10">
-        <StackPanel DockPanel.Dock="Top" Spacing="6">
-          <TextBlock Text="Trabalho (torno)" FontSize="18" FontWeight="Bold"
-                     ToolTip.Tip="Perfil, operações e programa num lugar só. Mude a ordem, desligue ou duplique operações." />
-          <StackPanel Orientation="Horizontal" Spacing="4">
-            <Button x:Name="OpenJobButton" Content="Abrir trabalho…" Padding="6,4" FontSize="12" />
-            <Button x:Name="SaveJobButton" Content="Salvar trabalho…" Padding="6,4" FontSize="12" />
-          </StackPanel>
-          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-            <TextBlock Text="Nome" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" x:Name="NameBox" MinHeight="26" />
-            <ComboBox Grid.Column="2" x:Name="DialectCombo" SelectedIndex="0" MinWidth="96" ToolTip.Tip="Comando (dialeto do programa)">
-              <ComboBoxItem Content="Fanuc" />
-              <ComboBoxItem Content="Siemens" />
-            </ComboBox>
-          </Grid>
-          <Expander Header="Perfil da peça" IsExpanded="False">
-            <StackPanel Spacing="6" Margin="0,4">
-              <Button x:Name="OpenDxfButton" Content="Abrir perfil DXF…" Padding="10,5" HorizontalAlignment="Left" />
-              <CheckBox x:Name="DiameterCheck" Content="Y do DXF é diâmetro" />
-              <TextBlock Text="Ou digite os pontos, um por linha: Z Ø (do lado do bruto para a placa)." Opacity="0.75" TextWrapping="Wrap" FontSize="12" />
-              <TextBox x:Name="PointsBox" AcceptsReturn="True" MinHeight="110" FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="12" />
-              <Button x:Name="UsePointsButton" Content="Usar estes pontos" Padding="10,5" HorizontalAlignment="Left" />
-            </StackPanel>
-          </Expander>
-        </StackPanel>
-        <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-            <ComboBox x:Name="KindCombo" HorizontalAlignment="Stretch" />
-            <Button Grid.Column="1" x:Name="AddButton" Content="Adicionar" Padding="10,5" FontWeight="SemiBold" ToolTip.Tip="Adicionar operação" />
-          </Grid>
-          <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="4">
+  <!-- Casca do Trabalho torno (UX-04e): a mesma da fresa (UX-04c, mockup H). Sempre escuro; laranja só em ação e seleção. -->
+  <UserControl.Resources>
+    <SolidColorBrush x:Key="CardBackground" Color="#131922" />
+    <SolidColorBrush x:Key="PanelBackground" Color="#0d1117" />
+    <SolidColorBrush x:Key="SubtleBorder" Color="#1f2733" />
+    <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="#2b1a0a" />
+    <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPointerOver" Color="#3a230c" />
+    <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPressed" Color="#3a230c" />
+    <SolidColorBrush x:Key="TreeViewItemForegroundSelected" Color="#ffb066" />
+    <SolidColorBrush x:Key="TreeViewItemForegroundSelectedPointerOver" Color="#ffb066" />
+    <SolidColorBrush x:Key="TreeViewItemBorderBrushSelected" Color="#ff8a1f" />
+    <SolidColorBrush x:Key="TreeViewItemBorderBrushSelectedPointerOver" Color="#ff8a1f" />
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <Style Selector="Border.camcard">
+      <Setter Property="Background" Value="#131922" />
+      <Setter Property="BorderBrush" Value="#243040" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="12" />
+      <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+  </UserControl.Styles>
+  <ThemeVariantScope RequestedThemeVariant="Dark">
+  <Grid RowDefinitions="Auto,*,Auto,Auto" Background="#0d1117">
+  <!-- Faixa de ícones agrupada (CamPalette.LatheGroups, Core): só na aba Operações -->
+  <Border x:Name="PaletteBar" Grid.Row="0" Background="#121821" BorderBrush="#1f2733" BorderThickness="0,0,0,1" Padding="8,6">
+    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+      <StackPanel x:Name="Palette" Orientation="Horizontal" Spacing="0" />
+    </ScrollViewer>
+  </Border>
+  <!-- Árvore | divisória | centro | divisória | painel (mesmo componente e mesmas larguras do config da fresa) -->
+  <Grid x:Name="Panes" Grid.Row="1">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="240" MinWidth="200" MaxWidth="420" />
+      <ColumnDefinition Width="5" />
+      <ColumnDefinition Width="*" MinWidth="480" />
+      <ColumnDefinition Width="5" />
+      <ColumnDefinition Width="290" MinWidth="260" MaxWidth="520" />
+    </Grid.ColumnDefinitions>
+    <!-- Árvore: Máquina, Material, Peça, Bruto, Banco e Fixação 1 com o zero e as operações -->
+    <Border Grid.Column="0" Background="#131922">
+      <DockPanel Margin="8,8">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" ColumnSpacing="6">
+          <TextBlock Text="Trabalho:" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" x:Name="NameBox" MinHeight="26" FontSize="12" ToolTip.Tip="Nome do trabalho" />
+        </Grid>
+        <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,6,0,0">
+          <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="4" RowSpacing="4">
             <Button x:Name="UpButton" Content="Subir" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
             <Button Grid.Column="1" x:Name="DownButton" Content="Descer" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
             <Button Grid.Column="2" x:Name="DuplicateButton" Content="Duplicar" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-            <Button Grid.Column="3" x:Name="RemoveButton" Content="Remover" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-            <Button Grid.Column="4" x:Name="UndoButton" Content="Desfazer" Padding="2,4" FontSize="12" IsEnabled="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Row="1" x:Name="RemoveButton" Content="Remover" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+            <Button Grid.Row="1" Grid.Column="1" x:Name="UndoButton" Content="Desfazer" Padding="2,4" FontSize="12" IsEnabled="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
           </Grid>
-          <ScrollViewer MaxHeight="40" HorizontalScrollBarVisibility="Disabled">
+          <ScrollViewer MaxHeight="56" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False">
             <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="#FF9A83" FontSize="12" />
           </ScrollViewer>
         </StackPanel>
-        <TreeView x:Name="Tree" Margin="0,8,0,0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+        <TreeView x:Name="Tree" Margin="0,6,0,0" FontSize="12" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
       </DockPanel>
     </Border>
-    <Grid Grid.Column="1" RowDefinitions="*,190">
-      <!-- Código CNC embaixo da vista (UX-01): o mesmo campo de antes, que ficava na aba Código -->
-      <Border Grid.Row="1" Margin="12,0,12,10" CornerRadius="8" Padding="10,6" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
-        <DockPanel>
-          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
-            <Button x:Name="CopyButton" DockPanel.Dock="Right" Content="Copiar" Padding="10,3" IsEnabled="False" />
-            <TextBlock x:Name="CodeTitle" Text="Código CNC" FontSize="12" Opacity="0.8" VerticalAlignment="Center" />
-          </DockPanel>
-          <ScrollViewer DockPanel.Dock="Top" MaxHeight="48" HorizontalScrollBarVisibility="Disabled">
-            <TextBlock x:Name="Warnings" TextWrapping="Wrap" Foreground="#F2C45A" FontSize="12" />
-          </ScrollViewer>
-          <TextBox x:Name="Output" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
-                   FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="12" />
-        </DockPanel>
-      </Border>
-      <Border Margin="12,12,12,8" CornerRadius="8" ClipToBounds="True" Background="#0B1216" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1">
-        <Grid>
-          <modules:CamPreview x:Name="Preview" />
-          <modules:JobSceneView x:Name="Scene3D" IsVisible="False" />
-          <ToggleButton x:Name="View3DButton" Content="3D" Padding="12,4" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" />
-          <TextBlock x:Name="PreviewHint" Text="Informe o perfil da peça (DXF ou pontos) para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" />
-        </Grid>
-      </Border>
-    </Grid>
-    <Border Grid.Column="2" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1,0,0,0">
-      <TabControl x:Name="RightTabs" Margin="0,4,0,0">
-        <TabItem Header="Propriedades">
-      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-        <StackPanel x:Name="PropsPanel" Margin="14,12" Spacing="6" />
+    <GridSplitter x:Name="TreeSplitter" Grid.Column="1" ResizeDirection="Columns" Background="#1f2733" ToolTip.Tip="Arraste para mudar a largura da árvore. Duplo clique volta ao padrão." />
+    <DockPanel Grid.Column="2">
+      <ScrollViewer DockPanel.Dock="Bottom" MaxHeight="44" Margin="10,0,10,4" HorizontalScrollBarVisibility="Disabled">
+        <TextBlock x:Name="Warnings" TextWrapping="Wrap" Foreground="#F2C45A" FontSize="12" />
       </ScrollViewer>
-        </TabItem>
-      </TabControl>
+      <Grid>
+        <!-- Aba Operações: perfil 2D e o 3D de antes (sem chips) -->
+        <Border x:Name="OpsCenter" Margin="10,10,10,6" CornerRadius="8" ClipToBounds="True" Background="#070a0e" BorderBrush="#1f2733" BorderThickness="1">
+          <Grid>
+            <modules:CamPreview x:Name="Preview" />
+            <modules:JobSceneView x:Name="Scene3D" IsVisible="False" />
+            <ToggleButton x:Name="View3DButton" Content="3D" Padding="12,4" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" />
+            <TextBlock x:Name="PreviewHint" Text="Informe o perfil da peça (faixa Arquivo › Abrir DXF, ou os pontos na Preparação) para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.7" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" />
+          </Grid>
+        </Border>
+        <!-- Aba Preparação: cartões com os editores que já existiam (perfil, fixação) e o bruto e o zero como texto -->
+        <ScrollViewer x:Name="PrepCenter" IsVisible="False" HorizontalScrollBarVisibility="Disabled">
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="12">
+            <StackPanel Grid.Column="0">
+              <Border x:Name="PrepProfileCard" Classes="camcard">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="Peça (perfil)" FontSize="18" FontWeight="Bold" />
+                  <TextBlock x:Name="PrepProfileTitle" FontSize="12" TextWrapping="Wrap" Foreground="#9aa7b5" />
+                  <Button x:Name="OpenDxfButton" Content="Abrir perfil DXF…" Padding="10,5" HorizontalAlignment="Left" />
+                  <CheckBox x:Name="DiameterCheck" Content="Y do DXF é diâmetro" />
+                  <TextBlock Text="Ou digite os pontos, um por linha: Z Ø (do lado do bruto para a placa)." Opacity="0.75" TextWrapping="Wrap" FontSize="12" />
+                  <TextBox x:Name="PointsBox" AcceptsReturn="True" MinHeight="110" FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="12" />
+                  <Button x:Name="UsePointsButton" Content="Usar estes pontos" Padding="10,5" HorizontalAlignment="Left" />
+                </StackPanel>
+              </Border>
+              <Border Classes="camcard"><StackPanel x:Name="PrepStock" Spacing="6" /></Border>
+              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Material" FontSize="18" FontWeight="Bold" />
+                  <TextBlock Text="Não definido · em breve" Foreground="#9aa7b5" FontSize="12" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+            <StackPanel Grid.Column="1">
+              <Border x:Name="PrepFixationCard" Classes="camcard"><StackPanel x:Name="PrepFixation" Spacing="6" /></Border>
+              <Border x:Name="PrepOriginCard" Classes="camcard"><StackPanel x:Name="PrepOrigin" Spacing="6" /></Border>
+              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Banco de ferramentas" FontSize="18" FontWeight="Bold" />
+                  <TextBlock Text="Em breve. Hoje a ferramenta vem da tabela do Code, nas propriedades de cada operação." Foreground="#9aa7b5" FontSize="12" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </Grid>
+        </ScrollViewer>
+        <!-- Aba Código NC: o mesmo campo de antes -->
+        <Border x:Name="CodeCenter" IsVisible="False" Margin="10,10,10,6" CornerRadius="8" Padding="10,6" Background="#131922" BorderBrush="#1f2733" BorderThickness="1">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+              <Button x:Name="CopyButton" DockPanel.Dock="Right" Content="Copiar" Padding="10,3" IsEnabled="False" />
+              <TextBlock x:Name="CodeTitle" Text="Código CNC" FontSize="12" Opacity="0.85" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </DockPanel>
+            <TextBox x:Name="Output" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                     FontFamily="Cascadia Mono, Consolas, Menlo, monospace" FontSize="12" />
+          </DockPanel>
+        </Border>
+      </Grid>
+    </DockPanel>
+    <!-- Painel direito (290 px): parâmetros da operação escolhida na árvore; só na aba Operações -->
+    <GridSplitter x:Name="PropsSplitter" Grid.Column="3" ResizeDirection="Columns" Background="#1f2733" ToolTip.Tip="Arraste para mudar a largura do painel. Duplo clique volta ao padrão." />
+    <Border x:Name="RightColumn" Grid.Column="4" Background="#131922">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="OpPanel" Margin="12,10" Spacing="6" />
+      </ScrollViewer>
     </Border>
   </Grid>
-  <!-- Barra por último no XAML: no Tab ela vem depois da coluna da esquerda e da árvore -->
-  <modules:JobBar x:Name="Bar" Grid.Row="1" />
+  <!-- Barra por último no XAML: no Tab ela vem depois da árvore -->
+  <modules:JobBar x:Name="Bar" Grid.Row="2" Compact="True" />
+  <!-- Linha de status: incompletas, fixação atual, número do programa (o valor que está no trabalho) e controle -->
+  <Border Grid.Row="3" Background="#090c11" BorderBrush="#1f2733" BorderThickness="0,1,0,0" Padding="12,2">
+    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="16">
+      <TextBlock x:Name="StatusIncomplete" VerticalAlignment="Center" FontSize="12" />
+      <TextBlock Grid.Column="1" Text="Fixação 1 de 1" VerticalAlignment="Center" FontSize="12" Foreground="#9aa7b5" />
+      <TextBlock Grid.Column="2" x:Name="StatusProgram" VerticalAlignment="Center" FontSize="12" Foreground="#9aa7b5" />
+      <TextBlock Grid.Column="4" Text="Controle:" VerticalAlignment="Center" FontSize="12" Foreground="#9aa7b5" />
+      <ComboBox Grid.Column="5" x:Name="DialectCombo" SelectedIndex="0" MinWidth="96" FontSize="12" MinHeight="24" Padding="8,1" ToolTip.Tip="Comando (dialeto do programa)">
+        <ComboBoxItem Content="Fanuc" />
+        <ComboBoxItem Content="Siemens" />
+      </ComboBox>
+    </Grid>
+  </Border>
   </Grid>
+  </ThemeVariantScope>
 </UserControl>

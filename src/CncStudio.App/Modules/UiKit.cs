@@ -93,6 +93,17 @@ public static class UiKit
         ["macho"] = ("M12 3v18", "M8 7l8 2M8 11l8 2M8 15l8 2"),
         ["mandrilhar"] = ("M9 3h6v10l-3 5-3-5z", "M12 18v3"),
         ["texto-cilindro"] = ("M5 6a7 2.5 0 1 0 14 0 7 2.5 0 1 0-14 0zM5 6v12a7 2.5 0 0 0 14 0V6", "M9 12h6M12 12v5"),
+        // faixa do Trabalho torno (UX-04e): peça vista de lado (traço neutro) e o corte no destaque
+        ["torno-face"] = ("M9 6h12v12H9z", "M5 5v14M3 12h2"),
+        ["torno-externo"] = ("M3 9h18v9H3z", "M3 6h12l4 3"),
+        ["torno-interno"] = ("M3 5h18v14H3z", "M3 10h12v4H3"),
+        ["torno-furo"] = ("M9 5h12v14H9z", "M2 12h12M12 10l2 2-2 2"),
+        ["canal-externo"] = ("M3 8h7v3h4V8h7v9H3z", "M12 3v8"),
+        ["canal-interno"] = ("M3 5h18v14H3z", "M3 13h7v-3h4v3h7"),
+        ["canal-face"] = ("M9 5h12v14H9z", "M9 10h4v4H9M4 12h5"),
+        ["sangrar"] = ("M3 8h18v8H3z", "M12 3v18"),
+        ["rosca-externa"] = ("M3 10h18v8H3z", "M5 7l2 3 2-3 2 3 2-3 2 3 2-3 2 3"),
+        ["rosca-interna"] = ("M3 5h18v14H3z", "M3 13h15M5 11l2 2 2-2 2 2 2-2 2 2"),
     };
 
     /// <summary>Ícone de 2 cores (traço <paramref name="color"/>, detalhe <paramref name="accent"/>); sem o nome, cai no ícone de linha.</summary>

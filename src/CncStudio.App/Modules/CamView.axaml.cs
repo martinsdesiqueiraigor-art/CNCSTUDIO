@@ -106,10 +106,14 @@ public partial class CamView : UserControl
 
     private Action? _saveTools;
 
-    /// <summary>Larguras guardadas da árvore e do painel do Trabalho fresa (0 = padrão).</summary>
+    /// <summary>Larguras guardadas da árvore e do painel do Trabalho (fresa e torno usam as mesmas; 0 = padrão).</summary>
     public (double Tree, double Props) JobPanes
     {
-        set => JobPanel.SetPanes(value.Tree, value.Props);
+        set
+        {
+            JobPanel.SetPanes(value.Tree, value.Props);
+            LatheJobPanel.SetPanes(value.Tree, value.Props);
+        }
     }
 
     /// <summary>Escolhas guardadas dos chips do 3D do Trabalho fresa (texto do config).</summary>
@@ -125,12 +129,27 @@ public partial class CamView : UserControl
         set => JobPanel.SaveViewOptions = value;
     }
 
-    /// <summary>Guarda as larguras depois de arrastar uma divisória do Trabalho fresa.</summary>
+    /// <summary>Guarda as larguras depois de arrastar uma divisória do Trabalho (fresa ou torno); a outra tela acompanha.</summary>
     public Action<double, double>? SaveJobPanes
     {
-        get => JobPanel.SavePanes;
-        set => JobPanel.SavePanes = value;
+        get => _saveJobPanes;
+        set
+        {
+            _saveJobPanes = value;
+            JobPanel.SavePanes = (tree, props) =>
+            {
+                LatheJobPanel.SetPanes(tree, props);
+                value?.Invoke(tree, props);
+            };
+            LatheJobPanel.SavePanes = (tree, props) =>
+            {
+                JobPanel.SetPanes(tree, props);
+                value?.Invoke(tree, props);
+            };
+        }
     }
+
+    private Action<double, double>? _saveJobPanes;
 
     /// <summary>Seletor de trabalho salvo (.casillas-job) da tela Trabalho.</summary>
     public Func<Task<(string Name, string Text)?>>? PickJob
@@ -182,8 +201,9 @@ public partial class CamView : UserControl
         JobPanel.IsVisible = job;
         LatheJobPanel.IsVisible = latheJob;
         ModelPanel.IsVisible = model;
-        // as abas Preparação/Operações/Código NC são só do Trabalho fresa; nas telas do Mais, o nome dela aparece no topo
-        HeaderSlot.IsVisible = job;
+        // as abas Preparação/Operações/Código NC são do Trabalho fresa e do Trabalho torno; nas telas do Mais, o nome dela aparece no topo
+        HeaderSlot.Content = latheJob ? LatheJobPanel.TabStrip : JobPanel.TabStrip;
+        HeaderSlot.IsVisible = job || latheJob;
         OtherTitle.Text = lathe ? "Torno rápido" : profile ? "Perfil 4/5 eixos" : model ? "Modelo 3D (STL/STEP)" : "";
         if (profile)
         {
