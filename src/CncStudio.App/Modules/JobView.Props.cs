@@ -26,12 +26,6 @@ public partial class JobView
     {
         PropsPanel.Children.Clear();
         _fixtureKind = null;
-        if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" })
-        {
-            StockProps();
-            return;
-        }
-
         if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "part" })
         {
             PartProps();
@@ -259,24 +253,10 @@ public partial class JobView
         bool missing = spec?.MissingFields.Contains(label) == true;
         bool invalid = spec?.InvalidFields.Contains(label) == true;
         var box = new TextBox { Text = missing || invalid ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
-        void Mark(string? why)
-        {
-            if (why is null)
-            {
-                box.ClearValue(TemplatedControl.ForegroundProperty);
-                box.ClearValue(TemplatedControl.BorderBrushProperty);
-                box.ClearValue(TemplatedControl.BorderThicknessProperty);
-                ToolTip.SetTip(box, null);
-                return;
-            }
+        // UX-04f: o mesmo tracejado laranja do torno (CamShell), no lugar do vermelho
+        (Grid field, Action<string?> Mark) = CamShell.DashedField(box);
 
-            box.Foreground = Avalonia.Media.Brushes.IndianRed;
-            box.BorderBrush = Avalonia.Media.Brushes.IndianRed;
-            box.BorderThickness = new Avalonia.Thickness(2);
-            ToolTip.SetTip(box, why);
-        }
-
-        // só fica vermelho o campo que a operação usa agora (ex.: Bicada vazia em G81 não conta)
+        // só fica marcado o campo que a operação usa agora (ex.: Bicada vazia em G81 não conta)
         bool Counts() => i < _job.Operations.Count && CamJobInfo.Counts(_job.Operations[i], label);
         if ((missing || invalid) && Counts())
         {
@@ -333,7 +313,7 @@ public partial class JobView
                 Commit();
             }
         };
-        PropsPanel.Children.Add(Row(label, box, unit));
+        PropsPanel.Children.Add(Row(label, field, unit));
     }
 
     private void Text(int i, string label, string value, string hint, Func<CamOperationSpec, string, CamOperationSpec> apply)
@@ -426,6 +406,9 @@ public partial class JobView
             return b;
         }
 
+        // o bloco por sobra segue o desenho: guarda o bruto de antes para avisar se ele mudou
+        StockSolid? stockBefore = CamJobStock.Check(_job).Solid;
+
         // o Desfazer cobre só operações: a forma fica (como na aba antiga, que também não desfazia)
         void Added()
         {
@@ -435,6 +418,10 @@ public partial class JobView
             }
 
             Refresh(keep: true);
+            if (CamJobStock.RecalculatedNotice(_job, stockBefore) is { } recalculated)
+            {
+                Errors.Text = "• " + recalculated;
+            }
         }
 
         PropsPanel.Children.Add(new TextBlock { Text = "Retângulo", FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
@@ -470,60 +457,6 @@ public partial class JobView
             Added();
         };
         PropsPanel.Children.Add(addCircle);
-        PropsPanel.Children.Add(error);
-    }
-
-    // ---------------------------------------------------------------- bruto
-
-    /// <summary>
-    /// Editor do bruto (UX-01 rodada 3): comprimento, largura, altura e canto, nos campos que o Trabalho já tem (<see cref="JobStock"/>).
-    /// Sem bruto, as medidas vêm do desenho e a altura fica vazia: só vale depois de "Definir bruto".
-    /// </summary>
-    private void StockProps()
-    {
-        PropsPanel.Children.Add(new TextBlock { Text = "Bruto", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
-        JobStock? st = _job.Stock;
-        (double X, double Y, double Width, double Length)? box = st is { } s0 ? (s0.X, s0.Y, s0.Width, s0.Length) : CamJobInfo.DrawingBox(_job.Contours);
-        if (st is null)
-        {
-            PropsPanel.Children.Add(UiKit.StatusNote(
-                box is null ? "Bruto não definido. Digite as medidas e clique em Definir bruto." : "Bruto não definido. Medidas preenchidas pelo desenho: confira, digite a altura e clique em Definir bruto.",
-                "pending"));
-        }
-
-        TextBox Field(string label, string unit, double? value)
-        {
-            var b = new TextBox { Text = value is { } v ? Fmt(v) : "", MinHeight = 26 };
-            PropsPanel.Children.Add(Row(label, b, unit));
-            return b;
-        }
-
-        TextBox width = Field("Comprimento (X)", "mm", box?.Width);
-        TextBox length = Field("Largura (Y)", "mm", box?.Length);
-        TextBox height = Field("Altura (Z)", "mm", st?.Thickness);
-        TextBox x = Field("Canto X", "mm", box?.X ?? 0);
-        TextBox y = Field("Canto Y", "mm", box?.Y ?? 0);
-        PropsPanel.Children.Add(new TextBlock
-        {
-            Text = "Topo do bruto em Z0 (desce até Z −altura). O Z topo de cada operação continua nas propriedades dela. O bruto ainda não altera o programa gerado.",
-            Opacity = 0.7, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-        });
-        var error = new ContentControl();
-        var apply = new Button { Content = "Definir bruto", Padding = new Avalonia.Thickness(12, 5), FontWeight = Avalonia.Media.FontWeight.SemiBold };
-        apply.Click += (_, _) =>
-        {
-            double w = ParseNum(width.Text), l = ParseNum(length.Text), h = ParseNum(height.Text), cx = ParseNum(x.Text), cy = ParseNum(y.Text);
-            string? problem = CamJobInfo.StockError(w, l, h) ?? (double.IsNaN(cx) || double.IsNaN(cy) ? "Confira o canto X e Y do bruto." : null);
-            if (problem is not null)
-            {
-                error.Content = UiKit.StatusNote("✕ inválido: " + problem, "bad");
-                return;
-            }
-
-            _job.Stock = new JobStock(cx, cy, w, l, h);
-            Refresh(keep: true);
-        };
-        PropsPanel.Children.Add(apply);
         PropsPanel.Children.Add(error);
     }
 

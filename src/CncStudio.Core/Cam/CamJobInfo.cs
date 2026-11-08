@@ -76,9 +76,15 @@ public static class CamJobInfo
             list.Add("Falta a peça (abra um DXF ou desenhe uma forma)");
         }
 
-        if (job.Stock is null)
+        // sem bruto nenhum ou bruto incompleto (formato novo) travam Gerar e Enviar (decisão do Igor, adendo 2 do UX-04f, 08/11)
+        StockCheck stock = CamJobStock.Check(job);
+        if (stock.NotDefined)
         {
-            list.Add("Bruto não definido");
+            list.Add(StockMissing);
+        }
+        else if (CamJobStock.IncompleteReason(stock) is { } why)
+        {
+            list.Add(CamJobStock.IncompletePrefix + ": " + why);
         }
 
         if (job.Fixture is null)
@@ -113,9 +119,12 @@ public static class CamJobInfo
 
     /// <summary>
     /// Se a pendência impede gerar e enviar o G-code. Só a fixação não definida é aviso (decisão do Igor, 02/11); o resto trava,
-    /// como antes.
+    /// inclusive o bruto incompleto (adendo 2 do UX-04f, 08/11), como o "Bruto não definido". Salvar nunca trava pelo bruto.
     /// </summary>
     public static bool Blocks(string pending) => pending != FixtureMissing;
+
+    /// <summary>Pendência de bruto nenhum (trava, como antes do UX-04f).</summary>
+    public const string StockMissing = "Bruto não definido";
 
     /// <summary>Linha "Fixação" da árvore: "Fixação: não definida" ou "Fixação: Morsa · descrição".</summary>
     public static string FixtureTitle(JobFixture? f) => f is null
@@ -374,6 +383,31 @@ public static class CamJobInfo
     public static string MachineTitle(MachineProfile? m) => m is null
         ? "Máquina: sem perfil ativo"
         : m.MaxSpindleRpm is { } rpm ? $"Máquina: {m.Name} · fuso até {N(rpm)} rpm" : $"Máquina: {m.Name} · fuso não informado";
+
+    /// <summary>Botões de eixos do cartão Máquina (UX-04f), na ordem da tela.</summary>
+    public static readonly IReadOnlyList<string> MachineAxesOptions = ["3 eixos", "4º eixo (A)", "3+2 (mesa A+C)", "5 mista"];
+
+    /// <summary>Texto dos eixos de um perfil que não cabe em nenhum botão (4º eixo em B, cabeçote e mesa com outras letras…).</summary>
+    public const string MachineAxesCustom = "personalizado";
+
+    /// <summary>
+    /// Qual botão de eixos o perfil ocupa no cartão Máquina: sem rotativo = "3 eixos"; A na mesa = "4º eixo (A)"; mesa A + mesa C =
+    /// "3+2 (mesa A+C)"; cabeçote B + mesa C = "5 mista". O resto é "personalizado" (os dados do perfil ficam como estão).
+    /// Pivôs, cursos dos ângulos e modo de saída não mudam o botão: todo perfil real tem os seus.
+    /// </summary>
+    public static string MachineAxesLabel(MachineProfile m)
+    {
+        string Key(RotaryAxisConfig a) => (a.Carrier == RotaryCarrier.Table ? "mesa " : "cabeçote ") + a.Letter;
+        string axes = string.Join(" + ", m.Axes.Select(Key));
+        return axes switch
+        {
+            "" => MachineAxesOptions[0],
+            "mesa A" => MachineAxesOptions[1],
+            "mesa A + mesa C" => MachineAxesOptions[2],
+            "cabeçote B + mesa C" => MachineAxesOptions[3],
+            _ => MachineAxesCustom,
+        };
+    }
 
     /// <summary>Estado da máquina: OK só com a rotação máxima do fuso informada; sem ela, nada é suposto.</summary>
     public static (string Kind, string Text) MachineState(MachineProfile? m) => m switch

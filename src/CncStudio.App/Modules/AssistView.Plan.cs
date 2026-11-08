@@ -73,7 +73,16 @@ public sealed partial class AssistView
         toSuggest.Click += (_, _) => ShowStep(1);
         _secPrepare.Children.Add(toSuggest);
         _planMaterial.SelectionChanged += (_, _) => OnPlanInputChanged();
-        _planThickness.TextChanged += (_, _) => OnPlanInputChanged();
+        _planThickness.TextChanged += (_, _) =>
+        {
+            // digitado à mão (texto diferente do que veio do trabalho): nunca é apagado pelo trabalho
+            if (_thicknessFromJob && (_planThickness.Text ?? "") != _thicknessJobText)
+            {
+                _thicknessFromJob = false;
+            }
+
+            OnPlanInputChanged();
+        };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         Button suggest = new() { Content = "Sugerir plano", Padding = new Thickness(16, 6) };
         suggest.Click += (_, _) => SuggestPlan();
@@ -140,6 +149,28 @@ public sealed partial class AssistView
     private Border _planPage = new();
 
     private bool _loadingPlan;
+
+    /// <summary>A espessura no campo veio do Trabalho fresa (não foi digitada nem é o valor inicial).</summary>
+    private bool _thicknessFromJob;
+
+    /// <summary>Texto que o Assist escreveu a partir do trabalho (outro texto no campo = digitado). O evento de texto pode chegar depois.</summary>
+    private string _thicknessJobText = "";
+
+    /// <summary>
+    /// Acompanha a espessura do Trabalho fresa (<see cref="PlanThickness.Sync"/>). <paramref name="fill"/> false: só mexe num valor
+    /// que veio do trabalho (ao abrir o módulo; o valor inicial e o digitado ficam).
+    /// </summary>
+    private void SyncThickness(bool fill)
+    {
+        double? job = PlanDrawing?.Invoke().Thickness;
+        (string text, bool fromJob) = PlanThickness.Sync(_planThickness.Text ?? "", _thicknessFromJob, job, fill);
+        _thicknessFromJob = fromJob;
+        _thicknessJobText = text;
+        if (text != (_planThickness.Text ?? ""))
+        {
+            _planThickness.Text = text;
+        }
+    }
 
     /// <summary>Espessura ou material mudaram: o plano já sugerido deixa de valer.</summary>
     private void OnPlanInputChanged()
@@ -513,12 +544,8 @@ public sealed partial class AssistView
 
         // Sem material pré-escolhido: o usinador escolhe (o plano não sugere sem material)
         _planMaterial.SelectedIndex = keep >= 0 && keep < _lib.Materials.Count ? keep : -1;
-        (IReadOnlyList<Contour> contours, double? thickness)? d = PlanDrawing?.Invoke();
         RefreshDrawingText();
-        if (d?.thickness is { } t && t > 0)
-        {
-            _planThickness.Text = t.ToString("0.##", Br);
-        }
+        SyncThickness(fill: true);
     }
 
     /// <summary>Relê só o texto do desenho do Trabalho fresa (não mexe no plano, nos campos nem no Aplicar).</summary>

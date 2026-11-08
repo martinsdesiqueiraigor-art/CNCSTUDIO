@@ -27,7 +27,8 @@ public static class CamJobJson
         var root = new JsonObject
         {
             ["format"] = Format,
-            ["version"] = CamJob.CurrentVersion,
+            // versão 1 enquanto nada do UX-04f é usado: o arquivo sai com o mesmo texto de antes
+            ["version"] = CamJobStock.NeedsVersion2(job) ? 2 : 1,
             ["name"] = job.Name,
             ["dialect"] = job.Dialect.ToString(),
             ["programNumber"] = job.ProgramNumber,
@@ -43,6 +44,17 @@ public static class CamJobJson
         if (job.Fixture is { } fx)
         {
             root["fixture"] = new JsonObject { ["kind"] = fx.Kind, ["description"] = fx.Description };
+        }
+
+        // UX-04f (versão 2): altura da peça e formato novo do bruto; campo vazio não vai para o arquivo (nada suposto)
+        if (job.PartHeight is { } partHeight)
+        {
+            root["partHeight"] = partHeight;
+        }
+
+        if (job.StockShape is { } shape)
+        {
+            root["stockShape"] = StockShapeToJson(shape);
         }
 
         var contours = new JsonArray();
@@ -61,6 +73,82 @@ public static class CamJobJson
 
         root["operations"] = ops;
         return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private static readonly (string Key, string Field)[] ShapeKeys =
+    [
+        ("xMinus", JobStockShape.XMinusField), ("xPlus", JobStockShape.XPlusField), ("yMinus", JobStockShape.YMinusField),
+        ("yPlus", JobStockShape.YPlusField), ("zTop", JobStockShape.ZTopField), ("zBottom", JobStockShape.ZBottomField),
+        ("diameter", JobStockShape.DiameterField), ("innerDiameter", JobStockShape.InnerField), ("length", JobStockShape.LengthField),
+        ("offsetX", JobStockShape.OffsetXField), ("offsetY", JobStockShape.OffsetYField), ("offsetZ", JobStockShape.OffsetZField),
+    ];
+
+    private static double? ShapeValue(JobStockShape s, string key) => key switch
+    {
+        "xMinus" => s.XMinus, "xPlus" => s.XPlus, "yMinus" => s.YMinus, "yPlus" => s.YPlus, "zTop" => s.ZTop, "zBottom" => s.ZBottom,
+        "diameter" => s.Diameter, "innerDiameter" => s.InnerDiameter, "length" => s.Length,
+        "offsetX" => s.OffsetX, "offsetY" => s.OffsetY, _ => s.OffsetZ,
+    };
+
+    /// <summary>Formato novo do bruto: só os campos que o formato usa e que têm valor (vazio não vai para o arquivo).</summary>
+    internal static JsonObject StockShapeToJson(JobStockShape s)
+    {
+        var o = new JsonObject { ["kind"] = s.Kind.ToString() };
+        if (s.Kind != StockShapeKind.Margins)
+        {
+            o["axis"] = s.Axis.ToString();
+        }
+
+        var used = s.Fields().Select(f => f.Name).ToHashSet();
+        foreach ((string key, string field) in ShapeKeys)
+        {
+            // "diameter" guarda o Ø do cilindro e o Ø externo do tubo
+            bool uses = used.Contains(field) || (key == "diameter" && used.Contains(JobStockShape.OuterField));
+            if (uses && ShapeValue(s, key) is { } v)
+            {
+                o[key] = v;
+            }
+        }
+
+        return o;
+    }
+
+    /// <summary>Lê o formato novo; null se o tipo ou o eixo não existem ou se um número é inválido. Campo ausente = vazio.</summary>
+    internal static JobStockShape? StockShapeFrom(JsonNode? node)
+    {
+        if (node is not JsonObject o || o["kind"] is not JsonValue kv || !kv.TryGetValue(out string? kindText)
+            || !System.Enum.TryParse(kindText, false, out StockShapeKind kind) || !System.Enum.IsDefined(kind))
+        {
+            return null;
+        }
+
+        var shape = new JobStockShape(kind) { OffsetX = null, OffsetY = null, OffsetZ = null };
+        if (kind != StockShapeKind.Margins)
+        {
+            if (o["axis"] is not JsonValue av || !av.TryGetValue(out string? axisText) || !System.Enum.TryParse(axisText, false, out StockAxis axis) || !System.Enum.IsDefined(axis))
+            {
+                return null;
+            }
+
+            shape = shape with { Axis = axis };
+        }
+
+        foreach ((string key, string field) in ShapeKeys)
+        {
+            if (o[key] is null)
+            {
+                continue;
+            }
+
+            if (o[key] is not JsonValue nv || !nv.TryGetValue(out double v) || !double.IsFinite(v))
+            {
+                return null;
+            }
+
+            shape = shape.With(field, v);
+        }
+
+        return shape;
     }
 
     internal static JsonArray SegmentsToJson(IReadOnlyList<Segment2> segments)
@@ -245,6 +333,29 @@ public static class CamJobJson
                 }
 
                 job.Operations.Add(spec);
+            }
+
+            if (root["partHeight"] is JsonValue ph && ph.TryGetValue(out double partHeight) && double.IsFinite(partHeight))
+            {
+                job.PartHeight = partHeight;
+            }
+            else if (root["partHeight"] is not null)
+            {
+                warnings.Add("Altura da peça do arquivo ignorada (formato inválido): ficou vazia.");
+            }
+
+            if (root["stockShape"] is not null)
+            {
+                // formato novo estragado não impede de abrir: o bruto fica não definido, com aviso (nada suposto)
+                if (StockShapeFrom(root["stockShape"]) is { } shape)
+                {
+                    job.SetStock(null, shape);
+                }
+                else
+                {
+                    warnings.Add("Bruto do arquivo ignorado (formato inválido): ficou como não definido.");
+                    job.SetStock(null, null);
+                }
             }
 
             if (root["fixture"] is JsonObject fx)

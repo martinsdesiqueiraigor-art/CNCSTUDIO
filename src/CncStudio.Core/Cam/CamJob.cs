@@ -120,7 +120,11 @@ public sealed record CamOperationSpec(JobOpKind Kind, CamTool Tool, CamLevels Le
 /// </summary>
 public sealed class CamJob
 {
-    public const int CurrentVersion = 1;
+    /// <summary>
+    /// Versão mais nova que o app lê. Um arquivo só sai na versão 2 quando usa algo do UX-04f (formato novo do bruto ou altura da
+    /// peça); sem isso continua na versão 1, com o mesmo texto de antes (<see cref="CamJobStock.NeedsVersion2"/>).
+    /// </summary>
+    public const int CurrentVersion = 2;
 
     public string Name { get; set; } = "TRABALHO";
 
@@ -132,7 +136,24 @@ public sealed class CamJob
 
     public bool Coolant { get; set; } = true;
 
+    /// <summary>Bloco absoluto (canto e medidas, topo em Z0): o bruto de antes. Arquivo antigo abre assim, sem mudança.</summary>
     public JobStock? Stock { get; set; }
+
+    /// <summary>
+    /// Formato novo do bruto (UX-04f): bloco por sobra, cilindro ou tubo. Quando existe, vale no lugar de <see cref="Stock"/>
+    /// (só um dos dois fica preenchido; <see cref="SetStock"/>). Não entra no G-code.
+    /// </summary>
+    public JobStockShape? StockShape { get; set; }
+
+    /// <summary>Altura Z da peça pronta, digitada (um DXF não informa altura). Null = vazia: nada suposto. Não entra no G-code.</summary>
+    public double? PartHeight { get; set; }
+
+    /// <summary>Troca o bruto: bloco absoluto ou formato novo (o outro fica vazio, para haver uma fonte só).</summary>
+    public void SetStock(JobStock? absolute, JobStockShape? shape)
+    {
+        Stock = shape is null ? absolute : null;
+        StockShape = shape;
+    }
 
     /// <summary>Fixação informada pelo usuário; null = "não definida" (arquivos antigos abrem assim). Fonte única: o Assist lê daqui.</summary>
     public JobFixture? Fixture { get; set; }

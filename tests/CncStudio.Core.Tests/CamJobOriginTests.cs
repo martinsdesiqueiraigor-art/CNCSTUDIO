@@ -31,7 +31,7 @@ public class CamJobOriginTests
         Assert.Equal(OpOrigin.Draft, o.CutData);
         Assert.Equal(["depth", "heights"], o.Typed);
         Assert.Equal(json, CamJobJson.ToJson(loaded.Job));
-        Assert.Equal(CamJob.CurrentVersion, (int)JsonNode.Parse(json)!["version"]!);
+        Assert.Equal(1, (int)JsonNode.Parse(json)!["version"]!); // nada do UX-04f: continua na versão 1
     }
 
     [Fact]

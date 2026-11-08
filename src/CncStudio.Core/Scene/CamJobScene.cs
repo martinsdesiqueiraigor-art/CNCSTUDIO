@@ -21,24 +21,28 @@ public static class CamJobScene
     /// <summary>Id da malha do bruto na cena.</summary>
     public const string StockId = "bruto";
 
-    /// <summary>Monta a cena. "hasSolidPart" = o Trabalho tem a peça em 3D (hoje nunca: só contornos 2D).</summary>
-    public static SceneSnapshot Build(JobStock? stock, IReadOnlyList<Contour> contours, ToolPath? path, CamViewOptions options, bool hasSolidPart = false)
+    /// <summary>Monta a cena com o bloco absoluto (topo em Z 0). "hasSolidPart" = o Trabalho tem a peça em 3D (hoje nunca: só contornos 2D).</summary>
+    public static SceneSnapshot Build(JobStock? stock, IReadOnlyList<Contour> contours, ToolPath? path, CamViewOptions options, bool hasSolidPart = false) =>
+        BuildResolved(stock is { Width: > 0, Length: > 0, Thickness: > 0 } s ? StockSolid.Box(s.X, s.Y, -s.Thickness, s.Width, s.Length, s.Thickness) : null,
+            contours, path, options, hasSolidPart);
+
+    /// <summary>
+    /// Monta a cena com o bruto resolvido (<see cref="CamJobStock.Check"/>): caixa, cilindro ou tubo, na posição do programa.
+    /// Bruto incompleto chega null e não aparece (nada suposto).
+    /// </summary>
+    public static SceneSnapshot BuildResolved(StockSolid? stock, IReadOnlyList<Contour> contours, ToolPath? path, CamViewOptions options, bool hasSolidPart = false)
     {
         ScenePalette palette = ScenePalette.Realistic;
         var objects = new List<SceneObjectState>();
         var lines = new List<SceneLinesState>();
         Bounds3 bounds = Bounds3.Empty;
 
-        if (stock is { Width: > 0, Length: > 0, Thickness: > 0 } s)
+        if (stock is { SizeX: > 0, SizeY: > 0, SizeZ: > 0 } s)
         {
-            // o topo do bruto fica em Z 0 (como no JobStock)
-            var min = new Point3(s.X, s.Y, -s.Thickness);
-            var size = new Point3(s.Width, s.Length, s.Thickness);
-            bounds = bounds.Include(min).Include(new Point3(s.X + s.Width, s.Y + s.Length, 0));
+            bounds = bounds.Include(new Point3(s.MinX, s.MinY, s.MinZ)).Include(new Point3(s.MaxX, s.MaxY, s.MaxZ));
             if (options.Stock != StockDisplay.Hidden)
             {
-                SolidMesh mesh = SolidMesh.Create(6);
-                SceneMeshes.Box(mesh, min, size, palette.Stock);
+                SolidMesh mesh = StockMesh(s, palette.Stock);
                 if (!options.Edges)
                 {
                     mesh.UseExplicitEdges(); // nenhuma aresta marcada
@@ -111,6 +115,52 @@ public static class CamJobScene
         {
             MaterialOpacity = options.Stock == StockDisplay.Transparent ? SimulationScene.TransparentOpacity : 1f,
         };
+    }
+
+    /// <summary>Lados do cilindro e do tubo na malha.</summary>
+    public const int RoundSegments = 48;
+
+    /// <summary>Malha do bruto: caixa, ou cilindro/tubo girado em volta do eixo (Z em pé; X ou Y deitado).</summary>
+    public static SolidMesh StockMesh(StockSolid s, uint color)
+    {
+        SolidMesh mesh = SolidMesh.Create(6);
+        if (s.Kind == StockSolidKind.Box)
+        {
+            SceneMeshes.Box(mesh, new Point3(s.MinX, s.MinY, s.MinZ), new Point3(s.SizeX, s.SizeY, s.SizeZ), color);
+            return mesh;
+        }
+
+        double ro = s.Diameter / 2, ri = s.Kind == StockSolidKind.Tube ? s.InnerDiameter / 2 : 0, h = s.Length / 2;
+        var center = new Point3((s.MinX + s.MaxX) / 2, (s.MinY + s.MaxY) / 2, (s.MinZ + s.MaxZ) / 2);
+
+        // contorno no plano (raio, altura) no sentido que deixa as normais para fora (o mesmo do SceneMeshes.Revolve)
+        List<(double R, double Z)> outline = ri > 0
+            ? [(ri, -h), (ro, -h), (ro, h), (ri, h), (ri, -h)]
+            : [(0, -h), (ro, -h), (ro, h), (0, h)];
+
+        // eixo local (x, y, z) → mundo: permutação cíclica, que não inverte o lado das faces
+        Point3 Map(double x, double y, double z) => s.Axis switch
+        {
+            StockAxis.X => new Point3(z, x, y),
+            StockAxis.Y => new Point3(y, z, x),
+            _ => new Point3(x, y, z),
+        };
+
+        double step = 2 * Math.PI / RoundSegments;
+        for (int i = 0; i + 1 < outline.Count; i++)
+        {
+            (double r0, double z0) = outline[i];
+            (double r1, double z1) = outline[i + 1];
+            double nr = z1 - z0, nz = -(r1 - r0);
+            for (int k = 0; k < RoundSegments; k++)
+            {
+                double a0 = k * step, a1 = a0 + step, mid = a0 + step / 2;
+                Point3 At(double r, double z, double a) => center + Map(r * Math.Cos(a), r * Math.Sin(a), z);
+                mesh.AddQuad(At(r0, z0, a0), At(r0, z0, a1), At(r1, z1, a1), At(r1, z1, a0), Map(nr * Math.Cos(mid), nr * Math.Sin(mid), nz), color);
+            }
+        }
+
+        return mesh;
     }
 
     /// <summary>Tamanho das setas do zero: um quarto da maior medida da cena, entre 10 e 100 mm.</summary>
