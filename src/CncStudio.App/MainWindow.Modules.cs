@@ -67,6 +67,13 @@ public partial class MainWindow
             LoadText(text, null, name);
             ShowModule("code");
         };
+        // CAM-13: o Trabalho fresa envia com o pacote do CAM (aba sem arquivo; o pacote fica na memória até salvar)
+        Cam.OpenWithPackage = (text, name, package) =>
+        {
+            LoadText(text, null, name, package: package);
+            ShowModule("code");
+        };
+        Statistics.FromCam = ToolFromCam;
         Cam.ToolsSource = () => _settings.Tools;
         Cam.SaveTools = () => _settings.Save();
         // larguras das divisórias do Trabalho fresa (UX-04c): preferência local do app

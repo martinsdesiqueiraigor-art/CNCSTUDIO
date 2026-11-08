@@ -27,6 +27,15 @@ internal sealed class OpenProgram
     /// <summary>Setup do programa: bruto informado (null = comentário ou automático), fixações e ferramentas.</summary>
     public MachiningSetup Setup { get; set; } = MachiningSetup.CreateDefault("");
 
+    /// <summary>
+    /// CAM-13: pacote do CAM desta aba (veio do "Enviar ao Code" ou do arquivo ao lado). Null = programa sem pacote, abre como sempre.
+    /// Salvar o programa grava o pacote ao lado (PECA.nc.casillas-cam), com o hash do programa que o CAM gerou.
+    /// </summary>
+    public CncStudio.Core.Cam.CamHandoff? CamPackage { get; set; }
+
+    /// <summary>CAM-13: aviso da leitura do arquivo ao lado (versão mais nova ou ilegível); null = sem aviso.</summary>
+    public string? CamReadWarning { get; set; }
+
     /// <summary>Posição do cursor quando a aba saiu de foco.</summary>
     public int CaretOffset { get; set; }
 
