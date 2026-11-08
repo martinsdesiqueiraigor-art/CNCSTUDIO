@@ -102,6 +102,19 @@ public class MachineCardTests
     {
         var m = new MachineProfile { Name = "VMC", MaxSpindleRpm = 12000 };
         Assert.Equal(12000, m.Clone().MaxSpindleRpm);
+
+        // a tela completa (Perfil 4/5 eixos) carrega uma cópia para editar: ela tem de sair igual ao salvo, campo por campo,
+        // senão salvar sem mexer apagava o limite do fuso
+        MachineProfile full = MachineProfile.FiveAxisMixed("Mista");
+        full.Controller = CamDialect.Siemens;
+        full.Mode = RotaryOutputMode.Native;
+        full.MaxSpindleRpm = 15000;
+        full.Axes[0].PivotZ = -120;
+        full.Axes[1].Reversed = true;
+        MachineProfile copy = full.Clone();
+        Assert.Equal(MachineProfileJson.Serialize(full), MachineProfileJson.Serialize(copy));
+        copy.Axes[0].PivotZ = 0;
+        Assert.Equal(-120, full.Axes[0].PivotZ);   // cópia de verdade: editar não mexe no salvo
     }
 
     [Fact]
