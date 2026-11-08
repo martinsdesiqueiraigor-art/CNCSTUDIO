@@ -38,6 +38,13 @@ public sealed record LatheOperationSpec(LatheOpKind Kind, LatheTool Tool)
 
     public GroovingParams? Groove { get; init; }
 
+    /// <summary>
+    /// Campos (nome como na tela) que o usuário deixou vazios ou com texto (UX-04e, a regra do CAM-12 da fresa): a operação fica
+    /// Incompleta e não gera (<see cref="LatheJobInfo.MissingError"/>), e o número antigo guardado não vale. Não vai para o arquivo;
+    /// Salvar fica bloqueado enquanto houver (<see cref="LatheJobInfo.SaveBlockers"/>).
+    /// </summary>
+    public IReadOnlyList<string> MissingFields { get; init; } = [];
+
     /// <summary>Interno (barra, rosca ou canal interno)?</summary>
     public bool IsInternal => Kind switch
     {
@@ -202,6 +209,11 @@ public static class LatheJobBuilder
 
     private static LatheResult BuildOne(LatheJob job, LatheOperationSpec s)
     {
+        if (LatheJobInfo.MissingError(s) is { } missing)
+        {
+            return new LatheResult(null, missing);
+        }
+
         if (s.Tool.Validate() is { } toolError)
         {
             return new LatheResult(null, toolError);
@@ -328,6 +340,130 @@ public static class LatheJobInfo
     private static readonly CultureInfo Br = CultureInfo.GetCultureInfo("pt-BR");
 
     private static string N(double v) => v.ToString("0.##", Br);
+
+    // ---------------------------------------------------------------- campos vazios (UX-04e, regra do CAM-12)
+
+    /// <summary>Motivo da operação Incompleta por campo vazio ("Falta Passo", "Falta Passo e Z do fim"); null = nenhum.</summary>
+    public static string? MissingError(LatheOperationSpec s)
+    {
+        IReadOnlyList<string> m = s.MissingFields;
+        if (m.Count == 0)
+        {
+            return null;
+        }
+
+        return m.Count == 1 ? "Falta " + m[0] : "Falta " + string.Join(", ", m.Take(m.Count - 1)) + " e " + m[^1];
+    }
+
+    /// <summary>Marca (ou desmarca) um campo como vazio na operação. Não mexe no valor guardado.</summary>
+    public static LatheOperationSpec SetMissing(LatheOperationSpec s, string field, bool missing)
+    {
+        bool has = s.MissingFields.Contains(field);
+        if (has == missing)
+        {
+            return s;
+        }
+
+        return s with { MissingFields = missing ? [.. s.MissingFields, field] : s.MissingFields.Where(f => f != field).ToList() };
+    }
+
+    /// <summary>
+    /// O que impede salvar: uma linha por operação com campo vazio ("Operação 2 (Rosca externa): falta Passo"), inclusive as
+    /// desligadas, porque o arquivo guardaria o número antigo que o usuário não vê. Vazio = pode salvar.
+    /// </summary>
+    public static IReadOnlyList<string> SaveBlockers(LatheJob job)
+    {
+        var list = new List<string>();
+        for (int i = 0; i < job.Operations.Count; i++)
+        {
+            LatheOperationSpec s = job.Operations[i];
+            if (MissingError(s) is { } why)
+            {
+                list.Add($"Operação {i + 1} ({KindName(s)}): {char.ToLowerInvariant(why[0])}{why[1..]}");
+            }
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// Linha do item Bruto (barra) da árvore do torno: o torno não tem bruto próprio; o Ø do bruto é o digitado em cada operação de
+    /// torneamento externo e faceamento. Só leitura; nada é suposto ("Bruto: Ø 40 (op. 1, 2)", "Bruto: nas operações (nenhuma)").
+    /// </summary>
+    public static string StockTitle(LatheJob job)
+    {
+        var groups = StockDiameters(job);
+        if (groups.Count == 0)
+        {
+            return "Bruto (barra): sem operação com Ø do bruto";
+        }
+
+        return "Bruto (barra): " + string.Join(" · ", groups.Select(g => $"Ø {g.Text} (op. {string.Join(", ", g.Ops.Select(o => o + 1))})"));
+    }
+
+    /// <summary>
+    /// Ø do bruto digitados nas operações de torneamento externo e faceamento, agrupados ("?" quando o campo está vazio), na ordem
+    /// em que aparecem. Interno não entra (lá o campo é o Ø do pré-furo).
+    /// </summary>
+    public static IReadOnlyList<(string Text, IReadOnlyList<int> Ops)> StockDiameters(LatheJob job)
+    {
+        var list = new List<(string Text, List<int> Ops)>();
+        for (int i = 0; i < job.Operations.Count; i++)
+        {
+            LatheOperationSpec s = job.Operations[i];
+            double? d = s.Kind switch
+            {
+                LatheOpKind.Turning when !s.IsInternal => s.Turning?.StockDiameter,
+                LatheOpKind.Facing => s.Facing?.StockDiameter,
+                _ => null,
+            };
+            if (d is null)
+            {
+                continue;
+            }
+
+            string text = s.MissingFields.Contains(StockField) ? "?" : N(d.Value);
+            int at = list.FindIndex(x => x.Text == text);
+            if (at < 0)
+            {
+                list.Add((text, [i]));
+            }
+            else
+            {
+                list[at].Ops.Add(i);
+            }
+        }
+
+        return list.Select(x => (x.Text, (IReadOnlyList<int>)x.Ops)).ToList();
+    }
+
+    /// <summary>
+    /// Linhas do nó Ferramentas ("T1 · G96 200 m/min · máx. 3000 rpm"); T, velocidade ou rotação vazios aparecem como "?" (nunca o
+    /// número antigo). A mesma ferramenta aparece uma vez, em ordem de T.
+    /// </summary>
+    public static IReadOnlyList<string> ToolLines(LatheJob job)
+    {
+        string Q(LatheOperationSpec o, string field, string value) => o.MissingFields.Contains(field) ? "?" : value;
+        return job.Operations.Select(o =>
+            {
+                LatheTool t = o.Tool;
+                bool noT = o.MissingFields.Contains(ToolNumberField);
+                string speed = o.MissingFields.Contains(FixedRpmField) ? "? rpm"
+                    : t.Rpm > 0 ? $"{N(t.Rpm)} rpm" : $"G96 {Q(o, SurfaceSpeedField, N(t.SurfaceSpeed))} m/min";
+                return (Order: noT ? int.MaxValue : t.Number, Key: noT ? "?" : t.Number.ToString(CultureInfo.InvariantCulture),
+                    Text: $"T{(noT ? "?" : t.Number.ToString(CultureInfo.InvariantCulture))} · {speed} · máx. {Q(o, MaxRpmField, N(t.MaxRpm))} rpm");
+            })
+            .GroupBy(x => x.Key).Select(g => g.First()).OrderBy(x => x.Order).Select(x => x.Text).ToList();
+    }
+
+    /// <summary>Nomes dos campos da ferramenta na tela (os mesmos rótulos do painel).</summary>
+    public const string ToolNumberField = "Ferramenta (T)";
+    public const string SurfaceSpeedField = "Velocidade de corte (G96)";
+    public const string MaxRpmField = "Rotação máxima";
+    public const string FixedRpmField = "Rotação fixa (0 = G96)";
+
+    /// <summary>Nome do campo do Ø do bruto na tela (torneamento externo e faceamento).</summary>
+    public const string StockField = "Ø do bruto";
 
     /// <summary>Tipos que o usuário pode criar na árvore: nome mostrado, tipo e se é interno.</summary>
     public static readonly IReadOnlyList<(string Name, LatheOpKind Kind, bool Internal)> NewKinds =
