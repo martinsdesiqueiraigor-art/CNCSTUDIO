@@ -124,11 +124,7 @@ public partial class JobView : UserControl
                 await CopyText(_build.Program);
             }
         };
-        TreeSplitter.DragCompleted += (_, _) => PanesDragged();
-        PropsSplitter.DragCompleted += (_, _) => PanesDragged();
-        TreeSplitter.DoubleTapped += (_, _) => ResetPanes();
-        PropsSplitter.DoubleTapped += (_, _) => ResetPanes();
-        Panes.SizeChanged += (_, _) => FitPanes();
+        _panes = new CamPanes(Panes, TreeSplitter, PropsSplitter, () => _tab == 1);
         NameBox.Text = _job.Name;
         Refresh();
         SetTab(1);
@@ -136,15 +132,15 @@ public partial class JobView : UserControl
 
     // ---------------------------------------------------------------- divisórias (UX-04c)
 
-    private const double TreeDefault = 240, TreeMin = 200, TreeMax = 420;
-    private const double PropsDefault = 290, PropsMin = 260, PropsMax = 520;
-    private const double CenterMin = 480, SplitterWidth = 5;
-
-    /// <summary>Larguras escolhidas (arrastadas ou guardadas); a tela pode mostrar menos se a janela for estreita.</summary>
-    private double _treeWidth = TreeDefault, _propsWidth = PropsDefault;
+    /// <summary>Divisórias (componente comum com o torno, <see cref="CamPanes"/>).</summary>
+    private readonly CamPanes _panes;
 
     /// <summary>Guarda as larguras (árvore, painel) nas preferências do app.</summary>
-    public Action<double, double>? SavePanes { get; set; }
+    public Action<double, double>? SavePanes
+    {
+        get => _panes.Save;
+        set => _panes.Save = value;
+    }
 
     /// <summary>Escolhas dos chips do 3D (texto do config do app; inválido = padrão). Não vão para o .casillas-job.</summary>
     public string ViewOptions
@@ -156,66 +152,7 @@ public partial class JobView : UserControl
     public Action<string>? SaveViewOptions { get; set; }
 
     /// <summary>Larguras guardadas (0 = padrão); fora dos limites, volta ao limite.</summary>
-    public void SetPanes(double tree, double props)
-    {
-        _treeWidth = tree > 0 ? Math.Clamp(tree, TreeMin, TreeMax) : TreeDefault;
-        _propsWidth = props > 0 ? Math.Clamp(props, PropsMin, PropsMax) : PropsDefault;
-        FitPanes();
-    }
-
-    private void PanesDragged()
-    {
-        _treeWidth = Math.Clamp(Panes.ColumnDefinitions[0].ActualWidth, TreeMin, TreeMax);
-        if (_tab == 1)
-        {
-            _propsWidth = Math.Clamp(Panes.ColumnDefinitions[4].ActualWidth, PropsMin, PropsMax);
-        }
-
-        SavePanes?.Invoke(_treeWidth, _propsWidth);
-        FitPanes();
-    }
-
-    private void ResetPanes()
-    {
-        _treeWidth = TreeDefault;
-        _propsWidth = PropsDefault;
-        SavePanes?.Invoke(0, 0);
-        FitPanes();
-    }
-
-    /// <summary>
-    /// Aplica as larguras sem passar da janela: o centro fica com pelo menos 480 px; se não couber, o painel e depois a árvore
-    /// encolhem até o mínimo, e só então o centro cede (nada fica além da borda direita). Fora da aba Operações o painel some.
-    /// </summary>
-    private void FitPanes()
-    {
-        bool props = _tab == 1;
-        double avail = Panes.Bounds.Width;
-        double tree = _treeWidth, side = props ? _propsWidth : 0;
-        double fixedParts = SplitterWidth + (props ? SplitterWidth : 0);
-        if (avail > 0)
-        {
-            double over = tree + side + fixedParts + CenterMin - avail;
-            if (over > 0 && props)
-            {
-                double cut = Math.Min(over, side - PropsMin);
-                side -= cut;
-                over -= cut;
-            }
-
-            if (over > 0)
-            {
-                tree -= Math.Min(over, tree - TreeMin);
-            }
-        }
-
-        Panes.ColumnDefinitions[0].Width = new GridLength(tree);
-        Panes.ColumnDefinitions[4].MinWidth = props ? PropsMin : 0;
-        Panes.ColumnDefinitions[4].Width = new GridLength(side);
-        Panes.ColumnDefinitions[3].Width = new GridLength(props ? SplitterWidth : 0);
-        PropsSplitter.IsVisible = props;
-        Panes.ColumnDefinitions[2].MinWidth = avail > 0 ? Math.Max(0, Math.Min(CenterMin, avail - tree - side - fixedParts)) : 0;
-    }
+    public void SetPanes(double tree, double props) => _panes.Set(tree, props);
 
     // ---------------------------------------------------------------- abas (UX-04c)
 
@@ -225,45 +162,19 @@ public partial class JobView : UserControl
     /// <summary>Abas Preparação, Operações e Código NC; o CamView põe esta faixa no topo do módulo.</summary>
     public Control TabStrip { get; }
 
-    private StackPanel BuildTabs()
-    {
-        var strip = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 2, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom };
-        string[] names = ["Preparação", "Operações", "Código NC"];
-        for (int k = 0; k < names.Length; k++)
-        {
-            int index = k;
-            var tab = new Button
-            {
-                Content = names[k], Padding = new Avalonia.Thickness(16, 7), FontSize = 13, CornerRadius = new Avalonia.CornerRadius(8, 8, 0, 0),
-                BorderThickness = new Avalonia.Thickness(0, 0, 0, 2), Background = Avalonia.Media.Brushes.Transparent,
-            };
-            tab.Click += (_, _) => SetTab(index);
-            _tabs[k] = tab;
-            strip.Children.Add(tab);
-        }
-
-        return strip;
-    }
+    private StackPanel BuildTabs() => CamShell.BuildTabs(_tabs, SetTab);
 
     /// <summary>Mostra a aba (0 Preparação, 1 Operações, 2 Código NC). A faixa de ícones e o painel direito são só de Operações.</summary>
     private void SetTab(int tab)
     {
         _tab = tab;
-        for (int k = 0; k < _tabs.Length; k++)
-        {
-            bool on = k == tab;
-            // a aba escolhida fica laranja (seleção) com traço embaixo; as outras, cinza
-            _tabs[k].Foreground = Avalonia.Media.Brush.Parse(on ? "#ffb066" : "#9aa7b5");
-            _tabs[k].BorderBrush = on ? Avalonia.Media.Brush.Parse("#ff8a1f") : Avalonia.Media.Brushes.Transparent;
-            _tabs[k].FontWeight = on ? Avalonia.Media.FontWeight.SemiBold : Avalonia.Media.FontWeight.Normal;
-        }
-
+        CamShell.StyleTabs(_tabs, tab);
         PrepCenter.IsVisible = tab == 0;
         OpsCenter.IsVisible = tab == 1;
         CodeCenter.IsVisible = tab == 2;
         PaletteBar.IsVisible = tab == 1;
         RightColumn.IsVisible = tab == 1;
-        FitPanes();
+        _panes.Fit();
         if (tab == 0)
         {
             BuildPrep();
@@ -459,54 +370,8 @@ public partial class JobView : UserControl
     /// </summary>
     private void BuildPalette()
     {
-        Palette.Children.Clear();
         _paletteButtons.Clear();
-        bool first = true;
-        foreach (CamPaletteGroup group in CamPalette.VisibleGroups)
-        {
-            if (!first)
-            {
-                Palette.Children.Add(new Border { Width = 1, Margin = new Avalonia.Thickness(6, 2), Background = Avalonia.Media.Brush.Parse("#1f2733") });
-            }
-
-            first = false;
-            var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 3 };
-            foreach (CamPaletteItem item in group.Items)
-            {
-                var content = new StackPanel { Spacing = 2, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center };
-                content.Children.Add(UiKit.Icon2(item.Icon, "#e6edf3", "#ff8a1f", 24));
-                content.Children.Add(new TextBlock
-                {
-                    Text = item.Name, FontSize = 11, LineHeight = 13, MaxLines = 2, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                    TextAlignment = Avalonia.Media.TextAlignment.Center, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                });
-                if (item.Soon)
-                {
-                    content.Children.Add(new TextBlock { Text = "em breve", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
-                }
-
-                var button = new Button
-                {
-                    Content = content, Width = 66, Height = 76, Padding = new Avalonia.Thickness(2, 4), MinHeight = 0,
-                    VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                    Background = Avalonia.Media.Brush.Parse("#18202b"), BorderBrush = Avalonia.Media.Brush.Parse("#243040"),
-                    BorderThickness = new Avalonia.Thickness(1), CornerRadius = new Avalonia.CornerRadius(8),
-                    Opacity = item.Soon ? 0.45 : 1,
-                };
-                ToolTip.SetShowOnDisabled(button, true);
-                Avalonia.Automation.AutomationProperties.SetName(button, item.Action is not null ? item.Name : item.Soon ? item.Name + " (em breve)" : "Adicionar " + item.Name);
-                CamPaletteItem picked = item;
-                button.Click += async (_, _) => await PaletteClick(picked);
-                buttons.Children.Add(button);
-                _paletteButtons.Add((item, button));
-            }
-
-            var box = new StackPanel { Spacing = 3 };
-            box.Children.Add(buttons);
-            box.Children.Add(new TextBlock { Text = group.Title.ToUpperInvariant(), FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
-            Palette.Children.Add(box);
-        }
-
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.VisibleGroups, PaletteClick));
         UpdatePalette();
     }
 
@@ -537,9 +402,7 @@ public partial class JobView : UserControl
         int target = PaletteTarget();
         foreach ((CamPaletteItem item, Button button) in _paletteButtons)
         {
-            string? why = CamPalette.Unavailable(item, _job, target, _openChains);
-            button.IsEnabled = why is null;
-            ToolTip.SetTip(button, why is null ? item.Hint : $"{item.Hint}\nAgora não: {why}");
+            CamShell.SetPaletteState(item, button, CamPalette.Unavailable(item, _job, target, _openChains));
         }
     }
 
@@ -930,28 +793,14 @@ public partial class JobView : UserControl
         (string Kind, string Text) st = TreeState(CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm));
         bool incomplete = OpIncomplete(i);
         (string mark, string kind) = !spec.Enabled ? ("–", "neutral") : incomplete ? ("!", "pending") : st.Kind == "ok" ? ("✓", "ok") : ("!", "pending");
-        (Avalonia.Media.IBrush fg, Avalonia.Media.IBrush bg) = UiKit.Status(kind);
-        var badge = new Border
-        {
-            Width = 17, Height = 17, CornerRadius = new Avalonia.CornerRadius(9), Background = bg, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            Child = new TextBlock { Text = mark, FontSize = 11, FontWeight = Avalonia.Media.FontWeight.Bold, Foreground = fg, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center },
-        };
-        var eye = new Button
-        {
-            Content = UiKit.Icon(spec.Enabled ? "olho" : "olho-fechado", spec.Enabled ? "#9aa7b5" : "#5b6675", 15),
-            Padding = new Avalonia.Thickness(3), MinHeight = 0, MinWidth = 0, Background = Avalonia.Media.Brushes.Transparent, BorderThickness = new Avalonia.Thickness(0),
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-        };
-        string eyeText = spec.Enabled ? "Desligar a operação (não entra no programa)" : "Ligar a operação";
-        ToolTip.SetTip(eye, eyeText);
-        Avalonia.Automation.AutomationProperties.SetName(eye, eyeText);
-        eye.Click += (_, _) =>
+        Border badge = CamShell.Badge(mark, kind);
+        Button eye = CamShell.Eye(spec.Enabled, () =>
         {
             if (!_busy)
             {
                 SetEnabled(index, !spec.Enabled);
             }
-        };
+        });
 
         var lead = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6 };
         lead.Children.Add(badge);
@@ -967,48 +816,9 @@ public partial class JobView : UserControl
         return UiKit.StateItem(row, new TreeTag("op", i));
     }
 
-    /// <summary>
-    /// Linha da árvore em 240 px: ícone (e selo) à esquerda, nome com reticências (a dica mostra inteiro), estado em segunda linha
-    /// pequena e uma coluna fixa à direita (olho nas operações), que nunca cobre o nome.
-    /// </summary>
-    private static Grid TreeRow(string title, (string Kind, string Text)? state, Control? lead, Control? right = null, string? tip = null)
-    {
-        var g = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,24"),
-            RowDefinitions = new RowDefinitions("Auto,Auto"),
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
-        };
-        if (lead is not null)
-        {
-            lead.Margin = new Avalonia.Thickness(0, 0, 6, 0);
-            lead.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
-            Grid.SetRowSpan(lead, 2);
-            g.Children.Add(lead);
-        }
-
-        var text = new TextBlock { Text = title, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis };
-        Grid.SetColumn(text, 1);
-        g.Children.Add(text);
-        if (state is { } st)
-        {
-            var small = new TextBlock { Text = st.Text, FontSize = 10.5, Foreground = UiKit.Status(st.Kind).Fg, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis };
-            Grid.SetColumn(small, 1);
-            Grid.SetRow(small, 1);
-            g.Children.Add(small);
-        }
-
-        if (right is not null)
-        {
-            Grid.SetColumn(right, 2);
-            Grid.SetRowSpan(right, 2);
-            right.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center;
-            g.Children.Add(right);
-        }
-
-        ToolTip.SetTip(text, tip ?? (state is { } s2 ? title + "\n" + s2.Text : title));
-        return g;
-    }
+    /// <summary>Linha da árvore em 240 px (comum com o torno: <see cref="CamShell.TreeRow"/>).</summary>
+    private static Grid TreeRow(string title, (string Kind, string Text)? state, Control? lead, Control? right = null, string? tip = null) =>
+        CamShell.TreeRow(title, state, lead, right, tip);
 
     private void UpdatePreview()
     {

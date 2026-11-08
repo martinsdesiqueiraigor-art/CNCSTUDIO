@@ -20,6 +20,16 @@ public sealed record CamPaletteItem(string Id, string Name, string Icon, JobOpKi
     /// <summary>Botão de ação de arquivo.</summary>
     public static CamPaletteItem File(string id, string name, string icon, string action, string hint) =>
         new(id, name, icon, null, ContourSide.Outside, hint) { Action = action };
+
+    /// <summary>Operação de torno do botão (só na faixa do torno); null = não é operação de torno.</summary>
+    public LatheOpKind? LatheKind { get; init; }
+
+    /// <summary>Operação de torno interna (barra, rosca ou canal interno).</summary>
+    public bool Internal { get; init; }
+
+    /// <summary>Botão que cria uma operação de torno.</summary>
+    public static CamPaletteItem Lathe(string id, string name, string icon, LatheOpKind kind, bool isInternal, string hint) =>
+        new(id, name, icon, null, ContourSide.Outside, hint) { LatheKind = kind, Internal = isInternal };
 }
 
 /// <summary>Grupo rotulado da faixa (Arquivo, Fixação, 2D, Furação, 4º eixo, 3D). <see cref="Visible"/> false = definido, mas fora da tela.</summary>
@@ -136,6 +146,81 @@ public static class CamPalette
             ? $"Contorno {targetContour + 1} aberto: as pontas não se encontram. Feche a cadeia no DXF."
             : null;
     }
+
+    // ---------------------------------------------------------------- torno (UX-04e)
+
+    /// <summary>
+    /// Faixa do Trabalho torno: só as operações que o Core do torno já tem (<see cref="LatheJobInfo.NewKinds"/>). Canal de face e
+    /// Sangrar ficam "em breve"; Nova fixação e Zero também (uma fixação e um zero só, como na fresa).
+    /// </summary>
+    public static readonly IReadOnlyList<CamPaletteGroup> LatheGroups =
+    [
+        new("arquivo", "Arquivo", true,
+        [
+            CamPaletteItem.File("abrir-dxf", "Abrir DXF", "abrir-dxf", "abrir-dxf", "Abre o perfil da peça (DXF)."),
+            CamPaletteItem.File("abrir-trabalho", "Abrir", "abrir", "abrir-trabalho", "Abre um trabalho de torno salvo (.casillas-job)."),
+            CamPaletteItem.File("salvar-trabalho", "Salvar", "salvar", "salvar-trabalho", "Salva o trabalho (.casillas-job)."),
+        ]),
+        new("fixacao", "Fixação", true,
+        [
+            CamPaletteItem.Later("nova-fixacao", "Nova fixação", "nova-fixacao", "Cada fixação com zero próprio (ex.: virar a peça)."),
+            CamPaletteItem.Later("zero", "Zero", "zero", "Escolher o zero da fixação pela peça."),
+        ]),
+        new("torneamento", "Torneamento", true,
+        [
+            CamPaletteItem.Lathe("faceamento", "Faceamento", "torno-face", LatheOpKind.Facing, false, "Faceia a ponta da peça em passes de Z."),
+            CamPaletteItem.Lathe("torneamento-externo", "Torneamento externo", "torno-externo", LatheOpKind.Turning, false, "Desbaste e acabamento do perfil por fora."),
+            CamPaletteItem.Lathe("torneamento-interno", "Torneamento interno", "torno-interno", LatheOpKind.Turning, true, "Desbaste e acabamento do perfil por dentro (barra)."),
+            CamPaletteItem.Lathe("furar", "Furar", "torno-furo", LatheOpKind.Drilling, false, "Furação axial no centro, com bicada."),
+        ]),
+        new("canal", "Canal e corte", true,
+        [
+            CamPaletteItem.Lathe("canal-externo", "Canal externo", "canal-externo", LatheOpKind.Grooving, false, "Canal radial por fora."),
+            CamPaletteItem.Lathe("canal-interno", "Canal interno", "canal-interno", LatheOpKind.Grooving, true, "Canal radial por dentro."),
+            CamPaletteItem.Later("canal-face", "Canal de face", "canal-face", "Canal axial na face da peça."),
+            CamPaletteItem.Later("sangrar", "Sangrar", "sangrar", "Corte da peça (sangramento)."),
+        ]),
+        new("rosca", "Rosca", true,
+        [
+            CamPaletteItem.Lathe("rosca-externa", "Rosca externa", "rosca-externa", LatheOpKind.Threading, false, "Rosca por fora (G76 no Fanuc, CYCLE97 no Siemens)."),
+            CamPaletteItem.Lathe("rosca-interna", "Rosca interna", "rosca-interna", LatheOpKind.Threading, true, "Rosca por dentro."),
+        ]),
+    ];
+
+    /// <summary>Grupos do torno que aparecem na tela.</summary>
+    public static IEnumerable<CamPaletteGroup> LatheVisibleGroups => LatheGroups.Where(g => g.Visible);
+
+    /// <summary>Botão da faixa do torno que cria esta operação (ícone na árvore); null se nenhum.</summary>
+    public static CamPaletteItem? LatheItemFor(LatheOperationSpec s) =>
+        LatheGroups.SelectMany(g => g.Items).FirstOrDefault(i => i.LatheKind == s.Kind && i.Internal == s.IsInternal);
+
+    /// <summary>
+    /// Por que o botão do torno não serve agora (null = serve). Mesma condição em que a operação daria erro ao gerar: torneamento
+    /// pede o perfil da peça (<see cref="LatheJob.Validate"/>).
+    /// </summary>
+    public static string? LatheUnavailable(CamPaletteItem item, LatheJob job)
+    {
+        if (item.Soon)
+        {
+            return SoonMessage;
+        }
+
+        if (item.Action is not null)
+        {
+            return null;
+        }
+
+        if (item.LatheKind is not { } kind)
+        {
+            return "Não é operação de torno.";
+        }
+
+        return kind == LatheOpKind.Turning && job.Profile is null ? "Informe o perfil da peça primeiro (DXF ou pontos, item Peça)." : null;
+    }
+
+    /// <summary>Operação de torno nova do botão (a mesma de <see cref="LatheJobInfo.NewOperation"/>); null para item sem operação.</summary>
+    public static LatheOperationSpec? NewLatheOperation(CamPaletteItem item, LatheTool? tool = null) =>
+        item.LatheKind is { } kind ? LatheJobInfo.NewOperation(kind, item.Internal, tool) : null;
 
     /// <summary>Operação nova do botão (a mesma de <see cref="CamJobInfo.NewOperation"/>); null para item sem operação no Trabalho.</summary>
     public static CamOperationSpec? NewOperation(CamPaletteItem item, int targetContour, CamTool? tool = null) =>
