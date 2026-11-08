@@ -106,6 +106,11 @@ public partial class JobView : UserControl
             {
                 EnsureToolsInBank();
                 OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
+                if (_job.StockShape?.Kind == StockShapeKind.Step)
+                {
+                    // o bruto não entra no G-code: o programa vai igual, mas o simulador do Code não mostra este bruto
+                    Errors.Text = "• Programa enviado ao Code. O simulador do Code não desenha bruto STEP: a simulação não mostra este bruto.";
+                }
             }
         };
         // um zero só no Core: o programa gerado é o da fixação 1
@@ -331,6 +336,9 @@ public partial class JobView : UserControl
         _job.WorkOffset = j.WorkOffset;
         _job.Coolant = j.Coolant;
         _job.SetStock(j.Stock, j.StockShape);
+        // STEP do bruto: só confere se o arquivo ainda está no lugar (nunca lê ao abrir)
+        _stepMesh = null;
+        CamJobStock.VerifyStepFile(_job, File.Exists);
         _absoluteMode = false;
         ForgetStockMemory();
         _job.PartHeight = j.PartHeight;
@@ -568,6 +576,12 @@ public partial class JobView : UserControl
 
         StatusIncomplete.Foreground = incomplete == 0 && stockNote is null ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
         StatusProgram.Text = "Programa nº: " + _job.ProgramNumber.ToString(CultureInfo.InvariantCulture);
+        // UX-04f PR 2: selo da Máquina (✓, ✓ com fuso não verificado, aviso de controle diferente ou sem perfil)
+        MachineProfile? machine = MachineSource?.Invoke();
+        (string kind, string text) = CamJobInfo.MillMachineState(machine, _job.Dialect);
+        StatusMachine.Text = machine is null ? "Máquina: sem perfil (3 eixos)" : $"Máquina: {machine.Name} " + (kind != "ok" ? "⚠ " + text : text == "OK" ? "✓" : "✓ " + CamJobInfo.SpindleNotChecked);
+        StatusMachine.Foreground = kind == "ok" ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        ToolTip.SetTip(StatusMachine, CamJobInfo.MachineControlWarning(machine, _job.Dialect));
     }
 
     /// <summary>Operação incompleta: campo vazio ou inválido que ela usa (CAM-12) ou erro ao gerar.</summary>
@@ -709,7 +723,7 @@ public partial class JobView : UserControl
 
         if (on)
         {
-            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, CamJobStock.Check(_job).Solid, [.. _job.Contours]);
+            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, StockForScene(), [.. _job.Contours]);
         }
     }
 
@@ -763,7 +777,7 @@ public partial class JobView : UserControl
             UiKit.StateItem(TreeRow(text, st, UiKit.Icon(icon, "#9aa7b5", 15)), tag);
 
         MachineProfile? machine = MachineSource?.Invoke();
-        Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
+        Tree.Items.Add(NodeState(CamJobInfo.MillMachineTitle(machine), CamJobInfo.MillMachineState(machine, _job.Dialect), "ferramenta"));
         // material ainda não existe no CAM: aparece apagado, sem valor suposto
         TreeViewItem material = Node("Material: não definido", null, "material");
         material.Opacity = 0.5;

@@ -417,6 +417,43 @@ public static class CamJobInfo
         _ => ("pending", "fuso não informado"),
     };
 
+    /// <summary>Texto do selo da Máquina da fresa sem a rotação máxima: o perfil vale, mas o limite do fuso não é conferido.</summary>
+    public const string SpindleNotChecked = "fuso não verificado";
+
+    /// <summary>
+    /// Estado da Máquina no Trabalho fresa (UX-04f PR 2): sem perfil = pendente (o CAM gera em 3 eixos); com perfil = ✓, com
+    /// "fuso não verificado" se a rotação máxima está vazia (não bloqueia). Controle do perfil diferente do trabalho = aviso: o
+    /// controle do trabalho manda, nada é trocado nem bloqueado. O torno continua com <see cref="MachineState"/>.
+    /// </summary>
+    public static (string Kind, string Text) MillMachineState(MachineProfile? m, CamDialect jobDialect)
+    {
+        if (m is null)
+        {
+            return ("pending", "sem perfil");
+        }
+
+        if (MachineControlWarning(m, jobDialect) is not null)
+        {
+            return ("pending", "aviso: controle diferente do trabalho");
+        }
+
+        return m.MaxSpindleRpm is > 0 ? ("ok", "OK") : ("ok", "OK · " + SpindleNotChecked);
+    }
+
+    /// <summary>Linha "Máquina" da árvore da fresa: como <see cref="MachineTitle"/>, mas sem rotação diz "fuso não verificado" (o torno não muda).</summary>
+    public static string MillMachineTitle(MachineProfile? m) => m is { MaxSpindleRpm: null } ? $"Máquina: {m.Name} · {SpindleNotChecked}" : MachineTitle(m);
+
+    /// <summary>
+    /// Aviso quando o controle do perfil ativo difere do controle do trabalho (null = iguais ou sem perfil). Só avisa: o controle
+    /// do trabalho é o que vale para o programa.
+    /// </summary>
+    public static string? MachineControlWarning(MachineProfile? m, CamDialect jobDialect) =>
+        m is null || m.Controller == jobDialect
+            ? null
+            : $"O trabalho está em {DialectName(jobDialect)} e o perfil em {DialectName(m.Controller)}. O programa sai em {DialectName(jobDialect)} (o controle do trabalho manda): confira antes de rodar.";
+
+    private static string DialectName(CamDialect d) => d == CamDialect.Siemens ? "Siemens" : "Fanuc";
+
     /// <summary>
     /// Aviso de rotação acima do limite do fuso do perfil da máquina (null = dentro do limite ou limite não informado).
     /// Só confere: não muda a rotação nem o programa.
