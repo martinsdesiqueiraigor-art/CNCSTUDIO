@@ -19,7 +19,7 @@ public class CamJobInfoTests
     [Fact]
     public void Toda_operacao_nova_gera_programa()
     {
-        var job = new CamJob();
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54 };
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         job.Contours.Add(Contour.Circle(new Point2(30, 20), 12));
         foreach ((string _, JobOpKind kind, ContourSide side) in CamJobInfo.NewKinds)
@@ -38,7 +38,7 @@ public class CamJobInfoTests
     [Fact]
     public void Ferramentas_usadas_sem_repetir()
     {
-        var job = new CamJob();
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54 };
         job.Operations.Add(CamJobInfo.NewOperation(JobOpKind.Drilling, ContourSide.Outside, -1));
         job.Operations.Add(CamJobInfo.NewOperation(JobOpKind.Drilling, ContourSide.Outside, -1, new CamTool(2, 6, 4000, 400, 150)));
         job.Operations.Add(CamJobInfo.NewOperation(JobOpKind.Drilling, ContourSide.Outside, -1));

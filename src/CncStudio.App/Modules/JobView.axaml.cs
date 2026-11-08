@@ -575,7 +575,8 @@ public partial class JobView : UserControl
         }
 
         StatusIncomplete.Foreground = incomplete == 0 && stockNote is null ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
-        StatusProgram.Text = "Programa nº: " + _job.ProgramNumber.ToString(CultureInfo.InvariantCulture);
+        // UX-04g: o número e o G5x digitados, ou "falta" (Siemens: só o G5x); nada inventado
+        StatusProgram.Text = CamJobProgram.StatusText(_job);
         // UX-04f PR 2: selo da Máquina (✓, ✓ com fuso não verificado, aviso de controle diferente ou sem perfil)
         MachineProfile? machine = MachineSource?.Invoke();
         (string kind, string text) = CamJobInfo.MillMachineState(machine, _job.Dialect);

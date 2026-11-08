@@ -37,7 +37,7 @@ public class CamJobMissingFieldTests
 
     private static CamJob Job(CamOperationSpec op)
     {
-        var job = new CamJob { Stock = new JobStock(-5, -5, 70, 50, 20) };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Stock = new JobStock(-5, -5, 70, 50, 20) };
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         job.Contours.Add(Contour.Circle(new Point2(30, 20), 12));
         job.Operations.Add(op);

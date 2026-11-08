@@ -12,7 +12,7 @@ public class CamJobStockShapeTests
     /// <summary>Peça 60 × 40 com canto em (0, 0) e um contorno por fora.</summary>
     private static CamJob Job()
     {
-        var job = new CamJob { Name = "BRUTO NOVO" };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Name = "BRUTO NOVO" };
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Contour, Tool, Levels) { ContourIndex = 0, ContourParams = new ContourParams(ContourSide.Outside) });
         return job;
@@ -216,10 +216,10 @@ public class CamJobStockShapeTests
     [Fact]
     public void Leitor_recusa_versao_maior_que_a_atual()
     {
-        string json = CamJobJson.ToJson(Job()).Replace("\"version\": 1", "\"version\": 3");
+        string json = CamJobJson.ToJson(Job()).Replace("\"version\": 1", "\"version\": 4");
         JobLoadResult r = CamJobJson.FromJson(json);
         Assert.False(r.Ok);
-        Assert.Contains("versão mais nova (3)", r.Error);
+        Assert.Contains("versão mais nova (4)", r.Error);
     }
 
     [Fact]
