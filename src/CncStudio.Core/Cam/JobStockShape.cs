@@ -18,10 +18,10 @@ public enum StockShapeKind
     Step,
 }
 
-/// <summary>Posição do bruto STEP: como está no arquivo (coordenadas do STEP = do programa) ou com deslocamento digitado.</summary>
+/// <summary>Posição do bruto STEP: como está no arquivo (coordenadas do STEP = referencial interno do trabalho) ou com deslocamento digitado.</summary>
 public enum StepPlacement
 {
-    /// <summary>As coordenadas do STEP valem como as do programa (Z0 do programa = Z0 do STEP).</summary>
+    /// <summary>As coordenadas do STEP valem como as do referencial interno (XY do desenho, Z0 no topo da peça pronta = Z0 do STEP).</summary>
     AsInFile,
 
     /// <summary>Deslocamento X, Y, Z digitado sobre as coordenadas do STEP.</summary>
@@ -55,7 +55,7 @@ public enum StockAxis { Z, X, Y }
 /// <summary>
 /// Bruto da fresa num formato novo (UX-04f): bloco por sobra, cilindro ou tubo, com deslocamento em relação à posição padrão
 /// (centrado na peça pronta). Campo null = vazio: nada é suposto, o bruto fica incompleto e o campo não vai para o arquivo.
-/// Medidas em mm, em coordenadas do programa com Z0 no topo da peça pronta. Não entra no G-code.
+/// Medidas em mm, no referencial interno do trabalho (XY do desenho, Z0 no topo da peça pronta); o programa sai deslocado pelo zero da peça (ver <see cref="HandoffStock.InProgram"/>). Não entra no G-code.
 /// </summary>
 public sealed record JobStockShape(StockShapeKind Kind)
 {
@@ -186,7 +186,7 @@ public sealed record JobStockShape(StockShapeKind Kind)
 public enum StockSolidKind { Box, Cylinder, Tube, Step }
 
 /// <summary>
-/// Bruto resolvido em coordenadas do programa. Na caixa, Min/Max são os cantos. No cilindro e no tubo, Min/Max envolvem o sólido:
+/// Bruto resolvido no referencial interno do trabalho (não no do programa: ver <see cref="HandoffStock.InProgram"/>). Na caixa, Min/Max são os cantos. No cilindro e no tubo, Min/Max envolvem o sólido:
 /// o centro é o meio da caixa e o comprimento é a medida ao longo de <see cref="Axis"/>.
 /// </summary>
 public sealed record StockSolid(StockSolidKind Kind, double MinX, double MaxX, double MinY, double MaxY, double MinZ, double MaxZ)
@@ -198,7 +198,7 @@ public sealed record StockSolid(StockSolidKind Kind, double MinX, double MaxX, d
     public double InnerDiameter { get; init; }
 
     /// <summary>
-    /// STEP: o sólido lido, já na posição do programa (<see cref="CamJobStock.PlaceStepMesh"/>). Null enquanto o STEP não foi lido
+    /// STEP: o sólido lido, já na posição do referencial interno (<see cref="CamJobStock.PlaceStepMesh"/>). Null enquanto o STEP não foi lido
     /// nesta sessão: o 3D mostra só a caixa do resumo.
     /// </summary>
     public Cam3D.TriangleMesh? Mesh { get; init; }
@@ -372,7 +372,7 @@ public static class CamJobStock
     private static (double X, double Y, double Z) StepOffset(JobStockShape s) =>
         s.Placement == StepPlacement.Typed ? (s.OffsetX ?? 0, s.OffsetY ?? 0, s.OffsetZ ?? 0) : (0, 0, 0);
 
-    /// <summary>A malha lida do STEP colocada na posição do programa (mesmo deslocamento da caixa).</summary>
+    /// <summary>A malha lida do STEP colocada no referencial interno (mesmo deslocamento da caixa).</summary>
     public static Cam3D.TriangleMesh PlaceStepMesh(JobStockShape shape, Cam3D.TriangleMesh mesh)
     {
         (double dx, double dy, double dz) = StepOffset(shape);
