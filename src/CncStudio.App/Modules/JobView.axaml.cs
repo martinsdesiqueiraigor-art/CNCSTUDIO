@@ -334,6 +334,7 @@ public partial class JobView : UserControl
         _job.Dialect = j.Dialect;
         _job.ProgramNumber = j.ProgramNumber;
         _job.WorkOffset = j.WorkOffset;
+        _programTypedError = null;
         _job.Coolant = j.Coolant;
         _job.SetStock(j.Stock, j.StockShape);
         // STEP do bruto: só confere se o arquivo ainda está no lugar (nunca lê ao abrir)
@@ -557,8 +558,8 @@ public partial class JobView : UserControl
     }
 
     /// <summary>
-    /// Linha de status: operações incompletas (campo vazio, inválido ou erro ao gerar) e o número do programa que está no trabalho
-    /// (o Core sempre tem um; nada é inventado aqui).
+    /// Linha de status: operações incompletas (campo vazio, inválido ou erro ao gerar), bruto, e o Programa nº e o G5x digitados
+    /// ("falta" quando vazios; nada é inventado aqui).
     /// </summary>
     private void UpdateStatus()
     {
@@ -574,7 +575,16 @@ public partial class JobView : UserControl
             StatusIncomplete.Text = (incomplete == 0 ? "⚠ " : StatusIncomplete.Text + " · ") + stockNote;
         }
 
-        StatusIncomplete.Foreground = incomplete == 0 && stockNote is null ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        // UX-04g: número e G5x vazios ou inválidos entram no resumo (travam Gerar e Enviar)
+        int programProblems = CamJobProgram.Problems(_job).Count;
+        if (programProblems > 0)
+        {
+            StatusIncomplete.Text = (incomplete == 0 && stockNote is null ? "⚠ " : StatusIncomplete.Text + " · ")
+                + (programProblems == 1 ? "falta 1 dado do programa" : $"faltam {programProblems} dados do programa");
+        }
+
+        bool clean = incomplete == 0 && stockNote is null && programProblems == 0;
+        StatusIncomplete.Foreground = clean ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
         // UX-04g: o número e o G5x digitados, ou "falta" (Siemens: só o G5x); nada inventado
         StatusProgram.Text = CamJobProgram.StatusText(_job);
         // UX-04f PR 2: selo da Máquina (✓, ✓ com fuso não verificado, aviso de controle diferente ou sem perfil)
@@ -653,6 +663,17 @@ public partial class JobView : UserControl
                 GoToTree(t => t.Kind == "fixture");
                 SetTab(0);
                 _prepFixtureKind?.Focus(NavigationMethod.Tab);
+            }));
+        }
+
+        foreach (string _ in CamJobProgram.Problems(_job))
+        {
+            // número ou G5x: leva ao cartão Fixação da Preparação, onde ficam os dois campos
+            targets.Add(("pending", () =>
+            {
+                GoToTree(t => t.Kind == "fixture");
+                SetTab(0);
+                PrepFixture.BringIntoView();
             }));
         }
 
@@ -811,7 +832,10 @@ public partial class JobView : UserControl
 
         // Fixação 1: o trabalho tem uma fixação e um zero só (Core); dentro, o zero e as operações
         string fixtureName = _job.Fixture is { } fx ? JobFixture.NameOf(fx.Kind) ?? fx.Kind : "não definida";
-        TreeViewItem setup = NodeState($"Fixação 1 · G{_job.WorkOffset} · {fixtureName}", CamJobInfo.FixtureState(_job.Fixture), "fixacao", new TreeTag("fixture", 0));
+        // UX-04g: número ou G5x vazio/inválido deixa o selo da fixação pendente, com o motivo
+        IReadOnlyList<string> programProblems = CamJobProgram.Problems(_job);
+        (string Kind, string Text) setupState = programProblems.Count > 0 ? ("pending", string.Join(" · ", programProblems)) : CamJobInfo.FixtureState(_job.Fixture);
+        TreeViewItem setup = NodeState($"Fixação 1 · {CamJobInfo.WorkOffsetName(_job)} · {fixtureName}", setupState, "fixacao", new TreeTag("fixture", 0));
         setup.Items.Add(NodeState("Zero: " + CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "zero", new TreeTag("zero", 0)));
         for (int i = 0; i < _job.Operations.Count; i++)
         {

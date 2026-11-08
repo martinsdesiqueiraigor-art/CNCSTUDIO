@@ -534,6 +534,92 @@ public partial class JobView
 
         PropsPanel.Children.Add(row);
         PropsPanel.Children.Add(error);
+        ProgramFields();
+    }
+
+    /// <summary>Motivo do último número digitado que não valeu (texto, decimal, fora de 1 a 9999); some ao digitar um que vale.</summary>
+    private string? _programTypedError;
+
+    /// <summary>
+    /// Programa nº e G5x da fixação 1 (UX-04g PR A): digitados, sem padrão. Vazio ou inválido: tracejado laranja com o motivo; o trabalho
+    /// fica Incompleto e Gerar e Enviar travam (Salvar não). Siemens: o número não é usado (sai o nome do trabalho), só a frase.
+    /// </summary>
+    private void ProgramFields()
+    {
+        // selo "!" com o motivo enquanto faltar o número (Fanuc) ou o G5x; some quando os dois valem
+        IReadOnlyList<string> problems = CamJobProgram.Problems(_job);
+        if (problems.Count > 0)
+        {
+            var note = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Avalonia.Thickness(0, 8, 0, 0) };
+            note.Children.Add(CamShell.Badge("!", "pending"));
+            note.Children.Add(new TextBlock
+            {
+                Text = "Incompleto: " + string.Join(" · ", problems) + ".", FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                Foreground = UiKit.Status("pending").Fg, MaxWidth = 240, VerticalAlignment = VerticalAlignment.Center,
+            });
+            PropsPanel.Children.Add(note);
+        }
+
+        PropsPanel.Children.Add(new TextBlock { Text = CamJobProgram.ProgramNumberField, FontSize = 12, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
+        if (CamJobProgram.NeedsProgramNumber(_job.Dialect))
+        {
+            var number = new TextBox
+            {
+                Text = _job.ProgramNumber?.ToString(CultureInfo.InvariantCulture) ?? "", Watermark = "digite (1 a 9999)", MinHeight = 26, MaxLength = 8,
+            };
+            (Grid field, Action<string?> mark) = CamShell.DashedField(number);
+            mark(_programTypedError
+                ?? (_job.ProgramNumber is { } n ? CamJobProgram.ProgramNumberError(n) : "Falta este valor. Sem ele, Gerar e Enviar ficam travados."));
+            void Commit()
+            {
+                (int? value, string? why) = CamJobProgram.ParseProgramNumber(number.Text);
+                if (value == _job.ProgramNumber && why == _programTypedError)
+                {
+                    return;
+                }
+
+                // inválido: o número antigo não vale (fica vazio), como nos campos das operações (CAM-12)
+                _programTypedError = why;
+                _job.ProgramNumber = value;
+                Refresh(keep: true);
+            }
+
+            number.LostFocus += (_, _) => Commit();
+            number.KeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Enter)
+                {
+                    Commit();
+                }
+            };
+            PropsPanel.Children.Add(field);
+        }
+        else
+        {
+            PropsPanel.Children.Add(new TextBlock { Text = CamJobProgram.SiemensUsesName + ".", Opacity = 0.7, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+        }
+
+        PropsPanel.Children.Add(new TextBlock { Text = "Zero de peça (" + CamJobProgram.WorkOffsetField + ")", FontSize = 12, Margin = new Avalonia.Thickness(0, 6, 0, 0) });
+        IReadOnlyList<int> offsets = CamJobProgram.WorkOffsets(_job.Dialect);
+        var offset = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Escolha o G5x…" };
+        foreach (int code in offsets)
+        {
+            offset.Items.Add(new ComboBoxItem { Content = "G" + code.ToString(CultureInfo.InvariantCulture) });
+        }
+
+        // valor do arquivo fora da lista (ex.: G58 com Siemens) não aparece escolhido: fica tracejado com o motivo
+        offset.SelectedIndex = _job.WorkOffset is { } g ? offsets.ToList().IndexOf(g) : -1;
+        (Grid offsetField, Action<string?> offsetMark) = CamShell.DashedField(offset);
+        offsetMark(_job.WorkOffset is { } w ? CamJobProgram.WorkOffsetError(w, _job.Dialect) : "Falta este valor. Sem ele, Gerar e Enviar ficam travados.");
+        offset.SelectionChanged += (_, _) =>
+        {
+            if (offset.SelectedIndex >= 0 && offsets[offset.SelectedIndex] != _job.WorkOffset)
+            {
+                _job.WorkOffset = offsets[offset.SelectedIndex];
+                Refresh(keep: true);
+            }
+        };
+        PropsPanel.Children.Add(offsetField);
     }
 
     // ---------------------------------------------------------------- banco de ferramentas
