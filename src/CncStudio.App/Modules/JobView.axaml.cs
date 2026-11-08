@@ -189,15 +189,16 @@ public partial class JobView : UserControl
     /// <summary>Campo do tipo de fixação no cartão da Preparação (a barra leva o foco até ele nessa aba).</summary>
     private ComboBox? _prepFixtureKind;
 
-    /// <summary>Cartões da Preparação com os mesmos editores do painel direito (bruto e fixação) e a origem atual (só texto).</summary>
+    /// <summary>Cartões da Preparação: Máquina (leitura), Peça pronta, Bruto, Zero (leitura), Fixação (o mesmo editor do painel direito).</summary>
     private void BuildPrep()
     {
         ComboBox? keep = _fixtureKind;
         try
         {
-            _propsTarget = PrepStock;
-            PrepStock.Children.Clear();
-            StockProps();
+            // UX-04f: Máquina (leitura), Peça pronta e Bruto têm cartões próprios
+            MachineCard(PrepMachine);
+            PartCard(PrepPart);
+            StockCard(PrepStock);
             _propsTarget = PrepFixture;
             PrepFixture.Children.Clear();
             FixtureProps();
@@ -330,6 +331,7 @@ public partial class JobView : UserControl
         _job.WorkOffset = j.WorkOffset;
         _job.Coolant = j.Coolant;
         _job.SetStock(j.Stock, j.StockShape);
+        _absoluteMode = false;
         _job.PartHeight = j.PartHeight;
         _job.Fixture = j.Fixture;
         _job.Contours.Clear();
@@ -555,7 +557,15 @@ public partial class JobView : UserControl
         StatusIncomplete.Text = incomplete == 0
             ? (_job.Operations.Count == 0 ? "Nenhuma operação" : "Nenhuma operação incompleta")
             : $"⚠ {incomplete} {(incomplete == 1 ? "operação incompleta" : "operações incompletas")}";
-        StatusIncomplete.Foreground = incomplete == 0 ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        // UX-04f: o rodapé resume também o bruto (não definido trava; incompleto só avisa)
+        StockCheck stock = CamJobStock.Check(_job);
+        string? stockNote = stock.NotDefined ? "bruto não definido" : stock.Complete ? null : "bruto incompleto";
+        if (stockNote is not null)
+        {
+            StatusIncomplete.Text = (incomplete == 0 ? "⚠ " : StatusIncomplete.Text + " · ") + stockNote;
+        }
+
+        StatusIncomplete.Foreground = incomplete == 0 && stockNote is null ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
         StatusProgram.Text = "Programa nº: " + _job.ProgramNumber.ToString(CultureInfo.InvariantCulture);
     }
 

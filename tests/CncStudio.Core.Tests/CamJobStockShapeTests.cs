@@ -339,3 +339,25 @@ public class CamJobStockShapeTests
         return (min, max);
     }
 }
+
+/// <summary>UX-04f: o cartão Máquina (só leitura) mostra em qual botão de eixos o perfil cabe, ou "personalizado".</summary>
+public class MachineAxesLabelTests
+{
+    [Fact]
+    public void Modelos_prontos_caem_nos_botoes_e_o_resto_e_personalizado()
+    {
+        Assert.Equal("3 eixos", CamJobInfo.MachineAxesLabel(MachineProfile.ThreeAxis()));
+        Assert.Equal("4º eixo (A)", CamJobInfo.MachineAxesLabel(MachineProfile.FourAxisTableA()));
+        Assert.Equal("3+2 (mesa A+C)", CamJobInfo.MachineAxesLabel(MachineProfile.FiveAxisTableTable()));
+        Assert.Equal("5 mista", CamJobInfo.MachineAxesLabel(MachineProfile.FiveAxisMixed()));
+
+        MachineProfile b = MachineProfile.FourAxisTableA();
+        b.Axes[0].Letter = "B";
+        Assert.Equal("personalizado", CamJobInfo.MachineAxesLabel(b));
+
+        // pivô próprio não muda o botão
+        MachineProfile pivot = MachineProfile.FourAxisTableA();
+        pivot.Axes[0].PivotZ = -40;
+        Assert.Equal("4º eixo (A)", CamJobInfo.MachineAxesLabel(pivot));
+    }
+}

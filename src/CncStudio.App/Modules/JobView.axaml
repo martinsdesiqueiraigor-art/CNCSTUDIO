@@ -80,28 +80,32 @@
             <TextBlock x:Name="PreviewHint" Text="Abra um DXF (faixa Arquivo), um trabalho salvo ou desenhe uma forma (item Peça) para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.7" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" />
           </Grid>
         </Border>
-        <!-- Aba Preparação: cartões com os editores que já existiam (bruto, fixação, origem); material e banco em breve -->
+        <!-- Aba Preparação (UX-04f): Máquina (leitura) e Peça pronta | Bruto; embaixo Zero (leitura), Fixação e, em breve, Banco e Material -->
         <ScrollViewer x:Name="PrepCenter" IsVisible="False" HorizontalScrollBarVisibility="Disabled">
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="12">
+          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" Margin="12">
             <StackPanel Grid.Column="0">
-              <Border Classes="camcard"><StackPanel x:Name="PrepStock" Spacing="6" /></Border>
-              <Border Classes="camcard"><StackPanel x:Name="PrepOrigin" Spacing="6" /></Border>
-              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
-                <StackPanel Spacing="4">
-                  <TextBlock Text="Material" FontSize="18" FontWeight="Bold" />
-                  <TextBlock Text="Não definido · em breve" Foreground="#9aa7b5" FontSize="12" />
-                </StackPanel>
-              </Border>
+              <Border Classes="camcard"><StackPanel x:Name="PrepMachine" Spacing="4" /></Border>
+              <Border Classes="camcard"><StackPanel x:Name="PrepPart" Spacing="4" /></Border>
             </StackPanel>
-            <StackPanel Grid.Column="1">
-              <Border Classes="camcard"><StackPanel x:Name="PrepFixture" Spacing="6" /></Border>
-              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
-                <StackPanel Spacing="4">
-                  <TextBlock Text="Banco de ferramentas" FontSize="18" FontWeight="Bold" />
-                  <TextBlock Text="Em breve. Hoje a ferramenta vem da tabela do Code, nas propriedades de cada operação." Foreground="#9aa7b5" FontSize="12" TextWrapping="Wrap" />
-                </StackPanel>
-              </Border>
-            </StackPanel>
+            <Border Grid.Column="1" Classes="camcard" VerticalAlignment="Top"><StackPanel x:Name="PrepStock" Spacing="4" /></Border>
+            <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,*,*" ColumnSpacing="12">
+              <Border Classes="camcard" VerticalAlignment="Top"><StackPanel x:Name="PrepOrigin" Spacing="6" /></Border>
+              <Border Grid.Column="1" Classes="camcard" VerticalAlignment="Top"><StackPanel x:Name="PrepFixture" Spacing="6" /></Border>
+              <StackPanel Grid.Column="2">
+                <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="Banco de ferramentas" FontSize="18" FontWeight="Bold" />
+                    <TextBlock Text="Em breve. Hoje a ferramenta vem da tabela do Code, nas propriedades de cada operação." Foreground="#9aa7b5" FontSize="12" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+                <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="Material" FontSize="18" FontWeight="Bold" />
+                    <TextBlock Text="Não definido · em breve" Foreground="#9aa7b5" FontSize="12" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Grid>
           </Grid>
         </ScrollViewer>
         <!-- Aba Código NC: o mesmo campo de antes -->
