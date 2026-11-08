@@ -7,7 +7,11 @@ using CncStudio.Core.Simulation;
 namespace CncStudio.App.Dialogs;
 
 /// <summary>Escolha do bruto: resultado do diálogo (Stock null = automático).</summary>
-public sealed record StockChoice(Stock? Stock);
+public sealed record StockChoice(Stock? Stock)
+{
+    /// <summary>Nada foi mexido no diálogo (CAM-13: salvar assim não troca o redondo ou o tubo do CAM por um bloco).</summary>
+    public bool Unchanged { get; init; }
+}
 
 /// <summary>Bruto do programa: automático ou informado (bloco na fresa, barra no torno).</summary>
 public partial class StockDialog : Window
@@ -22,7 +26,9 @@ public partial class StockDialog : Window
     {
     }
 
-    public StockDialog(Stock? current, MachineKind machine, Bounds3 cutting, string programText)
+    private bool _edited;
+
+    public StockDialog(Stock? current, MachineKind machine, Bounds3 cutting, string programText, bool fromCam = false, string? camNote = null)
     {
         InitializeComponent();
         _machine = machine;
@@ -48,6 +54,7 @@ public partial class StockDialog : Window
         OkButton.Click += (_, _) => Save();
         CancelButton.Click += (_, _) => Close(null);
         UpdateEnabled();
+        ShowCam(fromCam, camNote);
     }
 
     private void UpdateEnabled()
@@ -117,6 +124,39 @@ public partial class StockDialog : Window
             return;
         }
 
-        Close(new StockChoice(stock));
+        Close(new StockChoice(stock) { Unchanged = !_edited });
+    }
+
+    /// <summary>
+    /// CAM-13: etiqueta "do CAM" (o bruto veio do pacote do CAM) e o aviso do CAM sobre o bruto, se houver. Mexer em qualquer valor tira a
+    /// etiqueta e marca o bruto como editado.
+    /// </summary>
+    private void ShowCam(bool fromCam, string? camNote)
+    {
+        CamRow.IsVisible = fromCam || camNote is not null;
+        if (fromCam)
+        {
+            var tag = CncStudio.App.Modules.UiKit.StateTag(("pending", "do CAM"));
+            tag.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            ToolTip.SetTip(tag, "Bruto que veio do CAM, no referencial do programa. Continua editável: editar tira a etiqueta.");
+            CamRow.Children.Add(tag);
+            void Edited()
+            {
+                _edited = true;
+                tag.IsVisible = false;
+            }
+
+            foreach (NumericUpDown input in new[] { MinXInput, MaxXInput, MinYInput, MaxYInput, MinZInput, MaxZInput, DiameterInput, LengthInput, FaceInput })
+            {
+                input.ValueChanged += (_, _) => Edited();
+            }
+
+            AutoOption.IsCheckedChanged += (_, _) => Edited();
+        }
+
+        if (camNote is not null)
+        {
+            CamRow.Children.Add(CncStudio.App.Modules.UiKit.StatusNote(camNote, "pending"));
+        }
     }
 }
