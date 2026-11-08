@@ -232,7 +232,8 @@ public partial class JobView : UserControl
     /// <summary>Contornos e bruto do Trabalho aberto (o Assist lê para sugerir um plano).</summary>
     public IReadOnlyList<Contour> Contours => _job.Contours;
 
-    public JobStock? Stock => _job.Stock;
+    /// <summary>Caixa do bruto para o Assist (espessura): bloco absoluto ou bloco por sobra completo; cilindro e tubo, null.</summary>
+    public JobStock? Stock => CamJobStock.BlockBox(_job);
 
     /// <summary>Junta operações sugeridas (pelo Assist) ao fim do Trabalho; dá para desfazer.</summary>
     public void AddOperations(IEnumerable<CamOperationSpec> operations)
@@ -289,14 +290,22 @@ public partial class JobView : UserControl
             return;
         }
 
+        StockSolid? before = CamJobStock.Check(_job).Solid;
         _job.Contours.Clear();
         _job.Contours.AddRange(r.Contours);
         _openChains = r.OpenChains.Count;
         _job.Name = Path.GetFileNameWithoutExtension(file.Name).ToUpperInvariant();
         Refresh();
-        if (r.Warnings.Count > 0)
+        // bloco por sobra: o bruto segue o desenho novo com as mesmas sobras, e a tela avisa
+        List<string> notes = [.. r.Warnings];
+        if (CamJobStock.RecalculatedNotice(_job, before) is { } recalculated)
         {
-            Errors.Text = string.Join("\n", r.Warnings.Select(w => "• " + w));
+            notes.Add(recalculated);
+        }
+
+        if (notes.Count > 0)
+        {
+            Errors.Text = string.Join("\n", notes.Select(w => "• " + w));
         }
     }
 
@@ -320,7 +329,8 @@ public partial class JobView : UserControl
         _job.ProgramNumber = j.ProgramNumber;
         _job.WorkOffset = j.WorkOffset;
         _job.Coolant = j.Coolant;
-        _job.Stock = j.Stock;
+        _job.SetStock(j.Stock, j.StockShape);
+        _job.PartHeight = j.PartHeight;
         _job.Fixture = j.Fixture;
         _job.Contours.Clear();
         _job.Contours.AddRange(j.Contours);
@@ -598,12 +608,14 @@ public partial class JobView : UserControl
             }));
         }
 
-        if (_job.Stock is null)
+        if (!CamJobStock.Check(_job).Complete)
         {
+            // bruto não definido (trava) ou incompleto (aviso): leva ao cartão Bruto da Preparação
             targets.Add(("pending", () =>
             {
-                GoToTree(t => t.Kind == "stock");
+                GoToTree(t => t.Kind == "part");
                 SetTab(0);
+                PrepStock.BringIntoView();
             }));
         }
 
@@ -686,7 +698,7 @@ public partial class JobView : UserControl
 
         if (on)
         {
-            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, _job.Stock, [.. _job.Contours]);
+            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, CamJobStock.Check(_job).Solid, [.. _job.Contours]);
         }
     }
 
@@ -704,6 +716,21 @@ public partial class JobView : UserControl
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Estado do item "Peça pronta + bruto": sem desenho, bruto não definido ou incompleto ficam "!" com o motivo; completo, ✓ com o
+    /// resumo do bruto. A altura da peça só conta quando o bruto depende dela (formato novo; o bloco absoluto não).
+    /// </summary>
+    private (string Kind, string Text) PartStockState()
+    {
+        if (_job.Contours.Count == 0)
+        {
+            return ("pending", "falta o desenho da peça");
+        }
+
+        (string kind, string text) = CamJobStock.State(_job);
+        return kind == "ok" ? ("ok", CamJobStock.Title(_job)) : ("pending", text);
     }
 
     /// <summary>Estado da operação na árvore como Pronta/Incompleta (UX-03a); a cor e o motivo vêm do Core.</summary>
@@ -731,7 +758,10 @@ public partial class JobView : UserControl
         material.Opacity = 0.5;
         ToolTip.SetTip(material, "Em breve: o material entra numa próxima etapa.");
         Tree.Items.Add(material);
-        TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", new TreeTag("part", 0), "peca");
+        // UX-04f: um item só para a peça pronta e o bruto, com selo e motivo; os contornos continuam dentro dele
+        (string Kind, string Text) partState = PartStockState();
+        TreeViewItem part = UiKit.StateItem(TreeRow("Peça pronta + bruto", partState,
+            CamShell.Badge(partState.Kind == "ok" ? "✓" : "!", partState.Kind), null, CamJobStock.Title(_job) + "\n" + partState.Text), new TreeTag("part", 0));
         for (int i = 0; i < _job.Contours.Count; i++)
         {
             TreeViewItem c = Node(CamJobInfo.ContourTitle(_job.Contours[i], i), new TreeTag("contour", i), "contorno");
@@ -744,14 +774,6 @@ public partial class JobView : UserControl
 
         part.IsExpanded = _job.Contours.Count <= 4;
         Tree.Items.Add(part);
-        // bruto ausente é pendência (âmbar, como na barra); o texto continua o do Core
-        (string Kind, string Text) stock = CamJobInfo.StockState(_job.Stock);
-        if (_job.Stock is null)
-        {
-            stock = ("pending", stock.Text);
-        }
-
-        Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), stock, "bruto", new TreeTag("stock", 0)));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
         foreach (string line in CamJobInfo.ToolLines(_job))
         {
