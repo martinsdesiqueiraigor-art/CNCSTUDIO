@@ -179,6 +179,7 @@ public sealed partial class AssistView : UserControl
 
         Redraw();
         RefreshDrawingText(); // ao abrir o módulo: o Trabalho fresa pode ter aberto um DXF ou um trabalho salvo desde a última vez
+        SyncThickness(fill: false); // espessura que veio do trabalho anterior não sobra (o valor inicial e o digitado ficam)
     }
 
     // ---------------------------------------------------------------- campos
