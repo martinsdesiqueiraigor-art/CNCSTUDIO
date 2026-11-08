@@ -138,7 +138,7 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
 
     /// <summary>Aviso quando o programa aberto não é o que o CAM gerou (editado ou outro programa).</summary>
     public const string MismatchWarning =
-        "O programa não confere com o pacote do CAM (foi editado ou o pacote é de outro programa): bruto, zero e ferramentas do CAM não foram usados.";
+        "Os dados do CAM são de um programa diferente deste: o texto foi editado ou o arquivo é de outro programa. Bruto, ferramentas e zero seguem como vieram do CAM.";
 
     public int Version { get; init; } = CurrentVersion;
 

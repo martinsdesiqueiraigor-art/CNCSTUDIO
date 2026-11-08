@@ -14,9 +14,9 @@ public static class CamHandoffJson
 {
     public const string Format = "casillas-cam";
 
-    public const string FutureWarning = "O pacote do CAM é de uma versão mais nova do Casillas Code e foi ignorado; o programa abre como de costume.";
+    public const string FutureWarning = "O arquivo de dados do CAM é de uma versão mais nova e foi ignorado.";
 
-    public const string InvalidWarning = "O pacote do CAM está estragado ou incompleto e foi ignorado; o programa abre como de costume.";
+    public const string InvalidWarning = "O arquivo de dados do CAM está ilegível e foi ignorado.";
 
     public static string ToJson(CamHandoff p)
     {
