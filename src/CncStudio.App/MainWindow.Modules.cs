@@ -119,6 +119,18 @@ public partial class MainWindow
             await stream.CopyToAsync(memory);
             return (files[0].Name, memory.ToArray());
         };
+        Cam.PickStockStep = async () =>
+        {
+            IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Bruto em STEP (fundido ou forjado)",
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Modelo STEP") { Patterns = ["*.step", "*.STEP", "*.stp", "*.STP"] }],
+            });
+
+            // o trabalho guarda o caminho: só arquivo com caminho no computador serve
+            return files.Count == 0 ? null : files[0].TryGetLocalPath();
+        };
         Cam.PickDxf = async () =>
         {
             IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions

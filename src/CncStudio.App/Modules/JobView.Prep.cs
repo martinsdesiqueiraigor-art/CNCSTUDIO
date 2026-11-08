@@ -5,6 +5,8 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using CncStudio.Core.Cam;
+using CncStudio.Core.Cam3D;
+using CncStudio.Step;
 
 namespace CncStudio.App.Modules;
 
@@ -302,7 +304,7 @@ public partial class JobView
                 : (_lastBlockAbsolute ? null : StockShapeKind.Margins))),
             Choice("Cilindro", shape?.Kind == StockShapeKind.Cylinder, () => SetStockKind(StockShapeKind.Cylinder)),
             Choice("Tubo", shape?.Kind == StockShapeKind.Tube, () => SetStockKind(StockShapeKind.Tube)),
-            Choice("Importar STEP · em breve", false, null, "Em breve (próxima etapa): bruto fundido ou forjado em STEP.")));
+            Choice("Importar STEP", shape?.Kind == StockShapeKind.Step, () => SetStockKind(StockShapeKind.Step), "Bruto fundido ou forjado em STEP.")));
         if (!defined)
         {
             card.Children.Add(UiKit.StatusNote("Bruto não definido. Escolha o formato acima.", "pending"));
@@ -319,6 +321,12 @@ public partial class JobView
         if (shape is null)
         {
             AbsoluteBlock(card);
+            return;
+        }
+
+        if (shape.Kind == StockShapeKind.Step)
+        {
+            StepStock(card);
             return;
         }
 
@@ -484,5 +492,191 @@ public partial class JobView
         };
         card.Children.Add(apply);
         card.Children.Add(error);
+    }
+
+    // ---------------------------------------------------------------- bruto em STEP (PR 2)
+
+    /// <summary>Escolhe um STEP para o bruto e devolve o caminho no computador (null = cancelou ou o arquivo não tem caminho local).</summary>
+    public Func<Task<string?>>? PickStockStep { get; set; }
+
+    /// <summary>Malha do STEP do bruto lida nesta sessão (caminho e malha nas coordenadas do arquivo). Nunca vai para o arquivo.</summary>
+    private (string Path, TriangleMesh Mesh)? _stepMesh;
+
+    /// <summary>Leitura do STEP em andamento (os botões não disparam outra).</summary>
+    private bool _stepReading;
+
+    /// <summary>
+    /// Cartão do bruto STEP: arquivo (nome, trocar), motivo e "Localizar de novo" se sumiu, resumo (caixa e volume), posição
+    /// ("Como está no STEP" ou "Digitar X Y Z") e o botão que lê o STEP para o 3D. Abrir o trabalho nunca lê o arquivo.
+    /// </summary>
+    private void StepStock(StackPanel card)
+    {
+        JobStockShape shape = _job.StockShape!;
+        string? name = CamJobStock.StepFileName(_job);
+        var file = new DockPanel { Margin = new Thickness(0, 2, 0, 0) };
+        var change = new Button { Content = name is null ? "Escolher arquivo STEP…" : "trocar", Padding = new Thickness(8, 2), FontSize = 11, IsEnabled = !_stepReading };
+        change.Click += async (_, _) => await ImportStockStep();
+        DockPanel.SetDock(change, Dock.Right);
+        file.Children.Add(change);
+        file.Children.Add(new TextBlock
+        {
+            Text = name ?? "Nenhum arquivo escolhido", FontSize = 13, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
+            Foreground = name is null ? Muted : Brushes.White,
+        });
+        if (shape.StepPath is { } path)
+        {
+            ToolTip.SetTip(file, path);
+        }
+
+        card.Children.Add(file);
+        if (shape.StepFileProblem is { } problem)
+        {
+            card.Children.Add(UiKit.StatusNote("Bruto incompleto: " + problem + ". Não usa um bruto suposto.", "pending"));
+            var locate = new Button { Content = "Localizar de novo", Padding = new Thickness(10, 4), FontSize = 12, IsEnabled = !_stepReading };
+            locate.Click += async (_, _) => await ImportStockStep();
+            card.Children.Add(locate);
+        }
+        else if (shape.StepSummary is { } b)
+        {
+            card.Children.Add(Note($"Resumo lido do arquivo: caixa {Fmt(b.SizeX)} × {Fmt(b.SizeY)} × {Fmt(b.SizeZ)} mm, volume {CamJobStock.VolumeText(b.Volume)}. O trabalho guarda o caminho e o resumo; o STEP só é lido para o 3D."));
+        }
+        else
+        {
+            card.Children.Add(UiKit.StatusNote("Escolha o arquivo STEP do bruto (fundido ou forjado). Sem ele, Gerar e Enviar ficam travados.", "pending"));
+        }
+
+        card.Children.Add(Caps("POSIÇÃO"));
+        void Place(StepPlacement p)
+        {
+            JobStockShape s = _job.StockShape!;
+            // "Digitar X Y Z" começa em 0 (a mesma posição do arquivo)
+            _job.StockShape = p == StepPlacement.Typed && s.Placement != p
+                ? s with { Placement = p, OffsetX = s.OffsetX ?? 0, OffsetY = s.OffsetY ?? 0, OffsetZ = s.OffsetZ ?? 0 }
+                : s with { Placement = p };
+            Refresh(keep: true);
+        }
+
+        card.Children.Add(Choices(
+            Choice("Como está no STEP", shape.Placement == StepPlacement.AsInFile, () => Place(StepPlacement.AsInFile), "As coordenadas do STEP valem como as do programa (Z0 do programa = Z0 do STEP)."),
+            Choice("Digitar X Y Z", shape.Placement == StepPlacement.Typed, () => Place(StepPlacement.Typed), "Deslocamento somado às coordenadas do STEP.")));
+        if (shape.Placement == StepPlacement.Typed)
+        {
+            Control F(string field) => PrepNum(field, () => _job.StockShape?.Fields().FirstOrDefault(f => f.Name == field).Value, () => true,
+                () => null, v => _job.StockShape = _job.StockShape?.With(field, v));
+            card.Children.Add(FieldGrid(3, [F(JobStockShape.OffsetXField), F(JobStockShape.OffsetYField), F(JobStockShape.OffsetZField)]));
+        }
+
+        card.Children.Add(Note("O STEP e o DXF não têm sistema de coordenadas garantido em comum: confira a caixa do bruto contra a peça. Nada é alinhado sozinho."));
+        _stockSummary = new ContentControl();
+        card.Children.Add(_stockSummary);
+        UpdateStockSummary();
+        if (CamJobStock.Check(_job).Complete && _stepMesh?.Path != shape.StepPath)
+        {
+            var show = new Button { Content = _stepReading ? "Lendo o STEP…" : "Mostrar o sólido no 3D (lê o STEP)", Padding = new Thickness(10, 4), FontSize = 12, IsEnabled = !_stepReading };
+            ToolTip.SetTip(show, "Até ler, o 3D mostra só a caixa do resumo. A leitura não trava a tela.");
+            show.Click += async (_, _) => await LoadStockStepMesh();
+            card.Children.Add(show);
+        }
+
+        card.Children.Add(Note("O bruto não entra no G-code. O simulador do Code não desenha bruto STEP."));
+    }
+
+    /// <summary>Lê o STEP fora da tela (não trava). Devolve a malha ou o erro, com o tempo de leitura.</summary>
+    private static async Task<(TriangleMesh? Mesh, string? Error, string? Notice, double Seconds)> ReadStockStep(string path)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            StepResult r = await Task.Run(() => StepMeshReader.Read(File.ReadAllBytes(path)));
+            return (r.Mesh, r.Error, r.Notice, clock.Elapsed.TotalSeconds);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return (null, "não foi possível ler o arquivo (" + e.Message + ")", null, clock.Elapsed.TotalSeconds);
+        }
+    }
+
+    /// <summary>Importa, troca ou localiza de novo o STEP do bruto: lê o arquivo para o resumo e guarda a malha para o 3D.</summary>
+    private async Task ImportStockStep()
+    {
+        if (_stepReading || PickStockStep is null || await PickStockStep() is not { } path)
+        {
+            return;
+        }
+
+        _stepReading = true;
+        Refresh(keep: true);
+        Errors.Text = "• Lendo o STEP do bruto… (a tela continua livre)";
+        (TriangleMesh? mesh, string? error, string? notice, double seconds) = await ReadStockStep(path);
+        _stepReading = false;
+        if (mesh is null)
+        {
+            Refresh(keep: true);
+            Errors.Text = "• STEP do bruto não lido: " + error;
+            return;
+        }
+
+        // o usuário pode ter trocado o formato enquanto lia: aí o STEP lido não vale
+        if (_job.StockShape is not { Kind: StockShapeKind.Step } current)
+        {
+            Refresh(keep: true);
+            Errors.Text = "";
+            return;
+        }
+
+        _stepMesh = (path, mesh);
+        _job.StockShape = CamJobStock.ImportStep(current, path, mesh);
+        Refresh(keep: true);
+        Errors.Text = $"• STEP do bruto lido em {seconds.ToString("0.0", Br)} s." + (notice is { } n ? "\n• " + n : "");
+    }
+
+    /// <summary>
+    /// Lê o STEP já escolhido só para mostrar o sólido no 3D (sob demanda). Se o arquivo mudou desde a importação (caixa diferente),
+    /// não mostra e pede para trocar, para o 3D não desenhar um bruto diferente do resumo.
+    /// </summary>
+    private async Task LoadStockStepMesh()
+    {
+        if (_stepReading || _job.StockShape is not { Kind: StockShapeKind.Step, StepPath: { } path, StepSummary: { } summary })
+        {
+            return;
+        }
+
+        _stepReading = true;
+        Refresh(keep: true);
+        (TriangleMesh? mesh, string? error, _, double seconds) = await ReadStockStep(path);
+        _stepReading = false;
+        string message;
+        if (mesh is null)
+        {
+            message = "• STEP do bruto não lido: " + error;
+        }
+        else if (!SameBox(StepStockSummary.From(mesh), summary))
+        {
+            message = "• O STEP mudou desde a importação (a caixa não bate com o resumo). Use \"trocar\" para ler de novo e atualizar o resumo.";
+        }
+        else
+        {
+            if (_job.StockShape?.StepPath == path)
+            {
+                _stepMesh = (path, mesh);
+            }
+
+            message = $"• STEP do bruto lido em {seconds.ToString("0.0", Br)} s.";
+        }
+
+        Refresh(keep: true);
+        Errors.Text = message;
+    }
+
+    private static bool SameBox(StepStockSummary a, StepStockSummary b) =>
+        new[] { a.MinX - b.MinX, a.MinY - b.MinY, a.MinZ - b.MinZ, a.MaxX - b.MaxX, a.MaxY - b.MaxY, a.MaxZ - b.MaxZ }.All(d => Math.Abs(d) < 1e-3);
+
+    /// <summary>Bruto para o 3D: o resolvido do Core e, no STEP já lido nesta sessão, o sólido na posição do programa.</summary>
+    private StockSolid? StockForScene()
+    {
+        StockSolid? solid = CamJobStock.Check(_job).Solid;
+        return solid is { Kind: StockSolidKind.Step } && _job.StockShape is { } shape && _stepMesh is { } m && m.Path == shape.StepPath
+            ? solid with { Mesh = CamJobStock.PlaceStepMesh(shape, m.Mesh) }
+            : solid;
     }
 }

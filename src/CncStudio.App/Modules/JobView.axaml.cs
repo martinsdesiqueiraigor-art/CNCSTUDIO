@@ -106,6 +106,11 @@ public partial class JobView : UserControl
             {
                 EnsureToolsInBank();
                 OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
+                if (_job.StockShape?.Kind == StockShapeKind.Step)
+                {
+                    // o bruto não entra no G-code: o programa vai igual, mas o simulador do Code não mostra este bruto
+                    Errors.Text = "• Programa enviado ao Code. O simulador do Code não desenha bruto STEP: a simulação não mostra este bruto.";
+                }
             }
         };
         // um zero só no Core: o programa gerado é o da fixação 1
@@ -331,6 +336,9 @@ public partial class JobView : UserControl
         _job.WorkOffset = j.WorkOffset;
         _job.Coolant = j.Coolant;
         _job.SetStock(j.Stock, j.StockShape);
+        // STEP do bruto: só confere se o arquivo ainda está no lugar (nunca lê ao abrir)
+        _stepMesh = null;
+        CamJobStock.VerifyStepFile(_job, File.Exists);
         _absoluteMode = false;
         ForgetStockMemory();
         _job.PartHeight = j.PartHeight;
@@ -709,7 +717,7 @@ public partial class JobView : UserControl
 
         if (on)
         {
-            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, CamJobStock.Check(_job).Solid, [.. _job.Contours]);
+            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, StockForScene(), [.. _job.Contours]);
         }
     }
 

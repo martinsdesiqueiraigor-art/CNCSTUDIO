@@ -33,6 +33,13 @@ public partial class CamView : UserControl
 
     private Func<Task<(string Name, string Text)?>>? _pickDxf;
 
+    /// <summary>Escolhe o STEP do bruto da fresa e devolve o caminho no computador (null se cancelou).</summary>
+    public Func<Task<string?>>? PickStockStep
+    {
+        get => JobPanel.PickStockStep;
+        set => JobPanel.PickStockStep = value;
+    }
+
     /// <summary>Contornos e bruto do Trabalho de fresa (para o Assist).</summary>
     public IReadOnlyList<Contour> JobContours => JobPanel.Contours;
 
