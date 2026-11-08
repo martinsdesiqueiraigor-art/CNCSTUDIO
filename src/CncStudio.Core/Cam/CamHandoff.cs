@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using CncStudio.Core.Geometry;
 
 namespace CncStudio.Core.Cam;
@@ -95,4 +97,92 @@ public sealed record HandoffStock(HandoffStockKind Kind)
         };
         return b is { } c ? Bounds3.Empty.Include(new Point3(c.x0, c.y0, c.z0)).Include(new Point3(c.x1, c.y1, c.z1)) : null;
     }
+}
+
+/// <summary>
+/// Ferramenta no pacote: só o que o <see cref="CamTool"/> tem (T, Ø, nome, rpm e avanços). Tipo, raio de canto, ângulo da ponta,
+/// comprimento de corte e suporte não existem no CAM: ficam null e vão para o JSON como null (nada suposto; o tipo da broca na
+/// furação também não é deduzido da operação).
+/// </summary>
+public sealed record HandoffTool(int Number, double Diameter, string Name, double SpindleRpm, double FeedXY, double FeedZ)
+{
+    public string? Type { get; init; }
+
+    public double? CornerRadius { get; init; }
+
+    public double? TipAngle { get; init; }
+
+    public double? CutLength { get; init; }
+
+    public string? Holder { get; init; }
+}
+
+/// <summary>Zero da peça no pacote: ponto e Z0 do <see cref="JobZero"/>, se é de arquivo antigo, e o resumo do cartão.</summary>
+public sealed record HandoffZero(ZeroPoint Point, ZeroLevel Level, bool AsBefore, string Summary);
+
+/// <summary>
+/// Pacote do CAM para o Code (CAM-13, versão 1): o que o programa gerado não diz (bruto, zero, fixação, ferramentas), guardado ao lado
+/// do programa em <c>NOME.nc.casillas-cam</c>. Nada vai para o texto do G-code. O hash amarra o pacote ao programa: programa editado
+/// ou de outro trabalho não confere. Sem material (o CAM não guarda).
+/// </summary>
+public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
+{
+    public const int CurrentVersion = 1;
+
+    /// <summary>Somado ao nome inteiro do programa ("PECA.nc" → "PECA.nc.casillas-cam"): PECA.nc e PECA.mpf não se misturam.</summary>
+    public const string Extension = ".casillas-cam";
+
+    public const string Mill = "fresa";
+
+    public const string Lathe = "torno";
+
+    /// <summary>Aviso quando o programa aberto não é o que o CAM gerou (editado ou outro programa).</summary>
+    public const string MismatchWarning =
+        "O programa não confere com o pacote do CAM (foi editado ou o pacote é de outro programa): bruto, zero e ferramentas do CAM não foram usados.";
+
+    public int Version { get; init; } = CurrentVersion;
+
+    /// <summary>"fresa" ou "torno" (só a fresa é preenchida por enquanto; o campo fica para o torno).</summary>
+    public string Machine { get; init; } = Mill;
+
+    /// <summary>Nome do perfil de máquina usado ao gerar (null = sem perfil).</summary>
+    public string? MachineProfile { get; init; }
+
+    public int? ProgramNumber { get; init; }
+
+    public int? WorkOffset { get; init; }
+
+    public HandoffZero? Zero { get; init; }
+
+    /// <summary>Fixação em texto (tipo e descrição); não é desenhada.</summary>
+    public JobFixture? Fixture { get; init; }
+
+    public HandoffStock? Stock { get; init; }
+
+    public IReadOnlyList<HandoffTool> Tools { get; init; } = [];
+
+    /// <summary>Nome do arquivo do pacote ao lado do programa.</summary>
+    public static string FileNameFor(string programFileName) => programFileName + Extension;
+
+    /// <summary>Monta o pacote do trabalho de fresa para o programa gerado (o texto do programa não é mudado).</summary>
+    public static CamHandoff Create(CamJob job, string program, MachineProfile? machine) => new(Hash(program), job.Dialect)
+    {
+        MachineProfile = machine?.Name,
+        ProgramNumber = job.ProgramNumber,
+        WorkOffset = job.WorkOffset,
+        Zero = job.Zero is { Point: { } p, Level: { } l } z ? new HandoffZero(p, l, z.AsBefore, CamJobZero.Summary(job)) : null,
+        Fixture = job.Fixture,
+        Stock = HandoffStock.InProgram(job),
+        Tools = CamJobInfo.ToolsUsed(job).Select(t => new HandoffTool(t.Number, t.Diameter, t.Name, t.SpindleRpm, t.FeedXY, t.FeedZ)).ToList(),
+    };
+
+    /// <summary>SHA-256 (hex minúsculo) do texto do programa com as quebras de linha normalizadas (CRLF, CR e LF dão o mesmo hash).</summary>
+    public static string Hash(string program)
+    {
+        string text = program.Replace("\r\n", "\n").Replace('\r', '\n');
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+    }
+
+    /// <summary>O programa é o que gerou este pacote?</summary>
+    public bool Matches(string program) => Hash(program) == ProgramHash;
 }
