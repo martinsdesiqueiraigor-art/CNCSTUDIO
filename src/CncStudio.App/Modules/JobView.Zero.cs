@@ -50,14 +50,14 @@ public partial class JobView
         else if (CamJobZero.OnlyDrawing(_job))
         {
             // G3 estado 4: os pivôs do perfil são medidos a partir do zero da peça; nada é trocado sozinho
-            string why = CamJobZero.RotaryReason + " (" + string.Join(", ", CamJobZero.RotaryUses(_job)) + ")";
+            string why = CamJobZero.RotaryReason + " Neste trabalho: " + string.Join(", ", CamJobZero.RotaryUses(_job)) + ".";
             bool drawing = _job.Zero is { Point: ZeroPoint.Drawing, Level: ZeroLevel.Top };
             PropsPanel.Children.Add(Choices(
                 Choice("Origem do desenho", drawing, () => SetZero(new JobZero(ZeroPoint.Drawing, ZeroLevel.Top)), "X0 Y0 do desenho, Z0 no topo."),
                 Choice("Centro", false, null, why),
                 Choice("Canto", false, null, why),
                 Choice("Aresta", false, null, why)));
-            PropsPanel.Children.Add(UiKit.StatusNote(why + ".", "pending"));
+            PropsPanel.Children.Add(UiKit.StatusNote(why, "pending"));
             PropsPanel.Children.Add(Note("A opção volta quando essas operações saírem do trabalho."));
         }
         else
@@ -69,7 +69,7 @@ public partial class JobView
         {
             PropsPanel.Children.Add(UiKit.StatusNote("Sem zero, o programa não é gerado nem enviado. Salvar continua livre.", "pending"));
         }
-        else if (_job.Zero is { AsBefore: false, Point: not null, Level: not null })
+        else if (_job.Zero is { AsBefore: false } && problems.Count == 0)
         {
             PropsPanel.Children.Add(new Border
             {
