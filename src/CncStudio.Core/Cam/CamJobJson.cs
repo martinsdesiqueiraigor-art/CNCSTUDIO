@@ -94,7 +94,22 @@ public static class CamJobJson
     internal static JsonObject StockShapeToJson(JobStockShape s)
     {
         var o = new JsonObject { ["kind"] = s.Kind.ToString() };
-        if (s.Kind != StockShapeKind.Margins)
+        if (s.Kind == StockShapeKind.Step)
+        {
+            // STEP: caminho e resumo (nunca a malha); o deslocamento só no modo digitado
+            if (!string.IsNullOrWhiteSpace(s.StepPath))
+            {
+                o["path"] = s.StepPath;
+            }
+
+            o["placement"] = s.Placement.ToString();
+            if (s.StepSummary is { } b)
+            {
+                o["box"] = new JsonObject { ["minX"] = b.MinX, ["minY"] = b.MinY, ["minZ"] = b.MinZ, ["maxX"] = b.MaxX, ["maxY"] = b.MaxY, ["maxZ"] = b.MaxZ };
+                o["volume"] = b.Volume;
+            }
+        }
+        else if (s.Kind != StockShapeKind.Margins)
         {
             o["axis"] = s.Axis.ToString();
         }
@@ -123,7 +138,16 @@ public static class CamJobJson
         }
 
         var shape = new JobStockShape(kind) { OffsetX = null, OffsetY = null, OffsetZ = null };
-        if (kind != StockShapeKind.Margins)
+        if (kind == StockShapeKind.Step)
+        {
+            if (StepFrom(o) is not { } step)
+            {
+                return null;
+            }
+
+            shape = step;
+        }
+        else if (kind != StockShapeKind.Margins)
         {
             if (o["axis"] is not JsonValue av || !av.TryGetValue(out string? axisText) || !System.Enum.TryParse(axisText, false, out StockAxis axis) || !System.Enum.IsDefined(axis))
             {
@@ -149,6 +173,52 @@ public static class CamJobJson
         }
 
         return shape;
+    }
+
+    /// <summary>Parte STEP do bruto: caminho, posição e resumo. Ausente = vazio (incompleto); presente e estragado = null.</summary>
+    private static JobStockShape? StepFrom(JsonObject o)
+    {
+        var shape = new JobStockShape(StockShapeKind.Step) { OffsetX = null, OffsetY = null, OffsetZ = null };
+        if (o["path"] is not null)
+        {
+            if (o["path"] is not JsonValue pv || !pv.TryGetValue(out string? path))
+            {
+                return null;
+            }
+
+            shape = shape with { StepPath = path };
+        }
+
+        if (o["placement"] is not null)
+        {
+            if (o["placement"] is not JsonValue lv || !lv.TryGetValue(out string? text) || !System.Enum.TryParse(text, false, out StepPlacement placement)
+                || !System.Enum.IsDefined(placement))
+            {
+                return null;
+            }
+
+            shape = shape with { Placement = placement };
+        }
+
+        if (o["box"] is null && o["volume"] is null)
+        {
+            return shape;
+        }
+
+        if (o["box"] is not JsonObject b)
+        {
+            return null;
+        }
+
+        double? N(JsonNode? n) => n is JsonValue v && v.TryGetValue(out double d) && double.IsFinite(d) ? d : null;
+        if (N(b["minX"]) is not { } x0 || N(b["minY"]) is not { } y0 || N(b["minZ"]) is not { } z0 || N(b["maxX"]) is not { } x1
+            || N(b["maxY"]) is not { } y1 || N(b["maxZ"]) is not { } z1 || N(o["volume"]) is not { } volume)
+        {
+            return null;
+        }
+
+        var summary = new StepStockSummary(x0, y0, z0, x1, y1, z1, volume);
+        return summary.Valid ? shape with { StepSummary = summary } : null;
     }
 
     internal static JsonArray SegmentsToJson(IReadOnlyList<Segment2> segments)

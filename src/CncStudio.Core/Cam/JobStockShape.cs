@@ -13,6 +13,40 @@ public enum StockShapeKind
 
     /// <summary>Tubo (cilindro com furo).</summary>
     Tube,
+
+    /// <summary>Bruto fundido ou forjado lido de um STEP: o arquivo guarda o caminho e o resumo, nunca a malha (UX-04f PR 2).</summary>
+    Step,
+}
+
+/// <summary>Posição do bruto STEP: como está no arquivo (coordenadas do STEP = do programa) ou com deslocamento digitado.</summary>
+public enum StepPlacement
+{
+    /// <summary>As coordenadas do STEP valem como as do programa (Z0 do programa = Z0 do STEP).</summary>
+    AsInFile,
+
+    /// <summary>Deslocamento X, Y, Z digitado sobre as coordenadas do STEP.</summary>
+    Typed,
+}
+
+/// <summary>
+/// Resumo do STEP do bruto guardado no arquivo do trabalho: a caixa (cantos, em mm, nas coordenadas do STEP) e o volume (mm³).
+/// Abrir o trabalho usa só isto: o STEP só é lido para mostrar o sólido no 3D.
+/// </summary>
+public sealed record StepStockSummary(double MinX, double MinY, double MinZ, double MaxX, double MaxY, double MaxZ, double Volume)
+{
+    public double SizeX => MaxX - MinX;
+
+    public double SizeY => MaxY - MinY;
+
+    public double SizeZ => MaxZ - MinZ;
+
+    /// <summary>Resumo da malha lida (mesmas funções do CAM 3D: <see cref="Cam3D.TriangleMesh.Bounds"/> e <see cref="Cam3D.TriangleMesh.Volume"/>).</summary>
+    public static StepStockSummary From(Cam3D.TriangleMesh mesh) =>
+        new(mesh.Bounds.Min.X, mesh.Bounds.Min.Y, mesh.Bounds.Min.Z, mesh.Bounds.Max.X, mesh.Bounds.Max.Y, mesh.Bounds.Max.Z, mesh.Volume);
+
+    /// <summary>Caixa com medidas maiores que zero e números finitos (arquivo estragado fica fora).</summary>
+    public bool Valid =>
+        new[] { MinX, MinY, MinZ, MaxX, MaxY, MaxZ, Volume }.All(double.IsFinite) && SizeX > 0 && SizeY > 0 && SizeZ > 0 && Volume > 0;
 }
 
 /// <summary>Eixo do cilindro ou tubo: em pé (Z) ou deitado ao longo de X ou Y.</summary>
@@ -39,6 +73,7 @@ public sealed record JobStockShape(StockShapeKind Kind)
     public const string OffsetXField = "Deslocamento X";
     public const string OffsetYField = "Deslocamento Y";
     public const string OffsetZField = "Deslocamento Z";
+    public const string StepFileField = "o arquivo STEP";
 
     /// <summary>Bloco: sobra além da peça em cada lado (≥ 0).</summary>
     public double? XMinus { get; init; }
@@ -72,6 +107,21 @@ public sealed record JobStockShape(StockShapeKind Kind)
 
     public double? OffsetZ { get; init; } = 0;
 
+    /// <summary>STEP: caminho do arquivo como foi escolhido (absoluto). Null = nenhum arquivo.</summary>
+    public string? StepPath { get; init; }
+
+    /// <summary>STEP: caixa e volume lidos do arquivo na importação. Null = nunca lido.</summary>
+    public StepStockSummary? StepSummary { get; init; }
+
+    /// <summary>STEP: como está no arquivo (padrão) ou com deslocamento digitado.</summary>
+    public StepPlacement Placement { get; init; } = StepPlacement.AsInFile;
+
+    /// <summary>
+    /// STEP: motivo de o arquivo não estar disponível (sumiu ou mudou de lugar), conferido ao abrir sem ler o arquivo
+    /// (<see cref="CamJobStock.VerifyStepFile"/>). Só da tela: não vai para o arquivo. Deixa o bruto incompleto.
+    /// </summary>
+    public string? StepFileProblem { get; init; }
+
     /// <summary>Campos que o formato usa, na ordem da tela, com o valor (null = vazio).</summary>
     public IReadOnlyList<(string Name, double? Value)> Fields() => Kind switch
     {
@@ -81,6 +131,8 @@ public sealed record JobStockShape(StockShapeKind Kind)
             (OffsetXField, OffsetX), (OffsetYField, OffsetY), (OffsetZField, OffsetZ),
         ],
         StockShapeKind.Cylinder => [(DiameterField, Diameter), (LengthField, Length), (OffsetXField, OffsetX), (OffsetYField, OffsetY), (OffsetZField, OffsetZ)],
+        // STEP: os números vêm do arquivo; só o deslocamento digitado é campo
+        StockShapeKind.Step => Placement == StepPlacement.Typed ? [(OffsetXField, OffsetX), (OffsetYField, OffsetY), (OffsetZField, OffsetZ)] : [],
         _ => [(OuterField, Diameter), (InnerField, InnerDiameter), (LengthField, Length), (OffsetXField, OffsetX), (OffsetYField, OffsetY), (OffsetZField, OffsetZ)],
     };
 
@@ -131,7 +183,7 @@ public sealed record JobStockShape(StockShapeKind Kind)
 }
 
 /// <summary>Forma resolvida do bruto, pronta para desenhar: caixa ou cilindro/tubo (com a caixa que o envolve).</summary>
-public enum StockSolidKind { Box, Cylinder, Tube }
+public enum StockSolidKind { Box, Cylinder, Tube, Step }
 
 /// <summary>
 /// Bruto resolvido em coordenadas do programa. Na caixa, Min/Max são os cantos. No cilindro e no tubo, Min/Max envolvem o sólido:
@@ -144,6 +196,15 @@ public sealed record StockSolid(StockSolidKind Kind, double MinX, double MaxX, d
     public double Diameter { get; init; }
 
     public double InnerDiameter { get; init; }
+
+    /// <summary>
+    /// STEP: o sólido lido, já na posição do programa (<see cref="CamJobStock.PlaceStepMesh"/>). Null enquanto o STEP não foi lido
+    /// nesta sessão: o 3D mostra só a caixa do resumo.
+    /// </summary>
+    public Cam3D.TriangleMesh? Mesh { get; init; }
+
+    /// <summary>STEP: volume do resumo (mm³).</summary>
+    public double Volume { get; init; }
 
     public double SizeX => MaxX - MinX;
 
@@ -208,6 +269,11 @@ public static class CamJobStock
                 : new StockCheck(null, [], []) { NotDefined = true };
         }
 
+        if (shape.Kind == StockShapeKind.Step)
+        {
+            return CheckStep(shape);
+        }
+
         var missing = new List<string>();
         (double X, double Y, double Width, double Length)? box = CamJobInfo.DrawingBox(job.Contours);
         if (box is null)
@@ -257,6 +323,97 @@ public static class CamJobStock
         return new StockCheck(StockSolid.Round(tube, shape.Axis, cx, cy, cz, shape.Diameter!.Value, shape.InnerDiameter ?? 0, shape.Length!.Value), [], []);
     }
 
+    /// <summary>
+    /// Bruto STEP: a caixa do resumo nas coordenadas do STEP (como está no arquivo) ou somada ao deslocamento digitado. Não depende
+    /// do desenho nem da altura da peça (o STEP não compartilha sistema de coordenadas garantido com o DXF: a tela mostra a caixa
+    /// para o usuário conferir; nada é alinhado sozinho). Sem arquivo, sem resumo ou arquivo que sumiu: incompleto.
+    /// </summary>
+    private static StockCheck CheckStep(JobStockShape shape)
+    {
+        var missing = new List<string>();
+        var invalid = new List<string>();
+        if (string.IsNullOrWhiteSpace(shape.StepPath) || shape.StepSummary is null)
+        {
+            missing.Add(JobStockShape.StepFileField);
+        }
+        else if (!shape.StepSummary.Valid)
+        {
+            invalid.Add("o resumo do STEP é inválido: importe o arquivo de novo");
+        }
+
+        if (shape.StepFileProblem is { } problem)
+        {
+            invalid.Add(problem);
+        }
+
+        foreach ((string name, double? value) in shape.Fields())
+        {
+            if (value is null)
+            {
+                missing.Add(name);
+            }
+            else if (!double.IsFinite(value.Value))
+            {
+                invalid.Add($"{name}: digite um número");
+            }
+        }
+
+        if (missing.Count > 0 || invalid.Count > 0)
+        {
+            return new StockCheck(null, missing, invalid);
+        }
+
+        (double dx, double dy, double dz) = StepOffset(shape);
+        StepStockSummary b = shape.StepSummary!;
+        return new StockCheck(new StockSolid(StockSolidKind.Step, b.MinX + dx, b.MaxX + dx, b.MinY + dy, b.MaxY + dy, b.MinZ + dz, b.MaxZ + dz) { Volume = b.Volume }, [], []);
+    }
+
+    /// <summary>Deslocamento do bruto STEP: zero "como está no arquivo"; o digitado no outro modo (vazio conta como incompleto antes).</summary>
+    private static (double X, double Y, double Z) StepOffset(JobStockShape s) =>
+        s.Placement == StepPlacement.Typed ? (s.OffsetX ?? 0, s.OffsetY ?? 0, s.OffsetZ ?? 0) : (0, 0, 0);
+
+    /// <summary>A malha lida do STEP colocada na posição do programa (mesmo deslocamento da caixa).</summary>
+    public static Cam3D.TriangleMesh PlaceStepMesh(JobStockShape shape, Cam3D.TriangleMesh mesh)
+    {
+        (double dx, double dy, double dz) = StepOffset(shape);
+        return dx == 0 && dy == 0 && dz == 0 ? mesh : mesh.Translated(dx, dy, dz);
+    }
+
+    /// <summary>Bruto STEP novo (importado ou localizado de novo): caminho e resumo da malha lida, mantendo a posição escolhida.</summary>
+    public static JobStockShape ImportStep(JobStockShape? current, string path, Cam3D.TriangleMesh mesh)
+    {
+        JobStockShape start = current is { Kind: StockShapeKind.Step } ? current : new JobStockShape(StockShapeKind.Step);
+        return start with { StepPath = path, StepSummary = StepStockSummary.From(mesh), StepFileProblem = null };
+    }
+
+    /// <summary>
+    /// Confere, sem ler o STEP, se o arquivo do bruto ainda está no caminho guardado (ao abrir o trabalho). Sumiu ou mudou de lugar:
+    /// o bruto fica incompleto com o motivo e a tela pede "Localizar de novo" (nada suposto). Devolve se mudou algo.
+    /// </summary>
+    public static bool VerifyStepFile(CamJob job, Func<string, bool> exists)
+    {
+        if (job.StockShape is not { Kind: StockShapeKind.Step, StepPath: { } path } shape || string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        string? problem = exists(path) ? null : $"arquivo STEP não encontrado em {path} (sumiu ou mudou de lugar): use Localizar de novo";
+        if (problem == shape.StepFileProblem)
+        {
+            return false;
+        }
+
+        job.StockShape = shape with { StepFileProblem = problem };
+        return true;
+    }
+
+    /// <summary>Nome do arquivo STEP do bruto (sem a pasta), ou null.</summary>
+    public static string? StepFileName(CamJob job) =>
+        job.StockShape is { Kind: StockShapeKind.Step, StepPath: { } p } ? Path.GetFileName(p) : null;
+
+    /// <summary>Volume em cm³ para a tela ("20,42 cm³").</summary>
+    public static string VolumeText(double mm3) => (mm3 / 1000).ToString("0.##", Br) + " cm³";
+
     /// <summary>Altura da peça digitada: precisa ser maior que zero (null = vale).</summary>
     public static string? PartHeightError(double h) => double.IsFinite(h) && h > 0 ? null : "A altura Z da peça precisa ser maior que zero.";
 
@@ -285,6 +442,7 @@ public static class CamJobStock
         StockShapeKind.Margins => "Bloco por sobra",
         StockShapeKind.Cylinder => "Cilindro",
         StockShapeKind.Tube => "Tubo",
+        StockShapeKind.Step => "STEP",
         _ => job.Stock is null ? "Bruto" : "Bloco absoluto",
     };
 
@@ -308,6 +466,7 @@ public static class CamJobStock
         {
             StockSolidKind.Cylinder => $"{kind} Ø{N(s.Diameter)} × {N(s.Length)} mm{axis}",
             StockSolidKind.Tube => $"{kind} Ø{N(s.Diameter)}/Ø{N(s.InnerDiameter)} × {N(s.Length)} mm{axis}",
+            StockSolidKind.Step => $"{kind} {StepFileName(job)} {N(s.SizeX)} × {N(s.SizeY)} × {N(s.SizeZ)} mm, {VolumeText(s.Volume)}",
             _ => $"{kind} {N(s.SizeX)} × {N(s.SizeY)} × {N(s.SizeZ)} mm",
         };
     }
@@ -326,7 +485,7 @@ public static class CamJobStock
 
     /// <summary>
     /// Caixa do bruto como <see cref="JobStock"/> para quem só lê a espessura (o Assist): o bloco absoluto como está; o bloco por
-    /// sobra resolvido. Na convenção do <see cref="JobStock"/> a espessura desce de Z0; no bloco por sobra o topo fica acima de Z0
+    /// sobra resolvido (STEP, como cilindro e tubo, não entrega espessura). Na convenção do <see cref="JobStock"/> a espessura desce de Z0; no bloco por sobra o topo fica acima de Z0
     /// (sobra em cima), então a espessura é de Z0 até o fundo (−MinZ), não a altura total. Cilindro, tubo, incompleto ou fundo
     /// acima de Z0: null (nada suposto).
     /// </summary>

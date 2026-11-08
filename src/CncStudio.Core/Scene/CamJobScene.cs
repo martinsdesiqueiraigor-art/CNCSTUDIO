@@ -120,11 +120,17 @@ public static class CamJobScene
     /// <summary>Lados do cilindro e do tubo na malha.</summary>
     public const int RoundSegments = 48;
 
-    /// <summary>Malha do bruto: caixa, ou cilindro/tubo girado em volta do eixo (Z em pé; X ou Y deitado).</summary>
+    /// <summary>Malha do bruto: caixa, sólido do STEP, ou cilindro/tubo girado em volta do eixo (Z em pé; X ou Y deitado).</summary>
     public static SolidMesh StockMesh(StockSolid s, uint color)
     {
+        // STEP: o sólido lido; enquanto não foi lido nesta sessão, a caixa do resumo
+        if (s.Kind == StockSolidKind.Step && s.Mesh is { TriangleCount: > 0 } stepMesh)
+        {
+            return stepMesh.ToSolidMesh(color);
+        }
+
         SolidMesh mesh = SolidMesh.Create(6);
-        if (s.Kind == StockSolidKind.Box)
+        if (s.Kind is StockSolidKind.Box or StockSolidKind.Step)
         {
             SceneMeshes.Box(mesh, new Point3(s.MinX, s.MinY, s.MinZ), new Point3(s.SizeX, s.SizeY, s.SizeZ), color);
             return mesh;
