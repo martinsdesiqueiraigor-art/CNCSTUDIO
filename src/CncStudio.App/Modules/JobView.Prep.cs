@@ -26,9 +26,9 @@ public partial class JobView
     /// <summary>Resumo do bruto no cartão (refeito a cada mudança).</summary>
     private ContentControl? _stockSummary;
 
-    private static TextBlock CardTitle(string text) => new() { Text = text, FontSize = 18, FontWeight = FontWeight.Bold };
+    private static TextBlock CardTitle(string text) => new() { Text = text, FontSize = 16, FontWeight = FontWeight.Bold };
 
-    private static TextBlock Caps(string text) => new() { Text = text, FontSize = 11, Foreground = Muted, Margin = new Thickness(0, 6, 0, 0) };
+    private static TextBlock Caps(string text) => new() { Text = text, FontSize = 11, Foreground = Muted, Margin = new Thickness(0, 4, 0, 0) };
 
     private static TextBlock Note(string text) => new() { Text = text, FontSize = 11, Foreground = Muted, TextWrapping = TextWrapping.Wrap };
 
@@ -122,7 +122,7 @@ public partial class JobView
     private StackPanel PrepNum(string label, Func<double?> get, Func<bool> needed, Func<string?> invalid, Action<double?> set, string watermark = "digite (mm)")
     {
         double? start = get();
-        var box = new TextBox { Text = start is { } v0 ? Fmt(v0) : "", MinHeight = 28, Watermark = watermark, FontSize = 12 };
+        var box = new TextBox { Text = start is { } v0 ? Fmt(v0) : "", MinHeight = 26, Padding = new Thickness(6, 3), Watermark = watermark, FontSize = 12 };
         (Grid field, Action<string?> mark) = CamShell.DashedField(box);
         string? typedBad = null;
         void Remark()
@@ -213,12 +213,11 @@ public partial class JobView
         card.Children.Add(Note(box is { } b
             ? $"Largura X e profundidade Y vêm do desenho: {Fmt(b.Width)} × {Fmt(b.Length)} mm."
             : "Sem desenho: abra um DXF (faixa Arquivo) ou desenhe uma forma (item Peça pronta + bruto, aba Operações)."));
-        card.Children.Add(Caps("ALTURA Z DA PEÇA"));
         card.Children.Add(PrepNum(CamJobStock.PartHeightField, () => _job.PartHeight, () => _job.StockShape is not null,
             () => _job.PartHeight is { } h ? CamJobStock.PartHeightError(h) : null, v => _job.PartHeight = v));
         card.Children.Add(Note(_job.StockShape is null
-            ? "Um DXF não informa a altura. Ela só é usada pelo bruto por sobra, cilindro e tubo; o bloco absoluto não precisa."
-            : "Um DXF não informa a altura. Sem ela, o bruto fica incompleto e não aparece no 3D; o programa continua gerando."));
+            ? "Um DXF não informa a altura. Só o bruto por sobra, cilindro e tubo usam."
+            : "Um DXF não informa a altura. Sem ela, o bruto fica incompleto (o programa continua gerando)."));
     }
 
     // ---------------------------------------------------------------- Bruto
@@ -251,8 +250,9 @@ public partial class JobView
     {
         card.Children.Clear();
         _prepMarks.Clear();
-        card.Children.Add(CardTitle("Bruto"));
-        card.Children.Add(Note("Você escolhe o formato do bruto, que pode ser diferente da peça. O bruto não entra no G-code: serve ao 3D e à conferência."));
+        TextBlock title = CardTitle("Bruto");
+        ToolTip.SetTip(title, "Você escolhe o formato do bruto, que pode ser diferente da peça. O bruto não entra no G-code: serve ao 3D e à conferência.");
+        card.Children.Add(title);
         JobStockShape? shape = _job.StockShape;
         bool block = shape is null or { Kind: StockShapeKind.Margins };
         bool defined = shape is not null || _job.Stock is not null || _absoluteMode;
@@ -289,7 +289,7 @@ public partial class JobView
             card.Children.Add(Caps("BLOCO: QUANTO SOBRA EM CADA LADO"));
             card.Children.Add(FieldGrid(3, [F(JobStockShape.XMinusField), F(JobStockShape.XPlusField), F(JobStockShape.YMinusField),
                 F(JobStockShape.YPlusField), F(JobStockShape.ZTopField), F(JobStockShape.ZBottomField)]));
-            card.Children.Add(Note("Sobras contadas a partir da peça pronta. Z0 fica no topo da peça; a sobra em cima fica acima dele. Trocar o desenho recalcula o bruto com as mesmas sobras."));
+            card.Children.Add(Note("Sobras a partir da peça pronta. Z0 no topo da peça; a sobra em cima fica acima dele. Trocar o desenho recalcula com as mesmas sobras."));
         }
         else
         {
@@ -304,7 +304,7 @@ public partial class JobView
                 : FieldGrid(3, [F(JobStockShape.OuterField), F(JobStockShape.InnerField), F(JobStockShape.LengthField)]));
         }
 
-        card.Children.Add(Caps("POSIÇÃO DO BRUTO (DESLOCAMENTO; 0 = CENTRADO NA PEÇA)"));
+        card.Children.Add(Caps("POSIÇÃO: DESLOCAMENTO (0 = CENTRADO NA PEÇA)"));
         card.Children.Add(FieldGrid(3, [F(JobStockShape.OffsetXField), F(JobStockShape.OffsetYField), F(JobStockShape.OffsetZField)]));
         _stockSummary = new ContentControl();
         card.Children.Add(_stockSummary);
@@ -323,12 +323,12 @@ public partial class JobView
         if (c.Solid is not { } s)
         {
             _stockSummary.Content = CamJobStock.IncompleteReason(c) is { } why
-                ? UiKit.StatusNote("Bruto incompleto: " + why + ". Não aparece no 3D; o programa continua gerando.", "pending")
+                ? UiKit.StatusNote("Bruto incompleto: " + why + ". Não aparece no 3D; o programa gera.", "pending")
                 : null;
             return;
         }
 
-        var row = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
+        var row = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
         Control top = TopView(s);
         DockPanel.SetDock(top, Dock.Left);
         row.Children.Add(top);
@@ -343,7 +343,7 @@ public partial class JobView
     /// <summary>Vista de cima (XY): a peça (caixa do desenho) dentro do bruto, em escala. Só visualização.</summary>
     private Control TopView(StockSolid s)
     {
-        const double w = 150, h = 96, pad = 6;
+        const double w = 120, h = 64, pad = 5;
         var canvas = new Canvas { Width = w, Height = h, Background = Brush.Parse("#0d1117") };
         (double X, double Y, double Width, double Length)? part = CamJobInfo.DrawingBox(_job.Contours);
         double x0 = Math.Min(s.MinX, part?.X ?? s.MinX), x1 = Math.Max(s.MaxX, part is { } p1 ? p1.X + p1.Width : s.MaxX);

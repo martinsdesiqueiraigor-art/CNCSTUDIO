@@ -274,7 +274,8 @@ public static class CamJobStock
             parts.Add("falta " + string.Join(", ", c.Missing));
         }
 
-        parts.AddRange(c.Invalid);
+        // sem o ponto final de cada motivo: quem mostra o texto completa a frase
+        parts.AddRange(c.Invalid.Select(i => i.TrimEnd('.')));
         return string.Join("; ", parts);
     }
 

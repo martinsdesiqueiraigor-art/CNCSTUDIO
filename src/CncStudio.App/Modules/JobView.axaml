@@ -21,8 +21,8 @@
       <Setter Property="BorderBrush" Value="#243040" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="12" />
-      <Setter Property="Padding" Value="12" />
-      <Setter Property="Margin" Value="0,0,0,12" />
+      <Setter Property="Padding" Value="10" />
+      <Setter Property="Margin" Value="0,0,0,8" />
     </Style>
   </UserControl.Styles>
   <ThemeVariantScope RequestedThemeVariant="Dark">
@@ -80,32 +80,25 @@
             <TextBlock x:Name="PreviewHint" Text="Abra um DXF (faixa Arquivo), um trabalho salvo ou desenhe uma forma (item Peça) para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.7" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" />
           </Grid>
         </Border>
-        <!-- Aba Preparação (UX-04f): Máquina (leitura) e Peça pronta | Bruto; embaixo Zero (leitura), Fixação e, em breve, Banco e Material -->
+        <!-- Aba Preparação (UX-04f): 3 colunas para caber em 1280×720 sem rolar. Máquina (leitura), Peça pronta, Banco e Material
+             (em breve) | Bruto | Zero (leitura) e Fixação (a mesma de antes) -->
         <ScrollViewer x:Name="PrepCenter" IsVisible="False" HorizontalScrollBarVisibility="Disabled">
-          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" Margin="12">
+          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="8">
             <StackPanel Grid.Column="0">
               <Border Classes="camcard"><StackPanel x:Name="PrepMachine" Spacing="4" /></Border>
               <Border Classes="camcard"><StackPanel x:Name="PrepPart" Spacing="4" /></Border>
+              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve. Hoje a ferramenta vem da tabela do Code, nas propriedades de cada operação.">
+                <TextBlock Text="Banco de ferramentas · em breve" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+              </Border>
+              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
+                <TextBlock Text="Material: não definido · em breve" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+              </Border>
             </StackPanel>
             <Border Grid.Column="1" Classes="camcard" VerticalAlignment="Top"><StackPanel x:Name="PrepStock" Spacing="4" /></Border>
-            <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,*,*" ColumnSpacing="12">
-              <Border Classes="camcard" VerticalAlignment="Top"><StackPanel x:Name="PrepOrigin" Spacing="6" /></Border>
-              <Border Grid.Column="1" Classes="camcard" VerticalAlignment="Top"><StackPanel x:Name="PrepFixture" Spacing="6" /></Border>
-              <StackPanel Grid.Column="2">
-                <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
-                  <StackPanel Spacing="4">
-                    <TextBlock Text="Banco de ferramentas" FontSize="18" FontWeight="Bold" />
-                    <TextBlock Text="Em breve. Hoje a ferramenta vem da tabela do Code, nas propriedades de cada operação." Foreground="#9aa7b5" FontSize="12" TextWrapping="Wrap" />
-                  </StackPanel>
-                </Border>
-                <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
-                  <StackPanel Spacing="4">
-                    <TextBlock Text="Material" FontSize="18" FontWeight="Bold" />
-                    <TextBlock Text="Não definido · em breve" Foreground="#9aa7b5" FontSize="12" />
-                  </StackPanel>
-                </Border>
-              </StackPanel>
-            </Grid>
+            <StackPanel Grid.Column="2">
+              <Border Classes="camcard"><StackPanel x:Name="PrepOrigin" Spacing="6" /></Border>
+              <Border Classes="camcard"><StackPanel x:Name="PrepFixture" Spacing="6" /></Border>
+            </StackPanel>
           </Grid>
         </ScrollViewer>
         <!-- Aba Código NC: o mesmo campo de antes -->
