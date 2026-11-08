@@ -1,0 +1,18 @@
+{
+  "Name": "4\u00BA eixo na mesa (A)",
+  "Controller": "Fanuc",
+  "Mode": "calculado",
+  "MaxSpindleRpm": null,
+  "Axes": [
+    {
+      "Letter": "A",
+      "Carrier": "mesa",
+      "MinAngle": -360,
+      "MaxAngle": 360,
+      "Reversed": false,
+      "PivotX": 0,
+      "PivotY": 20,
+      "PivotZ": -25
+    }
+  ]
+}

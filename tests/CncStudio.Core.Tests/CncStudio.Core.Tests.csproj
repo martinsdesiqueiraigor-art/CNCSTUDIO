@@ -24,6 +24,11 @@
     <None Include="..\..\samples\**\*.*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- UX-04f: trabalhos e programas de referência (G-code não pode mudar) -->
+  <ItemGroup>
+    <None Include="Cam\trabalhos-referencia\*.*" Link="trabalhos-referencia\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Avisos de terceiros do desktop: o teste confere o arquivo e que o App o embute como recurso -->
   <ItemGroup>
     <None Include="..\..\src\CncStudio.App\THIRD-PARTY-NOTICES.md" Link="terceiros\THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
