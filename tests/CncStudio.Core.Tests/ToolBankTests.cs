@@ -242,6 +242,22 @@ public class ToolBankTests
         Assert.Contains(m.Warnings, w => w.Contains("1 a 99"));
     }
 
+    [Fact]
+    public void Migracao_inserto_3_no_bedame_entra_a_conferir()
+    {
+        ToolBankMigration m = ToolBankImport.FromLegacyTable(
+        [
+            new(1, 25, "", nameof(ToolKind.PartExternal), 3, 0, 0, 0),
+            new(2, 25, "", nameof(ToolKind.PartInternal), 2.5, 0, 0, 0),
+            new(3, 25, "", nameof(ToolKind.TurnExternal), 3, 0, 0, 0),
+        ]);
+        Assert.Equal(new BankTool(1) { Type = BankToolType.PartExternal, Diameter = 25, InsertWidth = 3, ToCheck = true }, m.Lathe.Tools[0]);
+        Assert.False(m.Lathe.Tools[1].ToCheck);
+        Assert.Equal(2.5, m.Lathe.Tools[1].InsertWidth);
+        Assert.False(m.Lathe.Tools[2].ToCheck);
+        Assert.Null(m.Lathe.Tools[2].InsertWidth);
+    }
+
     // ── Minhas ferramentas da web ──
 
     private static string WebJson(params SetupTool[] tools) => SetupJson.SerializeMyTools(new MachiningSetup { Tools = [.. tools] });
@@ -260,16 +276,27 @@ public class ToolBankTests
 
         Assert.Null(error);
         Assert.Empty(r!.Warnings);
-        Assert.Equal(new BankTool(1) { Type = BankToolType.EndMill, Diameter = 10, CornerRadius = 0, ToCheck = true }, r.Mill.Tools[0]);
+        Assert.Equal(new BankTool(1) { Type = BankToolType.EndMill, Diameter = 10, ToCheck = true }, r.Mill.Tools[0]);
         Assert.Equal(new BankTool(2)
         {
             Type = BankToolType.BullNoseEndMill, Diameter = 12, CornerRadius = 1, TipAngle = 90, CuttingLength = 30, HolderDiameter = 40, HolderLength = 50,
         }, r.Mill.Tools[1]);
-        Assert.Equal(new BankTool(5) { Type = BankToolType.Drill, Diameter = 5, CornerRadius = 0 }, r.Mill.Tools[2]);
-        Assert.Equal(new BankTool(3) { Type = BankToolType.PartInternal, Diameter = 16, CornerRadius = 0, InsertWidth = 2 }, r.Lathe.Tools[0]);
-        Assert.Equal(new BankTool(4) { Type = BankToolType.PartExternal, Diameter = 10, CornerRadius = 0, ToCheck = true }, r.Lathe.Tools[1]);
+        Assert.Equal(new BankTool(5) { Type = BankToolType.Drill, Diameter = 5 }, r.Mill.Tools[2]);
+        Assert.Equal(new BankTool(3) { Type = BankToolType.PartInternal, Diameter = 16, InsertWidth = 2 }, r.Lathe.Tools[0]);
+        Assert.Equal(new BankTool(4) { Type = BankToolType.PartExternal, Diameter = 10, ToCheck = true }, r.Lathe.Tools[1]);
         Assert.Null(r.Mill.Validate());
         Assert.Null(r.Lathe.Validate());
+    }
+
+    [Fact]
+    public void Web_raio_de_canto_0_entra_ausente()
+    {
+        (ToolBankMigration? r, _) = ToolBankImport.FromWebMyTools(WebJson(
+            new SetupTool { Number = 1, Kind = ToolKind.FlatEndMill, Diameter = 6, CornerRadius = 0 },
+            new SetupTool { Number = 2, Kind = ToolKind.BullNoseEndMill, Diameter = 6, CornerRadius = 0.5 }));
+        Assert.Null(r!.Mill.Tools[0].CornerRadius);
+        Assert.Equal(0.5, r.Mill.Tools[1].CornerRadius);
+        Assert.Equal(new BankTool(1) { Type = BankToolType.EndMill, Diameter = 6 }, r.Mill.Tools[0]);
     }
 
     [Fact]

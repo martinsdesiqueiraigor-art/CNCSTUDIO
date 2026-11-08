@@ -68,7 +68,7 @@ public static class ToolBankImport
 
     /// <summary>
     /// Migra a tabela de hoje para dois bancos (fresa e torno). Campo a campo: tipo "" fica ausente; tipo de torno vai ao banco do torno;
-    /// Ø igual a 10 entra "a conferir"; rpm e avanços 0 ficam ausentes; largura do inserto só nos bedames. A lista de entrada não muda.
+    /// Ø igual a 10 e inserto igual a 3 (bedame) entram "a conferir"; rpm e avanços 0 ficam ausentes; largura do inserto só nos bedames. A lista de entrada não muda.
     /// T fora da faixa do banco não entra (com aviso); T repetido na tabela: vale a última linha, como no simulador (com aviso).
     /// </summary>
     public static ToolBankMigration FromLegacyTable(IEnumerable<LegacyToolRow> rows)
@@ -101,7 +101,8 @@ public static class ToolBankImport
                 Rpm = Given(row.Rpm),
                 FeedXY = Given(row.FeedXY),
                 FeedZ = Given(row.FeedZ),
-                ToCheck = row.Diameter == OldDefaultDiameter,
+                // Ø 10 e inserto 3 eram os padrões da tabela antiga: não dá para separar do digitado (adendo do Igor, 08/11)
+                ToCheck = row.Diameter == OldDefaultDiameter || (BankToolTypes.IsParting(type) && row.InsertWidth == SetupTool.DefaultInsertWidth),
             };
             if (toLathe)
             {
@@ -119,7 +120,7 @@ public static class ToolBankImport
     /// <summary>
     /// Lê as "minhas ferramentas" da web (<c>cc.mytools.v1</c>: o JSON do setup só com a lista, no máximo 20). O editor web preenche
     /// Ø 10, ângulo 118, comprimento de corte 25, suporte Ø 35 × 45 e inserto 3 sem dar para separar do digitado: esses valores entram
-    /// ausentes, e o Ø 10 entra "a conferir". T, tipo e raio de canto entram como vieram; a web não tem nome. Broca vai ao banco de fresa.
+    /// ausentes, e o Ø 10 entra "a conferir". Raio de canto 0 também é padrão do editor e entra ausente. T e tipo entram como vieram; a web não tem nome. Broca vai ao banco de fresa.
     /// </summary>
     public static (ToolBankMigration? Result, string? Error) FromWebMyTools(string? json)
     {
@@ -146,7 +147,7 @@ public static class ToolBankImport
             {
                 Type = type,
                 Diameter = s.Diameter,
-                CornerRadius = s.CornerRadius,
+                CornerRadius = NotDefault(s.CornerRadius, 0),
                 TipAngle = NotDefault(s.TipAngle, SetupTool.DefaultDrillTipAngle),
                 CuttingLength = NotDefault(s.CuttingLength, 25),
                 HolderDiameter = NotDefault(s.HolderDiameter, 35),
