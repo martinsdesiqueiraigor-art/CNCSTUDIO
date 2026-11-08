@@ -560,6 +560,12 @@ public partial class JobView
             PropsPanel.Children.Add(note);
         }
 
+        // valor de arquivo antigo fora da faixa ou da lista: gera como antes, só avisa (adendo de 08/11)
+        foreach (string warning in CamJobProgram.Warnings(_job))
+        {
+            PropsPanel.Children.Add(UiKit.StatusNote("Aviso: " + warning, "pending"));
+        }
+
         PropsPanel.Children.Add(new TextBlock { Text = CamJobProgram.ProgramNumberField, FontSize = 12, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
         if (CamJobProgram.NeedsProgramNumber(_job.Dialect))
         {
@@ -568,10 +574,16 @@ public partial class JobView
                 Text = _job.ProgramNumber?.ToString(CultureInfo.InvariantCulture) ?? "", Watermark = "digite (1 a 9999)", MinHeight = 26, MaxLength = 8,
             };
             (Grid field, Action<string?> mark) = CamShell.DashedField(number);
-            mark(_programTypedError
-                ?? (_job.ProgramNumber is { } n ? CamJobProgram.ProgramNumberError(n) : "Falta este valor. Sem ele, Gerar e Enviar ficam travados."));
+            mark(_programTypedError ?? (_job.ProgramNumber is null ? "Falta este valor. Sem ele, Gerar e Enviar ficam travados." : null));
+            string shown = number.Text;
             void Commit()
             {
+                // sair do campo sem mexer não muda nada (o número de arquivo antigo fora da faixa continua valendo)
+                if ((number.Text ?? "") == shown)
+                {
+                    return;
+                }
+
                 (int? value, string? why) = CamJobProgram.ParseProgramNumber(number.Text);
                 if (value == _job.ProgramNumber && why == _programTypedError)
                 {
@@ -607,13 +619,20 @@ public partial class JobView
             offset.Items.Add(new ComboBoxItem { Content = "G" + code.ToString(CultureInfo.InvariantCulture) });
         }
 
-        // valor do arquivo fora da lista (ex.: G58 com Siemens) não aparece escolhido: fica tracejado com o motivo
-        offset.SelectedIndex = _job.WorkOffset is { } g ? offsets.ToList().IndexOf(g) : -1;
+        // valor do arquivo fora da lista (ex.: G58 com Siemens): aparece como item "do arquivo", escolhido e sem tracejado (só o aviso)
+        int index = _job.WorkOffset is { } g ? offsets.ToList().IndexOf(g) : -1;
+        if (_job.WorkOffset is { } fileOffset && index < 0)
+        {
+            offset.Items.Add(new ComboBoxItem { Content = "G" + fileOffset.ToString(CultureInfo.InvariantCulture) + " · do arquivo" });
+            index = offsets.Count;
+        }
+
+        offset.SelectedIndex = index;
         (Grid offsetField, Action<string?> offsetMark) = CamShell.DashedField(offset);
-        offsetMark(_job.WorkOffset is { } w ? CamJobProgram.WorkOffsetError(w, _job.Dialect) : "Falta este valor. Sem ele, Gerar e Enviar ficam travados.");
+        offsetMark(_job.WorkOffset is null ? "Falta este valor. Sem ele, Gerar e Enviar ficam travados." : null);
         offset.SelectionChanged += (_, _) =>
         {
-            if (offset.SelectedIndex >= 0 && offsets[offset.SelectedIndex] != _job.WorkOffset)
+            if (offset.SelectedIndex >= 0 && offset.SelectedIndex < offsets.Count && offsets[offset.SelectedIndex] != _job.WorkOffset)
             {
                 _job.WorkOffset = offsets[offset.SelectedIndex];
                 Refresh(keep: true);

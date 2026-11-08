@@ -73,6 +73,12 @@ public partial class JobView : UserControl
             }
 
             _job.Dialect = DialectCombo.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
+            // trocar o controle é escolha de agora: G5x fora da lista do novo controle (ex.: G58 no Siemens) fica vazio, para escolher de novo
+            if (_job.WorkOffset is { } g && CamJobProgram.WorkOffsetError(g, _job.Dialect) is not null)
+            {
+                _job.WorkOffset = null;
+            }
+
             Refresh(keep: true);
         };
         ActualThemeVariantChanged += (_, _) => Refresh(keep: true, props: false);
@@ -835,7 +841,11 @@ public partial class JobView : UserControl
         // UX-04g: número ou G5x vazio/inválido deixa o selo da fixação pendente, com o motivo
         IReadOnlyList<string> programProblems = CamJobProgram.Problems(_job);
         (string Kind, string Text) setupState = programProblems.Count > 0 ? ("pending", string.Join(" · ", programProblems)) : CamJobInfo.FixtureState(_job.Fixture);
-        TreeViewItem setup = NodeState($"Fixação 1 · {CamJobInfo.WorkOffsetName(_job)} · {fixtureName}", setupState, "fixacao", new TreeTag("fixture", 0));
+        // selo em círculo como o item Peça pronta: "!" quando pendente (falta número, G5x ou a fixação); senão o ícone da fixação
+        string setupTitle = $"Fixação 1 · {CamJobInfo.WorkOffsetName(_job)} · {fixtureName}";
+        TreeViewItem setup = setupState.Kind == "pending"
+            ? UiKit.StateItem(TreeRow(setupTitle, setupState, CamShell.Badge("!", "pending"), null, setupTitle + "\n" + setupState.Text), new TreeTag("fixture", 0))
+            : NodeState(setupTitle, setupState, "fixacao", new TreeTag("fixture", 0));
         setup.Items.Add(NodeState("Zero: " + CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "zero", new TreeTag("zero", 0)));
         for (int i = 0; i < _job.Operations.Count; i++)
         {
