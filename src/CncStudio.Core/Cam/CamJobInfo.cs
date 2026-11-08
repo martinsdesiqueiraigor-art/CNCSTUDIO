@@ -76,9 +76,15 @@ public static class CamJobInfo
             list.Add("Falta a peça (abra um DXF ou desenhe uma forma)");
         }
 
-        if (job.Stock is null)
+        // sem bruto nenhum trava, como antes; bruto incompleto (formato novo) só avisa (adendo UX-04f, 08/11)
+        StockCheck stock = CamJobStock.Check(job);
+        if (stock.NotDefined)
         {
-            list.Add("Bruto não definido");
+            list.Add(StockMissing);
+        }
+        else if (CamJobStock.IncompleteReason(stock) is { } why)
+        {
+            list.Add(CamJobStock.IncompletePrefix + ": " + why);
         }
 
         if (job.Fixture is null)
@@ -112,10 +118,13 @@ public static class CamJobInfo
     public const string FixtureMissing = "Fixação não definida";
 
     /// <summary>
-    /// Se a pendência impede gerar e enviar o G-code. Só a fixação não definida é aviso (decisão do Igor, 02/11); o resto trava,
-    /// como antes.
+    /// Se a pendência impede gerar e enviar o G-code. A fixação não definida é aviso (decisão do Igor, 02/11), e o bruto incompleto
+    /// também (adendo UX-04f, 08/11: o bruto não entra no G-code); o resto trava, como antes.
     /// </summary>
-    public static bool Blocks(string pending) => pending != FixtureMissing;
+    public static bool Blocks(string pending) => pending != FixtureMissing && !pending.StartsWith(CamJobStock.IncompletePrefix, StringComparison.Ordinal);
+
+    /// <summary>Pendência de bruto nenhum (trava, como antes do UX-04f).</summary>
+    public const string StockMissing = "Bruto não definido";
 
     /// <summary>Linha "Fixação" da árvore: "Fixação: não definida" ou "Fixação: Morsa · descrição".</summary>
     public static string FixtureTitle(JobFixture? f) => f is null
