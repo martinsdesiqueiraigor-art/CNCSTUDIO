@@ -111,7 +111,17 @@ public partial class JobView : UserControl
             if (!CheckFresh() && _build.Ok && _build.Program.Length > 0)
             {
                 EnsureToolsInBank();
-                OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
+                // CAM-13: Siemens vai com .mpf (o Code abre como Siemens) e o pacote fica na memória da aba (nada no G-code)
+                string name = CamHandoffCode.ProgramFileName(FileBase(), _job.Dialect);
+                if (OpenWithPackage is { } open)
+                {
+                    open(_build.Program, name, CamHandoff.Create(_job, _build.Program, MachineSource?.Invoke()));
+                }
+                else
+                {
+                    OpenInEditor?.Invoke(_build.Program, name);
+                }
+
                 if (_job.StockShape?.Kind == StockShapeKind.Step)
                 {
                     // o bruto não entra no G-code: o programa vai igual, mas o simulador do Code não mostra este bruto
@@ -262,6 +272,9 @@ public partial class JobView : UserControl
     public Func<string, string, Task>? SaveJobFile { get; set; }
 
     public Action<string, string>? OpenInEditor { get; set; }
+
+    /// <summary>CAM-13: abre o programa no Code com o pacote do CAM na memória da aba (texto, nome, pacote).</summary>
+    public Action<string, string, CamHandoff>? OpenWithPackage { get; set; }
 
     public Func<string, Task>? CopyText { get; set; }
 

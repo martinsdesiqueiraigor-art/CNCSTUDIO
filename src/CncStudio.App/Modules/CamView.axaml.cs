@@ -71,6 +71,13 @@ public partial class CamView : UserControl
 
     private Action<string, string>? _openInEditor;
 
+    /// <summary>CAM-13: o Trabalho fresa envia o programa com o pacote do CAM (só a fresa; o torno segue sem pacote).</summary>
+    public Action<string, string, CncStudio.Core.Cam.CamHandoff>? OpenWithPackage
+    {
+        get => JobPanel.OpenWithPackage;
+        set => JobPanel.OpenWithPackage = value;
+    }
+
     public Func<string, Task>? CopyText
     {
         get => _copyText;
