@@ -91,17 +91,16 @@ public class CamJobProgramTests
     [InlineData(0)]
     [InlineData(-5)]
     [InlineData(10000)]
-    public void Fanuc_recusa_numero_fora_de_1_a_9999(int number)
+    public void Numero_fora_da_faixa_vindo_do_arquivo_gera_com_aviso(int number)
     {
         CamJob job = Empty();
         job.ProgramNumber = number;
         job.WorkOffset = 54;
         JobBuild build = CamJobBuilder.Build(job, null);
-        Assert.False(build.Ok);
-        string why = Assert.Single(build.Errors);
-        Assert.Contains("de 1 a 9999", why);
-        Assert.True(CamJobProgram.IsProgramProblem(why));
-        Assert.Contains(why, CamJobInfo.Pending(job, build));
+        Assert.True(build.Ok, string.Join("; ", build.Errors));
+        Assert.Contains(build.Warnings, w => w.Contains("veio do arquivo") && w.Contains("1 a 9999"));
+        Assert.Empty(CamJobProgram.Problems(job));
+        Assert.DoesNotContain(CamJobInfo.Pending(job, build), CamJobProgram.IsProgramProblem);
     }
 
     [Theory]
@@ -143,17 +142,44 @@ public class CamJobProgramTests
     {
         Assert.Equal([54, 55, 56, 57, 58, 59], CamJobProgram.WorkOffsets(CamDialect.Fanuc));
         Assert.Equal([54, 55, 56, 57], CamJobProgram.WorkOffsets(CamDialect.Siemens));
+        Assert.NotNull(CamJobProgram.WorkOffsetError(58, CamDialect.Siemens));
+        Assert.Null(CamJobProgram.WorkOffsetError(58, CamDialect.Fanuc));
+        Assert.NotNull(CamJobProgram.WorkOffsetError(60, CamDialect.Fanuc));
 
+        // G58 no Siemens só chega pelo arquivo: gera, com aviso
         CamJob job = Empty(CamDialect.Siemens);
         job.WorkOffset = 58;
         JobBuild build = CamJobBuilder.Build(job, null);
-        Assert.False(build.Ok);
-        Assert.Contains("G58 não serve no Siemens", Assert.Single(build.Errors));
+        Assert.True(build.Ok, string.Join("; ", build.Errors));
+        Assert.Contains("\nG58\n", build.Program);
+        Assert.Contains(build.Warnings, w => w.StartsWith("G58 veio do arquivo", StringComparison.Ordinal));
+    }
 
-        job.Dialect = CamDialect.Fanuc;
-        job.ProgramNumber = 10;
-        Assert.True(CamJobBuilder.Build(job, null).Ok);
-        Assert.NotNull(CamJobProgram.WorkOffsetError(60, CamDialect.Fanuc));
+    [Fact]
+    public void Arquivo_Siemens_com_G58_gera_o_mesmo_texto_de_antes()
+    {
+        string json = File.ReadAllText(RefPath("fresa-bloco-siemens.casillas-job")).Replace("\r\n", "\n");
+        string expected = File.ReadAllText(RefPath("fresa-bloco-siemens.nc")).Replace("\r\n", "\n").Replace("\nG54\n", "\nG58\n");
+        CamJob job = CamJobJson.FromJson(json.Replace("\"workOffset\": 54", "\"workOffset\": 58")).Job!;
+        JobBuild build = CamJobBuilder.Build(job, null);
+        Assert.True(build.Ok, string.Join("; ", build.Errors));
+        Assert.Equal(expected.TrimEnd(), build.Program.TrimEnd());
+        Assert.Single(build.Warnings, w => w.Contains("veio do arquivo"));
+    }
+
+    [Theory]
+    [InlineData(0, "O0000 ")]
+    [InlineData(10000, "O10000 ")]
+    public void Arquivo_com_numero_fora_da_faixa_gera_o_mesmo_texto_de_antes(int number, string line)
+    {
+        string json = File.ReadAllText(RefPath("fresa-sem-bruto.casillas-job")).Replace("\r\n", "\n");
+        string expected = File.ReadAllText(RefPath("fresa-sem-bruto.nc")).Replace("\r\n", "\n").Replace("O1001 ", line);
+        JobLoadResult loaded = CamJobJson.FromJson(json.Replace("\"programNumber\": 1001", "\"programNumber\": " + number));
+        Assert.True(loaded.Ok, loaded.Error);
+        JobBuild build = CamJobBuilder.Build(loaded.Job!, null);
+        Assert.True(build.Ok, string.Join("; ", build.Errors));
+        Assert.Equal(expected.TrimEnd(), build.Program.TrimEnd());
+        Assert.Contains(build.Warnings, w => w.Contains($"Programa nº {number} veio do arquivo"));
     }
 
     [Fact]

@@ -5,7 +5,8 @@ namespace CncStudio.Core.Cam;
 /// <summary>
 /// Programa nº e G5x do Trabalho de fresa (UX-04g PR A). Trabalho novo nasce com os dois vazios (null): nada suposto. Sem valor, o
 /// trabalho fica Incompleto e Gerar e Enviar travam; Salvar nunca trava. Arquivo antigo traz os dois e gera igual.
-/// O Siemens não escreve o número no programa (sai só o nome do trabalho), então nele o número não é exigido.
+/// O Siemens não escreve o número no programa (sai só o nome do trabalho), então nele o número não é exigido. A faixa (1 a 9999) e a lista
+/// do G5x valem para o que se digita ou escolhe na tela; valor de arquivo antigo fora delas gera como antes, com aviso.
 /// </summary>
 public static class CamJobProgram
 {
@@ -70,40 +71,49 @@ public static class CamJobProgram
     }
 
     /// <summary>
-    /// O que falta ou não vale no número e no G5x, na ordem da tela (vazio = pronto). Cada linha trava Gerar e Enviar; nenhuma trava
-    /// Salvar. Siemens: o número não conta.
+    /// O que falta no número (Fanuc) e no G5x, na ordem da tela (vazio = pronto). Cada linha trava Gerar e Enviar; nenhuma trava Salvar.
+    /// Só o vazio trava: um valor que existe veio do arquivo ou foi digitado/escolhido dentro da faixa (a tela não aceita outro), e
+    /// valor de arquivo antigo fora da faixa gera como antes, com aviso (<see cref="Warnings"/>; decisão do Igor, adendo de 08/11).
     /// </summary>
     public static IReadOnlyList<string> Problems(CamJob job)
     {
         var list = new List<string>();
-        if (NeedsProgramNumber(job.Dialect))
+        if (NeedsProgramNumber(job.Dialect) && job.ProgramNumber is null)
         {
-            if (job.ProgramNumber is not { } n)
-            {
-                list.Add(ProgramNumberMissing);
-            }
-            else if (ProgramNumberError(n) is { } bad)
-            {
-                list.Add(bad);
-            }
+            list.Add(ProgramNumberMissing);
         }
 
-        if (job.WorkOffset is not { } g)
+        if (job.WorkOffset is null)
         {
             list.Add(WorkOffsetMissing);
         }
-        else if (WorkOffsetError(g, job.Dialect) is { } bad)
+
+        return list;
+    }
+
+    /// <summary>
+    /// Avisos (não travam) de valores que vieram do arquivo fora do que a tela oferece hoje: número fora de 1 a 9999 (Fanuc) ou G5x fora
+    /// da lista do controle (ex.: G58 no Siemens). O programa sai como antes; o usuário confere no controle.
+    /// </summary>
+    public static IReadOnlyList<string> Warnings(CamJob job)
+    {
+        var list = new List<string>();
+        if (NeedsProgramNumber(job.Dialect) && job.ProgramNumber is { } n && ProgramNumberError(n) is not null)
         {
-            list.Add(bad);
+            list.Add($"Programa nº {n} veio do arquivo e fica fora de {MinProgramNumber} a {MaxProgramNumber}: o programa sai como antes; confira no controle.");
+        }
+
+        if (job.WorkOffset is { } g && WorkOffsetError(g, job.Dialect) is not null)
+        {
+            IReadOnlyList<int> offsets = WorkOffsets(job.Dialect);
+            list.Add($"G{g} veio do arquivo e não está na lista do {(job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")} (G{offsets[0]} a G{offsets[^1]}): o programa sai como antes; confira no controle.");
         }
 
         return list;
     }
 
     /// <summary>A pendência é do número ou do G5x (a barra leva ao cartão da Fixação)?</summary>
-    public static bool IsProgramProblem(string pending) =>
-        pending == ProgramNumberMissing || pending == WorkOffsetMissing
-        || pending.StartsWith("Programa nº ", StringComparison.Ordinal) || (pending.StartsWith('G') && pending.Contains(" não serve no ", StringComparison.Ordinal));
+    public static bool IsProgramProblem(string pending) => pending == ProgramNumberMissing || pending == WorkOffsetMissing;
 
     /// <summary>Precisa da versão 3 do arquivo: o número ou o G5x está vazio (o campo não vai para o arquivo).</summary>
     public static bool NeedsVersion3(CamJob job) => job.ProgramNumber is null || job.WorkOffset is null;

@@ -327,6 +327,8 @@ public static class CamJobBuilder
 
         var warnings = new List<string>(CamPost.Check(ops, machine));
         warnings.AddRange(ops.SelectMany(o => o.Warnings));
+        // valor de arquivo antigo fora da faixa ou da lista: gera como antes, só avisa
+        warnings.AddRange(CamJobProgram.Warnings(job));
         // Siemens não escreve o número (sai só o nome): o valor passado não aparece no programa
         int number = job.ProgramNumber ?? 0;
         string program = CamPost.Generate(ops, new PostOptions(job.Dialect, job.Name, number, job.WorkOffset!.Value, job.Coolant, machine));
