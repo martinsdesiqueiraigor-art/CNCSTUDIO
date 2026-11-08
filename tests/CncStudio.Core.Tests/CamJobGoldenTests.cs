@@ -13,7 +13,9 @@ public class CamJobGoldenTests
 
     private static string Read(string file) => File.ReadAllText(Path.Combine(Dir, file)).Replace("\r\n", "\n");
 
-    public static TheoryData<string> MillJobs => new() { "fresa-sem-bruto", "fresa-bloco-siemens", "fresa-fixacao", "fresa-3mais2", "fresa-texto-cilindro" };
+    public static TheoryData<string> MillJobs => new() { "fresa-sem-bruto", "fresa-bloco-siemens", "fresa-fixacao", "fresa-3mais2", "fresa-texto-cilindro",
+        // com zero da peça (UX-04g PR B): o teste mestre cobre os 8 trabalhos de referência (7 de fresa e o torno)
+        "fresa-zero-centro-base", "fresa-zero-g55-canto" };
 
     [Theory]
     [MemberData(nameof(MillJobs))]
