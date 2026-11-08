@@ -122,7 +122,7 @@ public class RotaryZeroAtEndTests
     [Fact]
     public void Trabalho_usa_o_perfil_da_maquina_para_o_retorno()
     {
-        var job = new CamJob { Name = "PECA", Dialect = CamDialect.Fanuc, Stock = new JobStock(-5, -5, 70, 50, 20) };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Name = "PECA", Dialect = CamDialect.Fanuc, Stock = new JobStock(-5, -5, 70, 50, 20) };
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Contour, new CamTool(1, 10, 3000, 500, 200), new CamLevels(50, 2, 0, -6, 3))
         {

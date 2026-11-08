@@ -20,7 +20,7 @@ public class MachineCardTests
     [Fact]
     public void Controle_diferente_avisa_e_nao_bloqueia_nem_troca_o_do_trabalho()
     {
-        var job = new CamJob { Name = "AVISO", Dialect = CamDialect.Fanuc };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Name = "AVISO", Dialect = CamDialect.Fanuc };
         job.Contours.Add(Contour.Rectangle(0, 0, 40, 30));
         job.SetStock(new JobStock(0, 0, 40, 30, 10), null);
         job.Fixture = new JobFixture("vise", "");

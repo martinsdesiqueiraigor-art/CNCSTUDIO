@@ -92,6 +92,9 @@ public static class CamJobInfo
             list.Add(FixtureMissing);
         }
 
+        // UX-04g: Programa nº (Fanuc) e G5x vazios ou inválidos travam Gerar e Enviar (não travam Salvar)
+        list.AddRange(CamJobProgram.Problems(job));
+
         if (job.Operations.Count == 0)
         {
             list.Add("Nenhuma operação");
@@ -373,8 +376,11 @@ public static class CamJobInfo
             1 => "topo Z" + N(tops[0]),
             _ => "topo Z varia por operação",
         };
-        return $"Origem G{job.WorkOffset}: X0 Y0 do desenho, {top}";
+        return $"Origem {WorkOffsetName(job)}: X0 Y0 do desenho, {top}";
     }
+
+    /// <summary>Nome do zero de peça do trabalho ("G54") ou "G5x (falta)" quando está vazio (UX-04g).</summary>
+    public static string WorkOffsetName(CamJob job) => job.WorkOffset is { } g ? "G" + g.ToString(CultureInfo.InvariantCulture) : "G5x (falta)";
 
     /// <summary>A origem na máquina nunca é conferida pelo app: fica sempre "não verificada".</summary>
     public static (string Kind, string Text) OriginState() => ("pending", "não verificada");

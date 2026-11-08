@@ -27,14 +27,23 @@ public static class CamJobJson
         var root = new JsonObject
         {
             ["format"] = Format,
-            // versão 1 enquanto nada do UX-04f é usado: o arquivo sai com o mesmo texto de antes
-            ["version"] = CamJobStock.NeedsVersion2(job) ? 2 : 1,
+            // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
+            ["version"] = CamJobProgram.NeedsVersion3(job) ? 3 : CamJobStock.NeedsVersion2(job) ? 2 : 1,
             ["name"] = job.Name,
             ["dialect"] = job.Dialect.ToString(),
-            ["programNumber"] = job.ProgramNumber,
-            ["workOffset"] = job.WorkOffset,
-            ["coolant"] = job.Coolant,
         };
+        // UX-04g (versão 3): Programa nº e G5x vazios não vão para o arquivo (nada suposto); preenchidos, ficam no lugar de sempre
+        if (job.ProgramNumber is { } number)
+        {
+            root["programNumber"] = number;
+        }
+
+        if (job.WorkOffset is { } offset)
+        {
+            root["workOffset"] = offset;
+        }
+
+        root["coolant"] = job.Coolant;
         if (job.Stock is { } st)
         {
             root["stock"] = new JsonObject { ["x"] = st.X, ["y"] = st.Y, ["width"] = st.Width, ["length"] = st.Length, ["thickness"] = st.Thickness };
@@ -370,8 +379,9 @@ public static class CamJobJson
             {
                 Name = Str(root, "name"),
                 Dialect = Enum<CamDialect>(Str(root, "dialect"), "comando"),
-                ProgramNumber = (int)Num(root, "programNumber"),
-                WorkOffset = (int)Num(root, "workOffset"),
+                // até a versão 2 os dois são obrigatórios no arquivo; na 3 podem faltar (vazios)
+                ProgramNumber = OptionalInt(root, "programNumber", version < 3),
+                WorkOffset = OptionalInt(root, "workOffset", version < 3),
                 Coolant = Bool(root, "coolant"),
             };
             if (root["stock"] is JsonObject st)
@@ -570,6 +580,17 @@ public static class CamJobJson
 
     internal static double Num(JsonObject o, string key) =>
         o[key] is JsonValue v && v.TryGetValue(out double d) && double.IsFinite(d) ? d : throw new FormatException($"Falta o número \"{key}\" no arquivo.");
+
+    /// <summary>Número do arquivo, lido como antes (parte inteira); ausente = null só quando <paramref name="required"/> é false.</summary>
+    private static int? OptionalInt(JsonObject o, string key, bool required)
+    {
+        if (o[key] is null && !required)
+        {
+            return null;
+        }
+
+        return (int)Num(o, key);
+    }
 
     internal static bool Bool(JsonObject o, string key) =>
         o[key] is JsonValue v && v.TryGetValue(out bool b) ? b : throw new FormatException($"Falta o valor sim/não \"{key}\" no arquivo.");

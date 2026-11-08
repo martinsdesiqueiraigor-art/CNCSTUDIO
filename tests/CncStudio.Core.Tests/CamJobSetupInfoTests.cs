@@ -55,7 +55,7 @@ public class CamJobSetupInfoTests
     [Fact]
     public void OriginTitle_mostra_o_topo_das_operacoes_ligadas()
     {
-        var job = new CamJob();
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54 };
         Assert.Equal("Origem G54: X0 Y0 do desenho, topo Z0", CamJobInfo.OriginTitle(job));
 
         job.Operations.Add(CamJobInfo.NewOperation(JobOpKind.Pocket, ContourSide.Outside, 0));
@@ -96,7 +96,7 @@ public class CamJobSetupInfoTests
     [Fact]
     public void Rotacao_acima_do_fuso_vira_pendencia_e_aviso_na_arvore()
     {
-        var job = new CamJob { Stock = new JobStock(0, 0, 100, 60, 10), Fixture = new JobFixture("morsa") };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Stock = new JobStock(0, 0, 100, 60, 10), Fixture = new JobFixture("morsa") };
         job.Contours.Add(Contour.FromPoints([new(0, 0), new(100, 0), new(100, 60), new(0, 60)]));
         CamOperationSpec op = CamJobInfo.NewOperation(JobOpKind.Contour, ContourSide.Outside, 0);
         CamOperationSpec fast = op with { Tool = op.Tool with { SpindleRpm = 9000 } };
@@ -122,7 +122,7 @@ public class CamJobSetupInfoTests
     public void SpindleWarning_nao_muda_o_programa()
     {
         // Só conferência: a geração usa a rotação digitada, com ou sem perfil de máquina
-        var job = new CamJob();
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54 };
         job.Contours.Add(Contour.FromPoints([new(0, 0), new(100, 0), new(100, 60), new(0, 60)]));
         CamOperationSpec op = CamJobInfo.NewOperation(JobOpKind.Contour, ContourSide.Outside, 0);
         job.Operations.Add(op with { Tool = op.Tool with { SpindleRpm = 9000 } });

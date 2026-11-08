@@ -122,17 +122,20 @@ public sealed class CamJob
 {
     /// <summary>
     /// Versão mais nova que o app lê. Um arquivo só sai na versão 2 quando usa algo do UX-04f (formato novo do bruto ou altura da
-    /// peça); sem isso continua na versão 1, com o mesmo texto de antes (<see cref="CamJobStock.NeedsVersion2"/>).
+    /// peça) e na versão 3 quando o Programa nº ou o G5x está vazio (UX-04g); sem isso continua na versão 1, com o mesmo texto de antes
+    /// (<see cref="CamJobStock.NeedsVersion2"/>, <see cref="CamJobProgram.NeedsVersion3"/>).
     /// </summary>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     public string Name { get; set; } = "TRABALHO";
 
     public CamDialect Dialect { get; set; } = CamDialect.Fanuc;
 
-    public int ProgramNumber { get; set; } = 1001;
+    /// <summary>Número do programa (Fanuc O1 a O9999). Null = vazio: nada suposto, o trabalho fica Incompleto (<see cref="CamJobProgram"/>).</summary>
+    public int? ProgramNumber { get; set; }
 
-    public int WorkOffset { get; set; } = 54;
+    /// <summary>Zero de peça (54 = G54). Null = vazio: nada suposto, o trabalho fica Incompleto (<see cref="CamJobProgram"/>).</summary>
+    public int? WorkOffset { get; set; }
 
     public bool Coolant { get; set; } = true;
 
@@ -315,9 +318,20 @@ public static class CamJobBuilder
             return new JobBuild("", ops, items, errors, []);
         }
 
+        // Programa nº e G5x: só o digitado (UX-04g). Faltando, as operações continuam geradas (a árvore mostra o estado), mas não há programa
+        IReadOnlyList<string> program0 = CamJobProgram.Problems(job);
+        if (program0.Count > 0)
+        {
+            return new JobBuild("", ops, items, program0, []);
+        }
+
         var warnings = new List<string>(CamPost.Check(ops, machine));
         warnings.AddRange(ops.SelectMany(o => o.Warnings));
-        string program = CamPost.Generate(ops, new PostOptions(job.Dialect, job.Name, job.ProgramNumber, job.WorkOffset, job.Coolant, machine));
+        // valor de arquivo antigo fora da faixa ou da lista: gera como antes, só avisa
+        warnings.AddRange(CamJobProgram.Warnings(job));
+        // Siemens não escreve o número (sai só o nome): o valor passado não aparece no programa
+        int number = job.ProgramNumber ?? 0;
+        string program = CamPost.Generate(ops, new PostOptions(job.Dialect, job.Name, number, job.WorkOffset!.Value, job.Coolant, machine));
         return new JobBuild(program, ops, items, errors, warnings);
     }
 

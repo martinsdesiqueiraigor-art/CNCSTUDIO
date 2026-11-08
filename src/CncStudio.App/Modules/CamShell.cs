@@ -175,9 +175,10 @@ public static class CamShell
 
     /// <summary>
     /// Campo com a marca de vazio ou inválido (regra do CAM-12; tracejado laranja do UX-04e, comum à fresa e ao torno desde o UX-04f).
-    /// Devolve o campo para pôr na tela e a função que marca: um motivo liga o tracejado e a dica; null tira os dois.
+    /// Devolve o campo para pôr na tela e a função que marca: um motivo liga o tracejado e a dica; null tira os dois. Serve a caixa de
+    /// texto e a lista (o G5x do UX-04g).
     /// </summary>
-    public static (Grid Field, Action<string?> Mark) DashedField(TextBox box)
+    public static (Grid Field, Action<string?> Mark) DashedField(Control box)
     {
         var dash = new Avalonia.Controls.Shapes.Rectangle
         {
