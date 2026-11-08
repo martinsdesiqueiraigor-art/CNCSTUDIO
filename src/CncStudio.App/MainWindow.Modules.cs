@@ -69,6 +69,21 @@ public partial class MainWindow
         };
         Cam.ToolsSource = () => _settings.Tools;
         Cam.SaveTools = () => _settings.Save();
+        // larguras das divisórias do Trabalho fresa (UX-04c): preferência local do app
+        Cam.JobPanes = (_settings.CamTreeWidth, _settings.CamPropsWidth);
+        Cam.SaveJobPanes = (tree, props) =>
+        {
+            _settings.CamTreeWidth = tree;
+            _settings.CamPropsWidth = props;
+            _settings.Save();
+        };
+        // chips do 3D do Trabalho fresa (UX-04d): preferência local do app, fora do .casillas-job
+        Cam.JobViewOptions = _settings.CamView3D;
+        Cam.SaveJobViewOptions = text =>
+        {
+            _settings.CamView3D = text;
+            _settings.Save();
+        };
         Cam.MachineProfilesSource = () => _settings.MachineProfiles;
         Cam.ActiveMachineSource = () => _settings.ActiveMachineProfile;
         Cam.SetActiveMachine = name =>

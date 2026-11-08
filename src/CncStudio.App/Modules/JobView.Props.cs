@@ -44,6 +44,12 @@ public partial class JobView
             return;
         }
 
+        if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "zero" })
+        {
+            ZeroProps();
+            return;
+        }
+
         if (SelectedOp() is not { } i || i >= _job.Operations.Count)
         {
             PropsPanel.Children.Add(new TextBlock { Text = "Propriedades", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
@@ -94,8 +100,8 @@ public partial class JobView
         BankPicker(i);
         BankButtons(i);
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Fresa topo Z4", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
-        Num(i, "Ferramenta (T)", "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } });
-        Num(i, "Diâmetro", "mm", s.Tool.Diameter, (x, v) => x with { Tool = x.Tool with { Diameter = v } });
+        Num(i, CamJobInfo.ToolNumberField, "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } }, check: CamJobInfo.ToolNumberError);
+        Num(i, CamJobInfo.DiameterField, "mm", s.Tool.Diameter, (x, v) => x with { Tool = x.Tool with { Diameter = v } });
         Section("Condição de corte");
         Num(i, "Rotação", "rpm", s.Tool.SpindleRpm, (x, v) => x with { Tool = x.Tool with { SpindleRpm = v } }, rebuild: true);
         if (CamJobInfo.SpindleWarning(s.Tool.SpindleRpm, MachineSource?.Invoke()?.MaxSpindleRpm) is { } spindle)
@@ -121,17 +127,17 @@ public partial class JobView
         {
             case JobOpKind.Contour when s.ContourParams is { } c:
                 Section("Contorno");
-                Pick(i, "Lado", ["Por fora", "Por dentro", "Sobre a linha"], (int)c.Side, (x, n) => x with { ContourParams = c with { Side = (ContourSide)n } }, rebuild: true);
-                Check(i, "Concordante (climb)", c.Climb, (x, b) => x with { ContourParams = c with { Climb = b } });
-                Check(i, "Compensação no controle (G41/G42)", c.ControllerComp, (x, b) => x with { ContourParams = c with { ControllerComp = b } });
-                Num(i, "Sobremetal", "mm", c.Allowance, (x, v) => x with { ContourParams = c with { Allowance = v } });
-                Num(i, "Raio de entrada", "mm", c.LeadRadius, (x, v) => x with { ContourParams = c with { LeadRadius = v } });
+                Pick(i, "Lado", ["Por fora", "Por dentro", "Sobre a linha"], (int)c.Side, (x, n) => x with { ContourParams = x.ContourParams! with { Side = (ContourSide)n } }, rebuild: true);
+                Check(i, "Concordante (climb)", c.Climb, (x, b) => x with { ContourParams = x.ContourParams! with { Climb = b } });
+                Check(i, "Compensação no controle (G41/G42)", c.ControllerComp, (x, b) => x with { ContourParams = x.ContourParams! with { ControllerComp = b } });
+                Num(i, "Sobremetal", "mm", c.Allowance, (x, v) => x with { ContourParams = x.ContourParams! with { Allowance = v } });
+                Num(i, "Raio de entrada", "mm", c.LeadRadius, (x, v) => x with { ContourParams = x.ContourParams! with { LeadRadius = v } });
                 break;
             case JobOpKind.Pocket when s.PocketParams is { } p:
                 Section("Bolsão");
-                Num(i, "Passo lateral", "% Ø", p.StepOverPercent, (x, v) => x with { PocketParams = p with { StepOverPercent = v } });
-                Num(i, "Sobremetal de acabamento", "mm", p.FinishAllowance, (x, v) => x with { PocketParams = p with { FinishAllowance = v } });
-                Num(i, "Raio de entrada", "mm", p.LeadRadius, (x, v) => x with { PocketParams = p with { LeadRadius = v } });
+                Num(i, "Passo lateral", "% Ø", p.StepOverPercent, (x, v) => x with { PocketParams = x.PocketParams! with { StepOverPercent = v } });
+                Num(i, "Sobremetal de acabamento", "mm", p.FinishAllowance, (x, v) => x with { PocketParams = x.PocketParams! with { FinishAllowance = v } });
+                Num(i, "Raio de entrada", "mm", p.LeadRadius, (x, v) => x with { PocketParams = x.PocketParams! with { LeadRadius = v } });
                 Check(i, "Contornar ilhas (contornos do desenho dentro deste)", s.Islands, (x, v) => x with { Islands = v });
                 break;
             case JobOpKind.Facing:
@@ -140,35 +146,35 @@ public partial class JobView
                 break;
             case JobOpKind.Drilling when s.Drill is { } d:
                 Section("Furação");
-                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco"], (int)d.Cycle, (x, n) => x with { Drill = d with { Cycle = (DrillCycleKind)n } });
-                Num(i, "Bicada (Q)", "mm", d.Peck, (x, v) => x with { Drill = d with { Peck = v } });
-                Num(i, "Pausa", "s", d.DwellSeconds, (x, v) => x with { Drill = d with { DwellSeconds = v } });
+                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco"], (int)d.Cycle, (x, n) => x with { Drill = x.Drill! with { Cycle = (DrillCycleKind)n } }, rebuild: true);
+                Num(i, CamJobInfo.PeckField, "mm", d.Peck, (x, v) => x with { Drill = x.Drill! with { Peck = v } });
+                Num(i, CamJobInfo.DwellField, "s", d.DwellSeconds, (x, v) => x with { Drill = x.Drill! with { DwellSeconds = v } });
                 break;
             case JobOpKind.WrapText when s.Wrap is { } w:
                 Section("Texto no cilindro (4º eixo contínuo)");
-                Text(i, "Texto", w.Text, "", (x, v) => x with { Wrap = w with { Text = v } });
-                Num(i, "Altura das letras", "mm", w.LetterHeight, (x, v) => x with { Wrap = w with { LetterHeight = v } });
-                Pick(i, "Eixo rotativo", ["A (gira em torno de X)", "B (gira em torno de Y)"], w.Axis == "B" ? 1 : 0, (x, n) => x with { Wrap = w with { Axis = n == 1 ? "B" : "A" } });
-                Num(i, "Diâmetro da peça", "mm", w.Setup.Diameter, (x, v) => x with { Wrap = w with { Setup = w.Setup with { Diameter = v } } });
-                Num(i, "Início ao longo do eixo", "mm", w.Setup.StartAxial, (x, v) => x with { Wrap = w with { Setup = w.Setup with { StartAxial = v } } });
-                Num(i, "Ângulo inicial", "°", w.Setup.StartAngle, (x, v) => x with { Wrap = w with { Setup = w.Setup with { StartAngle = v } } });
-                Num(i, "Profundidade", "mm", w.Setup.Depth, (x, v) => x with { Wrap = w with { Setup = w.Setup with { Depth = v } } });
-                Num(i, "Passe em profundidade", "mm", w.Setup.PassDepth, (x, v) => x with { Wrap = w with { Setup = w.Setup with { PassDepth = v } } });
-                Num(i, "Folga acima da peça", "mm", w.Setup.Clearance, (x, v) => x with { Wrap = w with { Setup = w.Setup with { Clearance = v } } });
-                Num(i, "Avanço de mergulho", "mm/min", w.Setup.PlungeFeed, (x, v) => x with { Wrap = w with { Setup = w.Setup with { PlungeFeed = v } } });
+                Text(i, "Texto", w.Text, "", (x, v) => x with { Wrap = x.Wrap! with { Text = v } });
+                Num(i, "Altura das letras", "mm", w.LetterHeight, (x, v) => x with { Wrap = x.Wrap! with { LetterHeight = v } });
+                Pick(i, "Eixo rotativo", ["A (gira em torno de X)", "B (gira em torno de Y)"], w.Axis == "B" ? 1 : 0, (x, n) => x with { Wrap = x.Wrap! with { Axis = n == 1 ? "B" : "A" } });
+                Num(i, "Diâmetro da peça", "mm", w.Setup.Diameter, (x, v) => x with { Wrap = x.Wrap! with { Setup = x.Wrap!.Setup with { Diameter = v } } });
+                Num(i, "Início ao longo do eixo", "mm", w.Setup.StartAxial, (x, v) => x with { Wrap = x.Wrap! with { Setup = x.Wrap!.Setup with { StartAxial = v } } });
+                Num(i, "Ângulo inicial", "°", w.Setup.StartAngle, (x, v) => x with { Wrap = x.Wrap! with { Setup = x.Wrap!.Setup with { StartAngle = v } } });
+                Num(i, "Profundidade", "mm", w.Setup.Depth, (x, v) => x with { Wrap = x.Wrap! with { Setup = x.Wrap!.Setup with { Depth = v } } });
+                Num(i, "Passe em profundidade", "mm", w.Setup.PassDepth, (x, v) => x with { Wrap = x.Wrap! with { Setup = x.Wrap!.Setup with { PassDepth = v } } });
+                Num(i, "Folga acima da peça", "mm", w.Setup.Clearance, (x, v) => x with { Wrap = x.Wrap! with { Setup = x.Wrap!.Setup with { Clearance = v } } });
+                Num(i, "Avanço de mergulho", "mm/min", w.Setup.PlungeFeed, (x, v) => x with { Wrap = x.Wrap! with { Setup = x.Wrap!.Setup with { PlungeFeed = v } } });
                 break;
         }
 
         if (s.Kind != JobOpKind.WrapText)
         {
             Section("4º eixo e 3+2");
-            Check(i, "Face girada (perfil da máquina)", s.Face is not null, (x, b) => x with { Face = b ? new RotaryFaceSpec("A", 90, 25) : null }, rebuild: true);
+            Check(i, "Face girada (perfil da máquina)", s.Face is not null, (x, b) => WithoutFaceMissing(x) with { Face = b ? new RotaryFaceSpec("A", 90, 25) : null }, rebuild: true);
             MachineProfile? machine = MachineSource?.Invoke();
             bool tableTable = machine?.Configuration == MachineConfiguration.FiveAxisTableTable;
             if (s.Face is { Axis2: not null } || (s.Face is not null && tableTable))
             {
                 // 3+2 só se oferece com perfil de mesa dupla; uma face 3+2 já salva aparece sempre (o erro do perfil vem no percurso)
-                Check(i, "3+2: usar os dois eixos da mesa", s.Face?.Axis2 is not null, (x, b) => x with
+                Check(i, "3+2: usar os dois eixos da mesa", s.Face?.Axis2 is not null, (x, b) => WithoutFaceMissing(x) with
                 {
                     Face = b && machine is { Axes.Count: 2 } m
                         ? x.Face! with { Axis = m.Axes[0].Letter, Axis2 = m.Axes[1].Letter, Angle2 = 0 }
@@ -176,20 +182,21 @@ public partial class JobView
                 }, rebuild: true);
             }
 
+            IReadOnlyList<string> faceFields = CamJobInfo.FaceFields(s.Face);
             if (s.Face is { Axis2: { } axis2 } t)
             {
                 PropsPanel.Children.Add(new TextBlock { Text = $"Basculante {t.Axis} carrega o giratório {axis2} (ordem do perfil da máquina).", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
-                Num(i, $"Ângulo do basculante ({t.Axis})", "°", t.Angle, (x, v) => x with { Face = t with { Angle = v } });
-                Num(i, $"Ângulo do giratório ({axis2})", "°", t.Angle2, (x, v) => x with { Face = t with { Angle2 = v } });
-                Num(i, $"Do centro do eixo {t.Axis} até a face", "mm", t.AxisToFace, (x, v) => x with { Face = t with { AxisToFace = v } });
+                Num(i, faceFields[0], "°", t.Angle, (x, v) => x with { Face = x.Face! with { Angle = v } });
+                Num(i, faceFields[1], "°", t.Angle2, (x, v) => x with { Face = x.Face! with { Angle2 = v } });
+                Num(i, faceFields[2], "mm", t.AxisToFace, (x, v) => x with { Face = x.Face! with { AxisToFace = v } });
                 PropsPanel.Children.Add(new TextBlock { Text = $"Desenhe a face de cima (Z 0 na face), como fica com os dois giros. O programa gira {axis2} e depois {t.Axis} na altura segura; os cursos vêm do perfil da máquina.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
                 PropsPanel.Children.Add(UiKit.StatusNote("⚠ " + RotaryIndexing.NotMachineVerified + " Colisão da mesa e da fixação nos giros não é verificada.", "pending"));
             }
             else if (s.Face is { } f)
             {
-                Pick(i, "Eixo", ["A", "B"], f.Axis == "B" ? 1 : 0, (x, n) => x with { Face = f with { Axis = n == 1 ? "B" : "A" } });
-                Num(i, "Ângulo da face", "°", f.Angle, (x, v) => x with { Face = f with { Angle = v } });
-                Num(i, "Do centro do eixo até a face", "mm", f.AxisToFace, (x, v) => x with { Face = f with { AxisToFace = v } });
+                Pick(i, "Eixo", ["A", "B"], f.Axis == "B" ? 1 : 0, (x, n) => x with { Face = x.Face! with { Axis = n == 1 ? "B" : "A" } });
+                Num(i, faceFields[0], "°", f.Angle, (x, v) => x with { Face = x.Face! with { Angle = v } });
+                Num(i, faceFields[1], "mm", f.AxisToFace, (x, v) => x with { Face = x.Face! with { AxisToFace = v } });
                 PropsPanel.Children.Add(new TextBlock { Text = "Desenhe a face de cima (Z 0 na face). Rode primeiro no ar e confira o sentido de A/B.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
             }
         }
@@ -234,24 +241,87 @@ public partial class JobView
         Refresh(op: i, props: rebuild);
     }
 
-    private void Num(int i, string label, string unit, double value, Func<CamOperationSpec, double, CamOperationSpec> apply, bool rebuild = false)
+    /// <summary>Tira da operação os campos vazios da face girada (a face foi ligada, desligada ou trocou de modo: os campos são outros).</summary>
+    private static CamOperationSpec WithoutFaceMissing(CamOperationSpec x)
     {
-        var box = new TextBox { Text = Fmt(value), MinHeight = 26 };
-        void Commit()
+        IReadOnlyList<string> face = CamJobInfo.FaceFields(x.Face);
+        return x with { MissingFields = x.MissingFields.Where(f => !face.Contains(f)).ToList() };
+    }
+
+    /// <summary>
+    /// Campo numérico da operação. Vazio ou inválido (texto, ou o que <paramref name="check"/> recusar) marca o campo na operação
+    /// (<see cref="CamJobInfo.SetMissing"/>): ela fica Incompleta, não gera e o número antigo não é usado nem mostrado (CAM-12).
+    /// Um valor válido grava e tira a marca.
+    /// </summary>
+    private void Num(int i, string label, string unit, double value, Func<CamOperationSpec, double, CamOperationSpec> apply, bool rebuild = false, Func<double, string?>? check = null)
+    {
+        CamOperationSpec? spec = i < _job.Operations.Count ? _job.Operations[i] : null;
+        bool missing = spec?.MissingFields.Contains(label) == true;
+        bool invalid = spec?.InvalidFields.Contains(label) == true;
+        var box = new TextBox { Text = missing || invalid ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
+        void Mark(string? why)
         {
-            double v = ParseNum(box.Text);
-            if (double.IsNaN(v))
+            if (why is null)
             {
-                box.Foreground = Avalonia.Media.Brushes.IndianRed;
-                Errors.Text = $"• Valor inválido em \"{label}\".";
+                box.ClearValue(TemplatedControl.ForegroundProperty);
+                box.ClearValue(TemplatedControl.BorderBrushProperty);
+                box.ClearValue(TemplatedControl.BorderThicknessProperty);
+                ToolTip.SetTip(box, null);
                 return;
             }
 
-            box.ClearValue(TemplatedControl.ForegroundProperty);
-            if (Math.Abs(v - value) > 1e-9)
+            box.Foreground = Avalonia.Media.Brushes.IndianRed;
+            box.BorderBrush = Avalonia.Media.Brushes.IndianRed;
+            box.BorderThickness = new Avalonia.Thickness(2);
+            ToolTip.SetTip(box, why);
+        }
+
+        // só fica vermelho o campo que a operação usa agora (ex.: Bicada vazia em G81 não conta)
+        bool Counts() => i < _job.Operations.Count && CamJobInfo.Counts(_job.Operations[i], label);
+        if ((missing || invalid) && Counts())
+        {
+            Mark(invalid ? CamJobInfo.InvalidMessage(label) + ". O valor antigo não é usado." : $"Falta {label}: digite um valor. O valor antigo não é usado.");
+        }
+
+        void Commit()
+        {
+            string typed = (box.Text ?? "").Trim();
+            double v = ParseNum(typed);
+            bool empty = typed.Length == 0;
+
+            // com regra própria (T), texto ou número fora da regra é "inválido"; nos outros campos, texto conta como vazio
+            bool bad = !empty && check is not null && (double.IsNaN(v) || check(v) is not null);
+            bool none = empty || (!bad && double.IsNaN(v));
+            if (none || bad)
             {
+                string why = bad ? CamJobInfo.InvalidMessage(label)
+                    : empty ? $"Falta {label}: digite um valor." : $"\"{typed}\" não é um número. Falta {label}.";
+                if (none != missing || bad != invalid)
+                {
+                    missing = none;
+                    invalid = bad;
+                    Edit(i, x => CamJobInfo.SetFieldState(x, label, none, bad), rebuild);
+                }
+
+                if (Counts())
+                {
+                    Mark(why);
+                    Errors.Text = "• " + why;
+                }
+                else
+                {
+                    Mark(null);
+                }
+
+                return;
+            }
+
+            Mark(null);
+            if (missing || invalid || Math.Abs(v - value) > 1e-9)
+            {
+                missing = invalid = false;
                 value = v;
-                Edit(i, x => apply(x, v), rebuild);
+                Edit(i, x => CamJobInfo.SetFieldState(apply(x, v), label, false, false), rebuild);
             }
         }
 
@@ -638,9 +708,17 @@ public partial class JobView
             }
 
             ToolEntry t = bank[combo.SelectedIndex];
-            Edit(i, x => x with
+            Edit(i, x =>
             {
-                Tool = new CamTool(t.Number, t.Diameter, t.SpindleRpm > 0 ? t.SpindleRpm : x.Tool.SpindleRpm, t.FeedXY > 0 ? t.FeedXY : x.Tool.FeedXY, t.FeedZ > 0 ? t.FeedZ : x.Tool.FeedZ, t.Description),
+                // o banco preenche T e Ø (e rotação e avanços quando tem): esses deixam de estar vazios; o resto segue como está
+                CamOperationSpec y = CamJobInfo.SetFieldState(CamJobInfo.SetFieldState(x, CamJobInfo.ToolNumberField, false, false), CamJobInfo.DiameterField, false, false);
+                y = t.SpindleRpm > 0 ? CamJobInfo.SetMissing(y, CamJobInfo.SpindleField, false) : y;
+                y = t.FeedXY > 0 ? CamJobInfo.SetMissing(CamJobInfo.SetMissing(y, "Avanço no plano", false), "Avanço na superfície", false) : y;
+                y = t.FeedZ > 0 ? CamJobInfo.SetMissing(y, "Avanço de descida", false) : y;
+                return y with
+                {
+                    Tool = new CamTool(t.Number, t.Diameter, t.SpindleRpm > 0 ? t.SpindleRpm : x.Tool.SpindleRpm, t.FeedXY > 0 ? t.FeedXY : x.Tool.FeedXY, t.FeedZ > 0 ? t.FeedZ : x.Tool.FeedZ, t.Description),
+                };
             }, rebuild: true);
         };
         PropsPanel.Children.Add(combo);

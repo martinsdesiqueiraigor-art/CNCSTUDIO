@@ -9,7 +9,7 @@ Editor e simulador de programas CNC (FANUC e Siemens, fresa e torno), com simula
 Faz parte da plataforma **Casillas CNC** (Code, Macro, Academy, Biblioteca CNC, Ferramentas e CAM).
 O nome interno do código continua `CncStudio` (pastas, namespaces e solução).
 
-> **Status (02/11/2026):** simulação 3D, Macro (geradores), Otimizador e Academy (módulos 1 e 2) na `main`; no desktop também o **CAM** (fresa, torno, 4º eixo, 3+2, Trabalho com pendências e aviso de "desatualizado"), o **Casillas Assist** (plano com revisão obrigatória) e o **CAM 3D** (STL, desbaste e varredura). 1311 testes. **Nada do CAM foi testado em máquina real**: simule e rode a primeira vez no ar.
+> **Status:** o estado atual do código fica em [docs/ESTADO.md](docs/ESTADO.md); não repetimos status nem contagem de testes aqui. **Nada do CAM foi testado em máquina real**: simule e rode a primeira vez no ar.
 > Onde paramos: [docs/ESTADO.md](docs/ESTADO.md). Guia para agentes: [CLAUDE.md](CLAUDE.md) e [AGENTS.md](AGENTS.md).
 > Plano e missões da plataforma ficam no repositório privado `casillas-plataforma`. Planos antigos: [docs/historico/](docs/historico/).
 
@@ -23,7 +23,7 @@ O nome interno do código continua `CncStudio` (pastas, namespaces e solução).
 | **Academy** (aulas, exercícios, quizzes) | Web | Módulos 1 e 2 (rascunho); os demais a escrever |
 | **CAM** | PC (Windows) | Fresa 2,5D e torno (rosca, canal, rebaixo), pós Fanuc e Siemens, banco de ferramentas, 4º eixo (face girada, texto no cilindro), 3+2 na mesa dupla, rotativo volta a zero no fim, tela **Trabalho** em árvore (bruto, origem, máquina, fixação; programa marcado "desatualizado" quando o perfil muda) |
 | **Casillas Assist** | PC | Bibliotecas (materiais, morsas, castanhas), orçamento com proposta, plano automático a partir do DXF (material obrigatório; profundidades, alturas Z e soltura da peça digitadas por você; fixação do Trabalho nas notas, não verificada) |
-| **CAM 3D** | PC | Abre STL, **desbaste por níveis** e **varredura de acabamento** com fresa esférica; STEP ainda não |
+| **CAM 3D** | PC | Abre STL e STEP (STEP em teste), **desbaste por níveis** e **varredura de acabamento** com fresa esférica |
 | **Ferramentas** (calculadoras) | Repositório `Casillas_app_2` | App à parte |
 
 Limites que valem para o CAM: a simulação é de 3 eixos (grade de alturas; voxels na face girada) e **não promete colisão evitada**; o arquivo do SolidWorks (`.sldprt`) não é lido (exporte **STL**).
