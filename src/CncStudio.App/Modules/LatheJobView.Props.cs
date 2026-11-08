@@ -327,19 +327,7 @@ public partial class LatheJobView
     {
         bool missing = i < _job.Operations.Count && _job.Operations[i].MissingFields.Contains(label);
         var box = new TextBox { Text = missing ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
-        var dash = new Avalonia.Controls.Shapes.Rectangle
-        {
-            Stroke = Avalonia.Media.Brush.Parse("#ff8a1f"), StrokeThickness = 1.5, StrokeDashArray = [4, 3], RadiusX = 3, RadiusY = 3,
-            IsHitTestVisible = false, IsVisible = false,
-        };
-        var field = new Grid();
-        field.Children.Add(box);
-        field.Children.Add(dash);
-        void Mark(string? why)
-        {
-            dash.IsVisible = why is not null;
-            ToolTip.SetTip(box, why);
-        }
+        (Grid field, Action<string?> Mark) = CamShell.DashedField(box);
 
         if (missing)
         {

@@ -170,6 +170,32 @@ public static class CamShell
         };
     }
 
+    /// <summary>Cor do tracejado do campo vazio ou inválido (laranja da casca).</summary>
+    public const string MissingStroke = "#ff8a1f";
+
+    /// <summary>
+    /// Campo com a marca de vazio ou inválido (regra do CAM-12; tracejado laranja do UX-04e, comum à fresa e ao torno desde o UX-04f).
+    /// Devolve o campo para pôr na tela e a função que marca: um motivo liga o tracejado e a dica; null tira os dois.
+    /// </summary>
+    public static (Grid Field, Action<string?> Mark) DashedField(TextBox box)
+    {
+        var dash = new Avalonia.Controls.Shapes.Rectangle
+        {
+            Stroke = Brush.Parse(MissingStroke), StrokeThickness = 1.5, StrokeDashArray = [4, 3], RadiusX = 3, RadiusY = 3,
+            IsHitTestVisible = false, IsVisible = false,
+        };
+        var field = new Grid();
+        field.Children.Add(box);
+        field.Children.Add(dash);
+        void Mark(string? why)
+        {
+            dash.IsVisible = why is not null;
+            ToolTip.SetTip(box, why);
+        }
+
+        return (field, Mark);
+    }
+
     /// <summary>Olho da operação: liga e desliga (o mesmo Enabled de antes).</summary>
     public static Button Eye(bool enabled, Action toggle)
     {

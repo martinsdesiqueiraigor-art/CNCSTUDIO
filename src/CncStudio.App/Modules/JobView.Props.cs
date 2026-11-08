@@ -259,24 +259,10 @@ public partial class JobView
         bool missing = spec?.MissingFields.Contains(label) == true;
         bool invalid = spec?.InvalidFields.Contains(label) == true;
         var box = new TextBox { Text = missing || invalid ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
-        void Mark(string? why)
-        {
-            if (why is null)
-            {
-                box.ClearValue(TemplatedControl.ForegroundProperty);
-                box.ClearValue(TemplatedControl.BorderBrushProperty);
-                box.ClearValue(TemplatedControl.BorderThicknessProperty);
-                ToolTip.SetTip(box, null);
-                return;
-            }
+        // UX-04f: o mesmo tracejado laranja do torno (CamShell), no lugar do vermelho
+        (Grid field, Action<string?> Mark) = CamShell.DashedField(box);
 
-            box.Foreground = Avalonia.Media.Brushes.IndianRed;
-            box.BorderBrush = Avalonia.Media.Brushes.IndianRed;
-            box.BorderThickness = new Avalonia.Thickness(2);
-            ToolTip.SetTip(box, why);
-        }
-
-        // só fica vermelho o campo que a operação usa agora (ex.: Bicada vazia em G81 não conta)
+        // só fica marcado o campo que a operação usa agora (ex.: Bicada vazia em G81 não conta)
         bool Counts() => i < _job.Operations.Count && CamJobInfo.Counts(_job.Operations[i], label);
         if ((missing || invalid) && Counts())
         {
@@ -333,7 +319,7 @@ public partial class JobView
                 Commit();
             }
         };
-        PropsPanel.Children.Add(Row(label, box, unit));
+        PropsPanel.Children.Add(Row(label, field, unit));
     }
 
     private void Text(int i, string label, string value, string hint, Func<CamOperationSpec, string, CamOperationSpec> apply)
@@ -426,6 +412,9 @@ public partial class JobView
             return b;
         }
 
+        // o bloco por sobra segue o desenho: guarda o bruto de antes para avisar se ele mudou
+        StockSolid? stockBefore = CamJobStock.Check(_job).Solid;
+
         // o Desfazer cobre só operações: a forma fica (como na aba antiga, que também não desfazia)
         void Added()
         {
@@ -435,6 +424,10 @@ public partial class JobView
             }
 
             Refresh(keep: true);
+            if (CamJobStock.RecalculatedNotice(_job, stockBefore) is { } recalculated)
+            {
+                Errors.Text = "• " + recalculated;
+            }
         }
 
         PropsPanel.Children.Add(new TextBlock { Text = "Retângulo", FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
