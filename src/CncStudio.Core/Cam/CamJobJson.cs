@@ -38,8 +38,8 @@ public static class CamJobJson
             throw new FormatException("Zero da peça inválido no arquivo.");
         }
 
-        ZeroPoint? point = o["point"] is null ? null : Enum<ZeroPoint>(Str(o, "point"), "ponto do zero");
-        ZeroLevel? level = o["z"] is null ? null : Enum<ZeroLevel>(Str(o, "z"), "Z0 do zero");
+        ZeroPoint? point = o["point"] is null ? null : Named<ZeroPoint>(Str(o, "point"), "ponto do zero");
+        ZeroLevel? level = o["z"] is null ? null : Named<ZeroLevel>(Str(o, "z"), "Z0 do zero");
         return point is null && level is null ? null : new JobZero(point, level);
     }
 
@@ -640,6 +640,11 @@ public static class CamJobJson
 
     internal static bool Bool(JsonObject o, string key) =>
         o[key] is JsonValue v && v.TryGetValue(out bool b) ? b : throw new FormatException($"Falta o valor sim/não \"{key}\" no arquivo.");
+
+    /// <summary>Como <see cref="Enum{T}"/>, mas só aceita o nome escrito (número não vale).</summary>
+    private static T Named<T>(string name, string what)
+        where T : struct, Enum =>
+        System.Enum.GetNames<T>().Contains(name) ? System.Enum.Parse<T>(name) : throw new FormatException($"Valor desconhecido de {what}: \"{name}\".");
 
     internal static T Enum<T>(string name, string what)
         where T : struct, Enum =>

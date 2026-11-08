@@ -233,14 +233,6 @@ public partial class JobView : UserControl
         }
     }
 
-    /// <summary>Zero da fixação 1: só o que o trabalho já tem (G5x, X0 Y0 do desenho, topo das operações). Sem campo novo.</summary>
-    private void ZeroProps()
-    {
-        PropsPanel.Children.Add(new TextBlock { Text = "Zero da fixação 1", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
-        PropsPanel.Children.Add(new TextBlock { Text = CamJobInfo.OriginTitle(_job), TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
-        PropsPanel.Children.Add(UiKit.StatusNote("Origem " + CamJobInfo.OriginState().Text + ": confira na máquina. Escolher o zero pela peça e ter um zero por fixação vêm em breve.", "pending"));
-    }
-
     /// <summary>Contornos e bruto do Trabalho aberto (o Assist lê para sugerir um plano).</summary>
     public IReadOnlyList<Contour> Contours => _job.Contours;
 
@@ -590,7 +582,14 @@ public partial class JobView : UserControl
                 + (programProblems == 1 ? "falta 1 dado do programa" : $"faltam {programProblems} dados do programa");
         }
 
-        bool clean = incomplete == 0 && stockNote is null && programProblems == 0;
+        // UX-04g PR B: zero da peça vazio ou incompleto (trava Gerar e Enviar)
+        int zeroProblems = CamJobZero.Problems(_job).Count;
+        if (zeroProblems > 0)
+        {
+            StatusIncomplete.Text = (incomplete == 0 && stockNote is null && programProblems == 0 ? "⚠ " : StatusIncomplete.Text + " · ") + "zero da peça incompleto";
+        }
+
+        bool clean = incomplete == 0 && stockNote is null && programProblems == 0 && zeroProblems == 0;
         StatusIncomplete.Foreground = clean ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
         // UX-04g: o número e o G5x digitados, ou "falta" (Siemens: só o G5x); nada inventado
         StatusProgram.Text = CamJobProgram.StatusText(_job);
@@ -684,6 +683,17 @@ public partial class JobView : UserControl
             }));
         }
 
+        foreach (string _ in CamJobZero.Problems(_job))
+        {
+            // UX-04g PR B: zero da peça leva ao cartão Zero da Preparação
+            targets.Add(("pending", () =>
+            {
+                GoToTree(t => t.Kind == "zero");
+                SetTab(0);
+                PrepOrigin.BringIntoView();
+            }));
+        }
+
         if (_job.Operations.Count == 0)
         {
             targets.Add(("pending", () =>
@@ -752,7 +762,8 @@ public partial class JobView : UserControl
 
         if (on)
         {
-            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, StockForScene(), [.. _job.Contours]);
+            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, StockForScene(), [.. _job.Contours],
+                CamJobZero.Position(_job) ?? default);
         }
     }
 
@@ -840,14 +851,20 @@ public partial class JobView : UserControl
         // Fixação 1: o trabalho tem uma fixação e um zero só (Core); dentro, o zero e as operações
         string fixtureName = _job.Fixture is { } fx ? JobFixture.NameOf(fx.Kind) ?? fx.Kind : "não definida";
         // UX-04g: número ou G5x vazio/inválido deixa o selo da fixação pendente, com o motivo
-        IReadOnlyList<string> programProblems = CamJobProgram.Problems(_job);
+        // UX-04g PR B: o zero da peça incompleto também deixa a fixação pendente
+        IReadOnlyList<string> zeroProblems = CamJobZero.Problems(_job);
+        IReadOnlyList<string> programProblems = [.. CamJobProgram.Problems(_job), .. zeroProblems];
         (string Kind, string Text) setupState = programProblems.Count > 0 ? ("pending", string.Join(" · ", programProblems)) : CamJobInfo.FixtureState(_job.Fixture);
         // selo em círculo como o item Peça pronta: "!" quando pendente (falta número, G5x ou a fixação); senão o ícone da fixação
         string setupTitle = $"Fixação 1 · {CamJobInfo.WorkOffsetName(_job)} · {fixtureName}";
         TreeViewItem setup = setupState.Kind == "pending"
             ? UiKit.StateItem(TreeRow(setupTitle, setupState, CamShell.Badge("!", "pending"), null, setupTitle + "\n" + setupState.Text), new TreeTag("fixture", 0))
             : NodeState(setupTitle, setupState, "fixacao", new TreeTag("fixture", 0));
-        setup.Items.Add(NodeState("Zero: " + CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "zero", new TreeTag("zero", 0)));
+        string zeroTitle = "Zero: " + CamJobInfo.OriginTitle(_job);
+        (string Kind, string Text) zeroState = zeroProblems.Count > 0 ? ("pending", string.Join(" · ", zeroProblems)) : CamJobInfo.OriginState();
+        setup.Items.Add(zeroProblems.Count > 0
+            ? UiKit.StateItem(TreeRow(zeroTitle, zeroState, CamShell.Badge("!", "pending"), null, zeroTitle + "\n" + zeroState.Text), new TreeTag("zero", 0))
+            : NodeState(zeroTitle, zeroState, "zero", new TreeTag("zero", 0)));
         for (int i = 0; i < _job.Operations.Count; i++)
         {
             TreeViewItem item = OpNode(i, machine);

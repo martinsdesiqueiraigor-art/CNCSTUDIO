@@ -371,6 +371,18 @@ public static class CamJobInfo
     /// </summary>
     public static string OriginTitle(CamJob job)
     {
+        // UX-04g PR B: zero escolhido pelo jeito novo mostra o ponto e o Z0; vazio diz o que falta; arquivo antigo segue como antes
+        if (job.Zero is { AsBefore: false, Point: { } p, Level: { } level })
+        {
+            string where = p == ZeroPoint.Drawing ? "X0 Y0 do desenho" : CamJobZero.PointName(p) + " da peça";
+            return $"Origem {WorkOffsetName(job)}: {where}, Z0 {(level == ZeroLevel.Top ? "no topo" : "na base")}";
+        }
+
+        if (job.Zero is not { AsBefore: true })
+        {
+            return $"Origem {WorkOffsetName(job)}: zero da peça (falta escolher)";
+        }
+
         List<double> tops = job.Operations.Where(o => o.Enabled && o.Kind != JobOpKind.WrapText).Select(o => o.Levels.TopZ).Distinct().ToList();
         string top = tops.Count switch
         {
