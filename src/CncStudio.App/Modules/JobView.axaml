@@ -130,6 +130,7 @@
       <TextBlock x:Name="StatusIncomplete" VerticalAlignment="Center" FontSize="12" />
       <TextBlock Grid.Column="1" Text="Fixação 1 de 1" VerticalAlignment="Center" FontSize="12" Foreground="#9aa7b5" />
       <TextBlock Grid.Column="2" x:Name="StatusProgram" VerticalAlignment="Center" FontSize="12" Foreground="#9aa7b5" />
+      <TextBlock Grid.Column="3" x:Name="StatusMachine" VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="12" TextTrimming="CharacterEllipsis" />
       <TextBlock Grid.Column="4" Text="Controle:" VerticalAlignment="Center" FontSize="12" Foreground="#9aa7b5" />
       <ComboBox Grid.Column="5" x:Name="DialectCombo" SelectedIndex="0" MinWidth="96" FontSize="12" MinHeight="24" Padding="8,1" ToolTip.Tip="Comando (dialeto do programa)">
         <ComboBoxItem Content="Fanuc" />

@@ -10,6 +10,8 @@ public class MachineCardTests
     {
         var m = new MachineProfile { Name = "VMC", Controller = CamDialect.Fanuc };
         Assert.Equal(("ok", "OK · fuso não verificado"), CamJobInfo.MillMachineState(m, CamDialect.Fanuc));
+        Assert.Equal("Máquina: VMC · fuso não verificado", CamJobInfo.MillMachineTitle(m));
+        Assert.Equal("Máquina: VMC · fuso não informado", CamJobInfo.MachineTitle(m));   // o torno continua igual
         m.MaxSpindleRpm = 8000;
         Assert.Equal(("ok", "OK"), CamJobInfo.MillMachineState(m, CamDialect.Fanuc));
         Assert.Equal(("pending", "sem perfil"), CamJobInfo.MillMachineState(null, CamDialect.Fanuc));

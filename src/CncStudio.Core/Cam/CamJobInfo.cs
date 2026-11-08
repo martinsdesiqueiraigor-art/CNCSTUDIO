@@ -440,6 +440,9 @@ public static class CamJobInfo
         return m.MaxSpindleRpm is > 0 ? ("ok", "OK") : ("ok", "OK · " + SpindleNotChecked);
     }
 
+    /// <summary>Linha "Máquina" da árvore da fresa: como <see cref="MachineTitle"/>, mas sem rotação diz "fuso não verificado" (o torno não muda).</summary>
+    public static string MillMachineTitle(MachineProfile? m) => m is { MaxSpindleRpm: null } ? $"Máquina: {m.Name} · {SpindleNotChecked}" : MachineTitle(m);
+
     /// <summary>
     /// Aviso quando o controle do perfil ativo difere do controle do trabalho (null = iguais ou sem perfil). Só avisa: o controle
     /// do trabalho é o que vale para o programa.

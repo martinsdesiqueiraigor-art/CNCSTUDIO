@@ -191,6 +191,12 @@ public partial class CamView : UserControl
         ModelTab.Click += (_, _) => ShowMachine(model: true);
         JobPanel.MachineSource = () => MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
         LatheJobPanel.MachineSource = JobPanel.MachineSource;
+        // cartão Máquina da Preparação (UX-04f PR 2): os mesmos perfis e o mesmo ativo da tela Perfil 4/5 eixos
+        JobPanel.ProfilesSource = () => MachinePanel.ProfilesSource?.Invoke() ?? [];
+        JobPanel.ActiveMachineName = () => MachinePanel.ActiveSource?.Invoke() ?? "";
+        JobPanel.SetActiveMachine = name => MachinePanel.SetActive?.Invoke(name);
+        JobPanel.SaveMachines = () => MachinePanel.Save?.Invoke();
+        JobPanel.OpenMachineProfiles = () => ShowMachine(profile: true);
     }
 
     /// <summary>Ao abrir o módulo: marca o programa do Trabalho fresa como desatualizado se o perfil da máquina mudou.</summary>
