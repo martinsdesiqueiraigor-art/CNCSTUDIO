@@ -171,7 +171,7 @@ public sealed record StockSolid(StockSolidKind Kind, double MinX, double MaxX, d
 
 /// <summary>
 /// Estado do bruto do Trabalho fresa: resolvido (pronto para o 3D) ou incompleto, com o motivo. O bruto nunca entra no G-code;
-/// incompleto não trava Gerar nem Salvar (adendo do UX-04f, 08/11). Sem bruto nenhum continua "Bruto não definido", como antes.
+/// incompleto trava Gerar e Enviar, como o "Bruto não definido" (adendo 2 do UX-04f, 08/11), mas nunca trava Salvar.
 /// </summary>
 public sealed record StockCheck(StockSolid? Solid, IReadOnlyList<string> Missing, IReadOnlyList<string> Invalid)
 {
@@ -191,7 +191,7 @@ public static class CamJobStock
     /// <summary>Nome do campo da altura da peça pronta (como na tela).</summary>
     public const string PartHeightField = "Altura Z da peça";
 
-    /// <summary>Começo do texto da pendência do bruto incompleto (aviso: não trava Gerar).</summary>
+    /// <summary>Começo do texto da pendência do bruto incompleto (trava Gerar e Enviar; não trava Salvar).</summary>
     public const string IncompletePrefix = "Bruto incompleto";
 
     /// <summary>
@@ -325,8 +325,10 @@ public static class CamJobStock
     }
 
     /// <summary>
-    /// Caixa do bruto como <see cref="JobStock"/> (canto, medidas, topo no alto da caixa) para quem só lê a espessura (o Assist):
-    /// o bloco absoluto como está; o bloco por sobra resolvido. Cilindro, tubo ou incompleto: null (nada suposto).
+    /// Caixa do bruto como <see cref="JobStock"/> para quem só lê a espessura (o Assist): o bloco absoluto como está; o bloco por
+    /// sobra resolvido. Na convenção do <see cref="JobStock"/> a espessura desce de Z0; no bloco por sobra o topo fica acima de Z0
+    /// (sobra em cima), então a espessura é de Z0 até o fundo (−MinZ), não a altura total. Cilindro, tubo, incompleto ou fundo
+    /// acima de Z0: null (nada suposto).
     /// </summary>
     public static JobStock? BlockBox(CamJob job)
     {
@@ -335,7 +337,7 @@ public static class CamJobStock
             return job.Stock;
         }
 
-        return Check(job).Solid is { Kind: StockSolidKind.Box } s ? new JobStock(s.MinX, s.MinY, s.SizeX, s.SizeY, s.SizeZ) : null;
+        return Check(job).Solid is { Kind: StockSolidKind.Box } s && s.MinZ < 0 ? new JobStock(s.MinX, s.MinY, s.SizeX, s.SizeY, -s.MinZ) : null;
     }
 
     /// <summary>

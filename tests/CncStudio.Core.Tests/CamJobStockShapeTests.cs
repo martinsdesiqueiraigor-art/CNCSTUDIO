@@ -35,7 +35,23 @@ public class CamJobStockShapeTests
         Assert.Equal((-26.0, 1.0), (s.MinZ, s.MaxZ));   // peça de −20 a 0; sobra 6 embaixo e 1 em cima
         Assert.Equal("Bloco por sobra 65 × 49 × 27 mm", CamJobStock.Title(job));
         Assert.Equal(("ok", "OK"), CamJobStock.State(job));
-        Assert.Equal(new JobStock(-1, -4, 65, 49, 27), CamJobStock.BlockBox(job));
+        // o Assist lê a espessura de Z0 até o fundo (20 da peça + 6 embaixo), não a altura total (27)
+        Assert.Equal(new JobStock(-1, -4, 65, 49, 26), CamJobStock.BlockBox(job));
+    }
+
+    [Fact]
+    public void Espessura_para_o_Assist_vai_de_Z0_ao_fundo_do_bloco_por_sobra()
+    {
+        CamJob job = Job();
+        job.PartHeight = 20;
+        job.SetStock(null, Margins() with { ZTop = 5, ZBottom = 0 });
+        Assert.Equal(20, CamJobStock.BlockBox(job)!.Thickness);   // sobra em cima não conta: fica acima de Z0
+
+        job.StockShape = job.StockShape! with { OffsetZ = -3 };    // bloco 3 mm mais baixo: fundo em Z −23
+        Assert.Equal(23, CamJobStock.BlockBox(job)!.Thickness);
+
+        job.StockShape = job.StockShape! with { OffsetZ = 30 };    // bloco inteiro acima de Z0: nada suposto
+        Assert.Null(CamJobStock.BlockBox(job));
     }
 
     [Fact]
@@ -72,7 +88,7 @@ public class CamJobStockShapeTests
     }
 
     [Fact]
-    public void Campo_vazio_deixa_o_bruto_incompleto_sem_travar_gerar()
+    public void Bruto_incompleto_trava_gerar_e_enviar_mas_nao_salvar()
     {
         CamJob job = Job();
         job.PartHeight = 20;
@@ -86,8 +102,20 @@ public class CamJobStockShapeTests
         Assert.True(build.Ok);
         string pending = Assert.Single(CamJobInfo.Pending(job, build), p => p.StartsWith("Bruto", StringComparison.Ordinal));
         Assert.Equal("Bruto incompleto: falta Ø interno, Comprimento", pending);
-        Assert.False(CamJobInfo.Blocks(pending));
+        Assert.True(CamJobInfo.Blocks(pending));   // trava como o "Bruto não definido" (adendo 2, 08/11)
         Assert.Empty(CamJobInfo.SaveBlockers(job));
+        Assert.False(CamJobInfo.Blocks(CamJobInfo.FixtureMissing));   // a fixação continua só aviso
+    }
+
+    [Fact]
+    public void Arquivo_antigo_com_bloco_absoluto_nao_trava()
+    {
+        string json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "trabalhos-referencia", "fresa-bloco-siemens.casillas-job"));
+        CamJob job = CamJobJson.FromJson(json).Job!;
+        Assert.Null(job.PartHeight);
+        IReadOnlyList<string> pending = CamJobInfo.Pending(job, CamJobBuilder.Build(job, null));
+        Assert.DoesNotContain(pending, p => p.StartsWith("Bruto", StringComparison.Ordinal));
+        Assert.DoesNotContain(pending, CamJobInfo.Blocks);
     }
 
     [Fact]

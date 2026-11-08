@@ -332,6 +332,7 @@ public partial class JobView : UserControl
         _job.Coolant = j.Coolant;
         _job.SetStock(j.Stock, j.StockShape);
         _absoluteMode = false;
+        ForgetStockMemory();
         _job.PartHeight = j.PartHeight;
         _job.Fixture = j.Fixture;
         _job.Contours.Clear();
@@ -557,7 +558,7 @@ public partial class JobView : UserControl
         StatusIncomplete.Text = incomplete == 0
             ? (_job.Operations.Count == 0 ? "Nenhuma operação" : "Nenhuma operação incompleta")
             : $"⚠ {incomplete} {(incomplete == 1 ? "operação incompleta" : "operações incompletas")}";
-        // UX-04f: o rodapé resume também o bruto (não definido trava; incompleto só avisa)
+        // UX-04f: o rodapé resume também o bruto (não definido ou incompleto: os dois travam Gerar e Enviar)
         StockCheck stock = CamJobStock.Check(_job);
         string? stockNote = stock.NotDefined ? "bruto não definido" : stock.Complete ? null : "bruto incompleto";
         if (stockNote is not null)
@@ -620,7 +621,7 @@ public partial class JobView : UserControl
 
         if (!CamJobStock.Check(_job).Complete)
         {
-            // bruto não definido (trava) ou incompleto (aviso): leva ao cartão Bruto da Preparação
+            // bruto não definido ou incompleto (os dois travam): leva ao cartão Bruto da Preparação
             targets.Add(("pending", () =>
             {
                 GoToTree(t => t.Kind == "part");

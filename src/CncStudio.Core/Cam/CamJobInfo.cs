@@ -76,7 +76,7 @@ public static class CamJobInfo
             list.Add("Falta a peça (abra um DXF ou desenhe uma forma)");
         }
 
-        // sem bruto nenhum trava, como antes; bruto incompleto (formato novo) só avisa (adendo UX-04f, 08/11)
+        // sem bruto nenhum ou bruto incompleto (formato novo) travam Gerar e Enviar (decisão do Igor, adendo 2 do UX-04f, 08/11)
         StockCheck stock = CamJobStock.Check(job);
         if (stock.NotDefined)
         {
@@ -118,10 +118,10 @@ public static class CamJobInfo
     public const string FixtureMissing = "Fixação não definida";
 
     /// <summary>
-    /// Se a pendência impede gerar e enviar o G-code. A fixação não definida é aviso (decisão do Igor, 02/11), e o bruto incompleto
-    /// também (adendo UX-04f, 08/11: o bruto não entra no G-code); o resto trava, como antes.
+    /// Se a pendência impede gerar e enviar o G-code. Só a fixação não definida é aviso (decisão do Igor, 02/11); o resto trava,
+    /// inclusive o bruto incompleto (adendo 2 do UX-04f, 08/11), como o "Bruto não definido". Salvar nunca trava pelo bruto.
     /// </summary>
-    public static bool Blocks(string pending) => pending != FixtureMissing && !pending.StartsWith(CamJobStock.IncompletePrefix, StringComparison.Ordinal);
+    public static bool Blocks(string pending) => pending != FixtureMissing;
 
     /// <summary>Pendência de bruto nenhum (trava, como antes do UX-04f).</summary>
     public const string StockMissing = "Bruto não definido";

@@ -10,7 +10,8 @@ namespace CncStudio.App.Modules;
 
 /// <summary>
 /// Cartões Máquina (só leitura), Peça pronta e Bruto da aba Preparação (UX-04f). O bruto e a altura da peça nunca entram no G-code;
-/// campo vazio ou inválido fica com o tracejado laranja e deixa o bruto incompleto, mas não trava Gerar nem Salvar (adendo de 08/11).
+/// campo vazio ou inválido fica com o tracejado laranja e deixa o bruto incompleto: trava Gerar e Enviar, como o "Bruto não definido",
+/// mas nunca trava Salvar (adendo 2 de 08/11).
 /// </summary>
 public partial class JobView
 {
@@ -22,6 +23,25 @@ public partial class JobView
 
     /// <summary>Bloco absoluto escolhido e ainda vazio (só tela: nada vai para o trabalho até "Definir bruto").</summary>
     private bool _absoluteMode;
+
+    /// <summary>
+    /// Memória da tela (achado B do adendo 2): o último bloco absoluto e os últimos valores de cada formato, para que voltar ao
+    /// formato anterior os restaure. Só nesta sessão, nunca no arquivo; zera ao abrir ou criar outro trabalho.
+    /// </summary>
+    private JobStock? _lastAbsolute;
+
+    private readonly Dictionary<StockShapeKind, JobStockShape> _lastShapes = [];
+
+    /// <summary>Último modo do bloco usado (absoluto ou sobra), para o botão "Bloco" voltar a ele.</summary>
+    private bool _lastBlockAbsolute;
+
+    /// <summary>Esquece a memória dos formatos (outro trabalho aberto ou criado).</summary>
+    private void ForgetStockMemory()
+    {
+        _lastAbsolute = null;
+        _lastShapes.Clear();
+        _lastBlockAbsolute = false;
+    }
 
     /// <summary>Resumo do bruto no cartão (refeito a cada mudança).</summary>
     private ContentControl? _stockSummary;
@@ -129,7 +149,7 @@ public partial class JobView
         {
             string? why = typedBad
                 ?? invalid()
-                ?? (get() is null && needed() ? $"Falta {label}: digite um valor. Sem ele, o bruto fica incompleto (o programa não trava)." : null);
+                ?? (get() is null && needed() ? $"Falta {label}: digite um valor. Sem ele, o bruto fica incompleto e Gerar e Enviar ficam travados." : null);
             mark(why);
         }
 
@@ -217,7 +237,7 @@ public partial class JobView
             () => _job.PartHeight is { } h ? CamJobStock.PartHeightError(h) : null, v => _job.PartHeight = v));
         card.Children.Add(Note(_job.StockShape is null
             ? "Um DXF não informa a altura. Só o bruto por sobra, cilindro e tubo usam."
-            : "Um DXF não informa a altura. Sem ela, o bruto fica incompleto (o programa continua gerando)."));
+            : "Um DXF não informa a altura. Sem ela, o bruto fica incompleto e Gerar e Enviar ficam travados."));
     }
 
     // ---------------------------------------------------------------- Bruto
@@ -225,18 +245,38 @@ public partial class JobView
     /// <summary>Troca o formato do bruto (o outro formato some: uma fonte só) e refaz os cartões.</summary>
     private void SetStockKind(StockShapeKind? kind)
     {
+        // guarda o formato que sai (só na tela), para voltar a ele com os mesmos valores
+        if (_job.StockShape is { } leaving)
+        {
+            _lastShapes[leaving.Kind] = leaving;
+            if (leaving.Kind == StockShapeKind.Margins)
+            {
+                _lastBlockAbsolute = false;
+            }
+        }
+        else if (_job.Stock is { } leavingAbs)
+        {
+            _lastAbsolute = leavingAbs;
+            _lastBlockAbsolute = true;
+        }
+        else if (_absoluteMode)
+        {
+            _lastBlockAbsolute = true;
+        }
+
         _absoluteMode = kind is null;
         if (kind is { } k)
         {
             if (_job.StockShape?.Kind != k)
             {
                 StockAxis axis = _job.StockShape?.Axis ?? StockAxis.Z;
-                _job.SetStock(null, new JobStockShape(k) { Axis = axis });
+                _job.SetStock(null, _lastShapes.TryGetValue(k, out JobStockShape? before) ? before : new JobStockShape(k) { Axis = axis });
             }
         }
         else if (_job.StockShape is not null)
         {
-            _job.SetStock(null, null); // bloco absoluto: começa vazio, com as medidas do desenho para conferir
+            // bloco absoluto: volta o último desta sessão; sem ele, começa vazio, com as medidas do desenho para conferir
+            _job.SetStock(_lastAbsolute, null);
         }
 
         Refresh(keep: true);
@@ -257,7 +297,9 @@ public partial class JobView
         bool block = shape is null or { Kind: StockShapeKind.Margins };
         bool defined = shape is not null || _job.Stock is not null || _absoluteMode;
         card.Children.Add(Choices(
-            Choice("Bloco", defined && block, () => SetStockKind(_job.Stock is null && !_absoluteMode ? StockShapeKind.Margins : null)),
+            Choice("Bloco", defined && block, () => SetStockKind(defined && block
+                ? (_job.Stock is null && !_absoluteMode ? StockShapeKind.Margins : null)
+                : (_lastBlockAbsolute ? null : StockShapeKind.Margins))),
             Choice("Cilindro", shape?.Kind == StockShapeKind.Cylinder, () => SetStockKind(StockShapeKind.Cylinder)),
             Choice("Tubo", shape?.Kind == StockShapeKind.Tube, () => SetStockKind(StockShapeKind.Tube)),
             Choice("Importar STEP · em breve", false, null, "Em breve (próxima etapa): bruto fundido ou forjado em STEP.")));
@@ -323,7 +365,7 @@ public partial class JobView
         if (c.Solid is not { } s)
         {
             _stockSummary.Content = CamJobStock.IncompleteReason(c) is { } why
-                ? UiKit.StatusNote("Bruto incompleto: " + why + ". Não aparece no 3D; o programa gera.", "pending")
+                ? UiKit.StatusNote("Bruto incompleto: " + why + ". Não aparece no 3D; Gerar e Enviar ficam travados até completar (Salvar continua livre).", "pending")
                 : null;
             return;
         }
