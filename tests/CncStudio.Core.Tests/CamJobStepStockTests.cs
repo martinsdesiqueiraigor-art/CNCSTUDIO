@@ -79,6 +79,18 @@ public class CamJobStepStockTests
         Assert.Equal(s, CamJobStock.Check(job).Solid);
     }
 
+    [Theory]
+    [InlineData(@"C:\brutos\Bloco_32x29x22.step")]          // trabalho salvo no Windows
+    [InlineData("/home/igor/brutos/Bloco_32x29x22.step")]   // trabalho salvo no Linux
+    [InlineData(@"D:\pasta/mista\Bloco_32x29x22.step")]
+    public void Nome_do_STEP_sai_sem_a_pasta_com_qualquer_barra(string path)
+    {
+        CamJob job = StepJob();
+        job.StockShape = job.StockShape! with { StepPath = path };
+        Assert.Equal("Bloco_32x29x22.step", CamJobStock.StepFileName(job));
+        Assert.Equal("STEP Bloco_32x29x22.step 32 × 29 × 22 mm, 20,42 cm³", CamJobStock.Title(job));
+    }
+
     [Fact]
     public void Digitar_XYZ_soma_o_deslocamento_e_vazio_deixa_incompleto()
     {

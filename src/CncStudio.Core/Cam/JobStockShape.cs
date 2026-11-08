@@ -409,7 +409,13 @@ public static class CamJobStock
 
     /// <summary>Nome do arquivo STEP do bruto (sem a pasta), ou null.</summary>
     public static string? StepFileName(CamJob job) =>
-        job.StockShape is { Kind: StockShapeKind.Step, StepPath: { } p } ? Path.GetFileName(p) : null;
+        job.StockShape is { Kind: StockShapeKind.Step, StepPath: { } p } ? FileNameOf(p) : null;
+
+    /// <summary>
+    /// Nome do arquivo sem a pasta, tratando "\" e "/" igualmente (o trabalho salvo no Windows abre no Linux e vice-versa;
+    /// Path.GetFileName só separa pela barra do sistema em que roda).
+    /// </summary>
+    public static string FileNameOf(string path) => path[(path.LastIndexOfAny(['\\', '/']) + 1)..];
 
     /// <summary>Volume em cm³ para a tela ("20,42 cm³").</summary>
     public static string VolumeText(double mm3) => (mm3 / 1000).ToString("0.##", Br) + " cm³";
