@@ -173,8 +173,15 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
         Zero = job.Zero is { Point: { } p, Level: { } l } z ? new HandoffZero(p, l, z.AsBefore, CamJobZero.Summary(job)) : null,
         Fixture = job.Fixture,
         Stock = HandoffStock.InProgram(job),
-        Tools = CamJobInfo.ToolsUsed(job).Select(t => new HandoffTool(t.Number, t.Diameter, t.Name, t.SpindleRpm, t.FeedXY, t.FeedZ)).ToList(),
+        Tools = ProgramTools(job).Select(t => new HandoffTool(t.Number, t.Diameter, t.Name, t.SpindleRpm, t.FeedXY, t.FeedZ)).ToList(),
     };
+
+    /// <summary>
+    /// Ferramentas das operações ligadas (as que entram no programa gerado; decisão do Igor de 08/11), agrupadas como em
+    /// <see cref="CamJobInfo.ToolsUsed"/> (T e Ø, a primeira de cada grupo, em ordem de T). O <c>ToolsUsed</c> segue igual.
+    /// </summary>
+    private static IEnumerable<CamTool> ProgramTools(CamJob job) =>
+        job.Operations.Where(o => o.Enabled).Select(o => o.Tool).GroupBy(t => (t.Number, t.Diameter)).Select(g => g.First()).OrderBy(t => t.Number);
 
     /// <summary>SHA-256 (hex minúsculo) do texto do programa com as quebras de linha normalizadas (CRLF, CR e LF dão o mesmo hash).</summary>
     public static string Hash(string program)

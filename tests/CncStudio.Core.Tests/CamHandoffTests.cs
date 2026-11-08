@@ -226,6 +226,27 @@ public class CamHandoffTests
     }
 
     [Fact]
+    public void Operacao_desligada_nao_leva_a_ferramenta_e_o_programa_nao_muda()
+    {
+        // na referência, só a furação (última operação) usa o T2
+        CamJob job = Load("fresa-zero-centro-base");
+        string reference = File.ReadAllText(Path.Combine(Dir, "fresa-zero-centro-base.nc")).Replace("\r\n", "\n");
+        Assert.Equal(reference, CamJobBuilder.Build(job, null).Program.Replace("\r\n", "\n"));
+        Assert.Equal([1, 2], CamHandoff.Create(job, reference, null).Tools.Select(t => t.Number));
+
+        job.Operations[4] = job.Operations[4] with { Enabled = false };
+        string program = CamJobBuilder.Build(job, null).Program;
+        Assert.DoesNotContain("T2", program);
+        CamHandoff p = CamHandoff.Create(job, program, null);
+        Assert.Equal([1], p.Tools.Select(t => t.Number));
+        Assert.Equal([1], CamHandoffJson.Parse(CamHandoffJson.ToJson(p)).Package!.Tools.Select(t => t.Number));
+
+        // ToolsUsed (tela e envio de hoje) segue igual, e montar o pacote não muda o programa
+        Assert.Equal([1, 2], CamJobInfo.ToolsUsed(job).Select(t => t.Number));
+        Assert.Equal(program, CamJobBuilder.Build(job, null).Program);
+    }
+
+    [Fact]
     public void Hash_ignora_a_quebra_de_linha_e_denuncia_programa_editado_ou_outro()
     {
         CamJob job = Load("fresa-zero-centro-base");
