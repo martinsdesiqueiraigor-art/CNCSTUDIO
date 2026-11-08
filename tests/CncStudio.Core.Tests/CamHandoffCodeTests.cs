@@ -43,7 +43,7 @@ public class CamHandoffCodeTests
     {
         (CamHandoff p, string program) = Sent();
         MachiningSetup setup = MachiningSetup.CreateDefault("PECA.nc");
-        Assert.True(CamHandoffCode.FillStock(setup, p));
+        Assert.True(CamHandoffCode.FillStock(setup, p, program));
         Assert.True(setup.Stock is { Kind: SetupStockKind.Prism, X: -45, Y: -35, Z: -5, Width: 90, Depth: 70, Height: 26, Material: "" });
         Assert.True(CamHandoffCode.StockFromCam(setup, p));
         Assert.True(setup.IsValid());
@@ -63,7 +63,7 @@ public class CamHandoffCodeTests
         var informed = new SetupStock { X = 0, Y = 0, Z = -20, Width = 60, Depth = 40, Height = 20, Material = "Alumínio" };
         MachiningSetup setup = MachiningSetup.CreateDefault("PECA.nc");
         setup.Stock = informed;
-        Assert.False(CamHandoffCode.FillStock(setup, p));
+        Assert.False(CamHandoffCode.FillStock(setup, p, program));
         Assert.Same(informed, setup.Stock);
         Assert.Equal("Alumínio", setup.Stock.Material);
         HandoffNotice n = Assert.Single(CamHandoffCode.Notices(p, null, setup, program, _ => 0, NoOffsets));
@@ -75,6 +75,36 @@ public class CamHandoffCodeTests
         setup.Stock = CamHandoffCode.ToSetupStock(p.Stock)!;
         setup.Stock.Material = "Aço";
         Assert.Empty(Kinds(p, setup, program));
+    }
+
+    [Theory]
+    [InlineData("(BRUTO 100 X 80 X 20)", true)]
+    [InlineData("(BRUTO 90 X 70 X 26)", false)]
+    public void Comentario_BRUTO_vence_o_do_CAM_e_avisa_se_diferente(string comment, bool differs)
+    {
+        // decisão do Igor (08/11): setup salvo → comentário (BRUTO ...) → CAM → automático
+        (CamHandoff p, string sent) = Sent();
+        string program = InsertAfterFirstLine(sent, comment);
+        MachiningSetup setup = MachiningSetup.CreateDefault("PECA.nc");
+        Assert.False(CamHandoffCode.FillStock(setup, p, program));
+        Assert.Null(setup.Stock);
+        Assert.Equal(StockSource.Comment, SetupBinding.EffectiveStock(setup, MachineKind.Mill, program, Bounds3.Empty).Source);
+
+        // o comentário muda o texto: o aviso 1 também vale; aqui interessa o aviso 2
+        IReadOnlyList<HandoffNoticeKind> kinds = Kinds(p, setup, program);
+        Assert.Equal(differs, kinds.Contains(HandoffNoticeKind.StockDiffers));
+        Assert.Contains(HandoffNoticeKind.ProgramChanged, kinds);
+
+        // "Usar o do CAM" continua valendo: o bruto do CAM no setup vence o comentário, sem aviso 2
+        setup.Stock = CamHandoffCode.ToSetupStock(p.Stock);
+        Assert.Equal(StockSource.Setup, SetupBinding.EffectiveStock(setup, MachineKind.Mill, program, Bounds3.Empty).Source);
+        Assert.DoesNotContain(HandoffNoticeKind.StockDiffers, Kinds(p, setup, program));
+    }
+
+    private static string InsertAfterFirstLine(string text, string line)
+    {
+        int cut = text.IndexOf('\n') + 1;
+        return text[..cut] + line + "\n" + text[cut..];
     }
 
     [Fact]
@@ -130,7 +160,7 @@ public class CamHandoffCodeTests
         var summary = new StepStockSummary(-1, -2, -22, 31, 27, 0, 18000);
         (CamHandoff step, string program) = Sent(shape: new JobStockShape(StockShapeKind.Step) { StepPath = @"C:\pecas\bruto.step", StepSummary = summary });
         MachiningSetup setup = MachiningSetup.CreateDefault("PECA.nc");
-        Assert.False(CamHandoffCode.FillStock(setup, step));
+        Assert.False(CamHandoffCode.FillStock(setup, step, program));
         Assert.Null(setup.Stock);
         HandoffNotice n = Assert.Single(CamHandoffCode.Notices(step, null, setup, program, _ => 0, NoOffsets));
         Assert.Equal("O bruto do CAM é um STEP (bruto.step, 32 × 29 × 22 mm, 18 cm³). O simulador não desenha bruto em STEP.", n.Text);
@@ -138,7 +168,7 @@ public class CamHandoffCodeTests
 
         (CamHandoff none, string program2) = Sent(shape: Margins() with { XPlus = null });
         Assert.Null(none.Stock);
-        Assert.False(CamHandoffCode.FillStock(setup, none));
+        Assert.False(CamHandoffCode.FillStock(setup, none, program2));
         Assert.Equal([HandoffNoticeKind.NoStock], Kinds(none, setup, program2));
         Assert.Equal(CamHandoffCode.NoStockText, CamHandoffCode.Notices(none, null, setup, program2, _ => 0, NoOffsets)[0].Text);
     }
@@ -228,7 +258,7 @@ public class CamHandoffCodeTests
         });
         string program = CamJobBuilder.Build(job, null).Program;
         MachiningSetup setup = MachiningSetup.CreateDefault("PECA");
-        Assert.True(CamHandoffCode.FillStock(setup, CamHandoff.Create(job, program, null)));
+        Assert.True(CamHandoffCode.FillStock(setup, CamHandoff.Create(job, program, null), program));
 
         // o Code lê o programa (dialeto do pacote) e o simulador usa o bruto do setup
         ProgramAnalysis analysis = ProgramAnalyzer.Analyze(program, dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, setup.ApplyTo(MachineSettings.Default));

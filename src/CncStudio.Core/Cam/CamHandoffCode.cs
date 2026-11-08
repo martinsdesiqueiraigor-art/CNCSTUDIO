@@ -3,6 +3,7 @@ using CncStudio.Core.Dialects;
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Setup;
+using CncStudio.Core.Simulation;
 
 namespace CncStudio.Core.Cam;
 
@@ -88,18 +89,32 @@ public static class CamHandoffCode
     }
 
     /// <summary>
-    /// Preenche o bruto do setup com o do CAM só quando o setup não tem bruto ("já informado" = setup salvo pelo usuário para este
-    /// programa). Devolve se preencheu. Nunca sobrescreve.
+    /// Preenche o bruto do setup com o do CAM só quando não há bruto informado: nem setup salvo com bruto, nem comentário (BRUTO ...) no
+    /// texto (decisão do Igor de 08/11: setup → comentário → CAM → automático). Devolve se preencheu. Nunca sobrescreve.
     /// </summary>
-    public static bool FillStock(MachiningSetup setup, CamHandoff? p)
+    public static bool FillStock(MachiningSetup setup, CamHandoff? p, string programText)
     {
-        if (setup.Stock is not null || ToSetupStock(p?.Stock) is not { } cam)
+        if (setup.Stock is not null || CommentStock(programText) is not null || ToSetupStock(p?.Stock) is not { } cam)
         {
             return false;
         }
 
         setup.Stock = cam;
         return true;
+    }
+
+    /// <summary>Bruto do comentário (BRUTO ...) do texto, como o simulador da fresa o lê; null se não há.</summary>
+    private static Stock? CommentStock(string programText) => SetupBinding.FromProgramComments(programText, MachineKind.Mill, Bounds3.Empty);
+
+    /// <summary>
+    /// O comentário descreve o mesmo bruto do CAM? O comentário só diz as medidas (a posição é um palpite do simulador), então compara
+    /// só as medidas de um prisma; redondo e tubo do CAM nunca batem com o bloco do comentário.
+    /// </summary>
+    private static bool SameAsComment(SetupStock cam, Stock comment)
+    {
+        static bool Eq(double x, double y) => Math.Abs(x - y) < 1e-6;
+        return cam.Kind == SetupStockKind.Prism
+            && Eq(cam.Width, comment.MaxX - comment.MinX) && Eq(cam.Depth, comment.MaxY - comment.MinY) && Eq(cam.Height, comment.MaxZ - comment.MinZ);
     }
 
     /// <summary>O bruto do setup é o do CAM (etiqueta "do CAM")? Editar o bruto tira a etiqueta.</summary>
@@ -158,7 +173,7 @@ public static class CamHandoffCode
         {
             list.Add(new HandoffNotice(HandoffNoticeKind.NoStock, NoStockText));
         }
-        else if (setup?.Stock is { } informed && !SameStock(informed, cam))
+        else if (setup?.Stock is { } informed ? !SameStock(informed, cam) : CommentStock(programText) is { } comment && !SameAsComment(cam, comment))
         {
             list.Add(new HandoffNotice(HandoffNoticeKind.StockDiffers,
                 $"Este programa já tem um bruto informado no Code. O bruto do CAM ({Describe(cam)}) é diferente e não foi aplicado."));

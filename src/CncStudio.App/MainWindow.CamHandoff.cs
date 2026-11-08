@@ -15,7 +15,7 @@ public partial class MainWindow
 {
     /// <summary>
     /// Liga o pacote à aba: o que veio do "Enviar ao Code" (memória) ou o arquivo ao lado do programa aberto do disco. Com pacote, o
-    /// dialeto vem dele e o bruto do CAM preenche o setup só se o setup não tem bruto. Sem pacote, nada muda.
+    /// dialeto vem dele e o bruto do CAM preenche o setup só se não há bruto informado (setup salvo ou comentário (BRUTO ...)). Sem pacote, nada muda.
     /// </summary>
     private static void AttachCamPackage(OpenProgram document, string? path, CamHandoff? package)
     {
@@ -27,7 +27,7 @@ public partial class MainWindow
         if (read.Package is { } p)
         {
             document.Dialect = CamHandoffCode.DialectOf(p);
-            CamHandoffCode.FillStock(document.Setup, p);
+            CamHandoffCode.FillStock(document.Setup, p, document.Text.Text);
         }
     }
 
