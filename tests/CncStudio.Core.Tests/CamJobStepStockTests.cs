@@ -14,7 +14,7 @@ public class CamJobStepStockTests
 
     private static CamJob Job()
     {
-        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Name = "BRUTO STEP" };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy, Name = "BRUTO STEP" };
         job.Contours.Add(Contour.Rectangle(0, 0, 30, 25));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Contour, Tool, Levels) { ContourIndex = 0, ContourParams = new ContourParams(ContourSide.Outside) });
         return job;

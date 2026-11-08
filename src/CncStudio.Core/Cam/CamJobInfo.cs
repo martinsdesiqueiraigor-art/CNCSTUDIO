@@ -94,6 +94,8 @@ public static class CamJobInfo
 
         // UX-04g: Programa nº (Fanuc) e G5x vazios ou inválidos travam Gerar e Enviar (não travam Salvar)
         list.AddRange(CamJobProgram.Problems(job));
+        // UX-04g PR B: zero da peça vazio, Z0 na base sem altura ou zero preso na origem pelo 4º eixo/3+2
+        list.AddRange(CamJobZero.Problems(job));
 
         if (job.Operations.Count == 0)
         {

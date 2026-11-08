@@ -340,6 +340,7 @@ public partial class JobView : UserControl
         _job.Dialect = j.Dialect;
         _job.ProgramNumber = j.ProgramNumber;
         _job.WorkOffset = j.WorkOffset;
+        _job.Zero = j.Zero;
         _programTypedError = null;
         _job.Coolant = j.Coolant;
         _job.SetStock(j.Stock, j.StockShape);

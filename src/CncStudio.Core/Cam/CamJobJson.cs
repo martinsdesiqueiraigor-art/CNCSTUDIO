@@ -20,15 +20,37 @@ public static class CamJobJson
 {
     private const string Format = "casillas-job";
 
+    /// <summary>Valor do campo "zero" para "Origem do desenho (como antes)" quando o arquivo precisa da v3 por outro motivo.</summary>
+    private const string ZeroAsBefore = "comoAntes";
+
     internal sealed class FormatException(string message) : Exception(message);
+
+    /// <summary>Lê o campo "zero": objeto com "point" e "z" (cada um opcional) ou "comoAntes". Valor desconhecido não abre (nada suposto).</summary>
+    private static JobZero? ZeroFrom(JsonNode? node)
+    {
+        if (node is JsonValue v && v.TryGetValue(out string? text) && text == ZeroAsBefore)
+        {
+            return JobZero.Legacy;
+        }
+
+        if (node is not JsonObject o)
+        {
+            throw new FormatException("Zero da peça inválido no arquivo.");
+        }
+
+        ZeroPoint? point = o["point"] is null ? null : Enum<ZeroPoint>(Str(o, "point"), "ponto do zero");
+        ZeroLevel? level = o["z"] is null ? null : Enum<ZeroLevel>(Str(o, "z"), "Z0 do zero");
+        return point is null && level is null ? null : new JobZero(point, level);
+    }
 
     public static string ToJson(CamJob job)
     {
+        // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
+        int version = CamJobProgram.NeedsVersion3(job) || CamJobZero.NeedsVersion3(job) ? 3 : CamJobStock.NeedsVersion2(job) ? 2 : 1;
         var root = new JsonObject
         {
             ["format"] = Format,
-            // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
-            ["version"] = CamJobProgram.NeedsVersion3(job) ? 3 : CamJobStock.NeedsVersion2(job) ? 2 : 1,
+            ["version"] = version,
             ["name"] = job.Name,
             ["dialect"] = job.Dialect.ToString(),
         };
@@ -41,6 +63,28 @@ public static class CamJobJson
         if (job.WorkOffset is { } offset)
         {
             root["workOffset"] = offset;
+        }
+
+        // UX-04g PR B: zero escolhido vai com os campos que têm valor. "Como antes" não grava nada, a não ser que a v3 seja obrigatória por
+        // outro motivo (ex.: Programa nº vazio): aí grava "comoAntes", porque a v3 sem o campo é lida como zero vazio (decisão do Igor, 08/11)
+        if (job.Zero is { AsBefore: false } zero)
+        {
+            var z = new JsonObject();
+            if (zero.Point is { } point)
+            {
+                z["point"] = point.ToString();
+            }
+
+            if (zero.Level is { } level)
+            {
+                z["z"] = level.ToString();
+            }
+
+            root["zero"] = z;
+        }
+        else if (job.Zero is { AsBefore: true } && version >= 3)
+        {
+            root["zero"] = ZeroAsBefore;
         }
 
         root["coolant"] = job.Coolant;
@@ -384,6 +428,8 @@ public static class CamJobJson
                 WorkOffset = OptionalInt(root, "workOffset", version < 3),
                 Coolant = Bool(root, "coolant"),
             };
+            // UX-04g PR B: versão menor que 3 sem o campo = "como antes" (gera igual); v3 sem o campo = zero vazio (Incompleto)
+            job.Zero = root["zero"] is null ? (version < 3 ? JobZero.Legacy : null) : ZeroFrom(root["zero"]);
             if (root["stock"] is JsonObject st)
             {
                 job.Stock = new JobStock(Num(st, "x"), Num(st, "y"), Num(st, "width"), Num(st, "length"), Num(st, "thickness"));

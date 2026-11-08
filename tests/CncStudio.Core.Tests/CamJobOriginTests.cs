@@ -12,7 +12,7 @@ public class CamJobOriginTests
 
     private static CamJob Job(OpOrigin? origin)
     {
-        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Name = "PLACA", Stock = new JobStock(0, 0, 100, 60, 10) };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy, Name = "PLACA", Stock = new JobStock(0, 0, 100, 60, 10) };
         job.Contours.Add(Contour.FromPoints([new(0, 0), new(100, 0), new(100, 60), new(0, 60)]));
         job.Operations.Add(CamJobInfo.NewOperation(JobOpKind.Contour, ContourSide.Outside, 0) with { Origin = origin });
         return job;

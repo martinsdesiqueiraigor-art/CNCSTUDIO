@@ -38,7 +38,7 @@ public class AssistPlannerTests
         PlanResult plan = AssistPlanner.Plan(Input(contours));
         foreach (CamDialect dialect in new[] { CamDialect.Fanuc, CamDialect.Siemens })
         {
-            var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Name = "PLANO", Dialect = dialect };
+            var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy, Name = "PLANO", Dialect = dialect };
             job.Contours.AddRange(contours);
             job.Operations.AddRange(plan.Operations);
             JobBuild build = CamJobBuilder.Build(job, null);
@@ -85,7 +85,7 @@ public class AssistPlannerTests
         CamOperationSpec pocket = Assert.Single(plan.Operations, o => o.Kind == JobOpKind.Pocket);
         Assert.True(pocket.Islands);
         Assert.DoesNotContain(plan.Operations, o => o.Kind == JobOpKind.Drilling);
-        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54 };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy };
         job.Contours.AddRange(contours);
         job.Operations.AddRange(plan.Operations);
         Assert.True(CamJobBuilder.Build(job, null).Ok);

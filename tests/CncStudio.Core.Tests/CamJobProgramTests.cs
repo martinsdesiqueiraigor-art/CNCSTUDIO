@@ -8,10 +8,10 @@ public class CamJobProgramTests
 {
     private static readonly CamLevels Levels = new(50, 2, 0, -3, 3);
 
-    // trabalho pronto para gerar, sem número nem G5x (como nasce na tela)
+    // trabalho pronto para gerar, sem número nem G5x (como nasce na tela); o zero da peça (PR B) fica "como antes" para isolar o PR A
     private static CamJob Empty(CamDialect dialect = CamDialect.Fanuc)
     {
-        var job = new CamJob { Name = "NOVO", Dialect = dialect, Stock = new JobStock(-5, -5, 70, 50, 20), Fixture = new JobFixture("morsa") };
+        var job = new CamJob { Name = "NOVO", Dialect = dialect, Stock = new JobStock(-5, -5, 70, 50, 20), Fixture = new JobFixture("morsa"), Zero = JobZero.Legacy };
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Facing, new CamTool(1, 20, 3000, 600, 200, "FACE"), Levels) { ContourIndex = 0 });
         return job;
