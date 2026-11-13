@@ -5,7 +5,14 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]   # PRs para o dev ficam só com a Prévia (previa.yml)
   workflow_dispatch:
+
+# PR: um run por ramo, o novo cancela o anterior. Push na main e workflow_dispatch: grupo próprio
+# por run (run_id), então nunca são cancelados nem substituídos na fila.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
