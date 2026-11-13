@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CncStudio.Core.Cam;
 using CncStudio.Core.Execution;
 using System.Text.Json.Serialization;
 using CncStudio.Core.Geometry;
@@ -88,7 +89,28 @@ public sealed class AppSettings
     /// <summary>Diâmetro usado para ferramentas que não estão na tabela.</summary>
     public double DefaultToolDiameter { get; set; } = 10;
 
+    /// <summary>
+    /// Tabela antiga de ferramentas (antes do banco, UX-04h). O Code não a escreve mais: vale o banco. Fica no config.json só
+    /// para a migração única (e o Trabalho do CAM ainda a usa até o PR B2).
+    /// </summary>
     public List<ToolEntry> Tools { get; set; } = [];
+
+    /// <summary>A tabela antiga já virou banco: nunca migra de novo, nem se o usuário apagar todos os bancos.</summary>
+    public bool ToolBanksMigrated { get; set; }
+
+    /// <summary>O que não entrou na migração, mostrado na tela do banco até o usuário dispensar.</summary>
+    public List<string> ToolBankNotes { get; set; } = [];
+
+    /// <summary>Bancos carregados da pasta (fora do config.json). O simulador lê daqui.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<ToolBank> Banks { get; set; } = [];
+
+    public static string ToolBankFolderPath =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CncStudio", "ferramentas");
+
+    /// <summary>A tabela antiga no formato da migração do Core (sem mudá-la).</summary>
+    public List<LegacyToolRow> LegacyToolRows() =>
+        [.. Tools.Select(t => new LegacyToolRow(t.Number, t.Diameter, t.Description ?? "", t.Kind ?? "", t.InsertWidth, t.SpindleRpm, t.FeedXY, t.FeedZ))];
 
     /// <summary>Biblioteca do Casillas Assist (JSON versionado); vazio = itens iniciais.</summary>
     public string AssistLibraryJson { get; set; } = "";
@@ -315,13 +337,18 @@ public sealed class AppSettings
     }
 
     /// <summary>Cópia independente (para o diálogo editar sem mexer no original até confirmar).</summary>
-    public AppSettings Clone() =>
-        JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(this, JsonOptions), JsonOptions)!;
+    public AppSettings Clone()
+    {
+        AppSettings copy = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(this, JsonOptions), JsonOptions)!;
+        copy.Banks = Banks; // os bancos são imutáveis e ficam fora do JSON
+        return copy;
+    }
 
     /// <summary>Garante G54–G59 presentes e valores válidos.</summary>
     private void Normalize()
     {
         Tools ??= [];
+        ToolBankNotes ??= [];
         MachineProfiles ??= [];
         MachineProfiles.RemoveAll(p => p is null || p.Validate().Count > 0);
         ActiveMachineProfile ??= "";

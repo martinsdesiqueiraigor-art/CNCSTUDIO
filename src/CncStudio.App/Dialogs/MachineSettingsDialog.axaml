@@ -13,28 +13,14 @@
 
     <TabControl>
       <TabItem Header="Ferramentas">
-        <DockPanel Margin="0,8,0,0">
-          <StackPanel DockPanel.Dock="Top" Spacing="8">
-            <TextBlock TextWrapping="Wrap" Opacity="0.75"
-                       Text="Diâmetro de cada ferramenta (T) usado na simulação. Ferramentas que não estão na lista usam o diâmetro padrão." />
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="Diâmetro padrão (mm)" VerticalAlignment="Center" />
-              <NumericUpDown x:Name="DefaultDiameterInput" Width="130" Minimum="0.1" Maximum="500" Increment="1" FormatString="0.###" />
-              <Button x:Name="AddToolButton" Content="+ Adicionar ferramenta" Margin="12,0,0,0" />
-              <Button x:Name="AddUsedToolsButton" Content="+ Ferramentas do programa" ToolTip.Tip="Adiciona as ferramentas usadas no programa aberto que ainda não estão na lista" />
-            </StackPanel>
-            <Grid ColumnDefinitions="90,130,210,80,*,40" Margin="0,6,0,0" Opacity="0.7">
-              <TextBlock Grid.Column="0" Text="T" />
-              <TextBlock Grid.Column="1" Text="Diâmetro (mm)" />
-              <TextBlock Grid.Column="2" Text="Tipo (torno)" />
-              <TextBlock Grid.Column="3" Text="Larg. (mm)" ToolTip.Tip="Largura do inserto do bedame" />
-              <TextBlock Grid.Column="4" Text="Descrição" />
-            </Grid>
+        <StackPanel Margin="0,8,0,0" Spacing="8">
+          <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                     Text="As ferramentas agora ficam no banco de ferramentas: Casillas CAM › Ferramentas. O simulador lê o Ø de lá; a tabela antiga ficou guardada só para a migração." />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Diâmetro padrão (mm)" VerticalAlignment="Center" ToolTip.Tip="Usado quando a ferramenta não está no banco nem no comentário do programa" />
+            <NumericUpDown x:Name="DefaultDiameterInput" Width="130" Minimum="0.1" Maximum="500" Increment="1" FormatString="0.###" />
           </StackPanel>
-          <ScrollViewer>
-            <StackPanel x:Name="ToolRows" Spacing="4" />
-          </ScrollViewer>
-        </DockPanel>
+        </StackPanel>
       </TabItem>
 
       <TabItem Header="Zeros de peça">
