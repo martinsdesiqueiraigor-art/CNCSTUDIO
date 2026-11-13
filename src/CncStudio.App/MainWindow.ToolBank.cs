@@ -19,5 +19,16 @@ public partial class MainWindow
 
         ToolBankFolder loaded = ToolBankStore.Load(folder);
         _settings.Banks = [.. loaded.Banks.Select(b => b.Bank)];
+        Cam.ToolBanks.Load(folder, loaded, _settings.ToolBankNotes);
+        Cam.ToolBanks.BanksChanged += banks =>
+        {
+            _settings.Banks = banks;
+            StartAnalysis(); // o simulador lê os diâmetros do banco
+        };
+        Cam.ToolBanks.NotesDismissed += () =>
+        {
+            _settings.ToolBankNotes.Clear();
+            _settings.Save();
+        };
     }
 }
