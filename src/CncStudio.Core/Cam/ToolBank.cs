@@ -109,6 +109,24 @@ public sealed record BankTool(int Number)
 
     /// <summary>Marca "a conferir": algum valor veio de migração ou importação sem como separar o digitado do padrão.</summary>
     public bool ToCheck { get; init; }
+
+    /// <summary>Ativa (padrão). Inativa = fora de uso (quebrou, aguarda reposição): fica no banco, mantém o T e não é oferecida na operação.</summary>
+    public bool Active { get; init; } = true;
+
+    /// <summary>"A conferir" vale mais; senão, incompleta quando falta o tipo, o Ø (fresa e broca) ou a largura do inserto (bedame).</summary>
+    public BankToolStatus Status =>
+        ToCheck ? BankToolStatus.ToCheck
+        : Type is not { } type || (BankToolTypes.IsParting(type) ? InsertWidth is null : Diameter is null && BankToolTypes.Accepts(ToolBankMachine.Mill, type))
+            ? BankToolStatus.Incomplete
+            : BankToolStatus.Complete;
+}
+
+/// <summary>Estado mostrado na tela: completa, incompleta (falta algo para escolher na operação) ou "a conferir".</summary>
+public enum BankToolStatus
+{
+    Complete,
+    Incomplete,
+    ToCheck,
 }
 
 /// <summary>Um banco de ferramentas: id (nome do arquivo), nome livre, máquina e a lista. T único dentro do banco.</summary>
@@ -135,6 +153,45 @@ public sealed record ToolBank(string Id, string Name, ToolBankMachine Machine)
     };
 
     public ToolBank Without(int number) => this with { Tools = [.. Tools.Where(t => t.Number != number)] };
+
+    /// <summary>Próximo T livre depois de <paramref name="after"/> (volta ao 1 no fim da faixa); null = banco cheio.</summary>
+    public int? NextFreeNumber(int after)
+    {
+        int max = MaxNumber(Machine);
+        var used = Tools.Select(t => t.Number).ToHashSet();
+        for (int k = 1; k <= max; k++)
+        {
+            int n = ((Math.Clamp(after, 0, max) + k - 1) % max) + 1;
+            if (!used.Contains(n))
+            {
+                return n;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Duplicar: cópia de todos os campos (ausentes continuam ausentes, "a conferir" vai junto) no próximo T livre, com "(cópia)"
+    /// no nome; a cópia nasce ativa. Sem T livre na faixa, devolve o motivo.
+    /// </summary>
+    public (ToolBank? Bank, BankTool? Copy, string? Error) Duplicate(int number)
+    {
+        if (Tools.FirstOrDefault(t => t.Number == number) is not { } source)
+        {
+            return (null, null, $"T{number} não existe neste banco.");
+        }
+
+        if (NextFreeNumber(number) is not { } free)
+        {
+            return (null, null, $"Não há T livre neste banco (vai de 1 a {MaxNumber(Machine)}).");
+        }
+
+        const string suffix = " (cópia)";
+        string? name = source.Name is { } n ? n[..Math.Min(n.Length, MaxNameLength - suffix.Length)] + suffix : null;
+        BankTool copy = source with { Number = free, Name = name, Active = true };
+        return (With(copy), copy, null);
+    }
 
     /// <summary>Motivo de não aceitar <paramref name="tool"/> no banco (null = aceita). <paramref name="replacing"/>: T que ela substitui.</summary>
     public string? CanAdd(BankTool tool, int? replacing = null) =>
