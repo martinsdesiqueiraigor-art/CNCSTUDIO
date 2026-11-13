@@ -67,6 +67,13 @@ public partial class MainWindow
             LoadText(text, null, name);
             ShowModule("code");
         };
+        // CAM-13: o Trabalho fresa envia com o pacote do CAM (aba sem arquivo; o pacote fica na memória até salvar)
+        Cam.OpenWithPackage = (text, name, package) =>
+        {
+            LoadText(text, null, name, package: package);
+            ShowModule("code");
+        };
+        Statistics.FromCam = ToolFromCam;
         Cam.ToolsSource = () => _settings.Tools;
         Cam.SaveTools = () => _settings.Save();
         // larguras das divisórias do Trabalho fresa (UX-04c): preferência local do app
@@ -118,6 +125,18 @@ public partial class MainWindow
             using var memory = new MemoryStream();
             await stream.CopyToAsync(memory);
             return (files[0].Name, memory.ToArray());
+        };
+        Cam.PickStockStep = async () =>
+        {
+            IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Bruto em STEP (fundido ou forjado)",
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Modelo STEP") { Patterns = ["*.step", "*.STEP", "*.stp", "*.STP"] }],
+            });
+
+            // o trabalho guarda o caminho: só arquivo com caminho no computador serve
+            return files.Count == 0 ? null : files[0].TryGetLocalPath();
         };
         Cam.PickDxf = async () =>
         {

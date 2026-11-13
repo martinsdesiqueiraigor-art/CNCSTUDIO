@@ -76,15 +76,26 @@ public static class CamJobInfo
             list.Add("Falta a peça (abra um DXF ou desenhe uma forma)");
         }
 
-        if (job.Stock is null)
+        // sem bruto nenhum ou bruto incompleto (formato novo) travam Gerar e Enviar (decisão do Igor, adendo 2 do UX-04f, 08/11)
+        StockCheck stock = CamJobStock.Check(job);
+        if (stock.NotDefined)
         {
-            list.Add("Bruto não definido");
+            list.Add(StockMissing);
+        }
+        else if (CamJobStock.IncompleteReason(stock) is { } why)
+        {
+            list.Add(CamJobStock.IncompletePrefix + ": " + why);
         }
 
         if (job.Fixture is null)
         {
             list.Add(FixtureMissing);
         }
+
+        // UX-04g: Programa nº (Fanuc) e G5x vazios ou inválidos travam Gerar e Enviar (não travam Salvar)
+        list.AddRange(CamJobProgram.Problems(job));
+        // UX-04g PR B: zero da peça vazio, Z0 na base sem altura ou zero preso na origem pelo 4º eixo/3+2
+        list.AddRange(CamJobZero.Problems(job));
 
         if (job.Operations.Count == 0)
         {
@@ -113,9 +124,12 @@ public static class CamJobInfo
 
     /// <summary>
     /// Se a pendência impede gerar e enviar o G-code. Só a fixação não definida é aviso (decisão do Igor, 02/11); o resto trava,
-    /// como antes.
+    /// inclusive o bruto incompleto (adendo 2 do UX-04f, 08/11), como o "Bruto não definido". Salvar nunca trava pelo bruto.
     /// </summary>
     public static bool Blocks(string pending) => pending != FixtureMissing;
+
+    /// <summary>Pendência de bruto nenhum (trava, como antes do UX-04f).</summary>
+    public const string StockMissing = "Bruto não definido";
 
     /// <summary>Linha "Fixação" da árvore: "Fixação: não definida" ou "Fixação: Morsa · descrição".</summary>
     public static string FixtureTitle(JobFixture? f) => f is null
@@ -357,6 +371,18 @@ public static class CamJobInfo
     /// </summary>
     public static string OriginTitle(CamJob job)
     {
+        // UX-04g PR B: zero escolhido pelo jeito novo mostra o ponto e o Z0; vazio diz o que falta; arquivo antigo segue como antes
+        if (job.Zero is { AsBefore: false, Point: { } p, Level: { } level })
+        {
+            string where = p == ZeroPoint.Drawing ? "X0 Y0 do desenho" : CamJobZero.PointName(p) + " da peça";
+            return $"Origem {WorkOffsetName(job)}: {where}, Z0 {(level == ZeroLevel.Top ? "no topo" : "na base")}";
+        }
+
+        if (job.Zero is not { AsBefore: true })
+        {
+            return $"Origem {WorkOffsetName(job)}: zero da peça (falta escolher)";
+        }
+
         List<double> tops = job.Operations.Where(o => o.Enabled && o.Kind != JobOpKind.WrapText).Select(o => o.Levels.TopZ).Distinct().ToList();
         string top = tops.Count switch
         {
@@ -364,8 +390,11 @@ public static class CamJobInfo
             1 => "topo Z" + N(tops[0]),
             _ => "topo Z varia por operação",
         };
-        return $"Origem G{job.WorkOffset}: X0 Y0 do desenho, {top}";
+        return $"Origem {WorkOffsetName(job)}: X0 Y0 do desenho, {top}";
     }
+
+    /// <summary>Nome do zero de peça do trabalho ("G54") ou "G5x (falta)" quando está vazio (UX-04g).</summary>
+    public static string WorkOffsetName(CamJob job) => job.WorkOffset is { } g ? "G" + g.ToString(CultureInfo.InvariantCulture) : "G5x (falta)";
 
     /// <summary>A origem na máquina nunca é conferida pelo app: fica sempre "não verificada".</summary>
     public static (string Kind, string Text) OriginState() => ("pending", "não verificada");
@@ -375,6 +404,31 @@ public static class CamJobInfo
         ? "Máquina: sem perfil ativo"
         : m.MaxSpindleRpm is { } rpm ? $"Máquina: {m.Name} · fuso até {N(rpm)} rpm" : $"Máquina: {m.Name} · fuso não informado";
 
+    /// <summary>Botões de eixos do cartão Máquina (UX-04f), na ordem da tela.</summary>
+    public static readonly IReadOnlyList<string> MachineAxesOptions = ["3 eixos", "4º eixo (A)", "3+2 (mesa A+C)", "5 mista"];
+
+    /// <summary>Texto dos eixos de um perfil que não cabe em nenhum botão (4º eixo em B, cabeçote e mesa com outras letras…).</summary>
+    public const string MachineAxesCustom = "personalizado";
+
+    /// <summary>
+    /// Qual botão de eixos o perfil ocupa no cartão Máquina: sem rotativo = "3 eixos"; A na mesa = "4º eixo (A)"; mesa A + mesa C =
+    /// "3+2 (mesa A+C)"; cabeçote B + mesa C = "5 mista". O resto é "personalizado" (os dados do perfil ficam como estão).
+    /// Pivôs, cursos dos ângulos e modo de saída não mudam o botão: todo perfil real tem os seus.
+    /// </summary>
+    public static string MachineAxesLabel(MachineProfile m)
+    {
+        string Key(RotaryAxisConfig a) => (a.Carrier == RotaryCarrier.Table ? "mesa " : "cabeçote ") + a.Letter;
+        string axes = string.Join(" + ", m.Axes.Select(Key));
+        return axes switch
+        {
+            "" => MachineAxesOptions[0],
+            "mesa A" => MachineAxesOptions[1],
+            "mesa A + mesa C" => MachineAxesOptions[2],
+            "cabeçote B + mesa C" => MachineAxesOptions[3],
+            _ => MachineAxesCustom,
+        };
+    }
+
     /// <summary>Estado da máquina: OK só com a rotação máxima do fuso informada; sem ela, nada é suposto.</summary>
     public static (string Kind, string Text) MachineState(MachineProfile? m) => m switch
     {
@@ -382,6 +436,43 @@ public static class CamJobInfo
         { MaxSpindleRpm: > 0 } => ("ok", "OK"),
         _ => ("pending", "fuso não informado"),
     };
+
+    /// <summary>Texto do selo da Máquina da fresa sem a rotação máxima: o perfil vale, mas o limite do fuso não é conferido.</summary>
+    public const string SpindleNotChecked = "fuso não verificado";
+
+    /// <summary>
+    /// Estado da Máquina no Trabalho fresa (UX-04f PR 2): sem perfil = pendente (o CAM gera em 3 eixos); com perfil = ✓, com
+    /// "fuso não verificado" se a rotação máxima está vazia (não bloqueia). Controle do perfil diferente do trabalho = aviso: o
+    /// controle do trabalho manda, nada é trocado nem bloqueado. O torno continua com <see cref="MachineState"/>.
+    /// </summary>
+    public static (string Kind, string Text) MillMachineState(MachineProfile? m, CamDialect jobDialect)
+    {
+        if (m is null)
+        {
+            return ("pending", "sem perfil");
+        }
+
+        if (MachineControlWarning(m, jobDialect) is not null)
+        {
+            return ("pending", "aviso: controle diferente do trabalho");
+        }
+
+        return m.MaxSpindleRpm is > 0 ? ("ok", "OK") : ("ok", "OK · " + SpindleNotChecked);
+    }
+
+    /// <summary>Linha "Máquina" da árvore da fresa: como <see cref="MachineTitle"/>, mas sem rotação diz "fuso não verificado" (o torno não muda).</summary>
+    public static string MillMachineTitle(MachineProfile? m) => m is { MaxSpindleRpm: null } ? $"Máquina: {m.Name} · {SpindleNotChecked}" : MachineTitle(m);
+
+    /// <summary>
+    /// Aviso quando o controle do perfil ativo difere do controle do trabalho (null = iguais ou sem perfil). Só avisa: o controle
+    /// do trabalho é o que vale para o programa.
+    /// </summary>
+    public static string? MachineControlWarning(MachineProfile? m, CamDialect jobDialect) =>
+        m is null || m.Controller == jobDialect
+            ? null
+            : $"O trabalho está em {DialectName(jobDialect)} e o perfil em {DialectName(m.Controller)}. O programa sai em {DialectName(jobDialect)} (o controle do trabalho manda): confira antes de rodar.";
+
+    private static string DialectName(CamDialect d) => d == CamDialect.Siemens ? "Siemens" : "Fanuc";
 
     /// <summary>
     /// Aviso de rotação acima do limite do fuso do perfil da máquina (null = dentro do limite ou limite não informado).

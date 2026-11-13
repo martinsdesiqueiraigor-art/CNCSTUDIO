@@ -12,6 +12,7 @@
         <TextBlock x:Name="OtherTitle" Foreground="#9aa7b5" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
         <ToggleButton x:Name="JobTab" Content="Fresa" Padding="14,4" IsChecked="True" ToolTip.Tip="Trabalho de fresa" />
         <ToggleButton x:Name="LatheJobTab" Content="Torno" Padding="14,4" ToolTip.Tip="Trabalho de torno" />
+        <ToggleButton x:Name="ToolBankTab" Content="Ferramentas" Padding="14,4" ToolTip.Tip="Banco de ferramentas (fresa e torno)" />
         <Button x:Name="MoreButton" Content="Mais ▾" Padding="12,4" ToolTip.Tip="Torno rápido, Perfil 4/5 eixos e Modelo 3D (STL/STEP)">
           <Button.Flyout>
             <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -30,6 +31,7 @@
   <modules:JobView x:Name="JobPanel" />
   <modules:LatheJobView x:Name="LatheJobPanel" IsVisible="False" />
   <modules:ModelView x:Name="ModelPanel" IsVisible="False" />
+  <modules:ToolBankView x:Name="ToolBankPanel" IsVisible="False" />
   </Grid>
   </DockPanel>
 </UserControl>

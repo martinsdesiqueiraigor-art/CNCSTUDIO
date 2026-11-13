@@ -139,6 +139,7 @@ public partial class MainWindow : Window
         LicensesButton.Click += async (_, _) => await new ThirdPartyLicensesWindow().ShowDialog(this);
         ApplyTheme(_settings.Theme);
         InitModules();
+        InitToolBanks();
         RecentButton.Click += (_, _) => ShowRecentMenu();
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
         SiemensSampleButton.Click += (_, _) => LoadSample("EXEMPLO.mpf");
@@ -250,6 +251,7 @@ public partial class MainWindow : Window
             AddRecent(path);
             RebuildTabs();
             _settings.SetSetup(SetupKey, _active.Setup); // "salvar como": o setup acompanha o arquivo novo
+            SaveCamPackage(path); // CAM-13: o pacote do CAM vai ao lado (PECA.nc.casillas-cam), também no "salvar como"
 
             FileStatus.Text = path;
             UpdateTitle();
@@ -277,7 +279,7 @@ public partial class MainWindow : Window
     /// Abre o texto numa aba. Se o arquivo já está aberto, só mostra a aba dele. Se a aba atual é
     /// um exemplo ou uma aba vazia sem alterações, ela é substituída (não acumula abas à toa).
     /// </summary>
-    private void LoadText(string text, string? path, string displayName, bool isSample = false)
+    private void LoadText(string text, string? path, string displayName, bool isSample = false, CncStudio.Core.Cam.CamHandoff? package = null)
     {
         if (path is not null && _documents.Find(d => SamePath(d.FilePath, path)) is { } alreadyOpen)
         {
@@ -294,6 +296,7 @@ public partial class MainWindow : Window
             Dialect = DialectDetector.FromFileName(displayName),
         };
         document.Setup = _settings.SetupFor(document.SetupKey);
+        AttachCamPackage(document, path, package);
 
         int index = _documents.IndexOf(_active);
         if (index >= 0 && _active.IsDisposable)
@@ -661,7 +664,7 @@ public partial class MainWindow : Window
         string? folder = _active.FilePath is not null
             ? Path.GetDirectoryName(_active.FilePath)
             : Path.Combine(AppContext.BaseDirectory, "samples", "macros");
-        MachineSettings machine = _active.Setup.ApplyTo(_settings.ToMachineSettings(folder)) with { PartFrame = ActivePartFrame() };
+        MachineSettings machine = _active.Setup.ApplyTo(MachineForProgram(folder)) with { PartFrame = ActivePartFrame() };
         AnalysisStatus.Text = "Analisando…";
 
         try
@@ -712,6 +715,7 @@ public partial class MainWindow : Window
         CurrentAnalysis = analysis;
         Graphics.SetToolPath(analysis.ToolPath, figures, _fitOnNextAnalysis);
         Statistics.Show(analysis);
+        RefreshCamNotes();
         Graphics.SetHighlightedLine(Editor.TextArea.Caret.Line);
         _lineMotions.Update(analysis.ToolPath);
         _lineMotions.ExecutingLine = 0;
@@ -822,8 +826,8 @@ public partial class MainWindow : Window
         Dialect dialect = CurrentDialect;
         string? filePath = _active.FilePath;
         string fileName = filePath is null ? "sem título" : Path.GetFileName(filePath);
-        MachineSettings machine = _active.Setup.ApplyTo(_settings.ToMachineSettings(filePath is null ? null : Path.GetDirectoryName(filePath))) with { PartFrame = ActivePartFrame() };
-        var tools = _settings.Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.Last());
+        MachineSettings machine = _active.Setup.ApplyTo(MachineForProgram(filePath is null ? null : Path.GetDirectoryName(filePath))) with { PartFrame = ActivePartFrame() };
+        Dictionary<int, CncStudio.Core.Cam.BankTool> tools = CncStudio.Core.Cam.ToolBankLookup.Tools(_settings.Banks); // a folha lê o banco, como o simulador
         string? stock = CurrentStockDescription;
         AnalysisStatus.Text = "Gerando a folha de setup…";
 
@@ -841,7 +845,7 @@ public partial class MainWindow : Window
                     : figures;
 
                 SetupSheet sheet = SetupSheetBuilder.Build(text, analysis, fileName, filePath,
-                    t => tools.TryGetValue(t, out ToolEntry? e) ? (e.Diameter, e.Description) : null, stock);
+                    t => tools.TryGetValue(t, out var e) && e.Diameter is { } d ? (d, e.Name ?? "") : null, stock);
                 string html = SetupSheetHtml.Render(sheet, drawing);
 
                 string folder = Path.Combine(Path.GetTempPath(), "CncStudio");
@@ -880,9 +884,11 @@ public partial class MainWindow : Window
         Bounds3 cutting = CurrentAnalysis?.ToolPath.CuttingBounds ?? Bounds3.Empty;
         Stock? current = _active.Setup.Stock?.ToStock(machine);
 
-        var dialog = new StockDialog(current, machine, cutting, Editor.Text);
+        // CAM-13: o bruto que veio do CAM aparece com a etiqueta "do CAM"; salvar sem editar não o converte em bloco
+        bool fromCam = CncStudio.Core.Cam.CamHandoffCode.StockFromCam(_active.Setup, _active.CamPackage);
+        var dialog = new StockDialog(current, machine, cutting, Editor.Text, fromCam, CamNoteFor(CncStudio.Core.Cam.HandoffNoticeKind.StockDiffers, CncStudio.Core.Cam.HandoffNoticeKind.StepStock, CncStudio.Core.Cam.HandoffNoticeKind.NoStock));
         StockChoice? choice = await dialog.ShowDialog<StockChoice?>(this);
-        if (choice is null)
+        if (choice is null || (choice.Unchanged && current is not null && choice.Stock is not null))
         {
             return;
         }

@@ -1,0 +1,172 @@
+{
+  "format": "casillas-job-torno",
+  "version": 1,
+  "name": "EIXO TESTE",
+  "dialect": "Fanuc",
+  "programNumber": 1002,
+  "workOffset": 54,
+  "coolant": true,
+  "profile": [
+    [
+      0,
+      8,
+      -2,
+      10
+    ],
+    [
+      -2,
+      10,
+      -25,
+      10
+    ],
+    [
+      -25,
+      10,
+      -25,
+      14
+    ],
+    [
+      -25,
+      14,
+      -35,
+      14
+    ],
+    [
+      -35,
+      14,
+      -45,
+      14
+    ]
+  ],
+  "operations": [
+    {
+      "kind": "Turning",
+      "enabled": true,
+      "label": "",
+      "safeZ": 50,
+      "safeDiameter": 80,
+      "clearance": 2,
+      "tool": {
+        "number": 1,
+        "name": "Ferr",
+        "surfaceSpeed": 200,
+        "maxRpm": 3000,
+        "rpm": 0
+      },
+      "turning": {
+        "stockDiameter": 40,
+        "internal": false,
+        "rough": true,
+        "finish": true,
+        "depthOfCut": 1.5,
+        "retract": 0.5,
+        "allowanceR": 0.2,
+        "allowanceZ": 0.1,
+        "roughFeed": 0.25,
+        "finishFeed": 0.1
+      }
+    },
+    {
+      "kind": "Facing",
+      "enabled": true,
+      "label": "",
+      "safeZ": 50,
+      "safeDiameter": 80,
+      "clearance": 2,
+      "tool": {
+        "number": 2,
+        "name": "Ferr",
+        "surfaceSpeed": 200,
+        "maxRpm": 3000,
+        "rpm": 0
+      },
+      "facing": {
+        "stockDiameter": 40,
+        "innerDiameter": 0,
+        "stockFaceZ": 2,
+        "finalFaceZ": 0,
+        "depthOfCut": 1,
+        "feed": 0.15
+      }
+    },
+    {
+      "kind": "Drilling",
+      "enabled": true,
+      "label": "",
+      "safeZ": 50,
+      "safeDiameter": 80,
+      "clearance": 2,
+      "tool": {
+        "number": 3,
+        "name": "Ferr",
+        "surfaceSpeed": 200,
+        "maxRpm": 3000,
+        "rpm": 0
+      },
+      "drill": {
+        "topZ": 0,
+        "bottomZ": -25,
+        "peck": 8,
+        "feed": 0.12
+      }
+    },
+    {
+      "kind": "Threading",
+      "enabled": true,
+      "label": "",
+      "safeZ": 50,
+      "safeDiameter": 80,
+      "clearance": 2,
+      "tool": {
+        "number": 4,
+        "name": "Ferr",
+        "surfaceSpeed": 200,
+        "maxRpm": 3000,
+        "rpm": 0
+      },
+      "thread": {
+        "internal": false,
+        "majorDiameter": 20,
+        "pitch": 1.5,
+        "startZ": 0,
+        "endZ": -18,
+        "rpm": 600,
+        "height": 0,
+        "firstDepth": 0,
+        "minDepth": 0.05,
+        "finishPasses": 2,
+        "allowance": 0.05,
+        "approach": 0,
+        "overrun": 0
+      }
+    },
+    {
+      "kind": "Grooving",
+      "enabled": true,
+      "label": "",
+      "safeZ": 50,
+      "safeDiameter": 80,
+      "clearance": 2,
+      "tool": {
+        "number": 5,
+        "name": "Ferr",
+        "surfaceSpeed": 200,
+        "maxRpm": 3000,
+        "rpm": 0
+      },
+      "groove": {
+        "internal": false,
+        "surfaceDiameter": 30,
+        "bottomDiameter": 22,
+        "zStart": -20,
+        "width": 8,
+        "toolWidth": 3,
+        "peck": 2,
+        "feed": 0.08,
+        "retract": 0.5,
+        "allowance": 0.1,
+        "finish": true
+      }
+    }
+  ]
+}

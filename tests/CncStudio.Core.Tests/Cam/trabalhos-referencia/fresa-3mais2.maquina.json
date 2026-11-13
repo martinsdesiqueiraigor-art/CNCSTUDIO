@@ -1,0 +1,28 @@
+{
+  "Name": "5 eixos: mesa A \u002B C",
+  "Controller": "Fanuc",
+  "Mode": "calculado",
+  "MaxSpindleRpm": null,
+  "Axes": [
+    {
+      "Letter": "A",
+      "Carrier": "mesa",
+      "MinAngle": -30,
+      "MaxAngle": 110,
+      "Reversed": false,
+      "PivotX": 0,
+      "PivotY": 20,
+      "PivotZ": -25
+    },
+    {
+      "Letter": "C",
+      "Carrier": "mesa",
+      "MinAngle": -360,
+      "MaxAngle": 360,
+      "Reversed": false,
+      "PivotX": 0,
+      "PivotY": 0,
+      "PivotZ": 0
+    }
+  ]
+}

@@ -491,3 +491,15 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 ## Web · minhas ferramentas no Setup (02/11)
 - Setup web: caixa "Guardar esta lista como minhas ferramentas"; programa sem setup salvo abre com essa lista (só ferramentas, bruto e fixação não). Fica no navegador (`cc.mytools.v1`), não sincroniza entre aparelhos.
 - Core: `SetupJson.LoadOrDefault(json, programa, minhas)` e `SerializeMyTools`; 1332 testes (+9). Desktop ainda sem isso.
+
+## Movido do ESTADO.md em 08/11/2026 (UX-04g PR A)
+- **UX-04f PR 2 (08/11, `fase-ux04f-maquina-step-bruto`, PR rascunho para o `dev`):** bruto em STEP: o trabalho guarda caminho e resumo (caixa e volume, `StepStockSummary`), nunca a malha; abrir só confere se o arquivo existe (`CamJobStock.VerifyStepFile`); sumiu = incompleto com “Localizar de novo”. Posição “Como está no STEP” ou X Y Z digitado; o 3D mostra a caixa até o botão ler o STEP (fora da tela). Leitura medida: até 1,7 s (NIST, 3,2 MB). Cartão Máquina escolhe, cria e edita perfil (`Cam/MachineProfileForm.cs`, validação do perfil completo; personalizado sem perda); selo da fresa `MillMachineState`: ✓ com “fuso não verificado” sem rotação, aviso se o controle difere (o torno segue com `MachineState`). `MachineProfile.Clone` passou a copiar a rotação máxima. G-code igual. ~1190 linhas (acima das ~900; o Igor decidiu não dividir). Conferido em foto headless a 1280×720, 1366×768 e 1920×1080; 125% e 150% não.
+
+## Movido do ESTADO.md em 08/11/2026 (UX-04g PR B)
+- **UX-04g PR A (08/11, `fase-ux04g-programa-g5x`, PR rascunho para o `dev`):** Programa nº e G5x da fresa sem padrão (`CamJob` com `int?`; `Cam/JobProgram.cs`, `CamJobProgram`): trabalho novo nasce vazio, Incompleto com tracejado laranja e selo "!" no cartão Fixação; trava Gerar e Enviar, nunca Salvar. Fanuc: número inteiro de 1 a 9999; Siemens: não usa o número ("Siemens usa o nome do trabalho"). G5x: Fanuc G54 a G59, Siemens G54 a G57 (sem G54.1 P). A faixa e a lista valem para o que se digita ou escolhe; valor de arquivo antigo fora delas (ex.: G58 no Siemens, O0 ou O10000) gera como antes, com aviso; trocar o controle limpa o G5x fora da lista nova. Árvore: Fixação com selo "!" em círculo quando pendente. Arquivo: vazio não vai para o arquivo e sobe para a v3 (`CurrentVersion = 3`); preenchido segue v1/v2 com o mesmo texto. Rodapé sem "1001". G-code dos 6 trabalhos de referência igual. CAM 3D (`ModelView`) e CAM rápido (`CamQuickJson`) seguem com 1001/G54 de `PostOptions` (fora do Trabalho). Foto headless do cartão a 1280×720; .exe não conferido.
+
+## Movido do ESTADO.md em 08/11/2026 (UX-04h PR A)
+- Ramos do STEP já mesclados (`fase-cam-step-malha`, `-correcao`, `-orientacao`, `ajuste-step-enxugar-dlls`, `ajuste-step-solidos`, `fase-cam-step-integracao`): podem ser apagados com cópia de segurança. Outros: `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02` e ramos antigos de 22/10.
+
+## Movido do ESTADO.md em 13/11/2026 (UX-04h PR B1)
+- **Documentação (03/11):** `ESTADO.md` enxuto com histórico em `docs/historico/` (#133); `CLAUDE.md` com `git fetch` no início e roteamento por tarefa (#134).

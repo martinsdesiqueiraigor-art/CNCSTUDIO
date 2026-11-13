@@ -209,6 +209,8 @@ public sealed class MachineProfile
         Name = Name,
         Controller = Controller,
         Mode = Mode,
+        // a rotação máxima também é copiada: sem ela, editar um perfil apagava o limite do fuso (achado do UX-04f PR 2)
+        MaxSpindleRpm = MaxSpindleRpm,
         Axes = Axes.Select(a => a.Clone()).ToList(),
     };
 

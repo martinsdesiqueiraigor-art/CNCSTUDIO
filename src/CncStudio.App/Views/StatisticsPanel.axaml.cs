@@ -28,6 +28,9 @@ public partial class StatisticsPanel : UserControl
     /// <summary>Diâmetro de cada ferramenta (T → mm), só para exibir na tabela.</summary>
     public Func<int, double> DiameterOf { get; set; } = _ => 10;
 
+    /// <summary>CAM-13: o Ø deste T veio do CAM para este programa (a célula ganha a etiqueta "do CAM").</summary>
+    public Func<int, bool> FromCam { get; set; } = _ => false;
+
     /// <summary>O usuário clicou numa ferramenta: ir para a linha informada no editor.</summary>
     public event EventHandler<int>? LineRequested;
 
@@ -74,7 +77,7 @@ public partial class StatisticsPanel : UserControl
             string[] cells =
             [
                 tool.Tool == 0 ? "(sem T)" : $"T{tool.Tool}",
-                tool.Tool == 0 ? "—" : $"{DiameterOf(tool.Tool):0.###}",
+                tool.Tool == 0 ? "—" : $"{DiameterOf(tool.Tool):0.###}" + (FromCam(tool.Tool) ? " · do CAM" : ""),
                 tool.FirstLine.ToString(),
                 DurationFormat.Format(tool.TotalTime),
                 DurationFormat.Format(tool.CuttingTime),

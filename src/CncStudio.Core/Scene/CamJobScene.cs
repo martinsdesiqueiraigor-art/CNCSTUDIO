@@ -21,24 +21,30 @@ public static class CamJobScene
     /// <summary>Id da malha do bruto na cena.</summary>
     public const string StockId = "bruto";
 
-    /// <summary>Monta a cena. "hasSolidPart" = o Trabalho tem a peça em 3D (hoje nunca: só contornos 2D).</summary>
-    public static SceneSnapshot Build(JobStock? stock, IReadOnlyList<Contour> contours, ToolPath? path, CamViewOptions options, bool hasSolidPart = false)
+    /// <summary>Monta a cena com o bloco absoluto (topo em Z 0). "hasSolidPart" = o Trabalho tem a peça em 3D (hoje nunca: só contornos 2D).</summary>
+    public static SceneSnapshot Build(JobStock? stock, IReadOnlyList<Contour> contours, ToolPath? path, CamViewOptions options, bool hasSolidPart = false) =>
+        BuildResolved(stock is { Width: > 0, Length: > 0, Thickness: > 0 } s ? StockSolid.Box(s.X, s.Y, -s.Thickness, s.Width, s.Length, s.Thickness) : null,
+            contours, path, options, hasSolidPart);
+
+    /// <summary>
+    /// Monta a cena com o bruto resolvido (<see cref="CamJobStock.Check"/>): caixa, cilindro ou tubo, na posição do programa.
+    /// Bruto incompleto chega null e não aparece (nada suposto). <paramref name="zero"/>: onde fica o zero da peça no referencial interno
+    /// (<see cref="CamJobZero.Position"/>; UX-04g PR B). As setas saem dele, e a trajetória (lida do programa, que sai nesse zero) volta ao
+    /// referencial interno para ficar sobre a peça e o bruto. Só visualização: não verifica colisão nem simula.
+    /// </summary>
+    public static SceneSnapshot BuildResolved(StockSolid? stock, IReadOnlyList<Contour> contours, ToolPath? path, CamViewOptions options, bool hasSolidPart = false, Point3 zero = default)
     {
         ScenePalette palette = ScenePalette.Realistic;
         var objects = new List<SceneObjectState>();
         var lines = new List<SceneLinesState>();
         Bounds3 bounds = Bounds3.Empty;
 
-        if (stock is { Width: > 0, Length: > 0, Thickness: > 0 } s)
+        if (stock is { SizeX: > 0, SizeY: > 0, SizeZ: > 0 } s)
         {
-            // o topo do bruto fica em Z 0 (como no JobStock)
-            var min = new Point3(s.X, s.Y, -s.Thickness);
-            var size = new Point3(s.Width, s.Length, s.Thickness);
-            bounds = bounds.Include(min).Include(new Point3(s.X + s.Width, s.Y + s.Length, 0));
+            bounds = bounds.Include(new Point3(s.MinX, s.MinY, s.MinZ)).Include(new Point3(s.MaxX, s.MaxY, s.MaxZ));
             if (options.Stock != StockDisplay.Hidden)
             {
-                SolidMesh mesh = SolidMesh.Create(6);
-                SceneMeshes.Box(mesh, min, size, palette.Stock);
+                SolidMesh mesh = StockMesh(s, palette.Stock);
                 if (!options.Edges)
                 {
                     mesh.UseExplicitEdges(); // nenhuma aresta marcada
@@ -76,16 +82,18 @@ public static class CamJobScene
         if (path is { Moves.Count: > 0 })
         {
             (SceneLines feed, SceneLines rapid, _) = SceneLines.FromToolPath(path, partFrame: path.PartFrame);
-            bounds = Include(bounds, feed.PositionArray);
-            bounds = Include(bounds, rapid.PositionArray);
+            float[] feedPositions = Shift(feed.PositionArray, zero);
+            float[] rapidPositions = Shift(rapid.PositionArray, zero);
+            bounds = Include(bounds, feedPositions);
+            bounds = Include(bounds, rapidPositions);
             if (options.Path)
             {
-                lines.Add(new SceneLinesState(SceneRole.FeedPath, feed.PositionArray, palette.FeedPath));
+                lines.Add(new SceneLinesState(SceneRole.FeedPath, feedPositions, palette.FeedPath));
             }
 
             if (options.ShowsRapids)
             {
-                lines.Add(new SceneLinesState(SceneRole.RapidPath, rapid.PositionArray, palette.RapidPath));
+                lines.Add(new SceneLinesState(SceneRole.RapidPath, rapidPositions, palette.RapidPath));
             }
         }
 
@@ -95,11 +103,11 @@ public static class CamJobScene
             foreach ((Point3 tip, uint color) in Axes(length))
             {
                 var axis = new List<float>();
-                AddSegment(axis, Point3.Origin, tip);
+                AddSegment(axis, zero, new Point3(zero.X + tip.X, zero.Y + tip.Y, zero.Z + tip.Z));
                 lines.Add(new SceneLinesState(SceneRole.Axis, [.. axis], color));
             }
 
-            bounds = bounds.Include(Point3.Origin);
+            bounds = bounds.Include(zero);
         }
 
         if (bounds.IsEmpty)
@@ -111,6 +119,77 @@ public static class CamJobScene
         {
             MaterialOpacity = options.Stock == StockDisplay.Transparent ? SimulationScene.TransparentOpacity : 1f,
         };
+    }
+
+    /// <summary>Desloca as posições (x, y, z em sequência) pelo zero; zero na origem devolve o mesmo vetor.</summary>
+    public static float[] Shift(float[] positions, Point3 zero)
+    {
+        if (zero.X == 0 && zero.Y == 0 && zero.Z == 0)
+        {
+            return positions;
+        }
+
+        var shifted = new float[positions.Length];
+        for (int i = 0; i + 2 < positions.Length; i += 3)
+        {
+            shifted[i] = (float)(positions[i] + zero.X);
+            shifted[i + 1] = (float)(positions[i + 1] + zero.Y);
+            shifted[i + 2] = (float)(positions[i + 2] + zero.Z);
+        }
+
+        return shifted;
+    }
+
+    /// <summary>Lados do cilindro e do tubo na malha.</summary>
+    public const int RoundSegments = 48;
+
+    /// <summary>Malha do bruto: caixa, sólido do STEP, ou cilindro/tubo girado em volta do eixo (Z em pé; X ou Y deitado).</summary>
+    public static SolidMesh StockMesh(StockSolid s, uint color)
+    {
+        // STEP: o sólido lido; enquanto não foi lido nesta sessão, a caixa do resumo
+        if (s.Kind == StockSolidKind.Step && s.Mesh is { TriangleCount: > 0 } stepMesh)
+        {
+            return stepMesh.ToSolidMesh(color);
+        }
+
+        SolidMesh mesh = SolidMesh.Create(6);
+        if (s.Kind is StockSolidKind.Box or StockSolidKind.Step)
+        {
+            SceneMeshes.Box(mesh, new Point3(s.MinX, s.MinY, s.MinZ), new Point3(s.SizeX, s.SizeY, s.SizeZ), color);
+            return mesh;
+        }
+
+        double ro = s.Diameter / 2, ri = s.Kind == StockSolidKind.Tube ? s.InnerDiameter / 2 : 0, h = s.Length / 2;
+        var center = new Point3((s.MinX + s.MaxX) / 2, (s.MinY + s.MaxY) / 2, (s.MinZ + s.MaxZ) / 2);
+
+        // contorno no plano (raio, altura) no sentido que deixa as normais para fora (o mesmo do SceneMeshes.Revolve)
+        List<(double R, double Z)> outline = ri > 0
+            ? [(ri, -h), (ro, -h), (ro, h), (ri, h), (ri, -h)]
+            : [(0, -h), (ro, -h), (ro, h), (0, h)];
+
+        // eixo local (x, y, z) → mundo: permutação cíclica, que não inverte o lado das faces
+        Point3 Map(double x, double y, double z) => s.Axis switch
+        {
+            StockAxis.X => new Point3(z, x, y),
+            StockAxis.Y => new Point3(y, z, x),
+            _ => new Point3(x, y, z),
+        };
+
+        double step = 2 * Math.PI / RoundSegments;
+        for (int i = 0; i + 1 < outline.Count; i++)
+        {
+            (double r0, double z0) = outline[i];
+            (double r1, double z1) = outline[i + 1];
+            double nr = z1 - z0, nz = -(r1 - r0);
+            for (int k = 0; k < RoundSegments; k++)
+            {
+                double a0 = k * step, a1 = a0 + step, mid = a0 + step / 2;
+                Point3 At(double r, double z, double a) => center + Map(r * Math.Cos(a), r * Math.Sin(a), z);
+                mesh.AddQuad(At(r0, z0, a0), At(r0, z0, a1), At(r1, z1, a1), At(r1, z1, a0), Map(nr * Math.Cos(mid), nr * Math.Sin(mid), nz), color);
+            }
+        }
+
+        return mesh;
     }
 
     /// <summary>Tamanho das setas do zero: um quarto da maior medida da cena, entre 10 e 100 mm.</summary>

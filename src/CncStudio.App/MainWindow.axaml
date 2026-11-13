@@ -196,7 +196,10 @@
 
       <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
 
-      <TabControl x:Name="ViewTabs" Grid.Column="2" Margin="4,0,0,0">
+      <DockPanel Grid.Column="2">
+      <!-- CAM-13: avisos do pacote do CAM (sempre visíveis enquanto valerem; nenhum bloqueia a simulação) -->
+      <StackPanel x:Name="CamNotes" DockPanel.Dock="Top" Spacing="4" Margin="4,2,0,2" IsVisible="False" />
+      <TabControl x:Name="ViewTabs" Margin="4,0,0,0">
         <TabItem Header="Gráfico">
           <graphics:GraphicsPanel x:Name="Graphics" />
         </TabItem>
@@ -204,6 +207,7 @@
           <views:StatisticsPanel x:Name="Statistics" />
         </TabItem>
       </TabControl>
+      </DockPanel>
     </Grid>
 
     <!-- Barra de status -->

@@ -73,6 +73,12 @@ public partial class JobView : UserControl
             }
 
             _job.Dialect = DialectCombo.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
+            // trocar o controle é escolha de agora: G5x fora da lista do novo controle (ex.: G58 no Siemens) fica vazio, para escolher de novo
+            if (_job.WorkOffset is { } g && CamJobProgram.WorkOffsetError(g, _job.Dialect) is not null)
+            {
+                _job.WorkOffset = null;
+            }
+
             Refresh(keep: true);
         };
         ActualThemeVariantChanged += (_, _) => Refresh(keep: true, props: false);
@@ -105,7 +111,22 @@ public partial class JobView : UserControl
             if (!CheckFresh() && _build.Ok && _build.Program.Length > 0)
             {
                 EnsureToolsInBank();
-                OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
+                // CAM-13: Siemens vai com .mpf (o Code abre como Siemens) e o pacote fica na memória da aba (nada no G-code)
+                string name = CamHandoffCode.ProgramFileName(FileBase(), _job.Dialect);
+                if (OpenWithPackage is { } open)
+                {
+                    open(_build.Program, name, CamHandoff.Create(_job, _build.Program, MachineSource?.Invoke()));
+                }
+                else
+                {
+                    OpenInEditor?.Invoke(_build.Program, name);
+                }
+
+                if (_job.StockShape?.Kind == StockShapeKind.Step)
+                {
+                    // o bruto não entra no G-code: o programa vai igual, mas o simulador do Code não mostra este bruto
+                    Errors.Text = "• Programa enviado ao Code. O simulador do Code não desenha bruto STEP: a simulação não mostra este bruto.";
+                }
             }
         };
         // um zero só no Core: o programa gerado é o da fixação 1
@@ -124,11 +145,7 @@ public partial class JobView : UserControl
                 await CopyText(_build.Program);
             }
         };
-        TreeSplitter.DragCompleted += (_, _) => PanesDragged();
-        PropsSplitter.DragCompleted += (_, _) => PanesDragged();
-        TreeSplitter.DoubleTapped += (_, _) => ResetPanes();
-        PropsSplitter.DoubleTapped += (_, _) => ResetPanes();
-        Panes.SizeChanged += (_, _) => FitPanes();
+        _panes = new CamPanes(Panes, TreeSplitter, PropsSplitter, () => _tab == 1);
         NameBox.Text = _job.Name;
         Refresh();
         SetTab(1);
@@ -136,15 +153,15 @@ public partial class JobView : UserControl
 
     // ---------------------------------------------------------------- divisórias (UX-04c)
 
-    private const double TreeDefault = 240, TreeMin = 200, TreeMax = 420;
-    private const double PropsDefault = 290, PropsMin = 260, PropsMax = 520;
-    private const double CenterMin = 480, SplitterWidth = 5;
-
-    /// <summary>Larguras escolhidas (arrastadas ou guardadas); a tela pode mostrar menos se a janela for estreita.</summary>
-    private double _treeWidth = TreeDefault, _propsWidth = PropsDefault;
+    /// <summary>Divisórias (componente comum com o torno, <see cref="CamPanes"/>).</summary>
+    private readonly CamPanes _panes;
 
     /// <summary>Guarda as larguras (árvore, painel) nas preferências do app.</summary>
-    public Action<double, double>? SavePanes { get; set; }
+    public Action<double, double>? SavePanes
+    {
+        get => _panes.Save;
+        set => _panes.Save = value;
+    }
 
     /// <summary>Escolhas dos chips do 3D (texto do config do app; inválido = padrão). Não vão para o .casillas-job.</summary>
     public string ViewOptions
@@ -156,66 +173,7 @@ public partial class JobView : UserControl
     public Action<string>? SaveViewOptions { get; set; }
 
     /// <summary>Larguras guardadas (0 = padrão); fora dos limites, volta ao limite.</summary>
-    public void SetPanes(double tree, double props)
-    {
-        _treeWidth = tree > 0 ? Math.Clamp(tree, TreeMin, TreeMax) : TreeDefault;
-        _propsWidth = props > 0 ? Math.Clamp(props, PropsMin, PropsMax) : PropsDefault;
-        FitPanes();
-    }
-
-    private void PanesDragged()
-    {
-        _treeWidth = Math.Clamp(Panes.ColumnDefinitions[0].ActualWidth, TreeMin, TreeMax);
-        if (_tab == 1)
-        {
-            _propsWidth = Math.Clamp(Panes.ColumnDefinitions[4].ActualWidth, PropsMin, PropsMax);
-        }
-
-        SavePanes?.Invoke(_treeWidth, _propsWidth);
-        FitPanes();
-    }
-
-    private void ResetPanes()
-    {
-        _treeWidth = TreeDefault;
-        _propsWidth = PropsDefault;
-        SavePanes?.Invoke(0, 0);
-        FitPanes();
-    }
-
-    /// <summary>
-    /// Aplica as larguras sem passar da janela: o centro fica com pelo menos 480 px; se não couber, o painel e depois a árvore
-    /// encolhem até o mínimo, e só então o centro cede (nada fica além da borda direita). Fora da aba Operações o painel some.
-    /// </summary>
-    private void FitPanes()
-    {
-        bool props = _tab == 1;
-        double avail = Panes.Bounds.Width;
-        double tree = _treeWidth, side = props ? _propsWidth : 0;
-        double fixedParts = SplitterWidth + (props ? SplitterWidth : 0);
-        if (avail > 0)
-        {
-            double over = tree + side + fixedParts + CenterMin - avail;
-            if (over > 0 && props)
-            {
-                double cut = Math.Min(over, side - PropsMin);
-                side -= cut;
-                over -= cut;
-            }
-
-            if (over > 0)
-            {
-                tree -= Math.Min(over, tree - TreeMin);
-            }
-        }
-
-        Panes.ColumnDefinitions[0].Width = new GridLength(tree);
-        Panes.ColumnDefinitions[4].MinWidth = props ? PropsMin : 0;
-        Panes.ColumnDefinitions[4].Width = new GridLength(side);
-        Panes.ColumnDefinitions[3].Width = new GridLength(props ? SplitterWidth : 0);
-        PropsSplitter.IsVisible = props;
-        Panes.ColumnDefinitions[2].MinWidth = avail > 0 ? Math.Max(0, Math.Min(CenterMin, avail - tree - side - fixedParts)) : 0;
-    }
+    public void SetPanes(double tree, double props) => _panes.Set(tree, props);
 
     // ---------------------------------------------------------------- abas (UX-04c)
 
@@ -225,45 +183,19 @@ public partial class JobView : UserControl
     /// <summary>Abas Preparação, Operações e Código NC; o CamView põe esta faixa no topo do módulo.</summary>
     public Control TabStrip { get; }
 
-    private StackPanel BuildTabs()
-    {
-        var strip = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 2, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom };
-        string[] names = ["Preparação", "Operações", "Código NC"];
-        for (int k = 0; k < names.Length; k++)
-        {
-            int index = k;
-            var tab = new Button
-            {
-                Content = names[k], Padding = new Avalonia.Thickness(16, 7), FontSize = 13, CornerRadius = new Avalonia.CornerRadius(8, 8, 0, 0),
-                BorderThickness = new Avalonia.Thickness(0, 0, 0, 2), Background = Avalonia.Media.Brushes.Transparent,
-            };
-            tab.Click += (_, _) => SetTab(index);
-            _tabs[k] = tab;
-            strip.Children.Add(tab);
-        }
-
-        return strip;
-    }
+    private StackPanel BuildTabs() => CamShell.BuildTabs(_tabs, SetTab);
 
     /// <summary>Mostra a aba (0 Preparação, 1 Operações, 2 Código NC). A faixa de ícones e o painel direito são só de Operações.</summary>
     private void SetTab(int tab)
     {
         _tab = tab;
-        for (int k = 0; k < _tabs.Length; k++)
-        {
-            bool on = k == tab;
-            // a aba escolhida fica laranja (seleção) com traço embaixo; as outras, cinza
-            _tabs[k].Foreground = Avalonia.Media.Brush.Parse(on ? "#ffb066" : "#9aa7b5");
-            _tabs[k].BorderBrush = on ? Avalonia.Media.Brush.Parse("#ff8a1f") : Avalonia.Media.Brushes.Transparent;
-            _tabs[k].FontWeight = on ? Avalonia.Media.FontWeight.SemiBold : Avalonia.Media.FontWeight.Normal;
-        }
-
+        CamShell.StyleTabs(_tabs, tab);
         PrepCenter.IsVisible = tab == 0;
         OpsCenter.IsVisible = tab == 1;
         CodeCenter.IsVisible = tab == 2;
         PaletteBar.IsVisible = tab == 1;
         RightColumn.IsVisible = tab == 1;
-        FitPanes();
+        _panes.Fit();
         if (tab == 0)
         {
             BuildPrep();
@@ -278,15 +210,16 @@ public partial class JobView : UserControl
     /// <summary>Campo do tipo de fixação no cartão da Preparação (a barra leva o foco até ele nessa aba).</summary>
     private ComboBox? _prepFixtureKind;
 
-    /// <summary>Cartões da Preparação com os mesmos editores do painel direito (bruto e fixação) e a origem atual (só texto).</summary>
+    /// <summary>Cartões da Preparação: Máquina (leitura), Peça pronta, Bruto, Zero (leitura), Fixação (o mesmo editor do painel direito).</summary>
     private void BuildPrep()
     {
         ComboBox? keep = _fixtureKind;
         try
         {
-            _propsTarget = PrepStock;
-            PrepStock.Children.Clear();
-            StockProps();
+            // UX-04f: Máquina (leitura), Peça pronta e Bruto têm cartões próprios
+            MachineCard(PrepMachine);
+            PartCard(PrepPart);
+            StockCard(PrepStock);
             _propsTarget = PrepFixture;
             PrepFixture.Children.Clear();
             FixtureProps();
@@ -310,18 +243,11 @@ public partial class JobView : UserControl
         }
     }
 
-    /// <summary>Zero da fixação 1: só o que o trabalho já tem (G5x, X0 Y0 do desenho, topo das operações). Sem campo novo.</summary>
-    private void ZeroProps()
-    {
-        PropsPanel.Children.Add(new TextBlock { Text = "Zero da fixação 1", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
-        PropsPanel.Children.Add(new TextBlock { Text = CamJobInfo.OriginTitle(_job), TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
-        PropsPanel.Children.Add(UiKit.StatusNote("Origem " + CamJobInfo.OriginState().Text + ": confira na máquina. Escolher o zero pela peça e ter um zero por fixação vêm em breve.", "pending"));
-    }
-
     /// <summary>Contornos e bruto do Trabalho aberto (o Assist lê para sugerir um plano).</summary>
     public IReadOnlyList<Contour> Contours => _job.Contours;
 
-    public JobStock? Stock => _job.Stock;
+    /// <summary>Caixa do bruto para o Assist (espessura): bloco absoluto ou bloco por sobra completo; cilindro e tubo, null.</summary>
+    public JobStock? Stock => CamJobStock.BlockBox(_job);
 
     /// <summary>Junta operações sugeridas (pelo Assist) ao fim do Trabalho; dá para desfazer.</summary>
     public void AddOperations(IEnumerable<CamOperationSpec> operations)
@@ -346,6 +272,9 @@ public partial class JobView : UserControl
     public Func<string, string, Task>? SaveJobFile { get; set; }
 
     public Action<string, string>? OpenInEditor { get; set; }
+
+    /// <summary>CAM-13: abre o programa no Code com o pacote do CAM na memória da aba (texto, nome, pacote).</summary>
+    public Action<string, string, CamHandoff>? OpenWithPackage { get; set; }
 
     public Func<string, Task>? CopyText { get; set; }
 
@@ -378,14 +307,22 @@ public partial class JobView : UserControl
             return;
         }
 
+        StockSolid? before = CamJobStock.Check(_job).Solid;
         _job.Contours.Clear();
         _job.Contours.AddRange(r.Contours);
         _openChains = r.OpenChains.Count;
         _job.Name = Path.GetFileNameWithoutExtension(file.Name).ToUpperInvariant();
         Refresh();
-        if (r.Warnings.Count > 0)
+        // bloco por sobra: o bruto segue o desenho novo com as mesmas sobras, e a tela avisa
+        List<string> notes = [.. r.Warnings];
+        if (CamJobStock.RecalculatedNotice(_job, before) is { } recalculated)
         {
-            Errors.Text = string.Join("\n", r.Warnings.Select(w => "• " + w));
+            notes.Add(recalculated);
+        }
+
+        if (notes.Count > 0)
+        {
+            Errors.Text = string.Join("\n", notes.Select(w => "• " + w));
         }
     }
 
@@ -408,8 +345,16 @@ public partial class JobView : UserControl
         _job.Dialect = j.Dialect;
         _job.ProgramNumber = j.ProgramNumber;
         _job.WorkOffset = j.WorkOffset;
+        _job.Zero = j.Zero;
+        _programTypedError = null;
         _job.Coolant = j.Coolant;
-        _job.Stock = j.Stock;
+        _job.SetStock(j.Stock, j.StockShape);
+        // STEP do bruto: só confere se o arquivo ainda está no lugar (nunca lê ao abrir)
+        _stepMesh = null;
+        CamJobStock.VerifyStepFile(_job, File.Exists);
+        _absoluteMode = false;
+        ForgetStockMemory();
+        _job.PartHeight = j.PartHeight;
         _job.Fixture = j.Fixture;
         _job.Contours.Clear();
         _job.Contours.AddRange(j.Contours);
@@ -459,54 +404,8 @@ public partial class JobView : UserControl
     /// </summary>
     private void BuildPalette()
     {
-        Palette.Children.Clear();
         _paletteButtons.Clear();
-        bool first = true;
-        foreach (CamPaletteGroup group in CamPalette.VisibleGroups)
-        {
-            if (!first)
-            {
-                Palette.Children.Add(new Border { Width = 1, Margin = new Avalonia.Thickness(6, 2), Background = Avalonia.Media.Brush.Parse("#1f2733") });
-            }
-
-            first = false;
-            var buttons = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 3 };
-            foreach (CamPaletteItem item in group.Items)
-            {
-                var content = new StackPanel { Spacing = 2, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center };
-                content.Children.Add(UiKit.Icon2(item.Icon, "#e6edf3", "#ff8a1f", 24));
-                content.Children.Add(new TextBlock
-                {
-                    Text = item.Name, FontSize = 11, LineHeight = 13, MaxLines = 2, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                    TextAlignment = Avalonia.Media.TextAlignment.Center, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                });
-                if (item.Soon)
-                {
-                    content.Children.Add(new TextBlock { Text = "em breve", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
-                }
-
-                var button = new Button
-                {
-                    Content = content, Width = 66, Height = 76, Padding = new Avalonia.Thickness(2, 4), MinHeight = 0,
-                    VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                    Background = Avalonia.Media.Brush.Parse("#18202b"), BorderBrush = Avalonia.Media.Brush.Parse("#243040"),
-                    BorderThickness = new Avalonia.Thickness(1), CornerRadius = new Avalonia.CornerRadius(8),
-                    Opacity = item.Soon ? 0.45 : 1,
-                };
-                ToolTip.SetShowOnDisabled(button, true);
-                Avalonia.Automation.AutomationProperties.SetName(button, item.Action is not null ? item.Name : item.Soon ? item.Name + " (em breve)" : "Adicionar " + item.Name);
-                CamPaletteItem picked = item;
-                button.Click += async (_, _) => await PaletteClick(picked);
-                buttons.Children.Add(button);
-                _paletteButtons.Add((item, button));
-            }
-
-            var box = new StackPanel { Spacing = 3 };
-            box.Children.Add(buttons);
-            box.Children.Add(new TextBlock { Text = group.Title.ToUpperInvariant(), FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center });
-            Palette.Children.Add(box);
-        }
-
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.VisibleGroups, PaletteClick));
         UpdatePalette();
     }
 
@@ -537,9 +436,7 @@ public partial class JobView : UserControl
         int target = PaletteTarget();
         foreach ((CamPaletteItem item, Button button) in _paletteButtons)
         {
-            string? why = CamPalette.Unavailable(item, _job, target, _openChains);
-            button.IsEnabled = why is null;
-            ToolTip.SetTip(button, why is null ? item.Hint : $"{item.Hint}\nAgora não: {why}");
+            CamShell.SetPaletteState(item, button, CamPalette.Unavailable(item, _job, target, _openChains));
         }
     }
 
@@ -673,8 +570,8 @@ public partial class JobView : UserControl
     }
 
     /// <summary>
-    /// Linha de status: operações incompletas (campo vazio, inválido ou erro ao gerar) e o número do programa que está no trabalho
-    /// (o Core sempre tem um; nada é inventado aqui).
+    /// Linha de status: operações incompletas (campo vazio, inválido ou erro ao gerar), bruto, e o Programa nº e o G5x digitados
+    /// ("falta" quando vazios; nada é inventado aqui).
     /// </summary>
     private void UpdateStatus()
     {
@@ -682,8 +579,39 @@ public partial class JobView : UserControl
         StatusIncomplete.Text = incomplete == 0
             ? (_job.Operations.Count == 0 ? "Nenhuma operação" : "Nenhuma operação incompleta")
             : $"⚠ {incomplete} {(incomplete == 1 ? "operação incompleta" : "operações incompletas")}";
-        StatusIncomplete.Foreground = incomplete == 0 ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
-        StatusProgram.Text = "Programa nº: " + _job.ProgramNumber.ToString(CultureInfo.InvariantCulture);
+        // UX-04f: o rodapé resume também o bruto (não definido ou incompleto: os dois travam Gerar e Enviar)
+        StockCheck stock = CamJobStock.Check(_job);
+        string? stockNote = stock.NotDefined ? "bruto não definido" : stock.Complete ? null : "bruto incompleto";
+        if (stockNote is not null)
+        {
+            StatusIncomplete.Text = (incomplete == 0 ? "⚠ " : StatusIncomplete.Text + " · ") + stockNote;
+        }
+
+        // UX-04g: número e G5x vazios ou inválidos entram no resumo (travam Gerar e Enviar)
+        int programProblems = CamJobProgram.Problems(_job).Count;
+        if (programProblems > 0)
+        {
+            StatusIncomplete.Text = (incomplete == 0 && stockNote is null ? "⚠ " : StatusIncomplete.Text + " · ")
+                + (programProblems == 1 ? "falta 1 dado do programa" : $"faltam {programProblems} dados do programa");
+        }
+
+        // UX-04g PR B: zero da peça vazio ou incompleto (trava Gerar e Enviar)
+        int zeroProblems = CamJobZero.Problems(_job).Count;
+        if (zeroProblems > 0)
+        {
+            StatusIncomplete.Text = (incomplete == 0 && stockNote is null && programProblems == 0 ? "⚠ " : StatusIncomplete.Text + " · ") + "zero da peça incompleto";
+        }
+
+        bool clean = incomplete == 0 && stockNote is null && programProblems == 0 && zeroProblems == 0;
+        StatusIncomplete.Foreground = clean ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        // UX-04g: o número e o G5x digitados, ou "falta" (Siemens: só o G5x); nada inventado
+        StatusProgram.Text = CamJobProgram.StatusText(_job);
+        // UX-04f PR 2: selo da Máquina (✓, ✓ com fuso não verificado, aviso de controle diferente ou sem perfil)
+        MachineProfile? machine = MachineSource?.Invoke();
+        (string kind, string text) = CamJobInfo.MillMachineState(machine, _job.Dialect);
+        StatusMachine.Text = machine is null ? "Máquina: sem perfil (3 eixos)" : $"Máquina: {machine.Name} " + (kind != "ok" ? "⚠ " + text : text == "OK" ? "✓" : "✓ " + CamJobInfo.SpindleNotChecked);
+        StatusMachine.Foreground = kind == "ok" ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        ToolTip.SetTip(StatusMachine, CamJobInfo.MachineControlWarning(machine, _job.Dialect));
     }
 
     /// <summary>Operação incompleta: campo vazio ou inválido que ela usa (CAM-12) ou erro ao gerar.</summary>
@@ -735,12 +663,14 @@ public partial class JobView : UserControl
             }));
         }
 
-        if (_job.Stock is null)
+        if (!CamJobStock.Check(_job).Complete)
         {
+            // bruto não definido ou incompleto (os dois travam): leva ao cartão Bruto da Preparação
             targets.Add(("pending", () =>
             {
-                GoToTree(t => t.Kind == "stock");
+                GoToTree(t => t.Kind == "part");
                 SetTab(0);
+                PrepStock.BringIntoView();
             }));
         }
 
@@ -752,6 +682,28 @@ public partial class JobView : UserControl
                 GoToTree(t => t.Kind == "fixture");
                 SetTab(0);
                 _prepFixtureKind?.Focus(NavigationMethod.Tab);
+            }));
+        }
+
+        foreach (string _ in CamJobProgram.Problems(_job))
+        {
+            // número ou G5x: leva ao cartão Fixação da Preparação, onde ficam os dois campos
+            targets.Add(("pending", () =>
+            {
+                GoToTree(t => t.Kind == "fixture");
+                SetTab(0);
+                PrepFixture.BringIntoView();
+            }));
+        }
+
+        foreach (string _ in CamJobZero.Problems(_job))
+        {
+            // UX-04g PR B: zero da peça leva ao cartão Zero da Preparação
+            targets.Add(("pending", () =>
+            {
+                GoToTree(t => t.Kind == "zero");
+                SetTab(0);
+                PrepOrigin.BringIntoView();
             }));
         }
 
@@ -823,7 +775,8 @@ public partial class JobView : UserControl
 
         if (on)
         {
-            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, _job.Stock, [.. _job.Contours]);
+            Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, StockForScene(), [.. _job.Contours],
+                CamJobZero.Position(_job) ?? default);
         }
     }
 
@@ -841,6 +794,21 @@ public partial class JobView : UserControl
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Estado do item "Peça pronta + bruto": sem desenho, bruto não definido ou incompleto ficam "!" com o motivo; completo, ✓ com o
+    /// resumo do bruto. A altura da peça só conta quando o bruto depende dela (formato novo; o bloco absoluto não).
+    /// </summary>
+    private (string Kind, string Text) PartStockState()
+    {
+        if (_job.Contours.Count == 0)
+        {
+            return ("pending", "falta o desenho da peça");
+        }
+
+        (string kind, string text) = CamJobStock.State(_job);
+        return kind == "ok" ? ("ok", CamJobStock.Title(_job)) : ("pending", text);
     }
 
     /// <summary>Estado da operação na árvore como Pronta/Incompleta (UX-03a); a cor e o motivo vêm do Core.</summary>
@@ -862,13 +830,16 @@ public partial class JobView : UserControl
             UiKit.StateItem(TreeRow(text, st, UiKit.Icon(icon, "#9aa7b5", 15)), tag);
 
         MachineProfile? machine = MachineSource?.Invoke();
-        Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
+        Tree.Items.Add(NodeState(CamJobInfo.MillMachineTitle(machine), CamJobInfo.MillMachineState(machine, _job.Dialect), "ferramenta"));
         // material ainda não existe no CAM: aparece apagado, sem valor suposto
         TreeViewItem material = Node("Material: não definido", null, "material");
         material.Opacity = 0.5;
         ToolTip.SetTip(material, "Em breve: o material entra numa próxima etapa.");
         Tree.Items.Add(material);
-        TreeViewItem part = Node($"Peça ({_job.Contours.Count} contorno{(_job.Contours.Count == 1 ? "" : "s")})", new TreeTag("part", 0), "peca");
+        // UX-04f: um item só para a peça pronta e o bruto, com selo e motivo; os contornos continuam dentro dele
+        (string Kind, string Text) partState = PartStockState();
+        TreeViewItem part = UiKit.StateItem(TreeRow("Peça pronta + bruto", partState,
+            CamShell.Badge(partState.Kind == "ok" ? "✓" : "!", partState.Kind), null, CamJobStock.Title(_job) + "\n" + partState.Text), new TreeTag("part", 0));
         for (int i = 0; i < _job.Contours.Count; i++)
         {
             TreeViewItem c = Node(CamJobInfo.ContourTitle(_job.Contours[i], i), new TreeTag("contour", i), "contorno");
@@ -881,14 +852,6 @@ public partial class JobView : UserControl
 
         part.IsExpanded = _job.Contours.Count <= 4;
         Tree.Items.Add(part);
-        // bruto ausente é pendência (âmbar, como na barra); o texto continua o do Core
-        (string Kind, string Text) stock = CamJobInfo.StockState(_job.Stock);
-        if (_job.Stock is null)
-        {
-            stock = ("pending", stock.Text);
-        }
-
-        Tree.Items.Add(NodeState(CamJobInfo.StockTitle(_job.Stock), stock, "bruto", new TreeTag("stock", 0)));
         TreeViewItem tools = Node("Ferramentas", null, "ferramentas");
         foreach (string line in CamJobInfo.ToolLines(_job))
         {
@@ -900,8 +863,21 @@ public partial class JobView : UserControl
 
         // Fixação 1: o trabalho tem uma fixação e um zero só (Core); dentro, o zero e as operações
         string fixtureName = _job.Fixture is { } fx ? JobFixture.NameOf(fx.Kind) ?? fx.Kind : "não definida";
-        TreeViewItem setup = NodeState($"Fixação 1 · G{_job.WorkOffset} · {fixtureName}", CamJobInfo.FixtureState(_job.Fixture), "fixacao", new TreeTag("fixture", 0));
-        setup.Items.Add(NodeState("Zero: " + CamJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "zero", new TreeTag("zero", 0)));
+        // UX-04g: número ou G5x vazio/inválido deixa o selo da fixação pendente, com o motivo
+        // UX-04g PR B: o zero da peça incompleto também deixa a fixação pendente
+        IReadOnlyList<string> zeroProblems = CamJobZero.Problems(_job);
+        IReadOnlyList<string> programProblems = [.. CamJobProgram.Problems(_job), .. zeroProblems];
+        (string Kind, string Text) setupState = programProblems.Count > 0 ? ("pending", string.Join(" · ", programProblems)) : CamJobInfo.FixtureState(_job.Fixture);
+        // selo em círculo como o item Peça pronta: "!" quando pendente (falta número, G5x ou a fixação); senão o ícone da fixação
+        string setupTitle = $"Fixação 1 · {CamJobInfo.WorkOffsetName(_job)} · {fixtureName}";
+        TreeViewItem setup = setupState.Kind == "pending"
+            ? UiKit.StateItem(TreeRow(setupTitle, setupState, CamShell.Badge("!", "pending"), null, setupTitle + "\n" + setupState.Text), new TreeTag("fixture", 0))
+            : NodeState(setupTitle, setupState, "fixacao", new TreeTag("fixture", 0));
+        string zeroTitle = "Zero: " + CamJobInfo.OriginTitle(_job);
+        (string Kind, string Text) zeroState = zeroProblems.Count > 0 ? ("pending", string.Join(" · ", zeroProblems)) : CamJobInfo.OriginState();
+        setup.Items.Add(zeroProblems.Count > 0
+            ? UiKit.StateItem(TreeRow(zeroTitle, zeroState, CamShell.Badge("!", "pending"), null, zeroTitle + "\n" + zeroState.Text), new TreeTag("zero", 0))
+            : NodeState(zeroTitle, zeroState, "zero", new TreeTag("zero", 0)));
         for (int i = 0; i < _job.Operations.Count; i++)
         {
             TreeViewItem item = OpNode(i, machine);
@@ -930,28 +906,14 @@ public partial class JobView : UserControl
         (string Kind, string Text) st = TreeState(CamJobInfo.OpState(i < _build.Items.Count ? _build.Items[i] : null, spec, machine?.MaxSpindleRpm));
         bool incomplete = OpIncomplete(i);
         (string mark, string kind) = !spec.Enabled ? ("–", "neutral") : incomplete ? ("!", "pending") : st.Kind == "ok" ? ("✓", "ok") : ("!", "pending");
-        (Avalonia.Media.IBrush fg, Avalonia.Media.IBrush bg) = UiKit.Status(kind);
-        var badge = new Border
-        {
-            Width = 17, Height = 17, CornerRadius = new Avalonia.CornerRadius(9), Background = bg, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            Child = new TextBlock { Text = mark, FontSize = 11, FontWeight = Avalonia.Media.FontWeight.Bold, Foreground = fg, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center },
-        };
-        var eye = new Button
-        {
-            Content = UiKit.Icon(spec.Enabled ? "olho" : "olho-fechado", spec.Enabled ? "#9aa7b5" : "#5b6675", 15),
-            Padding = new Avalonia.Thickness(3), MinHeight = 0, MinWidth = 0, Background = Avalonia.Media.Brushes.Transparent, BorderThickness = new Avalonia.Thickness(0),
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-        };
-        string eyeText = spec.Enabled ? "Desligar a operação (não entra no programa)" : "Ligar a operação";
-        ToolTip.SetTip(eye, eyeText);
-        Avalonia.Automation.AutomationProperties.SetName(eye, eyeText);
-        eye.Click += (_, _) =>
+        Border badge = CamShell.Badge(mark, kind);
+        Button eye = CamShell.Eye(spec.Enabled, () =>
         {
             if (!_busy)
             {
                 SetEnabled(index, !spec.Enabled);
             }
-        };
+        });
 
         var lead = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6 };
         lead.Children.Add(badge);
@@ -967,48 +929,9 @@ public partial class JobView : UserControl
         return UiKit.StateItem(row, new TreeTag("op", i));
     }
 
-    /// <summary>
-    /// Linha da árvore em 240 px: ícone (e selo) à esquerda, nome com reticências (a dica mostra inteiro), estado em segunda linha
-    /// pequena e uma coluna fixa à direita (olho nas operações), que nunca cobre o nome.
-    /// </summary>
-    private static Grid TreeRow(string title, (string Kind, string Text)? state, Control? lead, Control? right = null, string? tip = null)
-    {
-        var g = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,24"),
-            RowDefinitions = new RowDefinitions("Auto,Auto"),
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
-        };
-        if (lead is not null)
-        {
-            lead.Margin = new Avalonia.Thickness(0, 0, 6, 0);
-            lead.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
-            Grid.SetRowSpan(lead, 2);
-            g.Children.Add(lead);
-        }
-
-        var text = new TextBlock { Text = title, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis };
-        Grid.SetColumn(text, 1);
-        g.Children.Add(text);
-        if (state is { } st)
-        {
-            var small = new TextBlock { Text = st.Text, FontSize = 10.5, Foreground = UiKit.Status(st.Kind).Fg, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis };
-            Grid.SetColumn(small, 1);
-            Grid.SetRow(small, 1);
-            g.Children.Add(small);
-        }
-
-        if (right is not null)
-        {
-            Grid.SetColumn(right, 2);
-            Grid.SetRowSpan(right, 2);
-            right.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center;
-            g.Children.Add(right);
-        }
-
-        ToolTip.SetTip(text, tip ?? (state is { } s2 ? title + "\n" + s2.Text : title));
-        return g;
-    }
+    /// <summary>Linha da árvore em 240 px (comum com o torno: <see cref="CamShell.TreeRow"/>).</summary>
+    private static Grid TreeRow(string title, (string Kind, string Text)? state, Control? lead, Control? right = null, string? tip = null) =>
+        CamShell.TreeRow(title, state, lead, right, tip);
 
     private void UpdatePreview()
     {

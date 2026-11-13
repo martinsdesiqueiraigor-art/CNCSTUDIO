@@ -20,20 +20,74 @@ public static class CamJobJson
 {
     private const string Format = "casillas-job";
 
+    /// <summary>Valor do campo "zero" para "Origem do desenho (como antes)" quando o arquivo precisa da v3 por outro motivo.</summary>
+    private const string ZeroAsBefore = "comoAntes";
+
     internal sealed class FormatException(string message) : Exception(message);
+
+    /// <summary>Lê o campo "zero": objeto com "point" e "z" (cada um opcional) ou "comoAntes". Valor desconhecido não abre (nada suposto).</summary>
+    private static JobZero? ZeroFrom(JsonNode? node)
+    {
+        if (node is JsonValue v && v.TryGetValue(out string? text) && text == ZeroAsBefore)
+        {
+            return JobZero.Legacy;
+        }
+
+        if (node is not JsonObject o)
+        {
+            throw new FormatException("Zero da peça inválido no arquivo.");
+        }
+
+        ZeroPoint? point = o["point"] is null ? null : Named<ZeroPoint>(Str(o, "point"), "ponto do zero");
+        ZeroLevel? level = o["z"] is null ? null : Named<ZeroLevel>(Str(o, "z"), "Z0 do zero");
+        return point is null && level is null ? null : new JobZero(point, level);
+    }
 
     public static string ToJson(CamJob job)
     {
+        // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
+        int version = CamJobProgram.NeedsVersion3(job) || CamJobZero.NeedsVersion3(job) ? 3 : CamJobStock.NeedsVersion2(job) ? 2 : 1;
         var root = new JsonObject
         {
             ["format"] = Format,
-            ["version"] = CamJob.CurrentVersion,
+            ["version"] = version,
             ["name"] = job.Name,
             ["dialect"] = job.Dialect.ToString(),
-            ["programNumber"] = job.ProgramNumber,
-            ["workOffset"] = job.WorkOffset,
-            ["coolant"] = job.Coolant,
         };
+        // UX-04g (versão 3): Programa nº e G5x vazios não vão para o arquivo (nada suposto); preenchidos, ficam no lugar de sempre
+        if (job.ProgramNumber is { } number)
+        {
+            root["programNumber"] = number;
+        }
+
+        if (job.WorkOffset is { } offset)
+        {
+            root["workOffset"] = offset;
+        }
+
+        // UX-04g PR B: zero escolhido vai com os campos que têm valor. "Como antes" não grava nada, a não ser que a v3 seja obrigatória por
+        // outro motivo (ex.: Programa nº vazio): aí grava "comoAntes", porque a v3 sem o campo é lida como zero vazio (decisão do Igor, 08/11)
+        if (job.Zero is { AsBefore: false } zero)
+        {
+            var z = new JsonObject();
+            if (zero.Point is { } point)
+            {
+                z["point"] = point.ToString();
+            }
+
+            if (zero.Level is { } level)
+            {
+                z["z"] = level.ToString();
+            }
+
+            root["zero"] = z;
+        }
+        else if (job.Zero is { AsBefore: true } && version >= 3)
+        {
+            root["zero"] = ZeroAsBefore;
+        }
+
+        root["coolant"] = job.Coolant;
         if (job.Stock is { } st)
         {
             root["stock"] = new JsonObject { ["x"] = st.X, ["y"] = st.Y, ["width"] = st.Width, ["length"] = st.Length, ["thickness"] = st.Thickness };
@@ -43,6 +97,17 @@ public static class CamJobJson
         if (job.Fixture is { } fx)
         {
             root["fixture"] = new JsonObject { ["kind"] = fx.Kind, ["description"] = fx.Description };
+        }
+
+        // UX-04f (versão 2): altura da peça e formato novo do bruto; campo vazio não vai para o arquivo (nada suposto)
+        if (job.PartHeight is { } partHeight)
+        {
+            root["partHeight"] = partHeight;
+        }
+
+        if (job.StockShape is { } shape)
+        {
+            root["stockShape"] = StockShapeToJson(shape);
         }
 
         var contours = new JsonArray();
@@ -61,6 +126,152 @@ public static class CamJobJson
 
         root["operations"] = ops;
         return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private static readonly (string Key, string Field)[] ShapeKeys =
+    [
+        ("xMinus", JobStockShape.XMinusField), ("xPlus", JobStockShape.XPlusField), ("yMinus", JobStockShape.YMinusField),
+        ("yPlus", JobStockShape.YPlusField), ("zTop", JobStockShape.ZTopField), ("zBottom", JobStockShape.ZBottomField),
+        ("diameter", JobStockShape.DiameterField), ("innerDiameter", JobStockShape.InnerField), ("length", JobStockShape.LengthField),
+        ("offsetX", JobStockShape.OffsetXField), ("offsetY", JobStockShape.OffsetYField), ("offsetZ", JobStockShape.OffsetZField),
+    ];
+
+    private static double? ShapeValue(JobStockShape s, string key) => key switch
+    {
+        "xMinus" => s.XMinus, "xPlus" => s.XPlus, "yMinus" => s.YMinus, "yPlus" => s.YPlus, "zTop" => s.ZTop, "zBottom" => s.ZBottom,
+        "diameter" => s.Diameter, "innerDiameter" => s.InnerDiameter, "length" => s.Length,
+        "offsetX" => s.OffsetX, "offsetY" => s.OffsetY, _ => s.OffsetZ,
+    };
+
+    /// <summary>Formato novo do bruto: só os campos que o formato usa e que têm valor (vazio não vai para o arquivo).</summary>
+    internal static JsonObject StockShapeToJson(JobStockShape s)
+    {
+        var o = new JsonObject { ["kind"] = s.Kind.ToString() };
+        if (s.Kind == StockShapeKind.Step)
+        {
+            // STEP: caminho e resumo (nunca a malha); o deslocamento só no modo digitado
+            if (!string.IsNullOrWhiteSpace(s.StepPath))
+            {
+                o["path"] = s.StepPath;
+            }
+
+            o["placement"] = s.Placement.ToString();
+            if (s.StepSummary is { } b)
+            {
+                o["box"] = new JsonObject { ["minX"] = b.MinX, ["minY"] = b.MinY, ["minZ"] = b.MinZ, ["maxX"] = b.MaxX, ["maxY"] = b.MaxY, ["maxZ"] = b.MaxZ };
+                o["volume"] = b.Volume;
+            }
+        }
+        else if (s.Kind != StockShapeKind.Margins)
+        {
+            o["axis"] = s.Axis.ToString();
+        }
+
+        var used = s.Fields().Select(f => f.Name).ToHashSet();
+        foreach ((string key, string field) in ShapeKeys)
+        {
+            // "diameter" guarda o Ø do cilindro e o Ø externo do tubo
+            bool uses = used.Contains(field) || (key == "diameter" && used.Contains(JobStockShape.OuterField));
+            if (uses && ShapeValue(s, key) is { } v)
+            {
+                o[key] = v;
+            }
+        }
+
+        return o;
+    }
+
+    /// <summary>Lê o formato novo; null se o tipo ou o eixo não existem ou se um número é inválido. Campo ausente = vazio.</summary>
+    internal static JobStockShape? StockShapeFrom(JsonNode? node)
+    {
+        if (node is not JsonObject o || o["kind"] is not JsonValue kv || !kv.TryGetValue(out string? kindText)
+            || !System.Enum.TryParse(kindText, false, out StockShapeKind kind) || !System.Enum.IsDefined(kind))
+        {
+            return null;
+        }
+
+        var shape = new JobStockShape(kind) { OffsetX = null, OffsetY = null, OffsetZ = null };
+        if (kind == StockShapeKind.Step)
+        {
+            if (StepFrom(o) is not { } step)
+            {
+                return null;
+            }
+
+            shape = step;
+        }
+        else if (kind != StockShapeKind.Margins)
+        {
+            if (o["axis"] is not JsonValue av || !av.TryGetValue(out string? axisText) || !System.Enum.TryParse(axisText, false, out StockAxis axis) || !System.Enum.IsDefined(axis))
+            {
+                return null;
+            }
+
+            shape = shape with { Axis = axis };
+        }
+
+        foreach ((string key, string field) in ShapeKeys)
+        {
+            if (o[key] is null)
+            {
+                continue;
+            }
+
+            if (o[key] is not JsonValue nv || !nv.TryGetValue(out double v) || !double.IsFinite(v))
+            {
+                return null;
+            }
+
+            shape = shape.With(field, v);
+        }
+
+        return shape;
+    }
+
+    /// <summary>Parte STEP do bruto: caminho, posição e resumo. Ausente = vazio (incompleto); presente e estragado = null.</summary>
+    private static JobStockShape? StepFrom(JsonObject o)
+    {
+        var shape = new JobStockShape(StockShapeKind.Step) { OffsetX = null, OffsetY = null, OffsetZ = null };
+        if (o["path"] is not null)
+        {
+            if (o["path"] is not JsonValue pv || !pv.TryGetValue(out string? path))
+            {
+                return null;
+            }
+
+            shape = shape with { StepPath = path };
+        }
+
+        if (o["placement"] is not null)
+        {
+            if (o["placement"] is not JsonValue lv || !lv.TryGetValue(out string? text) || !System.Enum.TryParse(text, false, out StepPlacement placement)
+                || !System.Enum.IsDefined(placement))
+            {
+                return null;
+            }
+
+            shape = shape with { Placement = placement };
+        }
+
+        if (o["box"] is null && o["volume"] is null)
+        {
+            return shape;
+        }
+
+        if (o["box"] is not JsonObject b)
+        {
+            return null;
+        }
+
+        double? N(JsonNode? n) => n is JsonValue v && v.TryGetValue(out double d) && double.IsFinite(d) ? d : null;
+        if (N(b["minX"]) is not { } x0 || N(b["minY"]) is not { } y0 || N(b["minZ"]) is not { } z0 || N(b["maxX"]) is not { } x1
+            || N(b["maxY"]) is not { } y1 || N(b["maxZ"]) is not { } z1 || N(o["volume"]) is not { } volume)
+        {
+            return null;
+        }
+
+        var summary = new StepStockSummary(x0, y0, z0, x1, y1, z1, volume);
+        return summary.Valid ? shape with { StepSummary = summary } : null;
     }
 
     internal static JsonArray SegmentsToJson(IReadOnlyList<Segment2> segments)
@@ -212,10 +423,13 @@ public static class CamJobJson
             {
                 Name = Str(root, "name"),
                 Dialect = Enum<CamDialect>(Str(root, "dialect"), "comando"),
-                ProgramNumber = (int)Num(root, "programNumber"),
-                WorkOffset = (int)Num(root, "workOffset"),
+                // até a versão 2 os dois são obrigatórios no arquivo; na 3 podem faltar (vazios)
+                ProgramNumber = OptionalInt(root, "programNumber", version < 3),
+                WorkOffset = OptionalInt(root, "workOffset", version < 3),
                 Coolant = Bool(root, "coolant"),
             };
+            // UX-04g PR B: versão menor que 3 sem o campo = "como antes" (gera igual); v3 sem o campo = zero vazio (Incompleto)
+            job.Zero = root["zero"] is null ? (version < 3 ? JobZero.Legacy : null) : ZeroFrom(root["zero"]);
             if (root["stock"] is JsonObject st)
             {
                 job.Stock = new JobStock(Num(st, "x"), Num(st, "y"), Num(st, "width"), Num(st, "length"), Num(st, "thickness"));
@@ -245,6 +459,29 @@ public static class CamJobJson
                 }
 
                 job.Operations.Add(spec);
+            }
+
+            if (root["partHeight"] is JsonValue ph && ph.TryGetValue(out double partHeight) && double.IsFinite(partHeight))
+            {
+                job.PartHeight = partHeight;
+            }
+            else if (root["partHeight"] is not null)
+            {
+                warnings.Add("Altura da peça do arquivo ignorada (formato inválido): ficou vazia.");
+            }
+
+            if (root["stockShape"] is not null)
+            {
+                // formato novo estragado não impede de abrir: o bruto fica não definido, com aviso (nada suposto)
+                if (StockShapeFrom(root["stockShape"]) is { } shape)
+                {
+                    job.SetStock(null, shape);
+                }
+                else
+                {
+                    warnings.Add("Bruto do arquivo ignorado (formato inválido): ficou como não definido.");
+                    job.SetStock(null, null);
+                }
             }
 
             if (root["fixture"] is JsonObject fx)
@@ -390,8 +627,24 @@ public static class CamJobJson
     internal static double Num(JsonObject o, string key) =>
         o[key] is JsonValue v && v.TryGetValue(out double d) && double.IsFinite(d) ? d : throw new FormatException($"Falta o número \"{key}\" no arquivo.");
 
+    /// <summary>Número do arquivo, lido como antes (parte inteira); ausente = null só quando <paramref name="required"/> é false.</summary>
+    private static int? OptionalInt(JsonObject o, string key, bool required)
+    {
+        if (o[key] is null && !required)
+        {
+            return null;
+        }
+
+        return (int)Num(o, key);
+    }
+
     internal static bool Bool(JsonObject o, string key) =>
         o[key] is JsonValue v && v.TryGetValue(out bool b) ? b : throw new FormatException($"Falta o valor sim/não \"{key}\" no arquivo.");
+
+    /// <summary>Como <see cref="Enum{T}"/>, mas só aceita o nome escrito (número não vale).</summary>
+    private static T Named<T>(string name, string what)
+        where T : struct, Enum =>
+        System.Enum.GetNames<T>().Contains(name) ? System.Enum.Parse<T>(name) : throw new FormatException($"Valor desconhecido de {what}: \"{name}\".");
 
     internal static T Enum<T>(string name, string what)
         where T : struct, Enum =>

@@ -6,6 +6,8 @@
         CanResize="False"
         WindowStartupLocation="CenterOwner">
   <StackPanel Margin="16" Spacing="10">
+    <!-- CAM-13: etiqueta "do CAM" e aviso do CAM sobre o bruto -->
+    <StackPanel x:Name="CamRow" Spacing="6" IsVisible="False" />
     <RadioButton x:Name="AutoOption" GroupName="StockMode" Content="Automático (calculado pela trajetória, topo em Z0)" />
     <RadioButton x:Name="ManualOption" GroupName="StockMode" Content="Informado" />
 

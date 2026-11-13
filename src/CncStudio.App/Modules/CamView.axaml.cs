@@ -33,6 +33,13 @@ public partial class CamView : UserControl
 
     private Func<Task<(string Name, string Text)?>>? _pickDxf;
 
+    /// <summary>Escolhe o STEP do bruto da fresa e devolve o caminho no computador (null se cancelou).</summary>
+    public Func<Task<string?>>? PickStockStep
+    {
+        get => JobPanel.PickStockStep;
+        set => JobPanel.PickStockStep = value;
+    }
+
     /// <summary>Contornos e bruto do Trabalho de fresa (para o Assist).</summary>
     public IReadOnlyList<Contour> JobContours => JobPanel.Contours;
 
@@ -63,6 +70,13 @@ public partial class CamView : UserControl
     }
 
     private Action<string, string>? _openInEditor;
+
+    /// <summary>CAM-13: o Trabalho fresa envia o programa com o pacote do CAM (só a fresa; o torno segue sem pacote).</summary>
+    public Action<string, string, CncStudio.Core.Cam.CamHandoff>? OpenWithPackage
+    {
+        get => JobPanel.OpenWithPackage;
+        set => JobPanel.OpenWithPackage = value;
+    }
 
     public Func<string, Task>? CopyText
     {
@@ -106,10 +120,14 @@ public partial class CamView : UserControl
 
     private Action? _saveTools;
 
-    /// <summary>Larguras guardadas da árvore e do painel do Trabalho fresa (0 = padrão).</summary>
+    /// <summary>Larguras guardadas da árvore e do painel do Trabalho (fresa e torno usam as mesmas; 0 = padrão).</summary>
     public (double Tree, double Props) JobPanes
     {
-        set => JobPanel.SetPanes(value.Tree, value.Props);
+        set
+        {
+            JobPanel.SetPanes(value.Tree, value.Props);
+            LatheJobPanel.SetPanes(value.Tree, value.Props);
+        }
     }
 
     /// <summary>Escolhas guardadas dos chips do 3D do Trabalho fresa (texto do config).</summary>
@@ -125,12 +143,27 @@ public partial class CamView : UserControl
         set => JobPanel.SaveViewOptions = value;
     }
 
-    /// <summary>Guarda as larguras depois de arrastar uma divisória do Trabalho fresa.</summary>
+    /// <summary>Guarda as larguras depois de arrastar uma divisória do Trabalho (fresa ou torno); a outra tela acompanha.</summary>
     public Action<double, double>? SaveJobPanes
     {
-        get => JobPanel.SavePanes;
-        set => JobPanel.SavePanes = value;
+        get => _saveJobPanes;
+        set
+        {
+            _saveJobPanes = value;
+            JobPanel.SavePanes = (tree, props) =>
+            {
+                LatheJobPanel.SetPanes(tree, props);
+                value?.Invoke(tree, props);
+            };
+            LatheJobPanel.SavePanes = (tree, props) =>
+            {
+                JobPanel.SetPanes(tree, props);
+                value?.Invoke(tree, props);
+            };
+        }
     }
+
+    private Action<double, double>? _saveJobPanes;
 
     /// <summary>Seletor de trabalho salvo (.casillas-job) da tela Trabalho.</summary>
     public Func<Task<(string Name, string Text)?>>? PickJob
@@ -163,8 +196,15 @@ public partial class CamView : UserControl
         JobTab.Click += (_, _) => ShowMachine(job: true);
         LatheJobTab.Click += (_, _) => ShowMachine(latheJob: true);
         ModelTab.Click += (_, _) => ShowMachine(model: true);
+        ToolBankTab.Click += (_, _) => ShowMachine(bank: true);
         JobPanel.MachineSource = () => MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
         LatheJobPanel.MachineSource = JobPanel.MachineSource;
+        // cartão Máquina da Preparação (UX-04f PR 2): os mesmos perfis e o mesmo ativo da tela Perfil 4/5 eixos
+        JobPanel.ProfilesSource = () => MachinePanel.ProfilesSource?.Invoke() ?? [];
+        JobPanel.ActiveMachineName = () => MachinePanel.ActiveSource?.Invoke() ?? "";
+        JobPanel.SetActiveMachine = name => MachinePanel.SetActive?.Invoke(name);
+        JobPanel.SaveMachines = () => MachinePanel.Save?.Invoke();
+        JobPanel.OpenMachineProfiles = () => ShowMachine(profile: true);
     }
 
     /// <summary>Ao abrir o módulo: marca o programa do Trabalho fresa como desatualizado se o perfil da máquina mudou.</summary>
@@ -173,7 +213,10 @@ public partial class CamView : UserControl
     /// <summary>Ao abrir o módulo: o banco do Code pode ter mudado; o Trabalho fresa refaz o aviso de diâmetro.</summary>
     public void RefreshBank() => JobPanel.RefreshBank();
 
-    private void ShowMachine(bool lathe = false, bool profile = false, bool job = false, bool latheJob = false, bool model = false)
+    /// <summary>Tela do banco de ferramentas (UX-04h B1).</summary>
+    public ToolBankView ToolBanks => ToolBankPanel;
+
+    private void ShowMachine(bool lathe = false, bool profile = false, bool job = false, bool latheJob = false, bool model = false, bool bank = false)
     {
         JobTab.IsChecked = job;
         LatheJobTab.IsChecked = latheJob;
@@ -182,9 +225,12 @@ public partial class CamView : UserControl
         JobPanel.IsVisible = job;
         LatheJobPanel.IsVisible = latheJob;
         ModelPanel.IsVisible = model;
-        // as abas Preparação/Operações/Código NC são só do Trabalho fresa; nas telas do Mais, o nome dela aparece no topo
-        HeaderSlot.IsVisible = job;
-        OtherTitle.Text = lathe ? "Torno rápido" : profile ? "Perfil 4/5 eixos" : model ? "Modelo 3D (STL/STEP)" : "";
+        ToolBankTab.IsChecked = bank;
+        ToolBankPanel.IsVisible = bank;
+        // as abas Preparação/Operações/Código NC são do Trabalho fresa e do Trabalho torno; nas telas do Mais, o nome dela aparece no topo
+        HeaderSlot.Content = latheJob ? LatheJobPanel.TabStrip : JobPanel.TabStrip;
+        HeaderSlot.IsVisible = job || latheJob;
+        OtherTitle.Text = lathe ? "Torno rápido" : profile ? "Perfil 4/5 eixos" : model ? "Modelo 3D (STL/STEP)" : bank ? "Banco de ferramentas" : "";
         if (profile)
         {
             MachinePanel.Refresh();

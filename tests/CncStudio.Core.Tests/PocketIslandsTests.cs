@@ -88,7 +88,7 @@ public class PocketIslandsTests
     [Fact]
     public void Job_com_ilhas_gera_programa_e_salva_e_abre()
     {
-        var job = new CamJob { Name = "ILHA" };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy, Name = "ILHA" };
         job.Contours.Add(Contour.Rectangle(0, 0, 80, 60));
         job.Contours.Add(Contour.Circle(new Point2(40, 30), 10));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Pocket, Tool, Levels) { ContourIndex = 0, PocketParams = Params, Islands = true });

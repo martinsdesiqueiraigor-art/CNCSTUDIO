@@ -22,19 +22,93 @@ public partial class LatheJobView
         return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) && double.IsFinite(v) ? v : double.NaN;
     }
 
+    /// <summary>Onde os editores escrevem: o painel direito, ou um cartão da Preparação enquanto ele é montado.</summary>
+    private StackPanel? _propsTarget;
+
+    private StackPanel PropsPanel => _propsTarget ?? OpPanel;
+
+    /// <summary>Monta os cartões da Preparação num alvo (o mesmo editor do painel), e volta ao painel no fim.</summary>
+    private void Into(StackPanel target, Action build)
+    {
+        target.Children.Clear();
+        _propsTarget = target;
+        try
+        {
+            build();
+        }
+        finally
+        {
+            _propsTarget = null;
+        }
+    }
+
+    /// <summary>
+    /// Cartões da Preparação: Peça (o editor de perfil de antes, no XAML), Bruto (só leitura: o torno não tem bruto próprio),
+    /// Fixação do torno (o editor de antes) e Zero (só texto, como na fresa). Sem campo novo.
+    /// </summary>
+    private void BuildPrep()
+    {
+        PrepProfileTitle.Text = LatheJobInfo.ProfileTitle(_job.Profile);
+        Into(PrepStock, StockProps);
+        Into(PrepFixation, () =>
+        {
+            PropsPanel.Children.Add(new TextBlock { Text = "Fixação do torno", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+            BuildFixationProps();
+        });
+        Into(PrepOrigin, ZeroProps);
+    }
+
+    /// <summary>Bruto (barra): só leitura dos Ø do bruto digitados nas operações; cada linha leva à operação.</summary>
+    private void StockProps()
+    {
+        PropsPanel.Children.Add(new TextBlock { Text = "Bruto (barra)", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        PropsPanel.Children.Add(new TextBlock
+        {
+            Text = "O torno não tem bruto próprio: o Ø do bruto é o de cada operação de torneamento externo e faceamento. Para mudar, edite a operação.",
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"),
+        });
+        var groups = LatheJobInfo.StockDiameters(_job);
+        if (groups.Count == 0)
+        {
+            PropsPanel.Children.Add(new TextBlock { Text = "Nenhuma operação com Ø do bruto ainda.", FontSize = 12 });
+            return;
+        }
+
+        foreach ((string text, IReadOnlyList<int> ops) in groups)
+        {
+            foreach (int op in ops)
+            {
+                int index = op;
+                var go = new Button
+                {
+                    Content = $"Ø {text} mm · {LatheJobInfo.OpTitle(op, _job.Operations[op])}", FontSize = 12, Padding = new Avalonia.Thickness(8, 3),
+                    HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left,
+                };
+                ToolTip.SetTip(go, "Abrir a operação na aba Operações");
+                go.Click += (_, _) => GoToOp(index);
+                PropsPanel.Children.Add(go);
+            }
+        }
+    }
+
+    /// <summary>Zero da fixação 1: só o que o trabalho já tem (G5x, X0 no centro, Z0 do perfil). Sem campo novo.</summary>
+    private void ZeroProps()
+    {
+        PropsPanel.Children.Add(new TextBlock { Text = "Zero da fixação 1", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        PropsPanel.Children.Add(new TextBlock { Text = LatheJobInfo.OriginTitle(_job), TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
+        PropsPanel.Children.Add(UiKit.StatusNote("Origem " + CamJobInfo.OriginState().Text + ": confira na máquina. Escolher o zero pela peça e ter um zero por fixação vêm em breve.", "pending"));
+    }
+
     private void BuildProps()
     {
         PropsPanel.Children.Clear();
         PropsPanel.Children.Add(new TextBlock { Text = "Propriedades", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
-        if (FixationSelected())
-        {
-            BuildFixationProps();
-            return;
-        }
-
         if (SelectedOp() is not { } i || i >= _job.Operations.Count)
         {
-            PropsPanel.Children.Add(new TextBlock { Text = "Selecione uma operação ou a fixação na árvore para editar os dados.", Opacity = 0.7, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
+            string hint = (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: not "op" }
+                ? "Peça, bruto, fixação e zero ficam na aba Preparação."
+                : "Selecione uma operação na árvore para editar os dados, ou adicione uma pela faixa.";
+            PropsPanel.Children.Add(new TextBlock { Text = hint, Opacity = 0.7, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
             return;
         }
 
@@ -244,24 +318,46 @@ public partial class LatheJobView
         Refresh(op: i, props: rebuild);
     }
 
+    /// <summary>
+    /// Campo numérico da operação (regra do CAM-12, UX-04e). Vazio ou com texto marca o campo na operação
+    /// (<see cref="LatheJobInfo.SetMissing"/>): ela fica Incompleta, não gera e o número antigo não é usado nem mostrado. O campo
+    /// obrigatório vazio fica com borda tracejada laranja. Um valor válido grava e tira a marca.
+    /// </summary>
     private void Num(int i, string label, string unit, double value, Func<LatheOperationSpec, double, LatheOperationSpec> apply)
     {
-        var box = new TextBox { Text = Fmt(value), MinHeight = 26 };
+        bool missing = i < _job.Operations.Count && _job.Operations[i].MissingFields.Contains(label);
+        var box = new TextBox { Text = missing ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
+        (Grid field, Action<string?> Mark) = CamShell.DashedField(box);
+
+        if (missing)
+        {
+            Mark($"Falta {label}: digite um valor. O valor antigo não é usado.");
+        }
+
         void Commit()
         {
-            double v = ParseNum(box.Text);
-            if (double.IsNaN(v))
+            string typed = (box.Text ?? "").Trim();
+            double v = ParseNum(typed);
+            if (typed.Length == 0 || double.IsNaN(v))
             {
-                box.Foreground = Avalonia.Media.Brushes.IndianRed;
-                Errors.Text = $"• Valor inválido em \"{label}\".";
+                string why = typed.Length == 0 ? $"Falta {label}: digite um valor." : $"\"{typed}\" não é um número. Falta {label}.";
+                Mark(why);
+                Errors.Text = "• " + why;
+                if (!missing)
+                {
+                    missing = true;
+                    Edit(i, x => LatheJobInfo.SetMissing(x, label, true));
+                }
+
                 return;
             }
 
-            box.ClearValue(TemplatedControl.ForegroundProperty);
-            if (Math.Abs(v - value) > 1e-9)
+            Mark(null);
+            if (missing || Math.Abs(v - value) > 1e-9)
             {
+                missing = false;
                 value = v;
-                Edit(i, x => apply(x, v));
+                Edit(i, x => LatheJobInfo.SetMissing(apply(x, v), label, false));
             }
         }
 
@@ -273,7 +369,7 @@ public partial class LatheJobView
                 Commit();
             }
         };
-        PropsPanel.Children.Add(Row(label, box, unit));
+        PropsPanel.Children.Add(Row(label, field, unit));
     }
 
     private void Text(int i, string label, string value, string hint, Func<LatheOperationSpec, string, LatheOperationSpec> apply)

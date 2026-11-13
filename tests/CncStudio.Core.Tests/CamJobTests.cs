@@ -9,7 +9,7 @@ public class CamJobTests
 
     private static CamJob Sample()
     {
-        var job = new CamJob { Name = "PECA TESTE", Dialect = CamDialect.Fanuc, Stock = new JobStock(-5, -5, 70, 50, 20) };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy, Name = "PECA TESTE", Dialect = CamDialect.Fanuc, Stock = new JobStock(-5, -5, 70, 50, 20) };
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         job.Contours.Add(Contour.Circle(new Point2(30, 20), 12));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Contour, Tool, Levels) { ContourIndex = 0, ContourParams = new ContourParams(ContourSide.Outside, true, false, 0, 3) });
@@ -166,7 +166,7 @@ public class CamJobTests
     [Fact]
     public void Furacao_sem_circulo_avisa()
     {
-        var job = new CamJob();
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy };
         job.Contours.Add(Contour.Rectangle(0, 0, 10, 10));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Drilling, Tool, Levels) { Drill = new DrillSpec() });
         JobBuild build = CamJobBuilder.Build(job, null);
@@ -177,7 +177,7 @@ public class CamJobTests
     [Fact]
     public void Texto_no_cilindro_pede_perfil_e_texto_valido()
     {
-        var job = new CamJob();
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy };
         job.Operations.Add(new CamOperationSpec(JobOpKind.WrapText, Tool, Levels) { Wrap = new WrapSpec("ab#", 6, "A", new WrapSetup(40)) });
         Assert.False(CamJobBuilder.Build(job, null).Ok);
         JobBuild bad = CamJobBuilder.Build(job, Machine());
@@ -201,7 +201,7 @@ public class CamJobTests
     public void Versao_mais_nova_ou_dado_estranho_sao_recusados()
     {
         string json = CamJobJson.ToJson(Sample());
-        JobLoadResult newer = CamJobJson.FromJson(json.Replace("\"version\": 1", "\"version\": 2"));
+        JobLoadResult newer = CamJobJson.FromJson(json.Replace("\"version\": 1", "\"version\": 4"));
         Assert.False(newer.Ok);
         Assert.Contains("mais nova", newer.Error);
 
@@ -221,7 +221,7 @@ public class CamJobToolTests
     [Fact]
     public void Geometria_da_ferramenta_vale_para_todo_o_mesmo_T_e_o_corte_fica_na_operacao()
     {
-        var job = new CamJob();
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy };
         job.Operations.Add(new CamOperationSpec(JobOpKind.Facing, new CamTool(1, 10, 3000, 500, 200, "A"), Levels));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Facing, new CamTool(1, 10, 6000, 900, 300, "A"), Levels));
         job.Operations.Add(new CamOperationSpec(JobOpKind.Facing, new CamTool(2, 6, 4000, 400, 150), Levels));

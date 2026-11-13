@@ -1,5 +1,9 @@
 # Supabase — Casillas Code
 
+> **Aviso (PLAT-08, nov/2026):** o web do Code agora usa o projeto Supabase **"Casillas"** (conta única da plataforma, teste de **30 dias**).
+> No painel desse projeto: **Site URL** `https://code.casillas.com.br`; **Redirect URLs** com `https://code.casillas.com.br/**` (os endereços antigos, como `https://casillas-code.pages.dev/**`, continuam na lista).
+> O texto abaixo descreve o projeto antigo "Casillas Code" e fica como histórico.
+
 Projeto próprio (separado do Casillas), região São Paulo (`sa-east-1`), plano gratuito.
 
 | Item | Valor |

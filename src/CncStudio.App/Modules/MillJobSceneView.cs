@@ -8,6 +8,7 @@ using CncStudio.App.Graphics;
 using CncStudio.Core;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Dialects;
+using CncStudio.Core.Geometry;
 using CncStudio.Core.Scene;
 using CncStudio.Core.Trajectory;
 
@@ -48,12 +49,13 @@ public sealed class MillJobSceneView : Grid
     private readonly ToggleButton _edgesChip = Toggle("Arestas", "Mostra as quinas do bruto.");
     private readonly ToggleButton _pathChip = Toggle("Trajetória", "Mostra a trajetória do programa gerado (azul = avanço).");
     private readonly ToggleButton _rapidsChip = Toggle("Rápidos", "Mostra os rápidos G00 (amarelo).");
-    private readonly ToggleButton _axesChip = Toggle("Eixos do zero", "Setas no zero atual do Trabalho (G54): X vermelho, Y verde, Z azul.");
+    private readonly ToggleButton _axesChip = Toggle("Eixos do zero", "Setas no zero da peça escolhido no cartão Zero (G5x da fixação): X vermelho, Y verde, Z azul. Só visualização: não verifica colisão nem simula.");
 
     private CamViewOptions _options = CamViewOptions.Default;
-    private JobStock? _stock;
+    private StockSolid? _stock;
     private IReadOnlyList<Contour> _contours = [];
     private ToolPath? _path;
+    private Point3 _zero;
     private int _generation;
     private bool _fitted;
     private bool _failed;
@@ -115,9 +117,10 @@ public sealed class MillJobSceneView : Grid
     public event EventHandler<CamViewOptions>? OptionsChanged;
 
     /// <summary>Lê a trajetória do programa (segundo plano) e mostra bruto, peça e trajetória sem simular.</summary>
-    public async void Render(string program, Dialect dialect, JobStock? stock, IReadOnlyList<Contour> contours)
+    public async void Render(string program, Dialect dialect, StockSolid? stock, IReadOnlyList<Contour> contours, Point3 zero = default)
     {
         int generation = ++_generation;
+        _zero = zero;
         _stock = stock;
         _contours = contours;
         if (_failed)
@@ -165,10 +168,10 @@ public sealed class MillJobSceneView : Grid
             return;
         }
 
-        _gl.Show(CamJobScene.Build(_stock, _contours, _path, _options));
-        bool hasStock = _stock is { Width: > 0, Length: > 0, Thickness: > 0 };
+        _gl.Show(CamJobScene.BuildResolved(_stock, _contours, _path, _options, zero: _zero));
+        bool hasStock = _stock is { SizeX: > 0, SizeY: > 0, SizeZ: > 0 };
         _stockChip.IsEnabled = hasStock;
-        ToolTip.SetTip(_stockChip, hasStock ? "Como o bruto aparece. O 3D não remove material: a simulação fica no Casillas Code." : "Sem bruto: defina o bruto na Preparação.");
+        ToolTip.SetTip(_stockChip, hasStock ? "Como o bruto aparece. O 3D não remove material: a simulação fica no Casillas Code." : "Sem bruto completo: defina o bruto na Preparação.");
         bool hasPart = _contours.Count > 0;
         _partChip.IsEnabled = hasPart;
         ToolTip.SetTip(_partChip, hasPart ? "Como a peça aparece. Hoje a peça são os contornos 2D, desenhados em Z 0." : "Sem desenho: abra um DXF ou desenhe uma forma.");

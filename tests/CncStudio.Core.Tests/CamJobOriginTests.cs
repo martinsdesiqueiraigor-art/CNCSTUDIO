@@ -12,7 +12,7 @@ public class CamJobOriginTests
 
     private static CamJob Job(OpOrigin? origin)
     {
-        var job = new CamJob { Name = "PLACA", Stock = new JobStock(0, 0, 100, 60, 10) };
+        var job = new CamJob { ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy, Name = "PLACA", Stock = new JobStock(0, 0, 100, 60, 10) };
         job.Contours.Add(Contour.FromPoints([new(0, 0), new(100, 0), new(100, 60), new(0, 60)]));
         job.Operations.Add(CamJobInfo.NewOperation(JobOpKind.Contour, ContourSide.Outside, 0) with { Origin = origin });
         return job;
@@ -31,7 +31,7 @@ public class CamJobOriginTests
         Assert.Equal(OpOrigin.Draft, o.CutData);
         Assert.Equal(["depth", "heights"], o.Typed);
         Assert.Equal(json, CamJobJson.ToJson(loaded.Job));
-        Assert.Equal(CamJob.CurrentVersion, (int)JsonNode.Parse(json)!["version"]!);
+        Assert.Equal(1, (int)JsonNode.Parse(json)!["version"]!); // nada do UX-04f: continua na versão 1
     }
 
     [Fact]

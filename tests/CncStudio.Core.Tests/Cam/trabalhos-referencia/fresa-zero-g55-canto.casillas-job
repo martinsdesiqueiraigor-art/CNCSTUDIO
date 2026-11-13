@@ -1,0 +1,224 @@
+{
+  "format": "casillas-job",
+  "version": 3,
+  "name": "FIXACAO",
+  "dialect": "Fanuc",
+  "programNumber": 2024,
+  "workOffset": 55,
+  "zero": {
+    "point": "XMaxYMin",
+    "z": "Top"
+  },
+  "coolant": false,
+  "stock": {
+    "x": -2.5,
+    "y": -3,
+    "width": 65,
+    "length": 46,
+    "thickness": 18.5
+  },
+  "fixture": {
+    "kind": "morsa",
+    "description": "Morsa 6 pol"
+  },
+  "contours": [
+    [
+      [
+        0,
+        0,
+        60,
+        0
+      ],
+      [
+        60,
+        0,
+        60,
+        40
+      ],
+      [
+        60,
+        40,
+        0,
+        40
+      ],
+      [
+        0,
+        40,
+        0,
+        0
+      ]
+    ],
+    [
+      [
+        42,
+        20,
+        42,
+        20,
+        30,
+        20,
+        1
+      ]
+    ],
+    [
+      [
+        0,
+        0,
+        20,
+        0
+      ],
+      [
+        20,
+        0,
+        20,
+        10,
+        20,
+        5,
+        1
+      ],
+      [
+        20,
+        10,
+        0,
+        10
+      ],
+      [
+        0,
+        10,
+        0,
+        0
+      ]
+    ]
+  ],
+  "operations": [
+    {
+      "kind": "Facing",
+      "enabled": true,
+      "label": "Facear topo",
+      "contour": 0,
+      "tool": {
+        "number": 1,
+        "diameter": 10,
+        "rpm": 3000,
+        "feedXY": 500,
+        "feedZ": 200,
+        "name": "Fresa D10"
+      },
+      "levels": {
+        "safe": 50,
+        "clearance": 2,
+        "top": 0,
+        "bottom": -6,
+        "stepDown": 3
+      },
+      "facingStepOver": 70
+    },
+    {
+      "kind": "Contour",
+      "enabled": true,
+      "label": "",
+      "contour": 0,
+      "tool": {
+        "number": 1,
+        "diameter": 10,
+        "rpm": 3000,
+        "feedXY": 500,
+        "feedZ": 200,
+        "name": "Fresa D10"
+      },
+      "levels": {
+        "safe": 50,
+        "clearance": 2,
+        "top": 0,
+        "bottom": -6,
+        "stepDown": 3
+      },
+      "contourParams": {
+        "side": "Outside",
+        "climb": true,
+        "comp": false,
+        "allowance": 0,
+        "lead": 3
+      }
+    },
+    {
+      "kind": "Pocket",
+      "enabled": true,
+      "label": "",
+      "contour": 1,
+      "tool": {
+        "number": 1,
+        "diameter": 10,
+        "rpm": 3000,
+        "feedXY": 500,
+        "feedZ": 200,
+        "name": "Fresa D10"
+      },
+      "levels": {
+        "safe": 50,
+        "clearance": 2,
+        "top": 0,
+        "bottom": -6,
+        "stepDown": 3
+      },
+      "pocketParams": {
+        "stepOver": 60,
+        "finish": 0.2,
+        "lead": 2
+      }
+    },
+    {
+      "kind": "Contour",
+      "enabled": true,
+      "label": "",
+      "contour": 2,
+      "tool": {
+        "number": 1,
+        "diameter": 10,
+        "rpm": 3000,
+        "feedXY": 500,
+        "feedZ": 200,
+        "name": "Fresa D10"
+      },
+      "levels": {
+        "safe": 50,
+        "clearance": 2,
+        "top": 0,
+        "bottom": -6,
+        "stepDown": 3
+      },
+      "contourParams": {
+        "side": "OnLine",
+        "climb": true,
+        "comp": false,
+        "allowance": 0,
+        "lead": 3
+      }
+    },
+    {
+      "kind": "Drilling",
+      "enabled": true,
+      "label": "",
+      "contour": -1,
+      "tool": {
+        "number": 2,
+        "diameter": 6,
+        "rpm": 4000,
+        "feedXY": 400,
+        "feedZ": 150,
+        "name": ""
+      },
+      "levels": {
+        "safe": 50,
+        "clearance": 2,
+        "top": 0,
+        "bottom": -6,
+        "stepDown": 3
+      },
+      "drill": {
+        "cycle": "Peck",
+        "peck": 2,
+        "dwell": 0
+      }
+    }
+  ]
+}
