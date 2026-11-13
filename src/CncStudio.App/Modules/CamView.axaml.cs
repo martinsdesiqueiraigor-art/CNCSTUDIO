@@ -196,6 +196,7 @@ public partial class CamView : UserControl
         JobTab.Click += (_, _) => ShowMachine(job: true);
         LatheJobTab.Click += (_, _) => ShowMachine(latheJob: true);
         ModelTab.Click += (_, _) => ShowMachine(model: true);
+        ToolBankTab.Click += (_, _) => ShowMachine(bank: true);
         JobPanel.MachineSource = () => MachinePanel.ProfilesSource?.Invoke().FirstOrDefault(m => m.Name == MachinePanel.ActiveSource?.Invoke());
         LatheJobPanel.MachineSource = JobPanel.MachineSource;
         // cartão Máquina da Preparação (UX-04f PR 2): os mesmos perfis e o mesmo ativo da tela Perfil 4/5 eixos
@@ -212,7 +213,10 @@ public partial class CamView : UserControl
     /// <summary>Ao abrir o módulo: o banco do Code pode ter mudado; o Trabalho fresa refaz o aviso de diâmetro.</summary>
     public void RefreshBank() => JobPanel.RefreshBank();
 
-    private void ShowMachine(bool lathe = false, bool profile = false, bool job = false, bool latheJob = false, bool model = false)
+    /// <summary>Tela do banco de ferramentas (UX-04h B1).</summary>
+    public ToolBankView ToolBanks => ToolBankPanel;
+
+    private void ShowMachine(bool lathe = false, bool profile = false, bool job = false, bool latheJob = false, bool model = false, bool bank = false)
     {
         JobTab.IsChecked = job;
         LatheJobTab.IsChecked = latheJob;
@@ -221,10 +225,12 @@ public partial class CamView : UserControl
         JobPanel.IsVisible = job;
         LatheJobPanel.IsVisible = latheJob;
         ModelPanel.IsVisible = model;
+        ToolBankTab.IsChecked = bank;
+        ToolBankPanel.IsVisible = bank;
         // as abas Preparação/Operações/Código NC são do Trabalho fresa e do Trabalho torno; nas telas do Mais, o nome dela aparece no topo
         HeaderSlot.Content = latheJob ? LatheJobPanel.TabStrip : JobPanel.TabStrip;
         HeaderSlot.IsVisible = job || latheJob;
-        OtherTitle.Text = lathe ? "Torno rápido" : profile ? "Perfil 4/5 eixos" : model ? "Modelo 3D (STL/STEP)" : "";
+        OtherTitle.Text = lathe ? "Torno rápido" : profile ? "Perfil 4/5 eixos" : model ? "Modelo 3D (STL/STEP)" : bank ? "Banco de ferramentas" : "";
         if (profile)
         {
             MachinePanel.Refresh();

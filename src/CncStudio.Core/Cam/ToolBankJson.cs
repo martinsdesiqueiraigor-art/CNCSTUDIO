@@ -59,6 +59,12 @@ public static class ToolBankJson
                 o["toCheck"] = true;
             }
 
+            // só a inativa grava: ausente = ativa (a versão segue 1; quem não conhece a chave a ignora)
+            if (!t.Active)
+            {
+                o["active"] = false;
+            }
+
             tools.Add(o);
         }
 
@@ -160,6 +166,7 @@ public static class ToolBankJson
             FeedXY = Opt(o, "feedXY"),
             FeedZ = Opt(o, "feedZ"),
             ToCheck = o["toCheck"] is not null && CamJobJson.Bool(o, "toCheck"),
+            Active = o["active"] is null || CamJobJson.Bool(o, "active"),
         };
     }
 

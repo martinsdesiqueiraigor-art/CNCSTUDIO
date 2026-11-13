@@ -500,3 +500,6 @@ Atualizado no fim de cada tarefa (3–6 linhas). A conversa nova começa por aqu
 
 ## Movido do ESTADO.md em 08/11/2026 (UX-04h PR A)
 - Ramos do STEP já mesclados (`fase-cam-step-malha`, `-correcao`, `-orientacao`, `ajuste-step-enxugar-dlls`, `ajuste-step-solidos`, `fase-cam-step-integracao`): podem ser apagados com cópia de segurança. Outros: `ajuste-web-simulacao`, `ajuste-cam3d-protecao`, `ajuste-docs-missao-gpt-acad02` e ramos antigos de 22/10.
+
+## Movido do ESTADO.md em 13/11/2026 (UX-04h PR B1)
+- **Documentação (03/11):** `ESTADO.md` enxuto com histórico em `docs/historico/` (#133); `CLAUDE.md` com `git fetch` no início e roteamento por tarefa (#134).
