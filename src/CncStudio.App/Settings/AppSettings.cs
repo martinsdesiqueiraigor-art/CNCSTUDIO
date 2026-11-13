@@ -158,24 +158,17 @@ public sealed class AppSettings
     public List<SetupEntry> Setups { get; set; } = [];
 
     /// <summary>
-    /// Cópia do setup com os tipos de ferramenta de torno escolhidos na tabela de ferramentas.
-    /// Quem já está cadastrado no próprio setup do programa vale mais que a tabela.
+    /// Cópia do setup com as ferramentas de torno do banco (tipo escolhido lá). Quem já está cadastrado no próprio setup do
+    /// programa vale mais que o banco.
     /// </summary>
     public MachiningSetup WithToolKinds(MachiningSetup setup)
     {
         MachiningSetup copy = setup.Clone();
-        foreach (ToolEntry entry in Tools)
+        foreach (SetupTool tool in ToolBankLookup.LatheSetupTools(Banks))
         {
-            if (Enum.TryParse(entry.Kind, out ToolKind kind) && new SetupTool { Kind = kind }.IsLathe
-                && copy.ToolOf(entry.Number) is null && copy.Tools.Count < MachiningSetup.MaxTools)
+            if (copy.ToolOf(tool.Number) is null && copy.Tools.Count < MachiningSetup.MaxTools)
             {
-                copy.Tools.Add(new SetupTool
-                {
-                    Kind = kind,
-                    Number = entry.Number,
-                    Diameter = entry.Diameter > 0 ? entry.Diameter : 10,
-                    InsertWidth = entry.InsertWidth > 0 ? entry.InsertWidth : SetupTool.DefaultInsertWidth,
-                });
+                copy.Tools.Add(tool);
             }
         }
 
@@ -291,19 +284,9 @@ public sealed class AppSettings
         }
     }
 
-    /// <summary>Diâmetro da ferramenta T (ou o padrão, se não cadastrada).</summary>
-    public double DiameterOf(int tool)
-    {
-        foreach (ToolEntry entry in Tools)
-        {
-            if (entry.Number == tool && entry.Diameter > 0)
-            {
-                return entry.Diameter;
-            }
-        }
-
-        return DefaultToolDiameter;
-    }
+    /// <summary>Diâmetro da ferramenta T no banco (ou o padrão, se não cadastrada ou sem Ø).</summary>
+    public double DiameterOf(int tool) =>
+        ToolBankLookup.Diameters(Banks).TryGetValue(tool, out double d) ? d : DefaultToolDiameter;
 
     /// <summary>
     /// Configuração usada pelo executor do Core. "programFolder" é a pasta do programa aberto,
@@ -311,8 +294,8 @@ public sealed class AppSettings
     /// </summary>
     public MachineSettings ToMachineSettings(string? programFolder)
     {
-        // Cópia dos diâmetros: a análise roda em outra thread e não deve ver edições no meio
-        var diameters = Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.Last().Diameter);
+        // Cópia dos diâmetros do banco: a análise roda em outra thread e não deve ver edições no meio
+        Dictionary<int, double> diameters = ToolBankLookup.Diameters(Banks);
         double defaultDiameter = DefaultToolDiameter;
 
         return new MachineSettings

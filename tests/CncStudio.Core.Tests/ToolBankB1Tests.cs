@@ -179,3 +179,67 @@ public sealed class ToolBankStoreTests : IDisposable
         Assert.Equal(2, ToolBankStore.Load(_dir).Banks.Count);
     }
 }
+
+/// <summary>UX-04h PR B1: o simulador lê o banco migrado e enxerga o mesmo que enxergava na tabela antiga.</summary>
+public class ToolBankLookupTests
+{
+    // tabela de hoje: fresas com e sem tipo, Ø 10 padrão, T repetido, ferramentas de torno com inserto
+    private static readonly LegacyToolRow[] Table =
+    [
+        new(1, 10, "", "", 3, 0, 0, 0),
+        new(2, 6, "topo 6", "FlatEndMill", 3, 9000, 800, 200),
+        new(3, 8.5, "broca", "Drill", 3, 0, 0, 0),
+        new(2, 6.35, "topo 1/4", "", 3, 0, 0, 0),
+        new(4, 10, "externa", "TurnExternal", 3, 0, 0, 0),
+        new(5, 12, "bedame", "PartExternal", 2.5, 0, 0, 0),
+        new(6, 16, "rosca", "ThreadInternal", 3, 0, 0, 0),
+        new(1500, 63, "facear", "FaceMill", 3, 0, 0, 0),
+    ];
+
+    private static ToolBank[] Migrated()
+    {
+        ToolBankMigration m = ToolBankImport.FromLegacyTable(Table);
+        return [m.Mill, m.Lathe];
+    }
+
+    [Fact]
+    public void Tabela_migrada_da_os_mesmos_diametros_de_antes()
+    {
+        // como o AppSettings.ToMachineSettings fazia com a tabela: Ø > 0, por T, vale a última linha
+        var before = Table.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.Last().Diameter);
+        Assert.Equal(before.OrderBy(p => p.Key), ToolBankLookup.Diameters(Migrated()).OrderBy(p => p.Key));
+    }
+
+    [Fact]
+    public void Ferramentas_de_torno_do_desenho_iguais_as_de_antes()
+    {
+        // como o AppSettings.WithToolKinds fazia: só tipos de torno, Ø e inserto da tabela
+        var before = Table.Where(t => Enum.TryParse(t.Kind, out Setup.ToolKind k) && new Setup.SetupTool { Kind = k }.IsLathe)
+            .Select(t => (t.Number, t.Kind, t.Diameter, t.InsertWidth));
+        var after = ToolBankLookup.LatheSetupTools(Migrated()).Select(s => (s.Number, s.Kind.ToString(), s.Diameter, s.InsertWidth));
+        Assert.Equal(before, after);
+    }
+
+    [Fact]
+    public void Campo_ausente_continua_ausente_e_inativa_conta()
+    {
+        var mill = new ToolBank(ToolBankImport.MillBankId, "Ferramentas fresa", ToolBankMachine.Mill)
+        {
+            Tools = [new BankTool(1) { Name = "sem Ø" }, new BankTool(2) { Diameter = 4, Active = false }],
+        };
+        Dictionary<int, double> d = ToolBankLookup.Diameters([mill]);
+        Assert.False(d.ContainsKey(1)); // o executor cai no comentário do programa e no Ø padrão, como antes
+        Assert.Equal(4, d[2]);
+        Assert.Empty(ToolBankLookup.Diameters([]));
+    }
+
+    [Fact]
+    public void Varios_bancos_de_fresa_vale_o_migrado_senao_o_primeiro_por_nome()
+    {
+        ToolBank Bank(string id, string name, double d) => new(id, name, ToolBankMachine.Mill) { Tools = [new BankTool(1) { Diameter = d }] };
+        ToolBank zeta = Bank("z", "Zeta", 1), alfa = Bank("a", "alfa", 2), migrated = Bank(ToolBankImport.MillBankId, "Ferramentas fresa", 3);
+
+        Assert.Equal(3, ToolBankLookup.Diameters([zeta, migrated, alfa])[1]);
+        Assert.Equal(2, ToolBankLookup.Diameters([zeta, alfa])[1]);
+    }
+}

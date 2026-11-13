@@ -827,7 +827,7 @@ public partial class MainWindow : Window
         string? filePath = _active.FilePath;
         string fileName = filePath is null ? "sem título" : Path.GetFileName(filePath);
         MachineSettings machine = _active.Setup.ApplyTo(MachineForProgram(filePath is null ? null : Path.GetDirectoryName(filePath))) with { PartFrame = ActivePartFrame() };
-        var tools = _settings.Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.Last());
+        Dictionary<int, CncStudio.Core.Cam.BankTool> tools = CncStudio.Core.Cam.ToolBankLookup.Tools(_settings.Banks); // a folha lê o banco, como o simulador
         string? stock = CurrentStockDescription;
         AnalysisStatus.Text = "Gerando a folha de setup…";
 
@@ -845,7 +845,7 @@ public partial class MainWindow : Window
                     : figures;
 
                 SetupSheet sheet = SetupSheetBuilder.Build(text, analysis, fileName, filePath,
-                    t => tools.TryGetValue(t, out ToolEntry? e) ? (e.Diameter, e.Description) : null, stock);
+                    t => tools.TryGetValue(t, out var e) && e.Diameter is { } d ? (d, e.Name ?? "") : null, stock);
                 string html = SetupSheetHtml.Render(sheet, drawing);
 
                 string folder = Path.Combine(Path.GetTempPath(), "CncStudio");
