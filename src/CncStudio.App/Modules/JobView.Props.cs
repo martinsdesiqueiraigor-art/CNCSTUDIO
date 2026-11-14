@@ -92,7 +92,6 @@ public partial class JobView
 
         Section("Ferramenta");
         BankPicker(i);
-        BankButtons(i);
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Fresa topo Z4", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
         Num(i, CamJobInfo.ToolNumberField, "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } }, check: CamJobInfo.ToolNumberError);
         Num(i, CamJobInfo.DiameterField, "mm", s.Tool.Diameter, (x, v) => x with { Tool = x.Tool with { Diameter = v } });
@@ -641,124 +640,210 @@ public partial class JobView
         PropsPanel.Children.Add(offsetField);
     }
 
-    // ---------------------------------------------------------------- banco de ferramentas
+    // ---------------------------------------------------------------- banco de ferramentas (UX-04h B2)
 
-    /// <summary>
-    /// Salvar e excluir a ferramenta da operação no banco (migrado da aba Fresa antiga). Salvar grava ou atualiza pelo T; excluir pede
-    /// confirmação na própria tela (a aba antiga apagava direto). Ferramenta de torno com o mesmo T não é tocada.
-    /// </summary>
-    private void BankButtons(int i)
+    private ComboBox? _bankSelector;
+    private bool _fillingBanks;
+
+    /// <summary>Seletor do banco ativo no fim da faixa de operações. A escolha fica no App (config.json), nunca no trabalho.</summary>
+    private void BuildBankSelector()
     {
-        List<ToolEntry>? bank = ToolsSource?.Invoke();
-        if (bank is null)
+        _bankSelector = new ComboBox { Width = 190, PlaceholderText = "Nenhum banco de fresa", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        ToolTip.SetTip(_bankSelector, "Banco de onde a operação escolhe a ferramenta. Fica guardado no Casillas, não no arquivo do trabalho.");
+        Avalonia.Automation.AutomationProperties.SetName(_bankSelector, "Banco ativo");
+        _bankSelector.SelectionChanged += (_, _) =>
         {
-            return;
-        }
-
-        CamTool tool = _job.Operations[i].Tool;
-        ToolEntry? existing = bank.FirstOrDefault(t => t.Number == tool.Number);
-        var message = new ContentControl();
-        var row = new WrapPanel();
-        var save = new Button { Content = existing is null ? $"Salvar T{tool.Number} no banco" : $"Atualizar T{tool.Number} no banco", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 0, 6, 6), FontSize = 12 };
-        save.Click += (_, _) =>
-        {
-            if (CamJobInfo.BankToolError(tool.Number, tool.Diameter) is { } bad)
+            if (!_fillingBanks && _bankSelector.SelectedItem is ComboBoxItem { Tag: string id } && id != ActiveBank?.Id)
             {
-                message.Content = UiKit.StatusNote("✕ inválido: " + bad, "bad");
-                return;
+                SetActiveBank?.Invoke(id);
+                RefreshBank();
             }
-
-            ToolEntry? entry = bank.FirstOrDefault(t => t.Number == tool.Number);
-            if (entry is not null && !IsMillTool(entry))
-            {
-                message.Content = UiKit.StatusNote($"✕ inválido: T{tool.Number} do banco é ferramenta de torno; use outro número.", "bad");
-                return;
-            }
-
-            if (entry is null)
-            {
-                entry = new ToolEntry { Number = tool.Number };
-                bank.Add(entry);
-            }
-
-            entry.Diameter = tool.Diameter;
-            entry.Description = tool.Name.Trim();
-            entry.SpindleRpm = Math.Max(0, tool.SpindleRpm);
-            entry.FeedXY = Math.Max(0, tool.FeedXY);
-            entry.FeedZ = Math.Max(0, tool.FeedZ);
-            SaveTools?.Invoke();
-            BuildProps();
         };
-        row.Children.Add(save);
-
-        if (existing is not null && IsMillTool(existing))
-        {
-            var delete = new Button { Content = $"Excluir T{tool.Number} do banco…", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 0, 6, 6), FontSize = 12 };
-            delete.Click += (_, _) =>
-            {
-                // confirmação na tela: diz o que sai e que a operação continua com a ferramenta
-                var confirm = new Button { Content = $"Sim, excluir T{tool.Number}", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 6, 6, 0) };
-                var cancel = new Button { Content = "Cancelar", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 6, 0, 0) };
-                var panel = new StackPanel();
-                panel.Children.Add(UiKit.StatusNote($"Excluir T{tool.Number} (Ø{Fmt(existing.Diameter)}) do banco? A operação continua com a ferramenta; o simulador do Code deixa de achar T{tool.Number} no banco.", "pending"));
-                var buttons = new StackPanel { Orientation = Orientation.Horizontal };
-                buttons.Children.Add(confirm);
-                buttons.Children.Add(cancel);
-                panel.Children.Add(buttons);
-                message.Content = panel;
-                cancel.Click += (_, _) => message.Content = null;
-                confirm.Click += (_, _) =>
-                {
-                    bank.RemoveAll(t => t.Number == tool.Number && IsMillTool(t));
-                    SaveTools?.Invoke();
-                    BuildProps();
-                };
-            };
-            row.Children.Add(delete);
-        }
-
-        PropsPanel.Children.Add(row);
-        PropsPanel.Children.Add(message);
+        var box = new StackPanel { Spacing = 3 };
+        box.Children.Add(new Border { Height = 76, Padding = new Avalonia.Thickness(4, 0), Child = _bankSelector });
+        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+        Palette.Children.Add(new Border { Width = 1, Margin = new Avalonia.Thickness(6, 2), Background = Avalonia.Media.Brush.Parse("#1f2733") });
+        Palette.Children.Add(box);
+        FillBankSelector();
     }
 
-    private static bool IsMillTool(ToolEntry e) =>
-        !(Enum.TryParse(e.Kind, out ToolKind kind) && new SetupTool { Kind = kind }.IsLathe);
-
-    private void BankPicker(int i)
+    private void FillBankSelector()
     {
-        List<ToolEntry> bank = (ToolsSource?.Invoke() ?? []).Where(IsMillTool).OrderBy(t => t.Number).ToList();
-        if (bank.Count == 0)
+        if (_bankSelector is null)
         {
             return;
         }
 
-        var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Ferramenta do banco…" };
-        foreach (ToolEntry t in bank)
+        _fillingBanks = true;
+        try
         {
-            combo.Items.Add(new ComboBoxItem { Content = $"T{t.Number} · {(t.Description.Length > 0 ? t.Description : "Fresa")} Ø{Fmt(t.Diameter)}" });
+            _bankSelector.Items.Clear();
+            string? active = ActiveBank?.Id;
+            foreach (ToolBank b in (BanksSource?.Invoke() ?? []).Where(b => b.Machine == ToolBankMachine.Mill).OrderBy(b => b.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                var item = new ComboBoxItem { Content = b.Name, Tag = b.Id };
+                _bankSelector.Items.Add(item);
+                if (b.Id == active)
+                {
+                    _bankSelector.SelectedItem = item;
+                }
+            }
+        }
+        finally
+        {
+            _fillingBanks = false;
+        }
+    }
+
+    /// <summary>
+    /// Escolher a ferramenta no banco ativo (preenche T, Ø e nome; rotação e avanços só se cadastrados), o que o banco diz dela, o aviso
+    /// de T em conflito (só avisa) e "Adicionar ao banco" para a ferramenta digitada à mão.
+    /// </summary>
+    private void BankPicker(int i)
+    {
+        ToolBank? bank = ActiveBank;
+        if (bank is null)
+        {
+            PropsPanel.Children.Add(UiKit.StatusNote("Nenhum banco de fresa. Crie um na aba Ferramentas para escolher a ferramenta daqui.", "pending"));
+            return;
         }
 
-        combo.SelectionChanged += (_, _) =>
+        CamOperationSpec s = _job.Operations[i];
+        IReadOnlyList<BankToolChoice> choices = ToolBankPick.Choices(bank);
+        if (choices.Count == 0)
         {
-            if (combo.SelectedIndex < 0)
+            PropsPanel.Children.Add(new TextBlock { Text = $"O banco \"{bank.Name}\" não tem ferramenta ativa.", Opacity = 0.7, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+        }
+        else
+        {
+            var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = $"Escolher do banco \"{bank.Name}\"…" };
+            Avalonia.Automation.AutomationProperties.SetName(combo, "Escolher a ferramenta do banco");
+            foreach (BankToolChoice c in choices)
             {
+                combo.Items.Add(new ComboBoxItem { Content = c.Label });
+            }
+
+            combo.SelectionChanged += (_, _) =>
+            {
+                if (combo.SelectedIndex >= 0)
+                {
+                    BankTool t = choices[combo.SelectedIndex].Tool;
+                    Edit(i, x => ToolBankPick.Apply(x, t), rebuild: true);
+                }
+            };
+            PropsPanel.Children.Add(combo);
+        }
+
+        bool knownT = !CamJobInfo.Unknown(s, CamJobInfo.ToolNumberField);
+        if (knownT && bank.Tools.FirstOrDefault(t => t.Number == s.Tool.Number) is { } inBank && BankInfo(inBank) is { } info)
+        {
+            // tipo e medidas do banco: só leitura (o trabalho guarda T, Ø, nome, rotação e avanços)
+            PropsPanel.Children.Add(new TextBlock { Text = "No banco: " + info, Opacity = 0.75, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+        }
+
+        string? conflict = ToolBankPick.Conflict(s, bank);
+        if (conflict is not null)
+        {
+            PropsPanel.Children.Add(UiKit.StatusNote(conflict, "pending"));
+        }
+
+        // ferramenta digitada à mão (T vazio, fora do banco ou diferente dele); T igual ao do banco não tem o que adicionar
+        if (!knownT || conflict is not null)
+        {
+            AddToBankButton(i, bank);
+        }
+    }
+
+    /// <summary>Tipo e medidas cadastrados ("Fresa de topo · 4 arestas · corte 22 mm"); só os informados. Null = nada além de T, Ø e nome.</summary>
+    private static string? BankInfo(BankTool t)
+    {
+        var parts = new List<string>();
+        if (ToolBankPick.TypeName(t.Type) is { } type)
+        {
+            parts.Add(type + (ToolBankPick.RegistryOnly(t) ? " (só cadastro)" : ""));
+        }
+
+        if (t.Flutes is { } z)
+        {
+            parts.Add($"{z} arestas");
+        }
+
+        if (t.CuttingLength is { } lc)
+        {
+            parts.Add($"corte {Fmt(lc)} mm");
+        }
+
+        if (t.OverallLength is { } lt)
+        {
+            parts.Add($"total {Fmt(lt)} mm");
+        }
+
+        if (t.CornerRadius is { } r)
+        {
+            parts.Add($"raio {Fmt(r)} mm");
+        }
+
+        if (t.TipAngle is { } a)
+        {
+            parts.Add($"ponta {Fmt(a)}°");
+        }
+
+        if (!t.Active)
+        {
+            parts.Add("inativa");
+        }
+
+        if (t.ToCheck)
+        {
+            parts.Add("a conferir");
+        }
+
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
+    /// <summary>"Adicionar ao banco": cria no banco ativo com "a conferir". T repetido: recusa e oferece o próximo T livre.</summary>
+    private void AddToBankButton(int i, ToolBank bank)
+    {
+        var message = new ContentControl();
+        var add = new Button { Content = $"Adicionar ao banco \"{bank.Name}\"", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 4, 0, 0), FontSize = 12 };
+        ToolTip.SetTip(add, "Cria a ferramenta digitada no banco ativo, marcada \"a conferir\". Campo vazio fica ausente no banco.");
+        void Run(int? number)
+        {
+            CamOperationSpec s = _job.Operations[i];
+            BankAddResult r = ToolBankPick.AddToBank(bank, s, number);
+            if (r.Bank is null)
+            {
+                var panel = new StackPanel();
+                panel.Children.Add(UiKit.StatusNote("✕ " + r.Error, "bad"));
+                if (r.NextFree is { } free)
+                {
+                    var use = new Button { Content = $"Adicionar como T{free} (a operação passa a usar T{free})", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 6, 0, 0), FontSize = 12 };
+                    use.Click += (_, _) => Run(free);
+                    panel.Children.Add(use);
+                }
+
+                message.Content = panel;
                 return;
             }
 
-            ToolEntry t = bank[combo.SelectedIndex];
-            Edit(i, x =>
+            if (SaveBank?.Invoke(r.Bank) is { } error)
             {
-                // o banco preenche T e Ø (e rotação e avanços quando tem): esses deixam de estar vazios; o resto segue como está
-                CamOperationSpec y = CamJobInfo.SetFieldState(CamJobInfo.SetFieldState(x, CamJobInfo.ToolNumberField, false, false), CamJobInfo.DiameterField, false, false);
-                y = t.SpindleRpm > 0 ? CamJobInfo.SetMissing(y, CamJobInfo.SpindleField, false) : y;
-                y = t.FeedXY > 0 ? CamJobInfo.SetMissing(CamJobInfo.SetMissing(y, "Avanço no plano", false), "Avanço na superfície", false) : y;
-                y = t.FeedZ > 0 ? CamJobInfo.SetMissing(y, "Avanço de descida", false) : y;
-                return y with
-                {
-                    Tool = new CamTool(t.Number, t.Diameter, t.SpindleRpm > 0 ? t.SpindleRpm : x.Tool.SpindleRpm, t.FeedXY > 0 ? t.FeedXY : x.Tool.FeedXY, t.FeedZ > 0 ? t.FeedZ : x.Tool.FeedZ, t.Description),
-                };
-            }, rebuild: true);
-        };
-        PropsPanel.Children.Add(combo);
+                message.Content = UiKit.StatusNote("✕ " + error, "bad");
+                return;
+            }
+
+            if (number is { } n && n != s.Tool.Number)
+            {
+                Edit(i, x => CamJobInfo.SetFieldState(x with { Tool = x.Tool with { Number = n } }, CamJobInfo.ToolNumberField, false, false), rebuild: true);
+            }
+            else
+            {
+                BuildProps();
+            }
+        }
+
+        add.Click += (_, _) => Run(null);
+        PropsPanel.Children.Add(add);
+        PropsPanel.Children.Add(message);
     }
 }

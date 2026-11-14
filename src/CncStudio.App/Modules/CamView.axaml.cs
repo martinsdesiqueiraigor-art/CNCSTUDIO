@@ -92,14 +92,13 @@ public partial class CamView : UserControl
 
     private Func<string, Task>? _copyText;
 
-    /// <summary>Tabela de ferramentas do Code (a mesma do simulador); o CAM lê e grava nela.</summary>
+    /// <summary>Tabela antiga de ferramentas: só o Trabalho do torno ainda lê e grava nela (até o PR D). A fresa usa o banco ativo (UX-04h B2).</summary>
     public Func<List<ToolEntry>>? ToolsSource
     {
         get => _toolsSource;
         set
         {
             _toolsSource = value;
-            JobPanel.ToolsSource = value;
             LatheJobPanel.ToolsSource = value;
         }
     }
@@ -113,7 +112,6 @@ public partial class CamView : UserControl
         set
         {
             _saveTools = value;
-            JobPanel.SaveTools = value;
             LatheJobPanel.SaveTools = value;
         }
     }
@@ -212,6 +210,9 @@ public partial class CamView : UserControl
 
     /// <summary>Ao abrir o módulo: o banco do Code pode ter mudado; o Trabalho fresa refaz o aviso de diâmetro.</summary>
     public void RefreshBank() => JobPanel.RefreshBank();
+
+    /// <summary>Trabalho fresa (para ligar o banco ativo, UX-04h B2).</summary>
+    public JobView MillJob => JobPanel;
 
     /// <summary>Tela do banco de ferramentas (UX-04h B1).</summary>
     public ToolBankView ToolBanks => ToolBankPanel;

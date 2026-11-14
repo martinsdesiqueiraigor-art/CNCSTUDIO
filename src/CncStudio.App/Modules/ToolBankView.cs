@@ -466,6 +466,37 @@ public sealed class ToolBankView : UserControl
         return true;
     }
 
+    /// <summary>
+    /// Grava um banco mudado fora desta tela ("Adicionar ao banco" do Trabalho fresa, UX-04h B2). Null = gravou; senão, o motivo.
+    /// Banco de versão mais nova (só leitura) não é regravado.
+    /// </summary>
+    public string? SaveFromJob(ToolBank bank)
+    {
+        if (_banks.FirstOrDefault(s => s.Bank.Id == bank.Id) is { ReadOnly: true })
+        {
+            return $"O banco \"{bank.Name}\" é de versão mais nova e está só para leitura.";
+        }
+
+        if (ToolBankStore.Save(_folder, bank) is { } error)
+        {
+            return error;
+        }
+
+        int i = _banks.FindIndex(s => s.Bank.Id == bank.Id);
+        if (i < 0)
+        {
+            _banks.Add(new StoredToolBank(bank));
+        }
+        else
+        {
+            _banks[i] = _banks[i] with { Bank = bank };
+        }
+
+        Select(_bank, _isNew ? null : _selected);
+        BanksChanged?.Invoke([.. _banks.Select(s => s.Bank)]);
+        return null;
+    }
+
     private void NewTool()
     {
         if (Current is not { } stored || stored.Bank.NextFreeNumber(stored.Bank.Tools.Select(t => t.Number).DefaultIfEmpty(0).Max()) is not { } n)
