@@ -648,7 +648,7 @@ public partial class JobView
     /// <summary>Seletor do banco ativo no fim da faixa de operações. A escolha fica no App (config.json), nunca no trabalho.</summary>
     private void BuildBankSelector()
     {
-        _bankSelector = new ComboBox { Width = 190, PlaceholderText = "Nenhum banco de fresa", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        _bankSelector = new ComboBox { Width = 150, PlaceholderText = "Nenhum banco de fresa", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(_bankSelector, "Banco de onde a operação escolhe a ferramenta. Fica guardado no Casillas, não no arquivo do trabalho.");
         Avalonia.Automation.AutomationProperties.SetName(_bankSelector, "Banco ativo");
         _bankSelector.SelectionChanged += (_, _) =>
@@ -656,14 +656,18 @@ public partial class JobView
             if (!_fillingBanks && _bankSelector.SelectedItem is ComboBoxItem { Tag: string id } && id != ActiveBank?.Id)
             {
                 SetActiveBank?.Invoke(id);
-                RefreshBank();
+                // não refazer a lista dentro do próprio evento de seleção (o Avalonia não aceita): só avisos e painel
+                ShowWarnings();
+                if (SelectedOp() is not null)
+                {
+                    BuildProps();
+                }
             }
         };
         var box = new StackPanel { Spacing = 3 };
-        box.Children.Add(new Border { Height = 76, Padding = new Avalonia.Thickness(4, 0), Child = _bankSelector });
+        box.Children.Add(new Border { Height = 76, Child = _bankSelector });
         box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
-        Palette.Children.Add(new Border { Width = 1, Margin = new Avalonia.Thickness(6, 2), Background = Avalonia.Media.Brush.Parse("#1f2733") });
-        Palette.Children.Add(box);
+        BankSlot.Child = box;
         FillBankSelector();
     }
 
@@ -716,7 +720,7 @@ public partial class JobView
         }
         else
         {
-            var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = $"Escolher do banco \"{bank.Name}\"…" };
+            var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Escolher do banco ativo…" };
             Avalonia.Automation.AutomationProperties.SetName(combo, "Escolher a ferramenta do banco");
             foreach (BankToolChoice c in choices)
             {
@@ -747,8 +751,8 @@ public partial class JobView
             PropsPanel.Children.Add(UiKit.StatusNote(conflict, "pending"));
         }
 
-        // ferramenta digitada à mão (T vazio, fora do banco ou diferente dele); T igual ao do banco não tem o que adicionar
-        if (!knownT || conflict is not null)
+        // ferramenta digitada à mão (T fora do banco ou diferente dele); T vazio ou igual ao do banco não tem o que adicionar
+        if (knownT && conflict is not null)
         {
             AddToBankButton(i, bank);
         }
@@ -805,7 +809,7 @@ public partial class JobView
     private void AddToBankButton(int i, ToolBank bank)
     {
         var message = new ContentControl();
-        var add = new Button { Content = $"Adicionar ao banco \"{bank.Name}\"", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 4, 0, 0), FontSize = 12 };
+        var add = new Button { Content = "Adicionar ao banco ativo", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 4, 0, 0), FontSize = 12 };
         ToolTip.SetTip(add, "Cria a ferramenta digitada no banco ativo, marcada \"a conferir\". Campo vazio fica ausente no banco.");
         void Run(int? number)
         {
@@ -817,7 +821,8 @@ public partial class JobView
                 panel.Children.Add(UiKit.StatusNote("✕ " + r.Error, "bad"));
                 if (r.NextFree is { } free)
                 {
-                    var use = new Button { Content = $"Adicionar como T{free} (a operação passa a usar T{free})", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 6, 0, 0), FontSize = 12 };
+                    var use = new Button { Content = $"Adicionar como T{free}", Padding = new Avalonia.Thickness(10, 4), Margin = new Avalonia.Thickness(0, 6, 0, 0), FontSize = 12 };
+                    ToolTip.SetTip(use, $"Cria T{free} no banco \"{bank.Name}\" e a operação passa a usar T{free}.");
                     use.Click += (_, _) => Run(free);
                     panel.Children.Add(use);
                 }
