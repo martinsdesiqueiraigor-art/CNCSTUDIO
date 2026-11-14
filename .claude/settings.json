@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(gh pr merge *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push origin main*)",
+      "Bash(git push origin dev*)",
+      "Bash(git push origin --delete*)",
+      "Bash(git worktree prune*)",
+      "Bash(git remote update*)",
+      "Bash(git remote prune*)",
+      "PowerShell(gh pr merge *)",
+      "PowerShell(git push --force*)",
+      "PowerShell(git push -f*)",
+      "PowerShell(git push origin main*)",
+      "PowerShell(git push origin dev*)",
+      "PowerShell(git push origin --delete*)",
+      "PowerShell(git worktree prune*)",
+      "PowerShell(git remote update*)",
+      "PowerShell(git remote prune*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\"" }
+        ]
+      }
+    ]
+  }
+}

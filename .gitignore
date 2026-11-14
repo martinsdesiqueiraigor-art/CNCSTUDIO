@@ -496,3 +496,12 @@ service-account*.json
 
 # Pastas locais de prévia e teste (nunca sobem)
 preview/
+
+# Backups e temporários soltos (o Git é o backup)
+*.bak
+*.orig
+*.old
+
+# Guarda do Claude: liberações e ajustes locais (nunca sobem)
+.claude/liberados.local
+.claude/settings.local.json
