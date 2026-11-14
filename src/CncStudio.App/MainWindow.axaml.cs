@@ -129,6 +129,7 @@ public partial class MainWindow : Window
         // senão, topo reto com o diâmetro efetivo
         Graphics.ProfileOf = tool =>
             SimulationFactory.MillProfiles(_active.Setup, EffectiveDiameter, CamPackageProfiles())(tool);
+        Graphics.FromCam = ToolFromCam; // UX-04h D5: etiqueta "do CAM" na linha "Ferr." do desenho
         Graphics.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
         Statistics.DiameterOf = EffectiveDiameter;
         Statistics.LineRequested += (_, line) => GoToLine(line);

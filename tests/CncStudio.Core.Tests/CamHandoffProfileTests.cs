@@ -43,6 +43,10 @@ public class CamHandoffProfileTests
         Assert.Equal(new ToolProfile(ToolTipShape.BullNose, 4, 1.5), CamHandoffCode.ProfileOf(Tool(1, 8, "toroidal", corner: 1.5), 8));
         Assert.Equal(new ToolProfile(ToolTipShape.Cone, 3, TipAngle: 140), CamHandoffCode.ProfileOf(Tool(1, 6, "broca", tip: 140), 6));
 
+        // UX-04h D5: facear com raio → toroidal; broca de centro com ângulo → cone
+        Assert.Equal(new ToolProfile(ToolTipShape.BullNose, 25, 2), CamHandoffCode.ProfileOf(Tool(1, 50, "facear", corner: 2), 50));
+        Assert.Equal(new ToolProfile(ToolTipShape.Cone, 2, TipAngle: 90), CamHandoffCode.ProfileOf(Tool(1, 4, "broca-centro", tip: 90), 4));
+
         // o Ø do perfil é o efetivo dado pelo chamador (o do CAM no programa), não um número escondido
         Assert.Equal(2.5, CamHandoffCode.ProfileOf(Tool(1, 10, "esferica"), 5)!.Radius);
     }
@@ -52,8 +56,10 @@ public class CamHandoffProfileTests
     [InlineData("toroidal", null, null)]   // toroidal sem raio de canto
     [InlineData("broca", null, null)]      // broca sem ângulo da ponta
     [InlineData("topo", 1.0, 118.0)]
-    [InlineData("facear", null, null)]
-    [InlineData("broca-centro", null, 90.0)]
+    [InlineData("facear", null, null)]     // facear sem raio de canto
+    [InlineData("broca-centro", null, null)] // broca de centro sem ângulo
+    [InlineData("facear", 6.0, null)]      // raio de canto maior que o raio da ferramenta
+    [InlineData("broca-centro", null, 180.0)]
     [InlineData("macho", null, null)]
     [InlineData("alargador", null, null)]
     [InlineData("mandrilhadora", null, null)]
@@ -112,6 +118,8 @@ public class CamHandoffProfileTests
         float[] before = Cut(Package(Tool(1, 10, null), Tool(2, 6, null)));
         Assert.Equal(before, Cut(Package(Tool(1, 10, "toroidal"), Tool(2, 6, "broca"))));       // campo faltando
         Assert.Equal(before, Cut(Package(Tool(1, 10, "topo", 1, 118), Tool(2, 6, "macho"))));  // outro tipo
+        Assert.Equal(before, Cut(Package(Tool(1, 10, "macho", 1, 118), Tool(2, 6, "alargador", 1, 118))));
+        Assert.Equal(before, Cut(Package(Tool(1, 10, "facear"), Tool(2, 6, "broca-centro"))));  // sem raio / sem ângulo
 
         // T1 esférica: a canaleta dela fica redonda (menos material removido); T2 sem campos, a dela igual
         float[] ball = Cut(Package(Tool(1, 10, "esferica"), Tool(2, 6, null)));
@@ -120,5 +128,22 @@ public class CamHandoffProfileTests
         float[] onlyT2 = Cut(Package(Tool(1, 10, null), Tool(2, 6, "broca", tip: 118)));
         Assert.NotEqual(before, onlyT2);
         Assert.NotEqual(ball, onlyT2);
+    }
+
+    [Fact]
+    public void Broca_de_centro_com_angulo_corta_em_cone_e_facear_com_raio_corta_toroidal()
+    {
+        float[] before = Cut(Package(Tool(1, 10, null), Tool(2, 6, null)));
+
+        // T2 broca de centro 90°: a ponta é cone, não topo reto; T1 fica igual
+        float[] cone = Cut(Package(Tool(1, 10, null), Tool(2, 6, "broca-centro", tip: 90)));
+        Assert.NotEqual(before, cone);
+        Assert.True(cone.Sum() > before.Sum());
+
+        // T1 facear com raio 2: canto arredondado, sobra material no canto da canaleta
+        float[] torus = Cut(Package(Tool(1, 10, "facear", corner: 2), Tool(2, 6, null)));
+        Assert.NotEqual(before, torus);
+        Assert.True(torus.Sum() > before.Sum());
+        Assert.NotEqual(cone, torus);
     }
 }
