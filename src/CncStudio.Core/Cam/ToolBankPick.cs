@@ -28,6 +28,16 @@ public static class ToolBankPick
         return list.FirstOrDefault(b => b.Id == activeId && b.Machine == ToolBankMachine.Mill) ?? ToolBankLookup.Primary(list, ToolBankMachine.Mill);
     }
 
+    /// <summary>
+    /// Banco ativo do torno (UX-04h D1): o de <paramref name="activeId"/> se existir e for de torno; senão, o
+    /// <see cref="ToolBankLookup.Primary"/> do torno, o mesmo de antes do D1. Null = não há banco de torno.
+    /// </summary>
+    public static ToolBank? ActiveLatheBank(IEnumerable<ToolBank> banks, string? activeId)
+    {
+        var list = banks.ToList();
+        return list.FirstOrDefault(b => b.Id == activeId && b.Machine == ToolBankMachine.Lathe) ?? ToolBankLookup.Primary(list, ToolBankMachine.Lathe);
+    }
+
     /// <summary>Nome do tipo na tela ("Fresa de topo"); null = sem tipo.</summary>
     public static string? TypeName(BankToolType? type) => type switch
     {
@@ -40,6 +50,12 @@ public static class ToolBankPick
         BankToolType.CenterDrill => "Broca de centro",
         BankToolType.Reamer => "Alargador",
         BankToolType.BoringHead => "Mandrilhadora",
+        BankToolType.TurnExternal => "Desbaste externo",
+        BankToolType.TurnInternal => "Barra de furar",
+        BankToolType.PartExternal => "Bedame externo",
+        BankToolType.PartInternal => "Bedame interno",
+        BankToolType.ThreadExternal => "Rosca externa",
+        BankToolType.ThreadInternal => "Rosca interna",
         null => null,
         _ => type.ToString(),
     };
@@ -80,6 +96,42 @@ public static class ToolBankPick
 
         return string.Join(" · ", parts);
     }
+
+    /// <summary>
+    /// Texto da escolha no Trabalho do torno (UX-04h D1): "T3 · Desbaste CNMG · inserto 3 · a conferir". O Ø não aparece (a operação de
+    /// torno não usa); a largura do inserto só nos bedames. Campo ausente não aparece.
+    /// </summary>
+    public static string LatheLabel(BankTool t)
+    {
+        var parts = new List<string> { "T" + t.Number.ToString(CultureInfo.InvariantCulture) };
+        if (!string.IsNullOrWhiteSpace(t.Name))
+        {
+            parts.Add(t.Name!);
+        }
+        else if (TypeName(t.Type) is { } type)
+        {
+            parts.Add(type);
+        }
+
+        if (BankToolTypes.IsParting(t.Type) && t.InsertWidth is { } w)
+        {
+            parts.Add("inserto " + N(w));
+        }
+
+        if (t.ToCheck)
+        {
+            parts.Add("a conferir");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>
+    /// Escolher a ferramenta do banco numa operação de torno: copia T e nome (sem nome no banco = vazio), e a rotação só se cadastrada
+    /// (senão a operação fica como estava), como a escolha da tabela antiga fazia. Velocidade de corte e rotação máxima são da operação.
+    /// </summary>
+    public static LatheOperationSpec ApplyLathe(LatheOperationSpec s, BankTool t) =>
+        s with { Tool = s.Tool with { Number = t.Number, Name = t.Name ?? "", Rpm = t.Rpm is { } rpm && rpm > 0 ? rpm : s.Tool.Rpm } };
 
     /// <summary>Nome do campo de avanço no plano conforme a operação (o texto no cilindro chama de superfície).</summary>
     public static string FeedXYField(CamOperationSpec s) => s.Kind == JobOpKind.WrapText ? "Avanço na superfície" : "Avanço no plano";

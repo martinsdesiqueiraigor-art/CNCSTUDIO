@@ -74,8 +74,6 @@ public partial class MainWindow
             ShowModule("code");
         };
         Statistics.FromCam = ToolFromCam;
-        Cam.ToolsSource = () => _settings.Tools;
-        Cam.SaveTools = () => _settings.Save();
         // larguras das divisórias do Trabalho fresa (UX-04c): preferência local do app
         Cam.JobPanes = (_settings.CamTreeWidth, _settings.CamPropsWidth);
         Cam.SaveJobPanes = (tree, props) =>

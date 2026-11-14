@@ -78,32 +78,7 @@ public static class ToolBankImport
         var warnings = new List<string>();
         foreach (LegacyToolRow row in rows)
         {
-            BankToolType? type = null;
-            if (!string.IsNullOrEmpty(row.Kind))
-            {
-                if (Enum.TryParse(row.Kind, false, out ToolKind kind) && Enum.IsDefined(kind))
-                {
-                    type = BankToolTypes.FromToolKind(kind);
-                }
-                else
-                {
-                    warnings.Add($"T{row.Number}: tipo \"{row.Kind}\" desconhecido; ficou sem tipo.");
-                }
-            }
-
-            bool toLathe = type is { } t && !BankToolTypes.Accepts(ToolBankMachine.Mill, t);
-            var tool = new BankTool(row.Number)
-            {
-                Name = string.IsNullOrWhiteSpace(row.Description) ? null : row.Description.Trim(),
-                Type = type,
-                Diameter = Given(row.Diameter),
-                InsertWidth = BankToolTypes.IsParting(type) ? Given(row.InsertWidth) : null,
-                Rpm = Given(row.Rpm),
-                FeedXY = Given(row.FeedXY),
-                FeedZ = Given(row.FeedZ),
-                // Ø 10 e inserto 3 eram os padrões da tabela antiga: não dá para separar do digitado (adendo do Igor, 08/11)
-                ToCheck = row.Diameter == OldDefaultDiameter || (BankToolTypes.IsParting(type) && row.InsertWidth == SetupTool.DefaultInsertWidth),
-            };
+            (BankTool tool, bool toLathe) = FromLegacyRow(row, warnings);
             if (toLathe)
             {
                 lathe = Add(lathe, tool, warnings);
@@ -115,6 +90,41 @@ public static class ToolBankImport
         }
 
         return new ToolBankMigration(mill, lathe, warnings);
+    }
+
+    /// <summary>
+    /// Uma linha da tabela antiga como ferramenta do banco (a mesma conversão da migração do B1). <c>ToLathe</c>: tipo só de torno.
+    /// Tipo desconhecido fica ausente, com aviso em <paramref name="warnings"/> (null = sem aviso).
+    /// </summary>
+    internal static (BankTool Tool, bool ToLathe) FromLegacyRow(LegacyToolRow row, List<string>? warnings)
+    {
+        BankToolType? type = null;
+        if (!string.IsNullOrEmpty(row.Kind))
+        {
+            if (Enum.TryParse(row.Kind, false, out ToolKind kind) && Enum.IsDefined(kind))
+            {
+                type = BankToolTypes.FromToolKind(kind);
+            }
+            else
+            {
+                warnings?.Add($"T{row.Number}: tipo \"{row.Kind}\" desconhecido; ficou sem tipo.");
+            }
+        }
+
+        bool toLathe = type is { } t && !BankToolTypes.Accepts(ToolBankMachine.Mill, t);
+        var tool = new BankTool(row.Number)
+        {
+            Name = string.IsNullOrWhiteSpace(row.Description) ? null : row.Description.Trim(),
+            Type = type,
+            Diameter = Given(row.Diameter),
+            InsertWidth = BankToolTypes.IsParting(type) ? Given(row.InsertWidth) : null,
+            Rpm = Given(row.Rpm),
+            FeedXY = Given(row.FeedXY),
+            FeedZ = Given(row.FeedZ),
+            // Ø 10 e inserto 3 eram os padrões da tabela antiga: não dá para separar do digitado (adendo do Igor, 08/11)
+            ToCheck = row.Diameter == OldDefaultDiameter || (BankToolTypes.IsParting(type) && row.InsertWidth == SetupTool.DefaultInsertWidth),
+        };
+        return (tool, toLathe);
     }
 
     /// <summary>
