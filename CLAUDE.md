@@ -62,3 +62,19 @@ Sempre: este arquivo e o bloco "Estado atual" de `docs/ESTADO.md`. Além disso:
 ## Delegação (GPT, DeepSeek)
 Ver `AGENTS.md` e `docs/tarefas/`. Agentes externos trabalham em ramo próprio `ext-<agente>-<tarefa>` e entregam por PR; o Claude revisa e roda os testes antes do merge. Tarefas com ID por produto (`CODE-<nº>`, `MACRO-`, `ACAD-`…). Ao fechar, a resposta segue a seção **Volta** de `docs/tarefas/MODELO.md`.
 - Conteúdo técnico (exemplos, glossário, Academy) entra como `rascunho`; só o Igor marca `revisado`.
+
+## Travas inegociáveis
+- Nunca mergear (gh pr merge), nunca dar push em main ou dev, nunca force push, nunca apagar ramo, arquivo solto ou artefato. Só o Igor faz isso.
+- Ramo fase-*, ajuste-* ou ext-*, criado a partir de origin/dev: faça git fetch e confira o commit. Se a origin diferir da ficha, PARE e avise.
+- PR sempre em rascunho para o dev. Nunca escreva "autorizado pelo Igor": registre só o link do comentário dele.
+- Arquivos protegidos (a guarda bloqueia): account.js, manifest.webmanifest, service-worker.js, .github/workflows/, supabase/migrations e templates, PlatformModules.cs, .claude/. Se a missão exigir, pare e peça ao Igor para liberar em .claude/liberados.local.
+- O teste mestre (8 G-codes de referência) não pode mudar de resultado. Nunca altere um teste existente para ele passar.
+- Nada suposto: campo vazio fica ausente, sem valor padrão escondido.
+- Uma missão por sessão. A missão está em docs/tarefas/<ID>.md. Plano primeiro (Plan Mode): mostre o plano e pare; só implemente depois do OK do Igor.
+- Nunca crie cópia de backup dentro da pasta do projeto. O Git é o backup.
+
+## Economia de trabalho
+- Durante a missão: /testar rapido (só a área alterada, saída resumida). Suíte completa uma vez, no /fechar.
+- Mudança só de documentação não roda teste.
+- Não abra o aplicativo a cada ajuste; só no fechamento ou quando o Igor pedir.
+- Leia só os arquivos citados na ficha. Busca ampla só se a ficha não bastar, e diga por quê.

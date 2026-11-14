@@ -830,7 +830,7 @@ public partial class MainWindow : Window
         string? filePath = _active.FilePath;
         string fileName = filePath is null ? "sem título" : Path.GetFileName(filePath);
         MachineSettings machine = _active.Setup.ApplyTo(MachineForProgram(filePath is null ? null : Path.GetDirectoryName(filePath))) with { PartFrame = ActivePartFrame() };
-        Dictionary<int, CncStudio.Core.Cam.BankTool> tools = CncStudio.Core.Cam.ToolBankLookup.Tools(_settings.Banks, _settings.ActiveMillBankId); // UX-04h C2: o banco ativo da fresa, como o simulador (sem escolha ou apagado: o principal)
+        Dictionary<int, CncStudio.Core.Cam.BankTool> tools = CncStudio.Core.Cam.ToolBankLookup.Tools(_settings.Banks, _settings.ActiveMillBankId, _settings.ActiveLatheBankId); // UX-04h C2/D1: os bancos ativos da fresa e do torno, como o simulador (sem escolha ou apagado: o principal)
         string? stock = CurrentStockDescription;
         AnalysisStatus.Text = "Gerando a folha de setup…";
 

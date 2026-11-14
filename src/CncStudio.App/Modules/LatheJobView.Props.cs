@@ -434,32 +434,103 @@ public partial class LatheJobView
 
     // ---------------------------------------------------------------- banco de ferramentas
 
-    private static bool IsLatheTool(ToolEntry e) =>
-        Enum.TryParse(e.Kind, out ToolKind kind) && new SetupTool { Kind = kind }.IsLathe;
+    private ComboBox? _bankSelector;
+    private bool _fillingBanks;
 
-    private void BankPicker(int i)
+    /// <summary>Seletor do banco ativo do torno no fim da faixa (UX-04h D1, como na fresa). A escolha fica no App, nunca no trabalho.</summary>
+    private void BuildBankSelector()
     {
-        List<ToolEntry> bank = (ToolsSource?.Invoke() ?? []).Where(IsLatheTool).OrderBy(t => t.Number).ToList();
-        if (bank.Count == 0)
+        _bankSelector = new ComboBox { Width = 150, PlaceholderText = "Nenhum banco de torno", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        ToolTip.SetTip(_bankSelector, "Banco de onde a operação escolhe a ferramenta e de onde o Code lê as ferramentas do torno. Fica guardado no Casillas, não no arquivo do trabalho.");
+        Avalonia.Automation.AutomationProperties.SetName(_bankSelector, "Banco ativo");
+        _bankSelector.SelectionChanged += (_, _) =>
+        {
+            if (!_fillingBanks && _bankSelector.SelectedItem is ComboBoxItem { Tag: string id } && id != ActiveBank?.Id)
+            {
+                SetActiveBank?.Invoke(id);
+                // não refazer a lista dentro do próprio evento de seleção (o Avalonia não aceita): só o painel
+                if (SelectedOp() is not null)
+                {
+                    BuildProps();
+                }
+            }
+        };
+        var box = new StackPanel { Spacing = 3 };
+        box.Children.Add(new Border { Height = 76, Child = _bankSelector });
+        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+        BankSlot.Child = box;
+        FillBankSelector();
+    }
+
+    private void FillBankSelector()
+    {
+        if (_bankSelector is null)
         {
             return;
         }
 
-        var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Ferramenta do banco…" };
-        foreach (ToolEntry t in bank)
+        _fillingBanks = true;
+        try
         {
-            combo.Items.Add(new ComboBoxItem { Content = $"T{t.Number} · {(t.Description.Length > 0 ? t.Description : "Torno")}" });
+            _bankSelector.Items.Clear();
+            string? active = ActiveBank?.Id;
+            foreach (ToolBank b in (BanksSource?.Invoke() ?? []).Where(b => b.Machine == ToolBankMachine.Lathe).OrderBy(b => b.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                var item = new ComboBoxItem { Content = b.Name, Tag = b.Id };
+                _bankSelector.Items.Add(item);
+                if (b.Id == active)
+                {
+                    _bankSelector.SelectedItem = item;
+                }
+            }
+        }
+        finally
+        {
+            _fillingBanks = false;
+        }
+    }
+
+    /// <summary>Ao abrir o módulo ou mudar um banco: refaz o seletor do banco ativo e o painel (o programa não muda).</summary>
+    public void RefreshBank()
+    {
+        FillBankSelector();
+        if (SelectedOp() is not null)
+        {
+            BuildProps();
+        }
+    }
+
+    /// <summary>Escolher a ferramenta no banco ativo do torno (só as ativas): copia T, nome e rotação (se cadastrada).</summary>
+    private void BankPicker(int i)
+    {
+        ToolBank? bank = ActiveBank;
+        if (bank is null)
+        {
+            PropsPanel.Children.Add(UiKit.StatusNote("Nenhum banco de torno. Crie um na aba Ferramentas para escolher a ferramenta daqui.", "pending"));
+            return;
+        }
+
+        IReadOnlyList<BankTool> choices = ToolBankPick.Choices(bank).Select(c => c.Tool).ToList();
+        if (choices.Count == 0)
+        {
+            PropsPanel.Children.Add(new TextBlock { Text = $"O banco \"{bank.Name}\" não tem ferramenta ativa.", Opacity = 0.7, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+            return;
+        }
+
+        var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Escolher do banco ativo…" };
+        Avalonia.Automation.AutomationProperties.SetName(combo, "Escolher a ferramenta do banco");
+        foreach (BankTool t in choices)
+        {
+            combo.Items.Add(new ComboBoxItem { Content = ToolBankPick.LatheLabel(t) });
         }
 
         combo.SelectionChanged += (_, _) =>
         {
-            if (combo.SelectedIndex < 0)
+            if (combo.SelectedIndex >= 0)
             {
-                return;
+                BankTool t = choices[combo.SelectedIndex];
+                Edit(i, x => ToolBankPick.ApplyLathe(x, t), rebuild: true);
             }
-
-            ToolEntry t = bank[combo.SelectedIndex];
-            Edit(i, x => x with { Tool = x.Tool with { Number = t.Number, Name = t.Description, Rpm = t.SpindleRpm > 0 ? t.SpindleRpm : x.Tool.Rpm } }, rebuild: true);
         };
         PropsPanel.Children.Add(combo);
     }

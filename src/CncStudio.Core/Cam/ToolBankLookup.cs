@@ -19,13 +19,14 @@ public static class ToolBankLookup
     /// <summary>
     /// Ferramentas que o simulador enxerga: as do banco de torno e, por cima (mesmo T), as do banco de fresa. Inativas contam.
     /// O banco de fresa é o ativo (<paramref name="activeMillId"/>, UX-04h C); sem escolha ou banco apagado, o <see cref="Primary"/>
-    /// (<see cref="ToolBankPick.ActiveMillBank"/>), o mesmo de antes.
+    /// (<see cref="ToolBankPick.ActiveMillBank"/>), o mesmo de antes. O de torno é o ativo do torno (<paramref name="activeLatheId"/>,
+    /// UX-04h D1), com a mesma regra (<see cref="ToolBankPick.ActiveLatheBank"/>). A fresa continua valendo por cima no mesmo T.
     /// </summary>
-    public static Dictionary<int, BankTool> Tools(IEnumerable<ToolBank> banks, string? activeMillId = null)
+    public static Dictionary<int, BankTool> Tools(IEnumerable<ToolBank> banks, string? activeMillId = null, string? activeLatheId = null)
     {
         var list = banks.ToList();
         var tools = new Dictionary<int, BankTool>();
-        foreach (ToolBank? bank in new[] { Primary(list, ToolBankMachine.Lathe), ToolBankPick.ActiveMillBank(list, activeMillId) })
+        foreach (ToolBank? bank in new[] { ToolBankPick.ActiveLatheBank(list, activeLatheId), ToolBankPick.ActiveMillBank(list, activeMillId) })
         {
             foreach (BankTool t in bank?.Tools ?? [])
             {
@@ -37,16 +38,17 @@ public static class ToolBankLookup
     }
 
     /// <summary>Ø por T (só os informados), como a tabela antiga dava ao executor.</summary>
-    public static Dictionary<int, double> Diameters(IEnumerable<ToolBank> banks, string? activeMillId = null) =>
-        Tools(banks, activeMillId).Where(p => p.Value.Diameter is not null).ToDictionary(p => p.Key, p => p.Value.Diameter!.Value);
+    public static Dictionary<int, double> Diameters(IEnumerable<ToolBank> banks, string? activeMillId = null, string? activeLatheId = null) =>
+        Tools(banks, activeMillId, activeLatheId).Where(p => p.Value.Diameter is not null).ToDictionary(p => p.Key, p => p.Value.Diameter!.Value);
 
     /// <summary>
     /// Ferramentas de torno do banco para o desenho do simulador do torno (antes vinha do tipo escolhido na tabela). Ø e inserto
-    /// ausentes usam os mesmos números de antes (10 e 3), que o desenho exige; não são gravados no banco.
+    /// ausentes usam os mesmos números de antes (10 e 3), que o desenho exige; não são gravados no banco. Lê o banco ativo do torno
+    /// (UX-04h D1; sem escolha ou banco apagado, o <see cref="Primary"/>).
     /// </summary>
-    public static IEnumerable<SetupTool> LatheSetupTools(IEnumerable<ToolBank> banks)
+    public static IEnumerable<SetupTool> LatheSetupTools(IEnumerable<ToolBank> banks, string? activeLatheId = null)
     {
-        foreach (BankTool t in Primary(banks, ToolBankMachine.Lathe)?.Tools ?? [])
+        foreach (BankTool t in ToolBankPick.ActiveLatheBank(banks, activeLatheId)?.Tools ?? [])
         {
             if (t.Type is { } type && BankToolTypes.ToToolKind(type) is { } kind && new SetupTool { Kind = kind }.IsLathe)
             {

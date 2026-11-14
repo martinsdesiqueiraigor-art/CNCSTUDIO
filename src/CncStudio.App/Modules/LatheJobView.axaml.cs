@@ -29,6 +29,7 @@ public partial class LatheJobView : UserControl
         InitializeComponent();
         TabStrip = CamShell.BuildTabs(_tabs, SetTab);
         _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick));
+        BuildBankSelector();
         _panes = new CamPanes(Panes, TreeSplitter, PropsSplitter, () => _tab == 1);
         PointsBox.Text = "0 16\n-2 20\n-25 20\n-25 28\n-35 28\n-45 28";
         OpenDxfButton.Click += async (_, _) => await OpenDxf();
@@ -94,7 +95,7 @@ public partial class LatheJobView : UserControl
         {
             if (_build.Ok && _build.Program.Length > 0)
             {
-                EnsureToolsInBank();
+                // UX-04h D1: não grava mais na tabela antiga (a ferramenta vem do banco ativo do torno)
                 OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
             }
         };
@@ -126,12 +127,20 @@ public partial class LatheJobView : UserControl
 
     public Action<string, string>? OpenInEditor { get; set; }
 
-    public Func<List<ToolEntry>>? ToolsSource { get; set; }
+    /// <summary>Bancos carregados (UX-04h D1); o seletor mostra só os de torno.</summary>
+    public Func<IReadOnlyList<ToolBank>>? BanksSource { get; set; }
+
+    /// <summary>Id do banco ativo do torno guardado no config.json (null = o principal).</summary>
+    public Func<string?>? ActiveBankId { get; set; }
+
+    /// <summary>Guarda a escolha do banco ativo do torno (no App, nunca no trabalho).</summary>
+    public Action<string>? SetActiveBank { get; set; }
+
+    /// <summary>Banco ativo do torno agora (null = não há banco de torno).</summary>
+    private ToolBank? ActiveBank => ToolBankPick.ActiveLatheBank(BanksSource?.Invoke() ?? [], ActiveBankId?.Invoke());
 
     /// <summary>Perfil da máquina ativa (o mesmo da fresa), para o limite do fuso.</summary>
     public Func<MachineProfile?>? MachineSource { get; set; }
-
-    public Action? SaveTools { get; set; }
 
     public Func<string, Task>? CopyText { get; set; }
 
@@ -648,38 +657,5 @@ public partial class LatheJobView : UserControl
 
         Preview.Set(contours, 0, lines);
         PreviewHint.IsVisible = _job.Profile is null && View3DButton.IsChecked != true;
-    }
-
-    /// <summary>Tipo da ferramenta no banco para uma operação de torno.</summary>
-    private static string BankKind(LatheOperationSpec s) => s.Kind switch
-    {
-        LatheOpKind.Threading => s.IsInternal ? "ThreadInternal" : "ThreadExternal",
-        LatheOpKind.Grooving => s.IsInternal ? "PartInternal" : "PartExternal",
-        _ => s.IsInternal ? "TurnInternal" : "TurnExternal",
-    };
-
-    /// <summary>Põe no banco as ferramentas do trabalho que ainda não existem lá (por T).</summary>
-    private void EnsureToolsInBank()
-    {
-        List<ToolEntry>? tools = ToolsSource?.Invoke();
-        if (tools is null)
-        {
-            return;
-        }
-
-        bool changed = false;
-        foreach (LatheOperationSpec s in _job.Operations)
-        {
-            if (tools.All(e => e.Number != s.Tool.Number))
-            {
-                tools.Add(new ToolEntry { Number = s.Tool.Number, Description = s.Tool.Name, Kind = BankKind(s), SpindleRpm = s.Tool.Rpm });
-                changed = true;
-            }
-        }
-
-        if (changed)
-        {
-            SaveTools?.Invoke();
-        }
     }
 }
