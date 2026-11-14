@@ -114,7 +114,8 @@ public partial class JobView : UserControl
                 string name = CamHandoffCode.ProgramFileName(FileBase(), _job.Dialect);
                 if (OpenWithPackage is { } open)
                 {
-                    open(_build.Program, name, CamHandoff.Create(_job, _build.Program, MachineSource?.Invoke()));
+                    // UX-04h C: o banco ativo acrescenta tipo, raio, ângulo, corte e suporte do T achado sem conflito (nada mais muda)
+                    open(_build.Program, name, CamHandoff.Create(_job, _build.Program, MachineSource?.Invoke(), ActiveBank));
                 }
                 else
                 {

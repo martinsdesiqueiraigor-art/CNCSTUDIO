@@ -149,19 +149,12 @@ public static class ToolBankPick
         }
 
         var diffs = new List<string>();
-        if (!CamJobInfo.Unknown(s, CamJobInfo.DiameterField))
+        if (!CamJobInfo.Unknown(s, CamJobInfo.DiameterField) && !SameDiameter(job, b))
         {
-            if (b.Diameter is not { } d)
-            {
-                diffs.Add($"Ø: trabalho {N(job.Diameter)} × banco sem Ø");
-            }
-            else if (Math.Abs(d - job.Diameter) > 1e-6)
-            {
-                diffs.Add($"Ø: trabalho {N(job.Diameter)} × banco {N(d)}");
-            }
+            diffs.Add(b.Diameter is { } d ? $"Ø: trabalho {N(job.Diameter)} × banco {N(d)}" : $"Ø: trabalho {N(job.Diameter)} × banco sem Ø");
         }
 
-        if (!string.IsNullOrWhiteSpace(b.Name) && b.Name.Trim() != job.Name.Trim())
+        if (!SameName(job, b))
         {
             diffs.Add($"nome: trabalho \"{job.Name}\" × banco \"{b.Name}\"");
         }
@@ -170,6 +163,18 @@ public static class ToolBankPick
         return diffs.Count == 0 ? null
             : $"T{job.Number} no banco \"{bank.Name}\"{inactive} é diferente do trabalho: {string.Join("; ", diffs)}. O trabalho usa a cópia dele.";
     }
+
+    /// <summary>Ø do trabalho igual ao do banco (banco sem Ø conta como diferente).</summary>
+    private static bool SameDiameter(CamTool job, BankTool b) => b.Diameter is { } d && Math.Abs(d - job.Diameter) <= 1e-6;
+
+    /// <summary>Nome igual (só conta quando o banco tem o nome; espaços nas pontas não contam).</summary>
+    private static bool SameName(CamTool job, BankTool b) => string.IsNullOrWhiteSpace(b.Name) || b.Name.Trim() == job.Name.Trim();
+
+    /// <summary>
+    /// A ferramenta do trabalho é a do banco, sem conflito: a mesma comparação de <see cref="Conflict"/> (Ø e nome), para uma ferramenta
+    /// já gerada (sem campo vazio). Usada pelo pacote do CAM (UX-04h C). Inativa no banco não conta como conflito.
+    /// </summary>
+    public static bool SameTool(CamTool job, BankTool b) => b.Number == job.Number && SameDiameter(job, b) && SameName(job, b);
 
     /// <summary>
     /// "Adicionar ao banco" a ferramenta digitada na operação: cria no banco com a marca "a conferir" e copia só os campos com valor
