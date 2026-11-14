@@ -16,12 +16,16 @@ public static class ToolBankLookup
             ?? same.OrderBy(b => b.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(b => b.Id, StringComparer.Ordinal).FirstOrDefault();
     }
 
-    /// <summary>Ferramentas que o simulador enxerga: as do banco de torno e, por cima (mesmo T), as do banco de fresa. Inativas contam.</summary>
-    public static Dictionary<int, BankTool> Tools(IEnumerable<ToolBank> banks)
+    /// <summary>
+    /// Ferramentas que o simulador enxerga: as do banco de torno e, por cima (mesmo T), as do banco de fresa. Inativas contam.
+    /// O banco de fresa é o ativo (<paramref name="activeMillId"/>, UX-04h C); sem escolha ou banco apagado, o <see cref="Primary"/>
+    /// (<see cref="ToolBankPick.ActiveMillBank"/>), o mesmo de antes.
+    /// </summary>
+    public static Dictionary<int, BankTool> Tools(IEnumerable<ToolBank> banks, string? activeMillId = null)
     {
         var list = banks.ToList();
         var tools = new Dictionary<int, BankTool>();
-        foreach (ToolBank? bank in new[] { Primary(list, ToolBankMachine.Lathe), Primary(list, ToolBankMachine.Mill) })
+        foreach (ToolBank? bank in new[] { Primary(list, ToolBankMachine.Lathe), ToolBankPick.ActiveMillBank(list, activeMillId) })
         {
             foreach (BankTool t in bank?.Tools ?? [])
             {
@@ -33,8 +37,8 @@ public static class ToolBankLookup
     }
 
     /// <summary>Ø por T (só os informados), como a tabela antiga dava ao executor.</summary>
-    public static Dictionary<int, double> Diameters(IEnumerable<ToolBank> banks) =>
-        Tools(banks).Where(p => p.Value.Diameter is not null).ToDictionary(p => p.Key, p => p.Value.Diameter!.Value);
+    public static Dictionary<int, double> Diameters(IEnumerable<ToolBank> banks, string? activeMillId = null) =>
+        Tools(banks, activeMillId).Where(p => p.Value.Diameter is not null).ToDictionary(p => p.Key, p => p.Value.Diameter!.Value);
 
     /// <summary>
     /// Ferramentas de torno do banco para o desenho do simulador do torno (antes vinha do tipo escolhido na tabela). Ø e inserto
