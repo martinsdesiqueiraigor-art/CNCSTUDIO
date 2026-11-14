@@ -4,7 +4,7 @@
 Sempre o mesmo, a cada PR. Se um passo não bater, anote o número do passo e o que apareceu.
 
 ## Antes
-- Abra o `.exe` da prévia com o atalho **Testar PR** (`tools/Testar PR.cmd`) ou pelo link no comentário do PR.
+- Abra o `.exe` da prévia com o atalho **Testar PR** (`tools/Testar PR.cmd`) ou pelo link no comentário do PR. O atalho roda de qualquer pasta (o repositório vem fixo no script) e não depende do ramo em que a pasta principal está.
 - Peça fixa: **`fresa-sem-bruto.casillas-job`**, em `tests/CncStudio.Core.Tests/Cam/trabalhos-referencia/` do repositório (o G-code esperado está ao lado, em `fresa-sem-bruto.nc`).
   - Por quê: é a fresa mais simples dos 8 trabalhos do teste mestre (`CamJobGoldenTests`), sem STEP, banco de ferramentas ou zero especial.
   - Observação: a pasta `samples/` não tem nenhum arquivo que o CAM abra (só `.nc` e `.mpf`, que são do Code). Por isso o caminho aponta para `tests/`. Decisão do Igor: copiar um trabalho para `samples/` seria outra ficha.

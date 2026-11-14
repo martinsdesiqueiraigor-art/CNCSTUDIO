@@ -1,6 +1,7 @@
 ﻿# Testar PR: baixa o .exe de teste da Prévia de um PR e abre (FLUXO-01 PR 2).
 # Só mexe na pasta %LOCALAPPDATA%\CasillasTeste. Nunca toca no repositório.
 $ErrorActionPreference = 'Continue'  # os códigos de saída do gh são conferidos à mão, sem erro vermelho do PowerShell
+$Repo = 'martinsdesiqueiraigor-art/CNCSTUDIO'  # repositório fixo: o atalho roda de qualquer pasta
 
 # Nome do artefato e do executável: vêm de .github/workflows/previa.yml (job "windows") e do AssemblyName do App.
 $PrefixoArtefato = 'CasillasCode-teste-'
@@ -29,8 +30,8 @@ if ($entrada -notmatch '^\s*#?(\d+)\s*$') { Falha 'Digite só o número do PR, p
 $numero = [int]$Matches[1]
 
 # 3. Título e commit
-$json = & gh pr view $numero --json 'title,headRefName,headRefOid,state' 2>$null
-if ($LASTEXITCODE -ne 0 -or -not $json) { Falha "O PR $numero não existe neste repositório (ou o gh não está dentro dele)." }
+$json = & gh pr view $numero --repo $Repo --json 'title,headRefName,headRefOid,state' 2>$null
+if ($LASTEXITCODE -ne 0 -or -not $json) { Falha "O PR $numero não existe neste repositório." }
 $pr = $json | ConvertFrom-Json
 $curto = $pr.headRefOid.Substring(0, 7)
 Write-Host ''
@@ -40,7 +41,7 @@ Write-Host "  Commit    : $curto"
 Write-Host ''
 
 # 4. Última execução da Prévia deste ramo
-$lista = & gh run list --workflow previa.yml --branch $pr.headRefName --limit 20 --json 'databaseId,status,conclusion,headSha' | ConvertFrom-Json
+$lista = & gh run list --repo $Repo --workflow previa.yml --branch $pr.headRefName --limit 20 --json 'databaseId,status,conclusion,headSha' | ConvertFrom-Json
 if (-not $lista -or $lista.Count -eq 0) { Falha 'Este ramo ainda não tem execução da Prévia. Dê um push ou rode a Prévia no GitHub.' }
 $doCommit = @($lista | Where-Object { $_.headSha -eq $pr.headRefOid })
 if ($doCommit.Count -eq 0) { Falha "A Prévia ainda não começou para o commit $curto. Espere um pouco e tente de novo." }
@@ -64,7 +65,7 @@ New-Item -ItemType Directory -Path $destinoCompleto -Force | Out-Null
 
 $nomeArtefato = $PrefixoArtefato + $pr.headRefName
 Write-Host '  Baixando o executável de teste...'
-$null = & gh run download $ok.databaseId --name $nomeArtefato --dir $destinoCompleto 2>&1
+$null = & gh run download $ok.databaseId --repo $Repo --name $nomeArtefato --dir $destinoCompleto 2>&1
 if ($LASTEXITCODE -ne 0) {
     Remove-Item -LiteralPath $destinoCompleto -Recurse -Force -ErrorAction SilentlyContinue
     Falha 'Não consegui baixar o artefato. Ele pode ter vencido (a Prévia guarda 14 dias). Dê um novo push no ramo para gerar outro.'
