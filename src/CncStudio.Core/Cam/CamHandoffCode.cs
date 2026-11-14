@@ -143,8 +143,8 @@ public static class CamHandoffCode
 
     /// <summary>
     /// Perfil de corte de uma ferramenta do pacote (UX-04h C2, opção (a) do Igor, sem <see cref="SetupTool"/>): esférica → ponta
-    /// esférica; toroidal com raio de canto → toroidal; broca com ângulo da ponta → cone. Tipo ausente, outro tipo (facear, broca de
-    /// centro, macho, alargador, mandrilhadora, topo), campo que falta ou valor fora da faixa: null (o chamador segue no topo reto
+    /// esférica; toroidal ou facear com raio de canto → toroidal (UX-04h D5); broca ou broca de centro com ângulo da ponta → cone
+    /// (UX-04h D5). Tipo ausente, outro tipo (macho, alargador, mandrilhadora, topo), campo que falta ou valor fora da faixa: null (o chamador segue no topo reto
     /// genérico). <paramref name="diameter"/> é o Ø efetivo do programa; nenhum valor é deduzido.
     /// </summary>
     public static ToolProfile? ProfileOf(HandoffTool tool, double diameter)
@@ -158,9 +158,9 @@ public static class CamHandoffCode
         return type switch
         {
             BankToolType.BallEndMill => new ToolProfile(ToolTipShape.Ball, r),
-            BankToolType.BullNoseEndMill when tool.CornerRadius is { } rc && rc >= 0 && rc <= r =>
+            BankToolType.BullNoseEndMill or BankToolType.FaceMill when tool.CornerRadius is { } rc && rc >= 0 && rc <= r =>
                 new ToolProfile(ToolTipShape.BullNose, r, rc),
-            BankToolType.Drill when tool.TipAngle is { } a && a > 0 && a < 180 => new ToolProfile(ToolTipShape.Cone, r, TipAngle: a),
+            BankToolType.Drill or BankToolType.CenterDrill when tool.TipAngle is { } a && a > 0 && a < 180 => new ToolProfile(ToolTipShape.Cone, r, TipAngle: a),
             _ => null,
         };
     }
