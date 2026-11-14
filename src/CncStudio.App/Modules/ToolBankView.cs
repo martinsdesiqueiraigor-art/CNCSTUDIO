@@ -62,8 +62,11 @@ public sealed class ToolBankView : UserControl
     private int _detailTab;
     private readonly Dictionary<string, string?> _texts = [];
 
-    private readonly StackPanel _bankList = new() { Spacing = 6 }, _notesPanel = new() { Spacing = 6 }, _rows = new(), _detail = new() { Spacing = 9 };
+    private readonly StackPanel _bankList = new() { Spacing = 6 }, _rows = new(), _detail = new() { Spacing = 9 };
     private readonly WrapPanel _tabs = new();
+
+    // Avisos no pé da coluna da esquerda: DockPanel (não StackPanel) para a lista da migração rolar no espaço que sobra e o "Entendi" ficar à vista
+    private readonly DockPanel _notesPanel = new() { LastChildFill = true };
     private readonly TextBox _search = new() { Width = 200, Watermark = "Buscar por T, nome ou Ø" };
     private readonly TextBlock _message = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 420 };
     private readonly Button _newTool = Btn("+ Nova ferramenta", true), _duplicate = Btn("Duplicar"), _delete = Btn("Excluir"), _export = Btn("Exportar banco");
@@ -89,11 +92,13 @@ public sealed class ToolBankView : UserControl
         var left = new DockPanel { Width = 210, Background = Brush.Parse("#131922") };
         var leftTop = new StackPanel { Spacing = 6, Margin = new Thickness(10) };
         leftTop.Children.AddRange([Label("BANCOS"), _bankList, newBank]);
-        var leftBottom = new StackPanel { Spacing = 6, Margin = new Thickness(10) };
-        leftBottom.Children.AddRange([Muted11("Fresa: T de 1 a 9999.\nTorno: T de 1 a 99.\nO T é único dentro de cada banco."), _notesPanel]);
+        // O pé ocupa só o que sobra abaixo da lista de bancos, alinhado embaixo: com poucos avisos fica onde estava; com muitos, a lista rola
+        var leftBottom = new DockPanel { Margin = new Thickness(10), VerticalAlignment = VerticalAlignment.Bottom };
+        var limits = Muted11("Fresa: T de 1 a 9999.\nTorno: T de 1 a 99.\nO T é único dentro de cada banco.");
+        DockPanel.SetDock(limits, Dock.Top);
+        leftBottom.Children.AddRange([limits, _notesPanel]);
         DockPanel.SetDock(leftTop, Dock.Top);
-        DockPanel.SetDock(leftBottom, Dock.Bottom);
-        left.Children.AddRange([leftTop, leftBottom, new Panel()]);
+        left.Children.AddRange([leftTop, leftBottom]);
 
         var center = new DockPanel();
         var tabsBorder = new Border { Child = _tabs, Background = Brush.Parse("#0f141b"), Padding = new Thickness(8, 0) };
@@ -167,15 +172,22 @@ public sealed class ToolBankView : UserControl
         }
 
         _notesPanel.Children.Clear();
+        void AddNote(Control note, Dock dock)
+        {
+            note.Margin = new Thickness(0, 6, 0, 0);
+            DockPanel.SetDock(note, dock);
+            _notesPanel.Children.Add(note);
+        }
+
         int toCheck = _banks.Sum(s => s.Bank.Tools.Count(t => t.ToCheck));
         if (toCheck > 0)
         {
-            _notesPanel.Children.Add(UiKit.StatusNote($"{toCheck} ferramenta(s) vieram da tabela antiga ou de importação e estão \"a conferir\".", "pending"));
+            AddNote(UiKit.StatusNote($"{toCheck} ferramenta(s) vieram da tabela antiga ou de importação e estão \"a conferir\".", "pending"), Dock.Top);
         }
 
         if (Current is { Warning: { } warn })
         {
-            _notesPanel.Children.Add(UiKit.StatusNote(warn, "pending"));
+            AddNote(UiKit.StatusNote(warn, "pending"), Dock.Top);
         }
 
         if (_notes.Count > 0)
@@ -187,8 +199,14 @@ public sealed class ToolBankView : UserControl
                 NotesDismissed?.Invoke();
                 Rebuild();
             };
-            _notesPanel.Children.Add(UiKit.StatusNote("Não entrou no banco:\n• " + string.Join("\n• ", _notes), "bad"));
-            _notesPanel.Children.Add(dismiss);
+            // "Entendi" preso embaixo; a caixa dos avisos é o último filho e rola no espaço que sobra
+            AddNote(dismiss, Dock.Bottom);
+            AddNote(new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = UiKit.StatusNote("Avisos da migração:\n• " + string.Join("\n• ", _notes), "bad"),
+            }, Dock.Bottom);
         }
 
         _newTool.IsEnabled = Editable;
