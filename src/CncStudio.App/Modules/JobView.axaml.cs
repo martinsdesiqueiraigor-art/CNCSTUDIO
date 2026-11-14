@@ -110,12 +110,12 @@ public partial class JobView : UserControl
         {
             if (!CheckFresh() && _build.Ok && _build.Program.Length > 0)
             {
-                EnsureToolsInBank();
                 // CAM-13: Siemens vai com .mpf (o Code abre como Siemens) e o pacote fica na memória da aba (nada no G-code)
                 string name = CamHandoffCode.ProgramFileName(FileBase(), _job.Dialect);
                 if (OpenWithPackage is { } open)
                 {
-                    open(_build.Program, name, CamHandoff.Create(_job, _build.Program, MachineSource?.Invoke()));
+                    // UX-04h C: o banco ativo acrescenta tipo, raio, ângulo, corte e suporte do T achado sem conflito (nada mais muda)
+                    open(_build.Program, name, CamHandoff.Create(_job, _build.Program, MachineSource?.Invoke(), ActiveBank));
                 }
                 else
                 {
@@ -278,9 +278,20 @@ public partial class JobView : UserControl
 
     public Func<string, Task>? CopyText { get; set; }
 
-    public Func<List<ToolEntry>>? ToolsSource { get; set; }
+    /// <summary>Bancos de ferramentas carregados (UX-04h B2). O Trabalho fresa lê o banco ativo daqui.</summary>
+    public Func<IReadOnlyList<ToolBank>>? BanksSource { get; set; }
 
-    public Action? SaveTools { get; set; }
+    /// <summary>Id do banco ativo guardado no App (null = o mesmo do simulador).</summary>
+    public Func<string?>? ActiveBankId { get; set; }
+
+    /// <summary>Guarda o banco ativo escolhido na faixa (config.json, nunca no .casillas-job).</summary>
+    public Action<string>? SetActiveBank { get; set; }
+
+    /// <summary>Grava um banco mudado por "Adicionar ao banco". Null = gravou; senão, o motivo.</summary>
+    public Func<ToolBank, string?>? SaveBank { get; set; }
+
+    /// <summary>Banco ativo da fresa agora (null = não há banco de fresa).</summary>
+    private ToolBank? ActiveBank => ToolBankPick.ActiveMillBank(BanksSource?.Invoke() ?? [], ActiveBankId?.Invoke());
 
     /// <summary>Perfil de máquina escolhido na aba Máquina (null = nenhum).</summary>
     public Func<MachineProfile?>? MachineSource { get; set; }
@@ -406,6 +417,7 @@ public partial class JobView : UserControl
     {
         _paletteButtons.Clear();
         _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.VisibleGroups, PaletteClick));
+        BuildBankSelector();
         UpdatePalette();
     }
 
@@ -450,14 +462,14 @@ public partial class JobView : UserControl
             return;
         }
 
-        CamTool? tool = _job.Operations.Count > 0 ? _job.Operations[^1].Tool : null;
-        if (CamPalette.NewOperation(item, contour, tool) is not { } spec)
+        // UX-04h B2: operação nova nasce com T, Ø, rotação e avanços vazios (nada copiado da anterior, nada sugerido)
+        if (CamPalette.NewOperation(item, contour) is not { } spec)
         {
             return;
         }
 
         Snap();
-        _job.Operations.Add(spec);
+        _job.Operations.Add(ToolBankPick.EmptyTool(spec));
         Refresh(op: _job.Operations.Count - 1);
     }
 
@@ -507,14 +519,23 @@ public partial class JobView : UserControl
     // ---------------------------------------------------------------- tela
 
     /// <summary>Refaz a árvore, o programa e a vista. <paramref name="op"/>: operação a deixar selecionada; <paramref name="keep"/>: manter a seleção atual.</summary>
-    /// <summary>Ao abrir o módulo: o banco pode ter mudado no Code; refaz só os avisos (o programa não muda).</summary>
-    public void RefreshBank() => ShowWarnings();
+    /// <summary>Ao abrir o módulo ou mudar um banco: refaz o seletor do banco ativo, os avisos e o painel (o programa não muda).</summary>
+    public void RefreshBank()
+    {
+        FillBankSelector();
+        ShowWarnings();
+        if (SelectedOp() is not null)
+        {
+            BuildProps();
+        }
+    }
 
-    // Avisos do programa e da ferramenta com outro diâmetro no banco (o simulador do Code usa o do banco)
+    // Avisos do programa e de T em conflito com o banco ativo (UX-04h B2: só avisa; o trabalho usa a cópia dele)
     private void ShowWarnings()
     {
-        var bank = (ToolsSource?.Invoke() ?? []).Select(e => (e.Number, e.Diameter));
-        IEnumerable<string> lines = _build.Warnings.Concat(CamJobInfo.BankDiameterWarnings(_build.Operations.Select(o => o.Tool), bank));
+        ToolBank? bank = ActiveBank;
+        IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.Conflict(o, bank)).OfType<string>();
+        IEnumerable<string> lines = _build.Warnings.Concat(conflicts);
         Warnings.Text = string.Join("\n", lines.Distinct().Select(w => "• " + w));
         Warnings.Foreground = UiKit.Status("pending").Fg;
     }
@@ -955,29 +976,5 @@ public partial class JobView : UserControl
         int selected = SelectedContour() ?? (SelectedOp() is { } o && o < _job.Operations.Count ? _job.Operations[o].ContourIndex : -1);
         Preview.Set(_job.Contours, selected, path);
         PreviewHint.IsVisible = _job.Contours.Count == 0;
-    }
-
-    private void EnsureToolsInBank()
-    {
-        List<ToolEntry>? tools = ToolsSource?.Invoke();
-        if (tools is null)
-        {
-            return;
-        }
-
-        bool changed = false;
-        foreach (CamTool t in CamJobInfo.ToolsUsed(_job))
-        {
-            if (tools.All(e => e.Number != t.Number))
-            {
-                tools.Add(new ToolEntry { Number = t.Number, Diameter = t.Diameter, Description = t.Name, SpindleRpm = t.SpindleRpm, FeedXY = t.FeedXY, FeedZ = t.FeedZ });
-                changed = true;
-            }
-        }
-
-        if (changed)
-        {
-            SaveTools?.Invoke();
-        }
     }
 }

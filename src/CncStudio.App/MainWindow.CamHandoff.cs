@@ -57,11 +57,30 @@ public partial class MainWindow
     private bool ToolFromCam(int tool) =>
         CamHandoffCode.Diameters(_active.CamPackage).ContainsKey(tool) && _active.Setup.ToolOf(tool) is null;
 
+    /// <summary>Perfis do pacote da aba, refeitos só quando o pacote muda (o simulador pede o perfil muitas vezes).</summary>
+    private sealed record PackageProfilesCache(CamHandoff? For, Func<int, double, Core.Simulation.ToolProfile?>? Profiles);
+
+    private PackageProfilesCache _packageProfiles = new(null, null);
+
+    /// <summary>Perfil de corte que veio no pacote do CAM (tipo, raio de canto, ângulo da ponta; UX-04h C2). Sem pacote: null.</summary>
+    private Func<int, double, Core.Simulation.ToolProfile?>? CamPackageProfiles()
+    {
+        PackageProfilesCache cache = _packageProfiles;
+        if (!ReferenceEquals(cache.For, _active.CamPackage))
+        {
+            cache = new PackageProfilesCache(_active.CamPackage, CamHandoffCode.PackageProfiles(_active.CamPackage));
+            _packageProfiles = cache;
+        }
+
+        return cache.Profiles;
+    }
+
     private IReadOnlyList<HandoffNotice> CamNotices()
     {
         MachineSettings table = _settings.ToMachineSettings(null);
-        Func<int, double> tableOf = table.ToolDiameterOf ?? (_ => 0);
-        return CamHandoffCode.Notices(_active.CamPackage, _active.CamReadWarning, _active.Setup, Editor.Text, tableOf, table.WorkOffsets);
+        // aviso 3 (UX-04h C): o Ø do CAM contra o banco ativo da fresa (o mesmo do Trabalho); o banco não é alterado
+        Func<int, double> bankOf = CamHandoffCode.BankDiameterOf(ToolBankPick.ActiveMillBank(_settings.Banks, _settings.ActiveMillBankId));
+        return CamHandoffCode.Notices(_active.CamPackage, _active.CamReadWarning, _active.Setup, Editor.Text, bankOf, table.WorkOffsets);
     }
 
     /// <summary>Texto dos avisos de certos tipos (para o diálogo do bruto); null se nenhum vale agora.</summary>

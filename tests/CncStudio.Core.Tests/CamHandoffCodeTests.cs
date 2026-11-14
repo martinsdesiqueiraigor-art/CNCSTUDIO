@@ -108,6 +108,32 @@ public class CamHandoffCodeTests
     }
 
     [Fact]
+    public void Aviso_3_compara_com_o_banco_ativo_e_o_banco_nao_muda()
+    {
+        (CamHandoff p, string program) = Sent();
+        var active = new ToolBank("ativo", "Ativo", ToolBankMachine.Mill)
+        {
+            Tools = [new BankTool(1) { Diameter = 12, Active = false }, new BankTool(2) { Name = "sem Ø" }],
+        };
+        var primary = new ToolBank(ToolBankImport.MillBankId, "Ferramentas fresa", ToolBankMachine.Mill) { Tools = [new BankTool(1) { Diameter = 10 }] };
+        ToolBank[] banks = [primary, active];
+
+        // com o banco ativo: T1 Ø 12 × CAM Ø 10 avisa (inativa conta); T2 sem Ø não avisa
+        Func<int, double> bankOf = CamHandoffCode.BankDiameterOf(ToolBankPick.ActiveMillBank(banks, "ativo"));
+        HandoffNotice n = Assert.Single(CamHandoffCode.Notices(p, null, null, program, bankOf, NoOffsets), x => x.Kind == HandoffNoticeKind.ToolDiameter);
+        Assert.StartsWith("T1: o CAM usou Ø 10 mm e o banco tem Ø 12 mm.", n.Text);
+
+        // sem escolha: o principal (Ø 10, igual ao CAM) não avisa
+        Func<int, double> primaryOf = CamHandoffCode.BankDiameterOf(ToolBankPick.ActiveMillBank(banks, null));
+        Assert.DoesNotContain(CamHandoffCode.Notices(p, null, null, program, primaryOf, NoOffsets), x => x.Kind == HandoffNoticeKind.ToolDiameter);
+        Assert.DoesNotContain(CamHandoffCode.Notices(p, null, null, program, CamHandoffCode.BankDiameterOf(null), NoOffsets), x => x.Kind == HandoffNoticeKind.ToolDiameter);
+
+        // vale o Ø do CAM no programa; o banco segue com Ø 12
+        Assert.Equal(10, CamHandoffCode.ApplyDiameters(new MachineSettings { ToolDiameterOf = bankOf }, p).ToolDiameterOf!(1));
+        Assert.Equal(12, active.Tools[0].Diameter);
+    }
+
+    [Fact]
     public void T_em_conflito_vale_o_do_CAM_no_programa_e_a_tabela_fica_igual()
     {
         (CamHandoff p, string program) = Sent();
@@ -123,7 +149,7 @@ public class CamHandoffCodeTests
         Assert.Equal(2, table.Count);
 
         HandoffNotice n = Assert.Single(CamHandoffCode.Notices(p, null, null, program, tableOf, NoOffsets), x => x.Kind == HandoffNoticeKind.ToolDiameter);
-        Assert.Equal("T1: o CAM usou Ø 10 mm e a tabela tem Ø 12 mm. Neste programa vale o do CAM; a tabela não foi alterada.", n.Text);
+        Assert.Equal("T1: o CAM usou Ø 10 mm e o banco tem Ø 12 mm. Neste programa vale o do CAM; o banco não foi alterado.", n.Text);
         // T que a tabela não tem (vai entrar nela como hoje, no envio) não avisa
         Assert.DoesNotContain(CamHandoffCode.Notices(p, null, null, program, tableOf, NoOffsets), x => x.Text.StartsWith("T2", StringComparison.Ordinal));
 

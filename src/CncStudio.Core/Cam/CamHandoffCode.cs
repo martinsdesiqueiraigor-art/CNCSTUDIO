@@ -142,8 +142,59 @@ public static class CamHandoffCode
     }
 
     /// <summary>
-    /// Avisos que valem agora (recalcular a cada mudança do texto, do setup ou das tabelas). <paramref name="readWarning"/> é o aviso da
-    /// leitura do arquivo ao lado (versão nova ou ilegível); <paramref name="tableDiameterOf"/> devolve 0 para T fora da tabela.
+    /// Perfil de corte de uma ferramenta do pacote (UX-04h C2, opção (a) do Igor, sem <see cref="SetupTool"/>): esférica → ponta
+    /// esférica; toroidal ou facear com raio de canto → toroidal (UX-04h D5); broca ou broca de centro com ângulo da ponta → cone
+    /// (UX-04h D5). Tipo ausente, outro tipo (macho, alargador, mandrilhadora, topo), campo que falta ou valor fora da faixa: null (o chamador segue no topo reto
+    /// genérico). <paramref name="diameter"/> é o Ø efetivo do programa; nenhum valor é deduzido.
+    /// </summary>
+    public static ToolProfile? ProfileOf(HandoffTool tool, double diameter)
+    {
+        if (!(diameter > 0) || tool.Type is not { } code || BankToolTypes.FromCode(code) is not { } type)
+        {
+            return null;
+        }
+
+        double r = diameter / 2;
+        return type switch
+        {
+            BankToolType.BallEndMill => new ToolProfile(ToolTipShape.Ball, r),
+            BankToolType.BullNoseEndMill or BankToolType.FaceMill when tool.CornerRadius is { } rc && rc >= 0 && rc <= r =>
+                new ToolProfile(ToolTipShape.BullNose, r, rc),
+            BankToolType.Drill or BankToolType.CenterDrill when tool.TipAngle is { } a && a > 0 && a < 180 => new ToolProfile(ToolTipShape.Cone, r, TipAngle: a),
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Perfil por T (e Ø efetivo) vindo do pacote, para <see cref="SimulationFactory.MillProfiles"/>; a ferramenta de cada T é a mesma
+    /// que dá o Ø (<see cref="Diameters"/>: a primeira com Ø). Null = sem pacote (nada muda).
+    /// </summary>
+    public static Func<int, double, ToolProfile?>? PackageProfiles(CamHandoff? p)
+    {
+        if (p is null)
+        {
+            return null;
+        }
+
+        Dictionary<int, HandoffTool> tools = p.Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.First());
+        return (tool, diameter) => tools.TryGetValue(tool, out HandoffTool? t) ? ProfileOf(t, diameter) : null;
+    }
+
+    /// <summary>
+    /// Ø por T do banco ativo da fresa, para o aviso 3 (UX-04h C: compara com o banco ativo, não com a tabela antiga). 0 = T fora do
+    /// banco, sem Ø, ou sem banco (nada a avisar). Inativa conta.
+    /// </summary>
+    public static Func<int, double> BankDiameterOf(ToolBank? activeMillBank)
+    {
+        Dictionary<int, double> d = (activeMillBank?.Tools ?? []).Where(t => t.Diameter is not null)
+            .GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.First().Diameter!.Value);
+        return t => d.TryGetValue(t, out double v) ? v : 0;
+    }
+
+    /// <summary>
+    /// Avisos que valem agora (recalcular a cada mudança do texto, do setup ou do banco). <paramref name="readWarning"/> é o aviso da
+    /// leitura do arquivo ao lado (versão nova ou ilegível); <paramref name="tableDiameterOf"/> é o Ø do banco ativo da fresa
+    /// (<see cref="BankDiameterOf"/>) e devolve 0 para T fora dele.
     /// </summary>
     public static IReadOnlyList<HandoffNotice> Notices(CamHandoff? p, string? readWarning, MachiningSetup? setup, string programText,
         Func<int, double> tableDiameterOf, IReadOnlyDictionary<int, Point3> workOffsets)
@@ -185,7 +236,7 @@ public static class CamHandoffCode
             if (table > 0 && Math.Abs(table - d) > 1e-6)
             {
                 list.Add(new HandoffNotice(HandoffNoticeKind.ToolDiameter,
-                    $"T{t}: o CAM usou Ø {N(d)} mm e a tabela tem Ø {N(table)} mm. Neste programa vale o do CAM; a tabela não foi alterada."));
+                    $"T{t}: o CAM usou Ø {N(d)} mm e o banco tem Ø {N(table)} mm. Neste programa vale o do CAM; o banco não foi alterado."));
             }
         }
 

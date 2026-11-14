@@ -145,6 +145,9 @@ public partial class GraphicsPanel : UserControl
     /// </summary>
     public Func<int, ToolProfile>? ProfileOf { get; set; }
 
+    /// <summary>UX-04h D5: o T vem do pacote do CAM (mesma regra das Estatísticas)? Então a linha "Ferr." ganha "· do CAM".</summary>
+    public Func<int, bool> FromCam { get; set; } = _ => false;
+
     /// <summary>Bruto informado (null = automático). Vale na próxima trajetória carregada.</summary>
     public Stock? Stock { get; set; }
 
@@ -764,7 +767,7 @@ public partial class GraphicsPanel : UserControl
         XText.Text = lathe ? (p.X * 2).ToString("0.000", culture) + " Ø" : p.X.ToString("0.000", culture);
         YText.Text = p.Y.ToString("0.000", culture);
         ZText.Text = p.Z.ToString("0.000", culture);
-        ToolText.Text = frame.Tool == 0 ? "—" : lathe ? $"T{frame.Tool}" : $"T{frame.Tool} Ø{frame.ToolDiameter:0.##}";
+        ToolText.Text = frame.Tool == 0 ? "—" : lathe ? $"T{frame.Tool}" : $"T{frame.Tool} Ø{frame.ToolDiameter:0.##}" + (FromCam(frame.Tool) ? " · do CAM" : "");
         LineText.Text = frame.LineNumber > 0 ? frame.LineNumber.ToString(culture) : "—";
         double total = _path?.TotalLength ?? 0;
         DistanceText.Text = PathMarks.FormatDistance(PathMarks.DisplayTravelled(frame.Travelled, total, frame.IsFinished), culture)

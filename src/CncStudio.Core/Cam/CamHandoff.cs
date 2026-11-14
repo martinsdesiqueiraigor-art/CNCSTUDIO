@@ -100,9 +100,10 @@ public sealed record HandoffStock(HandoffStockKind Kind)
 }
 
 /// <summary>
-/// Ferramenta no pacote: só o que o <see cref="CamTool"/> tem (T, Ø, nome, rpm e avanços). Tipo, raio de canto, ângulo da ponta,
-/// comprimento de corte e suporte não existem no CAM: ficam null e vão para o JSON como null (nada suposto; o tipo da broca na
-/// furação também não é deduzido da operação).
+/// Ferramenta no pacote. T, Ø, nome, rpm e avanços vêm sempre do trabalho (<see cref="CamTool"/>, a cópia dele). Tipo, raio de canto,
+/// ângulo da ponta, comprimento de corte e suporte não existem no CAM: vêm do banco ativo quando o T está nele sem conflito (UX-04h C,
+/// <see cref="CamHandoff.FromBank"/>), só os cadastrados; o resto fica null e vai para o JSON como null (nada suposto; o tipo da broca
+/// na furação também não é deduzido da operação).
 /// </summary>
 public sealed record HandoffTool(int Number, double Diameter, string Name, double SpindleRpm, double FeedXY, double FeedZ)
 {
@@ -161,11 +162,20 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
 
     public IReadOnlyList<HandoffTool> Tools { get; init; } = [];
 
+    /// <summary>
+    /// Nome do banco ativo da fresa usado no envio (UX-04h C2), só informativo: de onde vieram os cinco campos das ferramentas.
+    /// Null = sem banco (a chave não é gravada) ou pacote antigo (a chave não existe).
+    /// </summary>
+    public string? BankName { get; init; }
+
     /// <summary>Nome do arquivo do pacote ao lado do programa.</summary>
     public static string FileNameFor(string programFileName) => programFileName + Extension;
 
-    /// <summary>Monta o pacote do trabalho de fresa para o programa gerado (o texto do programa não é mudado).</summary>
-    public static CamHandoff Create(CamJob job, string program, MachineProfile? machine) => new(Hash(program), job.Dialect)
+    /// <summary>
+    /// Monta o pacote do trabalho de fresa para o programa gerado (o texto do programa não é mudado). <paramref name="bank"/> é o banco
+    /// ativo da fresa (<see cref="ToolBankPick.ActiveMillBank"/>), já lido pela casca; null = sem banco, o pacote de antes.
+    /// </summary>
+    public static CamHandoff Create(CamJob job, string program, MachineProfile? machine, ToolBank? bank = null) => new(Hash(program), job.Dialect)
     {
         MachineProfile = machine?.Name,
         ProgramNumber = job.ProgramNumber,
@@ -173,8 +183,48 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
         Zero = job.Zero is { Point: { } p, Level: { } l } z ? new HandoffZero(p, l, z.AsBefore, CamJobZero.Summary(job)) : null,
         Fixture = job.Fixture,
         Stock = HandoffStock.InProgram(job),
-        Tools = ProgramTools(job).Select(t => new HandoffTool(t.Number, t.Diameter, t.Name, t.SpindleRpm, t.FeedXY, t.FeedZ)).ToList(),
+        Tools = ProgramTools(job).Select(t => FromBank(t, bank)).ToList(),
+        BankName = bank?.Name,
     };
+
+    /// <summary>
+    /// Ferramenta do pacote: a cópia do trabalho e, se o T está no banco sem conflito (Ø e nome, a mesma comparação do aviso do B2,
+    /// <see cref="ToolBankPick.SameTool"/>), os cinco campos que o banco tem cadastrados. Inativa no banco preenche igual. T fora do
+    /// banco ou em conflito: os cinco ficam null.
+    /// </summary>
+    public static HandoffTool FromBank(CamTool t, ToolBank? bank)
+    {
+        var tool = new HandoffTool(t.Number, t.Diameter, t.Name, t.SpindleRpm, t.FeedXY, t.FeedZ);
+        if (bank?.Tools.FirstOrDefault(b => b.Number == t.Number) is not { } b || !ToolBankPick.SameTool(t, b))
+        {
+            return tool;
+        }
+
+        return tool with
+        {
+            Type = b.Type is { } type ? BankToolTypes.Code(type) : null,
+            CornerRadius = b.CornerRadius,
+            TipAngle = b.TipAngle,
+            CutLength = b.CuttingLength,
+            Holder = HolderText(b.HolderDiameter, b.HolderLength),
+        };
+    }
+
+    /// <summary>
+    /// Suporte em texto (o campo do pacote é texto e o banco guarda Ø e comprimento): "Ø 35 × 45 mm", "Ø 35 mm" ou "comprimento 45 mm";
+    /// null se o banco não tem nenhum dos dois.
+    /// </summary>
+    public static string? HolderText(double? diameter, double? length)
+    {
+        static string F(double v) => v.ToString("0.###", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
+        return (diameter, length) switch
+        {
+            ({ } d, { } l) => $"Ø {F(d)} × {F(l)} mm",
+            ({ } d, null) => $"Ø {F(d)} mm",
+            (null, { } l) => $"comprimento {F(l)} mm",
+            _ => null,
+        };
+    }
 
     /// <summary>
     /// Ferramentas das operações ligadas (as que entram no programa gerado; decisão do Igor de 08/11), agrupadas como em

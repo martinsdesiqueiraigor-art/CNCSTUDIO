@@ -125,8 +125,11 @@ public partial class MainWindow : Window
         // Configuração da máquina (ferramentas, zeros de peça)
         // Diâmetro efetivo com a mesma regra da compensação (setup → tabela → comentário "FRESA D10" → padrão)
         Graphics.DiameterOf = EffectiveDiameter;
-        // Perfil de corte: o do setup do programa ativo; senão, topo reto com o diâmetro efetivo
-        Graphics.ProfileOf = tool => SimulationFactory.MillProfiles(_active.Setup, EffectiveDiameter)(tool);
+        // Perfil de corte: o do setup do programa ativo; senão, o do pacote do CAM (tipo, raio de canto, ângulo da ponta; UX-04h C2);
+        // senão, topo reto com o diâmetro efetivo
+        Graphics.ProfileOf = tool =>
+            SimulationFactory.MillProfiles(_active.Setup, EffectiveDiameter, CamPackageProfiles())(tool);
+        Graphics.FromCam = ToolFromCam; // UX-04h D5: etiqueta "do CAM" na linha "Ferr." do desenho
         Graphics.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
         Statistics.DiameterOf = EffectiveDiameter;
         Statistics.LineRequested += (_, line) => GoToLine(line);
@@ -827,7 +830,7 @@ public partial class MainWindow : Window
         string? filePath = _active.FilePath;
         string fileName = filePath is null ? "sem título" : Path.GetFileName(filePath);
         MachineSettings machine = _active.Setup.ApplyTo(MachineForProgram(filePath is null ? null : Path.GetDirectoryName(filePath))) with { PartFrame = ActivePartFrame() };
-        Dictionary<int, CncStudio.Core.Cam.BankTool> tools = CncStudio.Core.Cam.ToolBankLookup.Tools(_settings.Banks); // a folha lê o banco, como o simulador
+        Dictionary<int, CncStudio.Core.Cam.BankTool> tools = CncStudio.Core.Cam.ToolBankLookup.Tools(_settings.Banks, _settings.ActiveMillBankId); // UX-04h C2: o banco ativo da fresa, como o simulador (sem escolha ou apagado: o principal)
         string? stock = CurrentStockDescription;
         AnalysisStatus.Text = "Gerando a folha de setup…";
 

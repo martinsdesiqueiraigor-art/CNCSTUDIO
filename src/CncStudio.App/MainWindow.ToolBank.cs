@@ -1,4 +1,5 @@
 using CncStudio.App.Settings;
+using CncStudio.App.Modules;
 using CncStudio.Core.Cam;
 
 namespace CncStudio.App;
@@ -24,7 +25,20 @@ public partial class MainWindow
         {
             _settings.Banks = banks;
             StartAnalysis(); // o simulador lê os diâmetros do banco
+            Cam.RefreshBank(); // seletor do banco ativo, escolha e avisos do Trabalho fresa
         };
+
+        // UX-04h B2: o Trabalho fresa escolhe a ferramenta no banco ativo (guardado só no config.json, nunca no .casillas-job)
+        JobView job = Cam.MillJob;
+        job.BanksSource = () => _settings.Banks;
+        job.ActiveBankId = () => _settings.ActiveMillBankId;
+        job.SetActiveBank = id =>
+        {
+            _settings.ActiveMillBankId = id;
+            _settings.Save();
+        };
+        job.SaveBank = bank => Cam.ToolBanks.SaveFromJob(bank);
+        job.RefreshBank();
         Cam.ToolBanks.NotesDismissed += () =>
         {
             _settings.ToolBankNotes.Clear();
