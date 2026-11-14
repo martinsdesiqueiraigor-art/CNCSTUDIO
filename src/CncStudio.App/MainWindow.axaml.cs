@@ -125,8 +125,10 @@ public partial class MainWindow : Window
         // Configuração da máquina (ferramentas, zeros de peça)
         // Diâmetro efetivo com a mesma regra da compensação (setup → tabela → comentário "FRESA D10" → padrão)
         Graphics.DiameterOf = EffectiveDiameter;
-        // Perfil de corte: o do setup do programa ativo; senão, topo reto com o diâmetro efetivo
-        Graphics.ProfileOf = tool => SimulationFactory.MillProfiles(_active.Setup, EffectiveDiameter)(tool);
+        // Perfil de corte: o do setup do programa ativo; senão, o do pacote do CAM (tipo, raio de canto, ângulo da ponta; UX-04h C2);
+        // senão, topo reto com o diâmetro efetivo
+        Graphics.ProfileOf = tool =>
+            SimulationFactory.MillProfiles(_active.Setup, EffectiveDiameter, CamPackageProfiles())(tool);
         Graphics.ToolSettingsRequested += async (_, _) => await OpenMachineSettingsAsync();
         Statistics.DiameterOf = EffectiveDiameter;
         Statistics.LineRequested += (_, line) => GoToLine(line);

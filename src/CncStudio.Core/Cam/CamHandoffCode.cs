@@ -142,6 +142,45 @@ public static class CamHandoffCode
     }
 
     /// <summary>
+    /// Perfil de corte de uma ferramenta do pacote (UX-04h C2, opção (a) do Igor, sem <see cref="SetupTool"/>): esférica → ponta
+    /// esférica; toroidal com raio de canto → toroidal; broca com ângulo da ponta → cone. Tipo ausente, outro tipo (facear, broca de
+    /// centro, macho, alargador, mandrilhadora, topo), campo que falta ou valor fora da faixa: null (o chamador segue no topo reto
+    /// genérico). <paramref name="diameter"/> é o Ø efetivo do programa; nenhum valor é deduzido.
+    /// </summary>
+    public static ToolProfile? ProfileOf(HandoffTool tool, double diameter)
+    {
+        if (!(diameter > 0) || tool.Type is not { } code || BankToolTypes.FromCode(code) is not { } type)
+        {
+            return null;
+        }
+
+        double r = diameter / 2;
+        return type switch
+        {
+            BankToolType.BallEndMill => new ToolProfile(ToolTipShape.Ball, r),
+            BankToolType.BullNoseEndMill when tool.CornerRadius is { } rc && rc >= 0 && rc <= r =>
+                new ToolProfile(ToolTipShape.BullNose, r, rc),
+            BankToolType.Drill when tool.TipAngle is { } a && a > 0 && a < 180 => new ToolProfile(ToolTipShape.Cone, r, TipAngle: a),
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Perfil por T (e Ø efetivo) vindo do pacote, para <see cref="SimulationFactory.MillProfiles"/>; a ferramenta de cada T é a mesma
+    /// que dá o Ø (<see cref="Diameters"/>: a primeira com Ø). Null = sem pacote (nada muda).
+    /// </summary>
+    public static Func<int, double, ToolProfile?>? PackageProfiles(CamHandoff? p)
+    {
+        if (p is null)
+        {
+            return null;
+        }
+
+        Dictionary<int, HandoffTool> tools = p.Tools.Where(t => t.Diameter > 0).GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.First());
+        return (tool, diameter) => tools.TryGetValue(tool, out HandoffTool? t) ? ProfileOf(t, diameter) : null;
+    }
+
+    /// <summary>
     /// Ø por T do banco ativo da fresa, para o aviso 3 (UX-04h C: compara com o banco ativo, não com a tabela antiga). 0 = T fora do
     /// banco, sem Ø, ou sem banco (nada a avisar). Inativa conta.
     /// </summary>

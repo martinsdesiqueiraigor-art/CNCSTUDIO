@@ -26,9 +26,18 @@ public static class SimulationFactory
     public static int CellsFor(double width, double height) =>
         Math.Min(width, height) < PhoneMaxSide ? PhoneCells : DesktopCells;
 
-    /// <summary>Perfil de corte de cada ferramenta: o do setup; senão, topo reto com o diâmetro dado.</summary>
-    public static Func<int, ToolProfile> MillProfiles(MachiningSetup? setup, Func<int, double> diameterOf) =>
-        tool => SetupBinding.ProfileOf(setup, tool, diameterOf(tool));
+    /// <summary>
+    /// Perfil de corte de cada ferramenta: o do setup; senão, o que veio no pacote do CAM (<paramref name="fromPackage"/>, UX-04h C2:
+    /// tipo, raio de canto e ângulo da ponta, com o diâmetro dado); senão, topo reto com o diâmetro dado. Sem pacote: igual a antes.
+    /// </summary>
+    public static Func<int, ToolProfile> MillProfiles(MachiningSetup? setup, Func<int, double> diameterOf,
+        Func<int, double, ToolProfile?>? fromPackage = null) =>
+        tool =>
+        {
+            double d = diameterOf(tool);
+            bool inSetup = setup?.ToolOf(tool) is { } t && t.Validate() is null;
+            return !inSetup && fromPackage?.Invoke(tool, d) is { } package ? package : SetupBinding.ProfileOf(setup, tool, d);
+        };
 
     /// <summary>Material da fresa: o bruto dado (bloco) ou um que envolve o corte com folga da maior ferramenta.</summary>
     public static HeightMap MillStock(Stock? stock, ToolPath path, Func<int, ToolProfile> profileOf, int maxCellsPerSide = DesktopCells)
