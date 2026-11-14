@@ -92,32 +92,6 @@ public partial class CamView : UserControl
 
     private Func<string, Task>? _copyText;
 
-    /// <summary>Tabela antiga de ferramentas: só o Trabalho do torno ainda lê e grava nela (até o PR D). A fresa usa o banco ativo (UX-04h B2).</summary>
-    public Func<List<ToolEntry>>? ToolsSource
-    {
-        get => _toolsSource;
-        set
-        {
-            _toolsSource = value;
-            LatheJobPanel.ToolsSource = value;
-        }
-    }
-
-    private Func<List<ToolEntry>>? _toolsSource;
-
-    /// <summary>Grava as configurações (depois de mudar o banco de ferramentas).</summary>
-    public Action? SaveTools
-    {
-        get => _saveTools;
-        set
-        {
-            _saveTools = value;
-            LatheJobPanel.SaveTools = value;
-        }
-    }
-
-    private Action? _saveTools;
-
     /// <summary>Larguras guardadas da árvore e do painel do Trabalho (fresa e torno usam as mesmas; 0 = padrão).</summary>
     public (double Tree, double Props) JobPanes
     {
@@ -209,7 +183,14 @@ public partial class CamView : UserControl
     public void CheckJobFresh() => JobPanel.CheckFresh();
 
     /// <summary>Ao abrir o módulo: o banco do Code pode ter mudado; o Trabalho fresa refaz o aviso de diâmetro.</summary>
-    public void RefreshBank() => JobPanel.RefreshBank();
+    public void RefreshBank()
+    {
+        JobPanel.RefreshBank();
+        LatheJobPanel.RefreshBank();
+    }
+
+    /// <summary>Trabalho do torno (UX-04h D1: banco ativo do torno).</summary>
+    public LatheJobView LatheJob => LatheJobPanel;
 
     /// <summary>Trabalho fresa (para ligar o banco ativo, UX-04h B2).</summary>
     public JobView MillJob => JobPanel;

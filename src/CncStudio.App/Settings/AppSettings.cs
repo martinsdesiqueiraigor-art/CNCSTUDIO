@@ -90,8 +90,8 @@ public sealed class AppSettings
     public double DefaultToolDiameter { get; set; } = 10;
 
     /// <summary>
-    /// Tabela antiga de ferramentas (antes do banco, UX-04h). O Code não a escreve mais: vale o banco. Fica no config.json só
-    /// para a migração única e o Trabalho do torno (até o PR D); o Trabalho fresa usa o banco ativo (B2).
+    /// Tabela antiga de ferramentas (antes do banco, UX-04h). Ninguém mais grava nela: vale o banco (o Trabalho do torno parou de
+    /// gravar no D1). Fica no config.json para as migrações únicas e para o Assist ler, até o D2.
     /// </summary>
     public List<ToolEntry> Tools { get; set; } = [];
 
@@ -106,6 +106,15 @@ public sealed class AppSettings
     /// nunca no .casillas-job. Null ou banco que sumiu = o mesmo do simulador (<see cref="ToolBankPick.ActiveMillBank"/>).
     /// </summary>
     public string? ActiveMillBankId { get; set; }
+
+    /// <summary>
+    /// Banco ativo do torno (UX-04h D1): vale para a escolha no Trabalho do torno e para o Ø, o desenho e a folha de setup do Code.
+    /// Fica só no App. Null ou banco que sumiu = o principal do torno (<see cref="ToolBankPick.ActiveLatheBank"/>), igual a antes.
+    /// </summary>
+    public string? ActiveLatheBankId { get; set; }
+
+    /// <summary>As ferramentas de torno da tabela antiga já foram ao banco de torno (D1, marca própria): não migra de novo.</summary>
+    public bool LatheToolsMigrated { get; set; }
 
     /// <summary>Bancos carregados da pasta (fora do config.json). O simulador lê daqui.</summary>
     [JsonIgnore]
@@ -170,7 +179,7 @@ public sealed class AppSettings
     public MachiningSetup WithToolKinds(MachiningSetup setup)
     {
         MachiningSetup copy = setup.Clone();
-        foreach (SetupTool tool in ToolBankLookup.LatheSetupTools(Banks))
+        foreach (SetupTool tool in ToolBankLookup.LatheSetupTools(Banks, ActiveLatheBankId))
         {
             if (copy.ToolOf(tool.Number) is null && copy.Tools.Count < MachiningSetup.MaxTools)
             {
@@ -292,7 +301,7 @@ public sealed class AppSettings
 
     /// <summary>Diâmetro da ferramenta T no banco (fresa: o banco ativo; ou o padrão, se não cadastrada ou sem Ø).</summary>
     public double DiameterOf(int tool) =>
-        ToolBankLookup.Diameters(Banks, ActiveMillBankId).TryGetValue(tool, out double d) ? d : DefaultToolDiameter;
+        ToolBankLookup.Diameters(Banks, ActiveMillBankId, ActiveLatheBankId).TryGetValue(tool, out double d) ? d : DefaultToolDiameter;
 
     /// <summary>
     /// Configuração usada pelo executor do Core. "programFolder" é a pasta do programa aberto,
@@ -301,7 +310,7 @@ public sealed class AppSettings
     public MachineSettings ToMachineSettings(string? programFolder)
     {
         // Cópia dos diâmetros do banco (fresa: o banco ativo, UX-04h C): a análise roda em outra thread e não deve ver edições no meio
-        Dictionary<int, double> diameters = ToolBankLookup.Diameters(Banks, ActiveMillBankId);
+        Dictionary<int, double> diameters = ToolBankLookup.Diameters(Banks, ActiveMillBankId, ActiveLatheBankId);
         double defaultDiameter = DefaultToolDiameter;
 
         return new MachineSettings
