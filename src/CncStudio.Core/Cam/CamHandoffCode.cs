@@ -142,8 +142,20 @@ public static class CamHandoffCode
     }
 
     /// <summary>
-    /// Avisos que valem agora (recalcular a cada mudança do texto, do setup ou das tabelas). <paramref name="readWarning"/> é o aviso da
-    /// leitura do arquivo ao lado (versão nova ou ilegível); <paramref name="tableDiameterOf"/> devolve 0 para T fora da tabela.
+    /// Ø por T do banco ativo da fresa, para o aviso 3 (UX-04h C: compara com o banco ativo, não com a tabela antiga). 0 = T fora do
+    /// banco, sem Ø, ou sem banco (nada a avisar). Inativa conta.
+    /// </summary>
+    public static Func<int, double> BankDiameterOf(ToolBank? activeMillBank)
+    {
+        Dictionary<int, double> d = (activeMillBank?.Tools ?? []).Where(t => t.Diameter is not null)
+            .GroupBy(t => t.Number).ToDictionary(g => g.Key, g => g.First().Diameter!.Value);
+        return t => d.TryGetValue(t, out double v) ? v : 0;
+    }
+
+    /// <summary>
+    /// Avisos que valem agora (recalcular a cada mudança do texto, do setup ou do banco). <paramref name="readWarning"/> é o aviso da
+    /// leitura do arquivo ao lado (versão nova ou ilegível); <paramref name="tableDiameterOf"/> é o Ø do banco ativo da fresa
+    /// (<see cref="BankDiameterOf"/>) e devolve 0 para T fora dele.
     /// </summary>
     public static IReadOnlyList<HandoffNotice> Notices(CamHandoff? p, string? readWarning, MachiningSetup? setup, string programText,
         Func<int, double> tableDiameterOf, IReadOnlyDictionary<int, Point3> workOffsets)
@@ -185,7 +197,7 @@ public static class CamHandoffCode
             if (table > 0 && Math.Abs(table - d) > 1e-6)
             {
                 list.Add(new HandoffNotice(HandoffNoticeKind.ToolDiameter,
-                    $"T{t}: o CAM usou Ø {N(d)} mm e a tabela tem Ø {N(table)} mm. Neste programa vale o do CAM; a tabela não foi alterada."));
+                    $"T{t}: o CAM usou Ø {N(d)} mm e o banco tem Ø {N(table)} mm. Neste programa vale o do CAM; o banco não foi alterado."));
             }
         }
 

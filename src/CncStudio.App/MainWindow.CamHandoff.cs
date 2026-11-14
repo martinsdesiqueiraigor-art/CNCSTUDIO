@@ -60,8 +60,9 @@ public partial class MainWindow
     private IReadOnlyList<HandoffNotice> CamNotices()
     {
         MachineSettings table = _settings.ToMachineSettings(null);
-        Func<int, double> tableOf = table.ToolDiameterOf ?? (_ => 0);
-        return CamHandoffCode.Notices(_active.CamPackage, _active.CamReadWarning, _active.Setup, Editor.Text, tableOf, table.WorkOffsets);
+        // aviso 3 (UX-04h C): o Ø do CAM contra o banco ativo da fresa (o mesmo do Trabalho); o banco não é alterado
+        Func<int, double> bankOf = CamHandoffCode.BankDiameterOf(ToolBankPick.ActiveMillBank(_settings.Banks, _settings.ActiveMillBankId));
+        return CamHandoffCode.Notices(_active.CamPackage, _active.CamReadWarning, _active.Setup, Editor.Text, bankOf, table.WorkOffsets);
     }
 
     /// <summary>Texto dos avisos de certos tipos (para o diálogo do bruto); null se nenhum vale agora.</summary>
