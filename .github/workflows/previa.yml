@@ -75,3 +75,34 @@ jobs:
           name: CasillasCode-teste-${{ github.ref_name }}
           path: publish/teste-win-x64
           retention-days: 14
+
+  # Comentário único no PR com o link da prévia do Windows. Job à parte: a permissão de escrita no PR fica só aqui
+  # e uma falha do comentário não deixa a Prévia vermelha. Sem PR aberto para o ramo, não faz nada.
+  comentario:
+    needs: windows
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      pull-requests: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RAMO: ${{ github.ref_name }}
+      RUN_ID: ${{ github.run_id }}
+      SHA: ${{ github.sha }}
+    steps:
+      - name: Comentar a prévia no PR
+        run: |
+          PR=$(gh pr list --repo "$REPO" --head "$RAMO" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then echo "Sem PR aberto para $RAMO: nada a comentar."; exit 0; fi
+          ART=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[] | select(.name | startswith("CasillasCode-teste-")) | .id' | head -n1)
+          if [ -n "$ART" ]; then LINK="https://github.com/$REPO/actions/runs/$RUN_ID/artifacts/$ART"; else LINK="https://github.com/$REPO/actions/runs/$RUN_ID"; fi
+          printf '%s\n' '<!-- previa-teste -->' \
+            "**Prévia do Windows** (commit \`${SHA:0:7}\`): [baixar o .exe de teste]($LINK)" \
+            '' \
+            'Ou use o atalho **Testar PR** e digite o número deste PR. O arquivo vale por 14 dias.' > corpo.md
+          ID=$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq '[.[] | select(.body | startswith("<!-- previa-teste -->"))][0].id // empty' | head -n1)
+          if [ -n "$ID" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@corpo.md > /dev/null
+          else gh pr comment "$PR" --repo "$REPO" --body-file corpo.md; fi
