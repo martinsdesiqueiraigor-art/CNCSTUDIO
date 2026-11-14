@@ -37,4 +37,16 @@ public class ToolBankActiveCodeTests
         Assert.Equal(3, ToolBankLookup.Diameters([Other, Migrated], "apagado")[1]);
         Assert.Equal(3, ToolBankLookup.Diameters([Other, Migrated, Lathe], ToolBankImport.LatheBankId)[1]);
     }
+
+    [Fact]
+    public void Folha_de_setup_le_o_banco_ativo_e_sem_escolha_ou_apagado_o_principal()
+    {
+        // UX-04h C2: a folha usa ToolBankLookup.Tools com o ActiveMillBankId (nome e Ø por T)
+        ToolBank named = Other with { Tools = [new BankTool(1) { Diameter = 8, Name = "Topo 8 oficina" }] };
+        ToolBank[] banks = [named, Migrated with { Tools = [new BankTool(1) { Diameter = 3, Name = "Topo 3" }] }, Lathe];
+        Assert.Equal("Topo 8 oficina", ToolBankLookup.Tools(banks, "outro")[1].Name);
+        Assert.Equal("Topo 3", ToolBankLookup.Tools(banks, null)[1].Name);
+        Assert.Equal("Topo 3", ToolBankLookup.Tools(banks, "apagado")[1].Name);
+        Assert.Equal(25, ToolBankLookup.Tools(banks, "outro")[2].Diameter); // T só do torno segue do torno
+    }
 }
