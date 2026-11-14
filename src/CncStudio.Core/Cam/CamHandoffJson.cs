@@ -39,6 +39,12 @@ public static class CamHandoffJson
             ["bruto"] = p.Stock is { } s ? StockToJson(s) : null,
             ["ferramentas"] = new JsonArray([.. p.Tools.Select(ToolToJson)]),
         };
+        if (p.BankName is { } bank)
+        {
+            // UX-04h C2: chave opcional, só informativa; sem banco não é gravada (o leitor v1 antigo ignora chave desconhecida)
+            root["banco"] = bank;
+        }
+
         return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 
@@ -148,6 +154,7 @@ public static class CamHandoffJson
                 Fixture = root["fixacao"] is JsonObject f ? new JobFixture(CamJobJson.Str(f, "tipo"), OptStr(f, "descricao") ?? "") : null,
                 Stock = root["bruto"] is JsonObject s ? StockFrom(s) : null,
                 Tools = root["ferramentas"] is JsonArray tools ? [.. tools.Select(ToolFrom)] : [],
+                BankName = OptStr(root, "banco"),
             };
             return new HandoffReadResult(p, null);
         }
