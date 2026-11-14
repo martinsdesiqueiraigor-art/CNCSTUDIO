@@ -104,7 +104,11 @@ public class CamHandoffBankTests
         CamJob job = Load("fresa-zero-g55-canto");
         string program = CamJobBuilder.Build(job, null).Program;
         string today = CamHandoffJson.ToJson(CamHandoff.Create(job, program, null));
-        Assert.Equal(today, CamHandoffJson.ToJson(CamHandoff.Create(job, program, null, Bank())));
+        // banco vazio: as ferramentas iguais às de hoje; só a chave "banco" (UX-04h C2) a mais, com o nome do banco
+        var empty = (JsonObject)JsonNode.Parse(CamHandoffJson.ToJson(CamHandoff.Create(job, program, null, Bank())))!;
+        Assert.Equal("Fresa A", (string)empty["banco"]!);
+        empty.Remove("banco");
+        Assert.Equal(JsonNode.Parse(today)!.ToJsonString(), empty.ToJsonString());
         Assert.Equal(today, CamHandoffJson.ToJson(CamHandoff.Create(job, program, null, null)));
     }
 
@@ -130,9 +134,11 @@ public class CamHandoffBankTests
             Assert.Equal(json, CamJobJson.ToJson(job).Replace("\r\n", "\n"));
             Assert.True(p.Matches(program));
 
-            // o pacote só difere nos cinco campos das ferramentas
+            // o pacote só difere nos cinco campos das ferramentas e na chave "banco" (UX-04h C2: só com banco)
             var a = (JsonObject)JsonNode.Parse(plain)!;
             var b = (JsonObject)JsonNode.Parse(CamHandoffJson.ToJson(p))!;
+            Assert.Equal(bank is not null, b.ContainsKey("banco"));
+            b.Remove("banco");
             foreach (JsonObject tool in ((JsonArray)a["ferramentas"]!).Concat((JsonArray)b["ferramentas"]!).Cast<JsonObject>())
             {
                 foreach (string key in new[] { "tipo", "raioCanto", "anguloPonta", "comprimentoCorte", "suporte" })
@@ -173,5 +179,44 @@ public class CamHandoffBankTests
 
         // CRLF e LF: o mesmo hash
         Assert.Equal(CamHandoff.Hash(program.Replace("\r\n", "\n")), CamHandoff.Hash(program.Replace("\r\n", "\n").Replace("\n", "\r\n")));
+    }
+
+    [Fact]
+    public void Nome_do_banco_vai_e_volta_e_sem_banco_a_chave_nao_e_gravada()
+    {
+        CamJob job = Load("fresa-zero-g55-canto");
+        string program = CamJobBuilder.Build(job, null).Program;
+        string job0 = CamJobJson.ToJson(job);
+
+        CamHandoff p = CamHandoff.Create(job, program, null, Bank(Full(T1(job))));
+        Assert.Equal("Fresa A", p.BankName);
+        string json = CamHandoffJson.ToJson(p);
+        var root = (JsonObject)JsonNode.Parse(json)!;
+        Assert.Equal("Fresa A", (string)root["banco"]!);
+        Assert.Equal(1, (int)root["versao"]!);
+        HandoffReadResult back = CamHandoffJson.Parse(json);
+        Assert.Null(back.Warning);
+        Assert.Equal("Fresa A", back.Package!.BankName);
+        Assert.Equal(json, CamHandoffJson.ToJson(back.Package));
+
+        // sem banco: a chave não existe (nem como null)
+        string none = CamHandoffJson.ToJson(CamHandoff.Create(job, program, null));
+        Assert.False(((JsonObject)JsonNode.Parse(none)!).ContainsKey("banco"));
+
+        // pacote antigo (sem a chave) lê igual: nome null, sem aviso, e grava o mesmo texto de volta
+        HandoffReadResult old = CamHandoffJson.Parse(none);
+        Assert.Null(old.Warning);
+        Assert.Null(old.Package!.BankName);
+        Assert.Equal(none, CamHandoffJson.ToJson(old.Package));
+
+        // chave desconhecida junto com "banco": ignorada sem aviso
+        root["chaveNova"] = 7;
+        HandoffReadResult extra = CamHandoffJson.Parse(root.ToJsonString());
+        Assert.Null(extra.Warning);
+        Assert.Equal("Fresa A", extra.Package!.BankName);
+
+        // o .casillas-job e o G-code não mudam
+        Assert.Equal(job0, CamJobJson.ToJson(job));
+        Assert.Equal(program, CamJobBuilder.Build(job, null).Program);
     }
 }

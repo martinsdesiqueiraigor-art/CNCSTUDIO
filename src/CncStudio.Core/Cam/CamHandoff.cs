@@ -162,6 +162,12 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
 
     public IReadOnlyList<HandoffTool> Tools { get; init; } = [];
 
+    /// <summary>
+    /// Nome do banco ativo da fresa usado no envio (UX-04h C2), só informativo: de onde vieram os cinco campos das ferramentas.
+    /// Null = sem banco (a chave não é gravada) ou pacote antigo (a chave não existe).
+    /// </summary>
+    public string? BankName { get; init; }
+
     /// <summary>Nome do arquivo do pacote ao lado do programa.</summary>
     public static string FileNameFor(string programFileName) => programFileName + Extension;
 
@@ -178,6 +184,7 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
         Fixture = job.Fixture,
         Stock = HandoffStock.InProgram(job),
         Tools = ProgramTools(job).Select(t => FromBank(t, bank)).ToList(),
+        BankName = bank?.Name,
     };
 
     /// <summary>
