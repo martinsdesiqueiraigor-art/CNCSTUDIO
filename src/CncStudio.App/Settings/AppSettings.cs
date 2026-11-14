@@ -91,7 +91,7 @@ public sealed class AppSettings
 
     /// <summary>
     /// Tabela antiga de ferramentas (antes do banco, UX-04h). O Code não a escreve mais: vale o banco. Fica no config.json só
-    /// para a migração única (e o Trabalho do CAM ainda a usa até o PR B2).
+    /// para a migração única e o Trabalho do torno (até o PR D); o Trabalho fresa usa o banco ativo (B2).
     /// </summary>
     public List<ToolEntry> Tools { get; set; } = [];
 
@@ -100,6 +100,12 @@ public sealed class AppSettings
 
     /// <summary>O que não entrou na migração, mostrado na tela do banco até o usuário dispensar.</summary>
     public List<string> ToolBankNotes { get; set; } = [];
+
+    /// <summary>
+    /// Banco ativo do Trabalho fresa (UX-04h B2): id do banco que vale para escolher a ferramenta na operação. Fica só no App,
+    /// nunca no .casillas-job. Null ou banco que sumiu = o mesmo do simulador (<see cref="ToolBankPick.ActiveMillBank"/>).
+    /// </summary>
+    public string? ActiveMillBankId { get; set; }
 
     /// <summary>Bancos carregados da pasta (fora do config.json). O simulador lê daqui.</summary>
     [JsonIgnore]

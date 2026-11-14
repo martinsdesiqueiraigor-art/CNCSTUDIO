@@ -29,9 +29,13 @@
   <Grid RowDefinitions="Auto,*,Auto,Auto" Background="#0d1117">
   <!-- Faixa de ícones agrupada (CamPalette, Core): só na aba Operações -->
   <Border x:Name="PaletteBar" Grid.Row="0" Background="#121821" BorderBrush="#1f2733" BorderThickness="0,0,0,1" Padding="8,6">
-    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-      <StackPanel x:Name="Palette" Orientation="Horizontal" Spacing="0" />
-    </ScrollViewer>
+    <!-- banco ativo (UX-04h B2) fixo à direita, fora da rolagem: sempre à vista em 1280×720 -->
+    <DockPanel>
+      <Border x:Name="BankSlot" DockPanel.Dock="Right" BorderBrush="#1f2733" BorderThickness="1,0,0,0" Padding="8,0,0,0" Margin="6,0,0,0" />
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="Palette" Orientation="Horizontal" Spacing="0" />
+      </ScrollViewer>
+    </DockPanel>
   </Border>
   <!-- Árvore | divisória | centro | divisória | painel. Divisórias arrastáveis (duplo clique volta ao padrão 240 e 290);
        as larguras ficam nas preferências do app, nunca no .casillas-job -->
