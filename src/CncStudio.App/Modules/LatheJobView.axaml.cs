@@ -28,7 +28,7 @@ public partial class LatheJobView : UserControl
     {
         InitializeComponent();
         TabStrip = CamShell.BuildTabs(_tabs, SetTab);
-        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick));
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick, minButtonWidth: 58));
         BuildBankSelector();
         _panes = new CamPanes(Panes, TreeSplitter, PropsSplitter, () => _tab == 1);
         PointsBox.Text = "0 16\n-2 20\n-25 20\n-25 28\n-35 28\n-45 28";
@@ -420,9 +420,8 @@ public partial class LatheJobView : UserControl
         }
 
         Errors.Text = ""; // os erros de geração ficam no rodapé (clicáveis); aqui só os avisos ao abrir arquivo
-        Warnings.Text = string.Join("\n", _build.Warnings.Select(w => "⚠ " + w));
+        ShowWarnings();
         Output.Text = _build.Ok ? _build.Program : "";
-        Warnings.Foreground = UiKit.Status("pending").Fg;
         bool gcode = _build.Ok && _build.Program.Length > 0;
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
         CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
@@ -513,6 +512,15 @@ public partial class LatheJobView : UserControl
             item.BringIntoView();
             item.Focus(NavigationMethod.Tab);
         }
+    }
+
+    /// <summary>Avisos do programa e de T fora do banco ativo (TORNO-T0: só avisa; o trabalho usa a cópia dele, como na fresa).</summary>
+    private void ShowWarnings()
+    {
+        ToolBank? bank = ActiveBank;
+        IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.LatheConflict(o, bank)).OfType<string>();
+        Warnings.Text = string.Join("\n", _build.Warnings.Concat(conflicts).Distinct().Select(w => "⚠ " + w));
+        Warnings.Foreground = UiKit.Status("pending").Fg;
     }
 
     /// <summary>Alterna 2D/3D e, no 3D, simula o programa atual (o 3D de antes, sem chips).</summary>

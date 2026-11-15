@@ -118,6 +118,11 @@ public partial class LatheJobView
 
         Section("Ferramenta");
         BankPicker(i);
+        if (ToolBankPick.LatheConflict(s, ActiveBank) is { } conflict)
+        {
+            PropsPanel.Children.Add(UiKit.StatusNote(conflict, "pending"));
+        }
+
         Num(i, "Ferramenta (T)", "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } });
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Desbaste CNMG", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
         Section("Condição de corte");
@@ -494,6 +499,7 @@ public partial class LatheJobView
     public void RefreshBank()
     {
         FillBankSelector();
+        ShowWarnings();
         if (SelectedOp() is not null)
         {
             BuildProps();

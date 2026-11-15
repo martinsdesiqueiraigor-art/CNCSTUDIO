@@ -24,6 +24,27 @@
       <Setter Property="Padding" Value="12" />
       <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
+    <!-- Botão 3D (TORNO-T0): legível sobre o fundo escuro, ligado (laranja da seleção) e desligado (cinza da faixa). Só visual. -->
+    <Style Selector="ToggleButton#View3DButton /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#18202b" />
+      <Setter Property="BorderBrush" Value="#243040" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="#e6edf3" />
+    </Style>
+    <Style Selector="ToggleButton#View3DButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#243040" />
+      <Setter Property="Foreground" Value="#ffffff" />
+    </Style>
+    <Style Selector="ToggleButton#View3DButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#2b1a0a" />
+      <Setter Property="BorderBrush" Value="#ff8a1f" />
+      <Setter Property="Foreground" Value="#ffb066" />
+    </Style>
+    <Style Selector="ToggleButton#View3DButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#3a230c" />
+      <Setter Property="BorderBrush" Value="#ff8a1f" />
+      <Setter Property="Foreground" Value="#ffb066" />
+    </Style>
   </UserControl.Styles>
   <ThemeVariantScope RequestedThemeVariant="Dark">
   <Grid RowDefinitions="Auto,*,Auto,Auto" Background="#0d1117">
