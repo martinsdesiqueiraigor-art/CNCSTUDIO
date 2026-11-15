@@ -42,6 +42,13 @@ public partial class LatheJobView : UserControl
         {
             if (SelectedOp() is { } i && i < _job.Operations.Count)
             {
+                // TORNO-T3: a cópia do sangramento ficaria depois dele
+                if (_job.Operations[i].Kind == LatheOpKind.Parting)
+                {
+                    Errors.Text = "• " + LatheParting.LastOperation;
+                    return;
+                }
+
                 Snap();
                 int at = _job.DuplicateOperation(i);
                 Refresh(op: at);
@@ -347,6 +354,15 @@ public partial class LatheJobView : UserControl
     {
         if (SelectedOp() is { } i && i + delta >= 0 && i + delta < _job.Operations.Count)
         {
+            // TORNO-T3: nada desce para depois do sangramento, e ele não sobe
+            List<LatheOperationSpec> after = [.. _job.Operations];
+            (after[i], after[i + delta]) = (after[i + delta], after[i]);
+            if (LatheParting.FirstAfterParting(after) is not null && LatheParting.FirstAfterParting(_job.Operations) is null)
+            {
+                Errors.Text = "• " + LatheParting.LastOperation;
+                return;
+            }
+
             Snap();
             _job.MoveOperation(i, i + delta);
             Refresh(op: i + delta);
@@ -403,7 +419,7 @@ public partial class LatheJobView : UserControl
         {
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
-            _build = LatheJobBuilder.Build(_job);
+            _build = LatheJobBuilder.Build(_job, MachineSource?.Invoke()?.MaxSpindleRpm);
             BuildTree(keepOp, keepTag);
         }
         finally

@@ -3,7 +3,7 @@ using System.Globalization;
 namespace CncStudio.Core.Cam;
 
 /// <summary>Tipo da operação de torno guardada no Trabalho.</summary>
-public enum LatheOpKind { Turning, Facing, Drilling, Threading, Grooving, FaceGrooving }
+public enum LatheOpKind { Turning, Facing, Drilling, Threading, Grooving, FaceGrooving, Parting }
 
 /// <summary>Faceamento: Ø do bruto, Ø interno (0 = até o centro), Z da face do bruto e da face pronta, passe em Z e avanço (mm/rot).</summary>
 public sealed record FacingSpec(double StockDiameter, double InnerDiameter, double StockFaceZ, double FinalFaceZ, double DepthOfCut, double Feed);
@@ -40,6 +40,9 @@ public sealed record LatheOperationSpec(LatheOpKind Kind, LatheTool Tool)
 
     /// <summary>Canal de face (TORNO-T2).</summary>
     public FaceGroovingParams? FaceGroove { get; init; }
+
+    /// <summary>Sangramento (TORNO-T3).</summary>
+    public PartingParams? Parting { get; init; }
 
     /// <summary>
     /// Campos (nome como na tela) que o usuário deixou vazios ou com texto (UX-04e, a regra do CAM-12 da fresa): a operação fica
@@ -179,6 +182,7 @@ public sealed class LatheJob
                 LatheOpKind.Drilling => s.Drill is null,
                 LatheOpKind.Threading => s.Thread is null,
                 LatheOpKind.FaceGrooving => s.FaceGroove is null,
+                LatheOpKind.Parting => s.Parting is null,
                 _ => s.Groove is null,
             };
             if (missing)
@@ -212,19 +216,40 @@ public sealed record LatheOpResult(int Index, bool Skipped, LatheResult? Result)
 /// <summary>Gera percurso e programa de um <see cref="LatheJob"/> com o mesmo código que a tela do torno já usava.</summary>
 public static class LatheJobBuilder
 {
-    public static IReadOnlyList<LatheOpResult> BuildOperations(LatheJob job)
+    public static IReadOnlyList<LatheOpResult> BuildOperations(LatheJob job, double? maxSpindleRpm = null)
     {
         var items = new List<LatheOpResult>();
+        // TORNO-T3: operação ligada depois de um sangramento ligado não gera (a peça já foi cortada)
+        int parting = job.Operations.FindIndex(o => o.Enabled && o.Kind == LatheOpKind.Parting);
         for (int i = 0; i < job.Operations.Count; i++)
         {
             LatheOperationSpec s = job.Operations[i];
-            items.Add(s.Enabled ? new LatheOpResult(i, false, BuildOne(job, s)) : new LatheOpResult(i, true, null));
+            if (!s.Enabled)
+            {
+                items.Add(new LatheOpResult(i, true, null));
+            }
+            else if (parting >= 0 && i > parting)
+            {
+                items.Add(new LatheOpResult(i, false, new LatheResult(null, LatheParting.LastOperation)));
+            }
+            else if (s.Kind == LatheOpKind.Parting && s.MissingFields.Count == 0 && LatheJobInfo.SpindleWarning(s.Tool, maxSpindleRpm) is { } over)
+            {
+                items.Add(new LatheOpResult(i, false, new LatheResult(null, over)));
+            }
+            else
+            {
+                items.Add(new LatheOpResult(i, false, BuildOne(job, s)));
+            }
         }
 
         return items;
     }
 
-    public static LatheBuild Build(LatheJob job)
+    /// <summary>
+    /// Gera o programa. <paramref name="maxSpindleRpm"/>: limite do fuso do perfil da máquina; com ele, o sangramento com limite de
+    /// rotação acima do fuso não gera (TORNO-T3). Nas outras operações a rotação acima do fuso continua só aviso.
+    /// </summary>
+    public static LatheBuild Build(LatheJob job, double? maxSpindleRpm = null)
     {
         IReadOnlyList<string> structure = job.Validate();
         if (structure.Count > 0)
@@ -232,7 +257,7 @@ public static class LatheJobBuilder
             return new LatheBuild("", [], [], structure, []);
         }
 
-        IReadOnlyList<LatheOpResult> items = BuildOperations(job);
+        IReadOnlyList<LatheOpResult> items = BuildOperations(job, maxSpindleRpm);
         // Programa nº, G5x e refrigeração vazios travam o programa (TORNO-T1); as operações seguem calculadas para a árvore
         List<string> errors = [.. LatheJobProgram.Problems(job)];
         errors.AddRange(items.Where(x => !x.Ok).Select(x => $"Operação {x.Index + 1}: {x.Error}"));
@@ -284,6 +309,9 @@ public static class LatheJobBuilder
                 break;
             case LatheOpKind.FaceGrooving:
                 result = LatheFaceGrooving.Build(s.Tool, s.SafeZ, safeR, s.FaceGroove! with { Clearance = s.Clearance });
+                break;
+            case LatheOpKind.Parting:
+                result = LatheParting.Build(s.Tool, s.SafeZ, safeR, s.Parting! with { Clearance = s.Clearance });
                 break;
             default:
                 result = LatheOperations.Grooving(s.Tool, s.SafeZ, safeR, s.Groove! with { Clearance = s.Clearance });
@@ -537,6 +565,7 @@ public static class LatheJobInfo
     public static readonly IReadOnlyList<(string Name, LatheOpKind Kind, bool Internal)> AddedKinds =
     [
         ("Canal de face", LatheOpKind.FaceGrooving, false),
+        ("Sangramento", LatheOpKind.Parting, false),
     ];
 
     public static string KindName(LatheOperationSpec s) => s.Kind switch
@@ -546,6 +575,7 @@ public static class LatheJobInfo
         LatheOpKind.Drilling => "Furação axial",
         LatheOpKind.Threading => s.IsInternal ? "Rosca interna" : "Rosca externa",
         LatheOpKind.FaceGrooving => "Canal de face",
+        LatheOpKind.Parting => "Sangramento",
         _ => s.IsInternal ? "Canal interno" : "Canal externo",
     };
 
@@ -576,7 +606,7 @@ public static class LatheJobInfo
     /// <summary>Operação nova com valores padrão (os da tela atual do torno). Os números se editam depois.</summary>
     public static LatheOperationSpec NewOperation(LatheOpKind kind, bool isInternal, LatheTool? tool = null)
     {
-        if (kind == LatheOpKind.FaceGrooving)
+        if (kind is LatheOpKind.FaceGrooving or LatheOpKind.Parting)
         {
             // operações do TORNO-T2 em diante não têm valores de fábrica: nascem vazias
             return NewBlank(kind, false, tool);
@@ -609,6 +639,7 @@ public static class LatheJobInfo
     public const string ReducedFromField = "Ø onde começa o avanço reduzido";
     public const string FaceToolMinField = "Ø mínimo do bedame de face";
     public const string FaceToolMaxField = "Ø máximo do bedame de face";
+    public const string PartingFinalField = "Ø final (0 = até o centro)";
 
     /// <summary>
     /// Campos numéricos da operação, com o nome da tela (os rótulos do painel), na ordem do painel. A rotação fixa não entra: 0 é a
@@ -640,6 +671,11 @@ public static class LatheJobInfo
             FaceOuterField, FaceInnerField, "Z da face", "Z do fundo", ToolWidthField, "Mergulho por passe", "Recuo (quebra-cavaco)",
             "Avanço", ReducedFeedField, ReducedFromField, "Sobremetal de acabamento (0 = sem)", FaceToolMinField, FaceToolMaxField,
         ],
+        LatheOpKind.Parting =>
+        [
+            "Z do corte", "Ø de início", PartingFinalField, ToolWidthField, "Avanço", ReducedFeedField, ReducedFromField,
+            "Mergulho por passe", "Recuo (quebra-cavaco)",
+        ],
         _ =>
         [
             s.IsInternal ? "Ø do furo" : "Ø da superfície", "Ø do fundo do canal", "Z da parede de cima", "Largura do canal",
@@ -663,6 +699,7 @@ public static class LatheJobInfo
             LatheOpKind.Drilling => spec with { Drill = new LatheDrillSpec(0, 0, 0, 0) },
             LatheOpKind.Threading => spec with { Thread = new ThreadingParams(isInternal, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) },
             LatheOpKind.FaceGrooving => spec with { FaceGroove = new FaceGroovingParams(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) },
+            LatheOpKind.Parting => spec with { Parting = new PartingParams(0, 0, 0, 0, 0, 0, 0, 0, 0, 0) },
             _ => spec with { Groove = new GroovingParams(isInternal, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, false, 0) },
         };
         var missing = NumericFields(spec).ToList();
@@ -693,6 +730,7 @@ public static class LatheJobInfo
     public static LatheOperationSpec WithToolWidth(LatheOperationSpec s, double width) => s.Kind switch
     {
         LatheOpKind.FaceGrooving when s.FaceGroove is { } fg => SetMissing(s with { FaceGroove = fg with { ToolWidth = width } }, ToolWidthField, false),
+        LatheOpKind.Parting when s.Parting is { } pt => SetMissing(s with { Parting = pt with { ToolWidth = width } }, ToolWidthField, false),
         _ => s,
     };
 

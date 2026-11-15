@@ -180,6 +180,26 @@ public partial class LatheJobView
                 Num(i, LatheJobInfo.FaceToolMinField, "mm", fg.ToolMinDiameter, (x, v) => x with { FaceGroove = x.FaceGroove! with { ToolMinDiameter = v } });
                 Num(i, LatheJobInfo.FaceToolMaxField, "mm", fg.ToolMaxDiameter, (x, v) => x with { FaceGroove = x.FaceGroove! with { ToolMaxDiameter = v } });
                 break;
+            case LatheOpKind.Parting when s.Parting is { } pt:
+                Section("Sangramento");
+                PropsPanel.Children.Add(UiKit.StatusNote(LatheParting.Warning, "pending"));
+                if (pt.FinalDiameter == 0 && !s.MissingFields.Contains(LatheJobInfo.PartingFinalField))
+                {
+                    // aviso fixo de peça solta: o app não verifica fixação nem a queda
+                    PropsPanel.Children.Add(UiKit.StatusNote(LatheParting.LoosePartWarning, "bad"));
+                }
+
+                PropsPanel.Children.Add(UiKit.StatusNote(LatheParting.LastOperation, "pending"));
+                Num(i, "Z do corte", "mm", pt.CutZ, (x, v) => x with { Parting = x.Parting! with { CutZ = v } });
+                Num(i, "Ø de início", "mm", pt.StartDiameter, (x, v) => x with { Parting = x.Parting! with { StartDiameter = v } });
+                Num(i, LatheJobInfo.PartingFinalField, "mm", pt.FinalDiameter, (x, v) => x with { Parting = x.Parting! with { FinalDiameter = v } }, rebuild: true);
+                Num(i, LatheJobInfo.ToolWidthField, "mm", pt.ToolWidth, (x, v) => x with { Parting = x.Parting! with { ToolWidth = v } });
+                Num(i, "Avanço", "mm/rot", pt.Feed, (x, v) => x with { Parting = x.Parting! with { Feed = v } });
+                Num(i, LatheJobInfo.ReducedFeedField, "mm/rot", pt.ReducedFeed, (x, v) => x with { Parting = x.Parting! with { ReducedFeed = v } });
+                Num(i, LatheJobInfo.ReducedFromField, "mm", pt.ReducedFromDiameter, (x, v) => x with { Parting = x.Parting! with { ReducedFromDiameter = v } });
+                Num(i, "Mergulho por passe", "mm", pt.Peck, (x, v) => x with { Parting = x.Parting! with { Peck = v } });
+                Num(i, "Recuo (quebra-cavaco)", "mm", pt.Retract, (x, v) => x with { Parting = x.Parting! with { Retract = v } });
+                break;
         }
     }
 
@@ -316,7 +336,7 @@ public partial class LatheJobView
     /// (<see cref="LatheJobInfo.SetMissing"/>): ela fica Incompleta, não gera e o número antigo não é usado nem mostrado. O campo
     /// obrigatório vazio fica com borda tracejada laranja. Um valor válido grava e tira a marca.
     /// </summary>
-    private void Num(int i, string label, string unit, double value, Func<LatheOperationSpec, double, LatheOperationSpec> apply)
+    private void Num(int i, string label, string unit, double value, Func<LatheOperationSpec, double, LatheOperationSpec> apply, bool rebuild = false)
     {
         bool missing = i < _job.Operations.Count && _job.Operations[i].MissingFields.Contains(label);
         var box = new TextBox { Text = missing ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
@@ -340,7 +360,7 @@ public partial class LatheJobView
                 {
                     missing = true;
                     // TORNO-T1: o número antigo é zerado (o arquivo pode ser salvo com o campo vazio e não guarda valor que não aparece)
-                    Edit(i, x => LatheJobInfo.SetMissing(apply(x, 0), label, true));
+                    Edit(i, x => LatheJobInfo.SetMissing(apply(x, 0), label, true), rebuild);
                 }
 
                 return;
@@ -351,7 +371,7 @@ public partial class LatheJobView
             {
                 missing = false;
                 value = v;
-                Edit(i, x => LatheJobInfo.SetMissing(apply(x, v), label, false));
+                Edit(i, x => LatheJobInfo.SetMissing(apply(x, v), label, false), rebuild);
             }
         }
 

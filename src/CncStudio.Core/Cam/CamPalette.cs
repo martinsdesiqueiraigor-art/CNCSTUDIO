@@ -178,7 +178,7 @@ public static class CamPalette
             CamPaletteItem.Lathe("canal-externo", "Canal externo", "canal-externo", LatheOpKind.Grooving, false, "Canal radial por fora."),
             CamPaletteItem.Lathe("canal-interno", "Canal interno", "canal-interno", LatheOpKind.Grooving, true, "Canal radial por dentro."),
             CamPaletteItem.Lathe("canal-face", "Canal de face", "canal-face", LatheOpKind.FaceGrooving, false, "Canal axial na face da peça (bedame de face). G-code novo: simule antes."),
-            CamPaletteItem.Later("sangrar", "Sangrar", "sangrar", "Corte da peça (sangramento)."),
+            CamPaletteItem.Lathe("sangrar", "Sangrar", "sangrar", LatheOpKind.Parting, false, "Corte da peça (sangramento). É a última operação da fixação. G-code novo: simule antes."),
         ]),
         new("rosca", "Rosca", true,
         [
@@ -213,6 +213,12 @@ public static class CamPalette
         if (item.LatheKind is not { } kind)
         {
             return "Não é operação de torno.";
+        }
+
+        // TORNO-T3: a operação nova entra no fim, e nada pode vir depois do sangramento
+        if (job.Operations.Any(o => o.Kind == LatheOpKind.Parting))
+        {
+            return LatheParting.LastOperation + " Para acrescentar outra, remova o sangramento e ponha-o de novo no fim.";
         }
 
         return kind == LatheOpKind.Turning && job.Profile is null ? "Informe o perfil da peça primeiro (DXF ou pontos, item Peça)." : null;

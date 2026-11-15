@@ -43,8 +43,8 @@ public class LathePaletteMissingTests
     public void Grupos_do_torno_na_ordem_e_em_breve_apagados()
     {
         Assert.Equal(["Arquivo", "Fixação", "Torneamento", "Canal e corte", "Rosca"], CamPalette.LatheVisibleGroups.Select(g => g.Title));
-        // TORNO-T2 (autorizado pelo Igor em 15/11): "canal-face" saiu do "em breve" (virou operação)
-        foreach (string id in new[] { "nova-fixacao", "zero", "sangrar" })
+        // TORNO-T2 e T3 (autorizado pelo Igor em 15/11): "canal-face" e "sangrar" saíram do "em breve" (viraram operação)
+        foreach (string id in new[] { "nova-fixacao", "zero" })
         {
             CamPaletteItem item = Item(id);
             Assert.True(item.Soon);

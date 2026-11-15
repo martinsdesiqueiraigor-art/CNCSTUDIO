@@ -222,6 +222,22 @@ public static class LatheJobJson
             };
         }
 
+        if (s.Parting is { } pt)
+        {
+            o["parting"] = new JsonObject
+            {
+                ["cutZ"] = pt.CutZ,
+                ["startDiameter"] = pt.StartDiameter,
+                ["finalDiameter"] = pt.FinalDiameter,
+                ["toolWidth"] = pt.ToolWidth,
+                ["feed"] = pt.Feed,
+                ["reducedFeed"] = pt.ReducedFeed,
+                ["reducedFromDiameter"] = pt.ReducedFromDiameter,
+                ["peck"] = pt.Peck,
+                ["retract"] = pt.Retract,
+            };
+        }
+
         return o;
     }
 
@@ -396,6 +412,17 @@ public static class LatheJobJson
                     CamJobJson.Num(fg, "toolWidth"), CamJobJson.Num(fg, "peck"), CamJobJson.Num(fg, "retract"), CamJobJson.Num(fg, "feed"),
                     CamJobJson.Num(fg, "reducedFeed"), CamJobJson.Num(fg, "reducedFromDiameter"), CamJobJson.Num(fg, "allowance"),
                     CamJobJson.Num(fg, "toolMinDiameter"), CamJobJson.Num(fg, "toolMaxDiameter"), spec.Clearance),
+            };
+        }
+
+        if (o["parting"] is JsonObject pt)
+        {
+            spec = spec with
+            {
+                Parting = new PartingParams(
+                    CamJobJson.Num(pt, "cutZ"), CamJobJson.Num(pt, "startDiameter"), CamJobJson.Num(pt, "finalDiameter"), CamJobJson.Num(pt, "toolWidth"),
+                    CamJobJson.Num(pt, "feed"), CamJobJson.Num(pt, "reducedFeed"), CamJobJson.Num(pt, "reducedFromDiameter"),
+                    CamJobJson.Num(pt, "peck"), CamJobJson.Num(pt, "retract"), spec.Clearance),
             };
         }
 
