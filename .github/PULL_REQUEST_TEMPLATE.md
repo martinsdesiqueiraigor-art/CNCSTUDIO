@@ -1,27 +1,11 @@
-## Missão
-ID:
-Ficha: docs/tarefas/<ID>.md
-Autorização: (link do comentário do Igor; não preencher por conta própria)
-Base conferida: origin/dev em <commit>
-
-## Volta
-O que foi feito (até 5 linhas):
-Arquivos alterados/criados:
-Testes: rodados / resultado / não rodados e por quê
-Teste mestre (8 G-codes) verde antes e depois? (sim/não):
-Decisões tomadas (só as autorizadas):
-Pendências e dúvidas (A definir):
-Riscos ou contradições encontradas:
-Não conferido:
-
-## Roteiro de teste do Igor
-Arquivo a abrir (samples/...):
-1.
-2.
-3.
-O que deve aparecer:
-
-## Como devolver o resultado
-Um print e uma frase num comentário deste PR (ex.: "passo 3 falhou, apareceu isto").
-
-Próximo passo sugerido (1):
+## <ID>: relatório
+**Feito:** (até 5 linhas)
+**Arquivos:** (lista)
+**Testes:**
+- Aprovados: (filtro ou projeto, quantidade)
+- Reprovados: (quais e o que foi feito; "nenhum")
+- Não executados: (quais e por quê; ex.: "suíte completa: fica com a Prévia")
+- Teste mestre (8 G-codes): verde / não rodado
+- Testes alterados: (nenhum, ou quais, com a autorização da ficha)
+**Limitações e pendências:** (A definir, quando houver)
+**Como validar:** arquivo a abrir + 3 a 5 passos + o que deve aparecer
