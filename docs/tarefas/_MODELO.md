@@ -1,23 +1,23 @@
-# Ficha <ID>: <título curto>
-
-Data: . Para: Claude Code. Autorização do Igor: (link ou data).
-**Esta ficha autoriza só o que está descrito aqui.**
-
-## 1. De onde partir
-Ramo a partir de origin/dev. Ler CLAUDE.md e o bloco "Estado atual" do docs/ESTADO.md.
-
-## 2. O que fazer (um objetivo só)
-
-## 3. Arquivos (caminhos exatos, com @)
-Pode mexer em:
-Não pode mexer em:
-
-## 4. Pronto quando (o Igor faz no .exe, 3 a 5 passos)
-Arquivo a abrir (samples/...):
+# Ficha <ID>: <título>
+Tamanho: P | M | G · Modelo: Sonnet | Opus no plano + Sonnet na execução
+Base: origin/dev em <commit> · Ramo: ajuste-<ID> (código) | doc-<ID> (só documento) · Pasta: C:\Projetos\_worktrees\<ID>
+Objetivo: <1 frase>
+Ler: @<arquivo> (até 3)
+Pode mexer: @<caminhos>
+Não pode mexer: <além do CLAUDE.md>
+Testes autorizados a mudar: <nenhum | quais e por quê>
+Pronto quando (o Igor no .exe):
 1.
 2.
 3.
-O que deve aparecer:
+Decisões já tomadas: <só as que o Code precisa; senão "nenhuma">
 
-## 5. Entrega
-PR rascunho para o dev, Volta no corpo do PR. Merge é do Igor.
+<!-- Classificação
+P: 1 área, poucos arquivos, até ~300 linhas, reversível. Sonnet, sem Plan Mode.
+M: 1 módulo, várias telas, até ~800 linhas. Sonnet com Plan Mode. Plano sem código também é M.
+G: vários módulos, Core usado por Code e CAM, ou mais de ~800 linhas. Opus no plano, Sonnet na execução.
+Sobem para G, qualquer que seja o tamanho:
+- saída ou comportamento de G-code (pós, ciclos, simulação do que a máquina faz);
+- dados: formato de arquivo (.casillas-job, .casillas-cam, banco de ferramentas), migração, config do usuário;
+- segurança e licença: conta, licença, Supabase, termos, vendas, arquivos protegidos. Nesses, parar e pedir a liberação ao Igor antes.
+Na dúvida, sobe um nível. -->

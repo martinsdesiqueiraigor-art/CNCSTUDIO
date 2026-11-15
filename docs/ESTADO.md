@@ -70,7 +70,7 @@ Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:lin
 - Contagem: ver o resultado do CI na main.
 
 ## Ponteiros
-- Fichas: `docs/tarefas/` (modelo em `docs/tarefas/MODELO.md`); ex.: `docs/tarefas/CAM-01-plano.md`, `docs/tarefas/PLAT-06-desktop-plataforma.md`, `docs/tarefas/ACAD-02-modulos-2-a-4.md`.
+- Fichas: `docs/tarefas/` (modelo do Code em `docs/tarefas/_MODELO.md`; `MODELO.md` fica para GPT e DeepSeek); ex.: `docs/tarefas/CAM-01-plano.md`, `docs/tarefas/PLAT-06-desktop-plataforma.md`, `docs/tarefas/ACAD-02-modulos-2-a-4.md`.
 - Histórico: `docs/historico/ESTADO-ate-2026-11-02.md`.
 
 ## Decisões do Igor (04/11)
