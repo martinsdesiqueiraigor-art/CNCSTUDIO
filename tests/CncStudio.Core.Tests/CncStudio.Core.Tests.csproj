@@ -29,6 +29,11 @@
     <None Include="Cam\trabalhos-referencia\*.*" Link="trabalhos-referencia\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- TORNO-T2/T3: exemplos novos do torno (trabalho e o programa que ele gera) -->
+  <ItemGroup>
+    <None Include="..\..\exemplos\torno\*.*" Link="exemplos-torno\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Avisos de terceiros do desktop: o teste confere o arquivo e que o App o embute como recurso -->
   <ItemGroup>
     <None Include="..\..\src\CncStudio.App\THIRD-PARTY-NOTICES.md" Link="terceiros\THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />

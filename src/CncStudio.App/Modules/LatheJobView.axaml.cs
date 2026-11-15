@@ -366,7 +366,7 @@ public partial class LatheJobView : UserControl
         LatheOpKind.Facing => "faceamento",
         LatheOpKind.Drilling => "furo",
         LatheOpKind.Threading => "rosca",
-        _ => "canal",
+        _ => "canal",   // canal radial, canal de face e sangramento
     };
 
     /// <summary>Guarda o estado das operações antes de uma alteração (para Desfazer).</summary>

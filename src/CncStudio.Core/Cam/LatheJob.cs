@@ -3,7 +3,7 @@ using System.Globalization;
 namespace CncStudio.Core.Cam;
 
 /// <summary>Tipo da operação de torno guardada no Trabalho.</summary>
-public enum LatheOpKind { Turning, Facing, Drilling, Threading, Grooving }
+public enum LatheOpKind { Turning, Facing, Drilling, Threading, Grooving, FaceGrooving }
 
 /// <summary>Faceamento: Ø do bruto, Ø interno (0 = até o centro), Z da face do bruto e da face pronta, passe em Z e avanço (mm/rot).</summary>
 public sealed record FacingSpec(double StockDiameter, double InnerDiameter, double StockFaceZ, double FinalFaceZ, double DepthOfCut, double Feed);
@@ -37,6 +37,9 @@ public sealed record LatheOperationSpec(LatheOpKind Kind, LatheTool Tool)
     public ThreadingParams? Thread { get; init; }
 
     public GroovingParams? Groove { get; init; }
+
+    /// <summary>Canal de face (TORNO-T2).</summary>
+    public FaceGroovingParams? FaceGroove { get; init; }
 
     /// <summary>
     /// Campos (nome como na tela) que o usuário deixou vazios ou com texto (UX-04e, a regra do CAM-12 da fresa): a operação fica
@@ -175,6 +178,7 @@ public sealed class LatheJob
                 LatheOpKind.Facing => s.Facing is null,
                 LatheOpKind.Drilling => s.Drill is null,
                 LatheOpKind.Threading => s.Thread is null,
+                LatheOpKind.FaceGrooving => s.FaceGroove is null,
                 _ => s.Groove is null,
             };
             if (missing)
@@ -277,6 +281,9 @@ public static class LatheJobBuilder
                 break;
             case LatheOpKind.Threading:
                 result = LatheOperations.Threading(s.Tool, s.SafeZ, safeR, s.Thread! with { Clearance = s.Clearance });
+                break;
+            case LatheOpKind.FaceGrooving:
+                result = LatheFaceGrooving.Build(s.Tool, s.SafeZ, safeR, s.FaceGroove! with { Clearance = s.Clearance });
                 break;
             default:
                 result = LatheOperations.Grooving(s.Tool, s.SafeZ, safeR, s.Groove! with { Clearance = s.Clearance });
@@ -523,12 +530,22 @@ public static class LatheJobInfo
         ("Canal interno", LatheOpKind.Grooving, true),
     ];
 
+    /// <summary>
+    /// Operações acrescentadas depois das 8 primeiras (TORNO-T2 em diante). Ficam fora de <see cref="NewKinds"/> porque não têm valores
+    /// de fábrica: nascem sempre vazias (<see cref="NewBlank"/>).
+    /// </summary>
+    public static readonly IReadOnlyList<(string Name, LatheOpKind Kind, bool Internal)> AddedKinds =
+    [
+        ("Canal de face", LatheOpKind.FaceGrooving, false),
+    ];
+
     public static string KindName(LatheOperationSpec s) => s.Kind switch
     {
         LatheOpKind.Turning => s.IsInternal ? "Torneamento interno" : "Torneamento externo",
         LatheOpKind.Facing => "Faceamento",
         LatheOpKind.Drilling => "Furação axial",
         LatheOpKind.Threading => s.IsInternal ? "Rosca interna" : "Rosca externa",
+        LatheOpKind.FaceGrooving => "Canal de face",
         _ => s.IsInternal ? "Canal interno" : "Canal externo",
     };
 
@@ -559,6 +576,12 @@ public static class LatheJobInfo
     /// <summary>Operação nova com valores padrão (os da tela atual do torno). Os números se editam depois.</summary>
     public static LatheOperationSpec NewOperation(LatheOpKind kind, bool isInternal, LatheTool? tool = null)
     {
+        if (kind == LatheOpKind.FaceGrooving)
+        {
+            // operações do TORNO-T2 em diante não têm valores de fábrica: nascem vazias
+            return NewBlank(kind, false, tool);
+        }
+
         var t = tool ?? new LatheTool(1, "", 200, 3000, 0);
         var spec = new LatheOperationSpec(kind, t);
         return kind switch
@@ -577,6 +600,15 @@ public static class LatheJobInfo
     public const string SafeDiameterField = "Ø seguro (troca)";
     public const string ClearanceField = "Folga de aproximação";
     public const string StockFaceZField = "Z da face do bruto";
+
+    // canal de face (TORNO-T2) e sangramento (TORNO-T3)
+    public const string FaceOuterField = "Ø externo do canal";
+    public const string FaceInnerField = "Ø interno do canal";
+    public const string ToolWidthField = "Largura da ferramenta";
+    public const string ReducedFeedField = "Avanço reduzido";
+    public const string ReducedFromField = "Ø onde começa o avanço reduzido";
+    public const string FaceToolMinField = "Ø mínimo do bedame de face";
+    public const string FaceToolMaxField = "Ø máximo do bedame de face";
 
     /// <summary>
     /// Campos numéricos da operação, com o nome da tela (os rótulos do painel), na ordem do painel. A rotação fixa não entra: 0 é a
@@ -603,6 +635,11 @@ public static class LatheJobInfo
             s.IsInternal ? "Ø nominal (raiz)" : "Ø nominal (crista)", "Passo", "Z do início", "Z do fim", "Rotação (fixa)",
             "Altura do filete (0 = ISO)", "Passes de acabamento", "Sobremetal de acabamento",
         ],
+        LatheOpKind.FaceGrooving =>
+        [
+            FaceOuterField, FaceInnerField, "Z da face", "Z do fundo", ToolWidthField, "Mergulho por passe", "Recuo (quebra-cavaco)",
+            "Avanço", ReducedFeedField, ReducedFromField, "Sobremetal de acabamento (0 = sem)", FaceToolMinField, FaceToolMaxField,
+        ],
         _ =>
         [
             s.IsInternal ? "Ø do furo" : "Ø da superfície", "Ø do fundo do canal", "Z da parede de cima", "Largura do canal",
@@ -625,6 +662,7 @@ public static class LatheJobInfo
             LatheOpKind.Facing => spec with { Facing = new FacingSpec(0, 0, 0, 0, 0, 0) },
             LatheOpKind.Drilling => spec with { Drill = new LatheDrillSpec(0, 0, 0, 0) },
             LatheOpKind.Threading => spec with { Thread = new ThreadingParams(isInternal, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) },
+            LatheOpKind.FaceGrooving => spec with { FaceGroove = new FaceGroovingParams(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) },
             _ => spec with { Groove = new GroovingParams(isInternal, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, false, 0) },
         };
         var missing = NumericFields(spec).ToList();
@@ -647,6 +685,16 @@ public static class LatheJobInfo
 
         return spec with { MissingFields = missing };
     }
+
+    /// <summary>
+    /// Largura da ferramenta vinda do bedame do banco (canal de face e sangramento): grava o valor e tira a marca de campo vazio.
+    /// Outras operações ficam como estão.
+    /// </summary>
+    public static LatheOperationSpec WithToolWidth(LatheOperationSpec s, double width) => s.Kind switch
+    {
+        LatheOpKind.FaceGrooving when s.FaceGroove is { } fg => SetMissing(s with { FaceGroove = fg with { ToolWidth = width } }, ToolWidthField, false),
+        _ => s,
+    };
 
     private static string Q(double? v) => v is { } x ? N(x) : "?";
 

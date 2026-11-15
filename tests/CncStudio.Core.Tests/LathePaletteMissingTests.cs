@@ -28,8 +28,9 @@ public class LathePaletteMissingTests
     public void Faixa_do_torno_tem_cada_operacao_do_Core_uma_vez()
     {
         var ops = CamPalette.LatheVisibleGroups.SelectMany(g => g.Items).Where(i => i.LatheKind is not null).ToList();
-        Assert.Equal(LatheJobInfo.NewKinds.Count, ops.Count);
-        foreach ((string _, LatheOpKind kind, bool isInternal) in LatheJobInfo.NewKinds)
+        // TORNO-T2/T3 (autorizado pelo Igor em 15/11): a faixa tem as 8 operações antigas mais as novas (LatheJobInfo.AddedKinds)
+        Assert.Equal(LatheJobInfo.NewKinds.Count + LatheJobInfo.AddedKinds.Count, ops.Count);
+        foreach ((string _, LatheOpKind kind, bool isInternal) in LatheJobInfo.NewKinds.Concat(LatheJobInfo.AddedKinds))
         {
             Assert.Single(ops, i => i.LatheKind == kind && i.Internal == isInternal);
         }
@@ -42,7 +43,8 @@ public class LathePaletteMissingTests
     public void Grupos_do_torno_na_ordem_e_em_breve_apagados()
     {
         Assert.Equal(["Arquivo", "Fixação", "Torneamento", "Canal e corte", "Rosca"], CamPalette.LatheVisibleGroups.Select(g => g.Title));
-        foreach (string id in new[] { "nova-fixacao", "zero", "canal-face", "sangrar" })
+        // TORNO-T2 (autorizado pelo Igor em 15/11): "canal-face" saiu do "em breve" (virou operação)
+        foreach (string id in new[] { "nova-fixacao", "zero", "sangrar" })
         {
             CamPaletteItem item = Item(id);
             Assert.True(item.Soon);

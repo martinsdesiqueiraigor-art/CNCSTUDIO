@@ -177,7 +177,7 @@ public static class CamPalette
         [
             CamPaletteItem.Lathe("canal-externo", "Canal externo", "canal-externo", LatheOpKind.Grooving, false, "Canal radial por fora."),
             CamPaletteItem.Lathe("canal-interno", "Canal interno", "canal-interno", LatheOpKind.Grooving, true, "Canal radial por dentro."),
-            CamPaletteItem.Later("canal-face", "Canal de face", "canal-face", "Canal axial na face da peça."),
+            CamPaletteItem.Lathe("canal-face", "Canal de face", "canal-face", LatheOpKind.FaceGrooving, false, "Canal axial na face da peça (bedame de face). G-code novo: simule antes."),
             CamPaletteItem.Later("sangrar", "Sangrar", "sangrar", "Corte da peça (sangramento)."),
         ]),
         new("rosca", "Rosca", true,

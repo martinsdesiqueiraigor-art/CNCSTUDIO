@@ -202,6 +202,26 @@ public static class LatheJobJson
             };
         }
 
+        if (s.FaceGroove is { } fg)
+        {
+            o["faceGroove"] = new JsonObject
+            {
+                ["outerDiameter"] = fg.OuterDiameter,
+                ["innerDiameter"] = fg.InnerDiameter,
+                ["faceZ"] = fg.FaceZ,
+                ["bottomZ"] = fg.BottomZ,
+                ["toolWidth"] = fg.ToolWidth,
+                ["peck"] = fg.Peck,
+                ["retract"] = fg.Retract,
+                ["feed"] = fg.Feed,
+                ["reducedFeed"] = fg.ReducedFeed,
+                ["reducedFromDiameter"] = fg.ReducedFromDiameter,
+                ["allowance"] = fg.Allowance,
+                ["toolMinDiameter"] = fg.ToolMinDiameter,
+                ["toolMaxDiameter"] = fg.ToolMaxDiameter,
+            };
+        }
+
         return o;
     }
 
@@ -364,6 +384,18 @@ public static class LatheJobJson
                 Groove = new GroovingParams(
                     CamJobJson.Bool(g, "internal"), CamJobJson.Num(g, "surfaceDiameter"), CamJobJson.Num(g, "bottomDiameter"), CamJobJson.Num(g, "zStart"), CamJobJson.Num(g, "width"), CamJobJson.Num(g, "toolWidth"),
                     CamJobJson.Num(g, "peck"), CamJobJson.Num(g, "feed"), CamJobJson.Num(g, "retract"), CamJobJson.Num(g, "allowance"), CamJobJson.Bool(g, "finish"), spec.Clearance),
+            };
+        }
+
+        if (o["faceGroove"] is JsonObject fg)
+        {
+            spec = spec with
+            {
+                FaceGroove = new FaceGroovingParams(
+                    CamJobJson.Num(fg, "outerDiameter"), CamJobJson.Num(fg, "innerDiameter"), CamJobJson.Num(fg, "faceZ"), CamJobJson.Num(fg, "bottomZ"),
+                    CamJobJson.Num(fg, "toolWidth"), CamJobJson.Num(fg, "peck"), CamJobJson.Num(fg, "retract"), CamJobJson.Num(fg, "feed"),
+                    CamJobJson.Num(fg, "reducedFeed"), CamJobJson.Num(fg, "reducedFromDiameter"), CamJobJson.Num(fg, "allowance"),
+                    CamJobJson.Num(fg, "toolMinDiameter"), CamJobJson.Num(fg, "toolMaxDiameter"), spec.Clearance),
             };
         }
 
