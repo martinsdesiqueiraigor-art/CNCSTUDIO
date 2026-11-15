@@ -218,9 +218,12 @@ public static class CamPalette
         return kind == LatheOpKind.Turning && job.Profile is null ? "Informe o perfil da peça primeiro (DXF ou pontos, item Peça)." : null;
     }
 
-    /// <summary>Operação de torno nova do botão (a mesma de <see cref="LatheJobInfo.NewOperation"/>); null para item sem operação.</summary>
-    public static LatheOperationSpec? NewLatheOperation(CamPaletteItem item, LatheTool? tool = null) =>
-        item.LatheKind is { } kind ? LatheJobInfo.NewOperation(kind, item.Internal, tool) : null;
+    /// <summary>
+    /// Operação de torno nova do botão: nasce vazia (<see cref="LatheJobInfo.NewBlank"/>, TORNO-T1), com a ferramenta da operação
+    /// anterior e o Ø do bruto do trabalho quando existem; null para item sem operação.
+    /// </summary>
+    public static LatheOperationSpec? NewLatheOperation(CamPaletteItem item, LatheTool? tool = null, LatheJobStock? stock = null) =>
+        item.LatheKind is { } kind ? LatheJobInfo.NewBlank(kind, item.Internal, tool, stock) : null;
 
     /// <summary>Operação nova do botão (a mesma de <see cref="CamJobInfo.NewOperation"/>); null para item sem operação no Trabalho.</summary>
     public static CamOperationSpec? NewOperation(CamPaletteItem item, int targetContour, CamTool? tool = null) =>

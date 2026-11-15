@@ -56,6 +56,33 @@ public sealed record LatheOperationSpec(LatheOpKind Kind, LatheTool Tool)
 }
 
 /// <summary>
+/// Bruto do Trabalho de torno (TORNO-T1): barra com Ø, comprimento e o Z da face do bruto (no referencial do perfil), todos
+/// digitados e opcionais (null = não informado; nada suposto). Não entra no G-code: serve às operações novas e ao pacote do Code.
+/// </summary>
+public sealed record LatheJobStock(double? Diameter = null, double? Length = null, double? FaceZ = null)
+{
+    /// <summary>Nada informado (não vai para o arquivo).</summary>
+    public bool IsEmpty => Diameter is null && Length is null && FaceZ is null;
+
+    /// <summary>Motivo de um valor inválido (null = vale): Ø e comprimento informados precisam ser maiores que zero.</summary>
+    public string? Validate()
+    {
+        static bool Bad(double? v) => v is { } x && !(double.IsFinite(x) && x > 0);
+        if (Bad(Diameter))
+        {
+            return "O Ø do bruto precisa ser maior que zero (ou deixe em branco).";
+        }
+
+        if (Bad(Length))
+        {
+            return "O comprimento do bruto precisa ser maior que zero (ou deixe em branco).";
+        }
+
+        return FaceZ is { } z && !double.IsFinite(z) ? "O Z da face do bruto precisa ser um número (ou deixe em branco)." : null;
+    }
+}
+
+/// <summary>
 /// Trabalho (Job) de torno do CAM: perfil da peça (Z × raio), comando, números do programa e as operações em ordem.
 /// É o que se salva e se abre; o programa nasce dele (<see cref="LatheJobBuilder"/>).
 /// </summary>
@@ -67,11 +94,23 @@ public sealed class LatheJob
 
     public CamDialect Dialect { get; set; } = CamDialect.Fanuc;
 
-    public int ProgramNumber { get; set; } = 1002;
+    /// <summary>
+    /// Número do programa (null = vazio: trava Gerar e Enviar no Fanuc, <see cref="LatheJobProgram"/>). O valor de fábrica só existe
+    /// para o código antigo e os arquivos antigos; a tela cria o trabalho com <see cref="Blank"/> (TORNO-T1: nada suposto).
+    /// </summary>
+    public int? ProgramNumber { get; set; } = 1002;
 
-    public int WorkOffset { get; set; } = 54;
+    /// <summary>Zero de peça G5x (null = vazio: trava Gerar e Enviar).</summary>
+    public int? WorkOffset { get; set; } = 54;
 
-    public bool Coolant { get; set; } = true;
+    /// <summary>Refrigeração ligada ou desligada (null = não escolhida: trava Gerar e Enviar).</summary>
+    public bool? Coolant { get; set; } = true;
+
+    /// <summary>Bruto do trabalho (TORNO-T1), digitado; null = não informado. As operações novas nascem com o Ø dele.</summary>
+    public LatheJobStock? Stock { get; set; }
+
+    /// <summary>Trabalho novo da tela: Programa nº, G5x e refrigeração vazios (nada suposto).</summary>
+    public static LatheJob Blank(string name = "TORNO") => new() { Name = name, ProgramNumber = null, WorkOffset = null, Coolant = null };
 
     /// <summary>Perfil da peça (null = ainda não definido).</summary>
     public LatheProfile? Profile { get; set; }
@@ -190,7 +229,9 @@ public static class LatheJobBuilder
         }
 
         IReadOnlyList<LatheOpResult> items = BuildOperations(job);
-        var errors = items.Where(x => !x.Ok).Select(x => $"Operação {x.Index + 1}: {x.Error}").ToList();
+        // Programa nº, G5x e refrigeração vazios travam o programa (TORNO-T1); as operações seguem calculadas para a árvore
+        List<string> errors = [.. LatheJobProgram.Problems(job)];
+        errors.AddRange(items.Where(x => !x.Ok).Select(x => $"Operação {x.Index + 1}: {x.Error}"));
         List<LatheOperation> ops = items.Where(x => !x.Skipped && x.Ok).Select(x => x.Result!.Operation!).ToList();
         if (errors.Count == 0 && ops.Count == 0)
         {
@@ -203,7 +244,7 @@ public static class LatheJobBuilder
         }
 
         List<string> warnings = ops.SelectMany(o => o.Warnings).Distinct().ToList();
-        string program = LathePost.Generate(ops, new LathePostOptions(job.Dialect, job.Name, job.ProgramNumber, job.WorkOffset, job.Coolant));
+        string program = LathePost.Generate(ops, new LathePostOptions(job.Dialect, job.Name, job.ProgramNumber ?? 0, job.WorkOffset!.Value, job.Coolant!.Value));
         return new LatheBuild(program, ops, items, errors, warnings);
     }
 
@@ -271,6 +312,7 @@ public static class LatheJobInfo
             list.Add("Nenhuma operação");
         }
 
+        list.AddRange(LatheJobProgram.Problems(job));
         for (int i = 0; i < build.Items.Count; i++)
         {
             LatheOpResult r = build.Items[i];
@@ -292,7 +334,10 @@ public static class LatheJobInfo
     /// Linha "Origem" da árvore do torno: o deslocamento de trabalho, X0 no centro da peça e Z0 o do perfil.
     /// O estado é o mesmo da fresa (<see cref="CamJobInfo.OriginState"/>): nunca conferido pelo app.
     /// </summary>
-    public static string OriginTitle(LatheJob job) => $"Origem G{job.WorkOffset}: X0 no centro da peça, Z0 do perfil";
+    public static string OriginTitle(LatheJob job) => $"Origem {WorkOffsetName(job.WorkOffset)}: X0 no centro da peça, Z0 do perfil";
+
+    /// <summary>"G54", ou "G5x (falta)" quando vazio (como na fresa).</summary>
+    public static string WorkOffsetName(int? workOffset) => workOffset is { } g ? "G" + g.ToString(CultureInfo.InvariantCulture) : "G5x (falta)";
 
     /// <summary>Maior rotação que a operação pode pedir: a fixa ou, em G96, o limite G50 (<see cref="LatheTool.MaxRpm"/>).</summary>
     public static double SpindleRpm(LatheTool t) => t.Rpm > 0 ? t.Rpm : t.MaxRpm;
@@ -525,4 +570,88 @@ public static class LatheJobInfo
             _ => spec with { Groove = new GroovingParams(isInternal, isInternal ? 20 : 30, isInternal ? 26 : 22, -20, 8, 3, 2, 0.08, 0.5, 0.1, true, 2) },
         };
     }
+
+    // ---------------------------------------------------------------- operação nova vazia e bruto do trabalho (TORNO-T1)
+
+    public const string SafeZField = "Z seguro";
+    public const string SafeDiameterField = "Ø seguro (troca)";
+    public const string ClearanceField = "Folga de aproximação";
+    public const string StockFaceZField = "Z da face do bruto";
+
+    /// <summary>
+    /// Campos numéricos da operação, com o nome da tela (os rótulos do painel), na ordem do painel. A rotação fixa não entra: 0 é a
+    /// escolha "G96", não um número de corte.
+    /// </summary>
+    public static IReadOnlyList<string> NumericFields(LatheOperationSpec s)
+    {
+        var list = new List<string> { ToolNumberField, SurfaceSpeedField, MaxRpmField, SafeZField, SafeDiameterField, ClearanceField };
+        list.AddRange(KindFields(s));
+        return list;
+    }
+
+    private static string[] KindFields(LatheOperationSpec s) => s.Kind switch
+    {
+        LatheOpKind.Turning =>
+        [
+            s.IsInternal ? "Ø do pré-furo" : StockField, "Profundidade de corte (raio)", "Recuo", "Sobremetal radial", "Sobremetal em Z",
+            "Avanço do desbaste", "Avanço do acabamento",
+        ],
+        LatheOpKind.Facing => [StockField, "Ø interno (0 = até o centro)", StockFaceZField, "Z da face pronta", "Passe em Z", "Avanço"],
+        LatheOpKind.Drilling => ["Z da face", "Z do fundo", "Bicada", "Avanço"],
+        LatheOpKind.Threading =>
+        [
+            s.IsInternal ? "Ø nominal (raiz)" : "Ø nominal (crista)", "Passo", "Z do início", "Z do fim", "Rotação (fixa)",
+            "Altura do filete (0 = ISO)", "Passes de acabamento", "Sobremetal de acabamento",
+        ],
+        _ =>
+        [
+            s.IsInternal ? "Ø do furo" : "Ø da superfície", "Ø do fundo do canal", "Z da parede de cima", "Largura do canal",
+            "Largura da ferramenta", "Mergulho por passe", "Sobremetal de acabamento (0 = sem)", "Avanço",
+        ],
+    };
+
+    /// <summary>
+    /// Operação nova da tela (TORNO-T1): nasce vazia, como na fresa. Todo campo numérico fica marcado como vazio (valor guardado 0,
+    /// nunca usado) e a operação fica Incompleta até ser digitado. Com <paramref name="tool"/> (a da operação anterior), T, velocidade
+    /// e rotação vêm dela. Com bruto no trabalho, o Ø do bruto (torneamento externo e faceamento) e o Z da face do bruto (faceamento)
+    /// vêm dele.
+    /// </summary>
+    public static LatheOperationSpec NewBlank(LatheOpKind kind, bool isInternal, LatheTool? tool = null, LatheJobStock? stock = null)
+    {
+        var spec = new LatheOperationSpec(kind, tool ?? new LatheTool(0, "", 0, 0, 0)) { SafeZ = 0, SafeDiameter = 0, Clearance = 0 };
+        spec = kind switch
+        {
+            LatheOpKind.Turning => spec with { Turning = new TurningParams(0, isInternal, true, true, 0, 0, 0, 0, 0, 0, 0) },
+            LatheOpKind.Facing => spec with { Facing = new FacingSpec(0, 0, 0, 0, 0, 0) },
+            LatheOpKind.Drilling => spec with { Drill = new LatheDrillSpec(0, 0, 0, 0) },
+            LatheOpKind.Threading => spec with { Thread = new ThreadingParams(isInternal, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) },
+            _ => spec with { Groove = new GroovingParams(isInternal, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, false, 0) },
+        };
+        var missing = NumericFields(spec).ToList();
+        if (tool is not null)
+        {
+            missing.RemoveAll(f => f is ToolNumberField or SurfaceSpeedField or MaxRpmField);
+        }
+
+        if (stock?.Diameter is { } d && (kind == LatheOpKind.Facing || (kind == LatheOpKind.Turning && !isInternal)))
+        {
+            missing.Remove(StockField);
+            spec = kind == LatheOpKind.Facing ? spec with { Facing = spec.Facing! with { StockDiameter = d } } : spec with { Turning = spec.Turning! with { StockDiameter = d } };
+        }
+
+        if (stock?.FaceZ is { } z && kind == LatheOpKind.Facing)
+        {
+            missing.Remove(StockFaceZField);
+            spec = spec with { Facing = spec.Facing! with { StockFaceZ = z } };
+        }
+
+        return spec with { MissingFields = missing };
+    }
+
+    private static string Q(double? v) => v is { } x ? N(x) : "?";
+
+    /// <summary>Linha do bruto do trabalho: "Bruto do trabalho: Ø 50 × 120 mm · face em Z 2" ("?" no que falta); null = sem bruto.</summary>
+    public static string? JobStockTitle(LatheJobStock? stock) => stock is null || stock.IsEmpty
+        ? null
+        : $"Bruto do trabalho: Ø {Q(stock.Diameter)} × {Q(stock.Length)} mm · face em Z {Q(stock.FaceZ)}";
 }

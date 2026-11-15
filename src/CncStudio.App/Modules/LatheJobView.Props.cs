@@ -48,47 +48,17 @@ public partial class LatheJobView
     /// </summary>
     private void BuildPrep()
     {
+        MachineCard(PrepMachine);
         PrepProfileTitle.Text = LatheJobInfo.ProfileTitle(_job.Profile);
         Into(PrepStock, StockProps);
         Into(PrepFixation, () =>
         {
             PropsPanel.Children.Add(new TextBlock { Text = "Fixação do torno", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
             BuildFixationProps();
+            // TORNO-T1: Programa nº, G5x e refrigeração digitados, no cartão da fixação (como na fresa)
+            ProgramFields();
         });
         Into(PrepOrigin, ZeroProps);
-    }
-
-    /// <summary>Bruto (barra): só leitura dos Ø do bruto digitados nas operações; cada linha leva à operação.</summary>
-    private void StockProps()
-    {
-        PropsPanel.Children.Add(new TextBlock { Text = "Bruto (barra)", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
-        PropsPanel.Children.Add(new TextBlock
-        {
-            Text = "O torno não tem bruto próprio: o Ø do bruto é o de cada operação de torneamento externo e faceamento. Para mudar, edite a operação.",
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"),
-        });
-        var groups = LatheJobInfo.StockDiameters(_job);
-        if (groups.Count == 0)
-        {
-            PropsPanel.Children.Add(new TextBlock { Text = "Nenhuma operação com Ø do bruto ainda.", FontSize = 12 });
-            return;
-        }
-
-        foreach ((string text, IReadOnlyList<int> ops) in groups)
-        {
-            foreach (int op in ops)
-            {
-                int index = op;
-                var go = new Button
-                {
-                    Content = $"Ø {text} mm · {LatheJobInfo.OpTitle(op, _job.Operations[op])}", FontSize = 12, Padding = new Avalonia.Thickness(8, 3),
-                    HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left,
-                };
-                ToolTip.SetTip(go, "Abrir a operação na aba Operações");
-                go.Click += (_, _) => GoToOp(index);
-                PropsPanel.Children.Add(go);
-            }
-        }
     }
 
     /// <summary>Zero da fixação 1: só o que o trabalho já tem (G5x, X0 no centro, Z0 do perfil). Sem campo novo.</summary>
@@ -351,7 +321,8 @@ public partial class LatheJobView
                 if (!missing)
                 {
                     missing = true;
-                    Edit(i, x => LatheJobInfo.SetMissing(x, label, true));
+                    // TORNO-T1: o número antigo é zerado (o arquivo pode ser salvo com o campo vazio e não guarda valor que não aparece)
+                    Edit(i, x => LatheJobInfo.SetMissing(apply(x, 0), label, true));
                 }
 
                 return;

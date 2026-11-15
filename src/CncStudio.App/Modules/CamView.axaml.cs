@@ -177,6 +177,12 @@ public partial class CamView : UserControl
         JobPanel.SetActiveMachine = name => MachinePanel.SetActive?.Invoke(name);
         JobPanel.SaveMachines = () => MachinePanel.Save?.Invoke();
         JobPanel.OpenMachineProfiles = () => ShowMachine(profile: true);
+        // TORNO-T1: o cartão Máquina do Trabalho torno usa os mesmos perfis e o mesmo perfil ativo
+        LatheJobPanel.ProfilesSource = JobPanel.ProfilesSource;
+        LatheJobPanel.ActiveMachineName = JobPanel.ActiveMachineName;
+        LatheJobPanel.SetActiveMachine = JobPanel.SetActiveMachine;
+        LatheJobPanel.SaveMachines = JobPanel.SaveMachines;
+        LatheJobPanel.OpenMachineProfiles = JobPanel.OpenMachineProfiles;
     }
 
     /// <summary>Ao abrir o módulo: marca o programa do Trabalho fresa como desatualizado se o perfil da máquina mudou.</summary>

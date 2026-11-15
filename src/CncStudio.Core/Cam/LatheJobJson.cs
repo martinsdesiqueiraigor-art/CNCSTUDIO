@@ -17,7 +17,11 @@ public static class LatheJobJson
 {
     internal const string Format = "casillas-job-torno";
 
-    public static string ToJson(LatheJob job)
+    /// <summary>
+    /// Texto do arquivo. <paramref name="keepEmptyFields"/> (TORNO-T1, o Salvar da tela): grava em cada operação a lista dos campos
+    /// que o usuário deixou vazios, para o trabalho abrir Incompleto como estava. Sem ele, a lista não é gravada (como antes).
+    /// </summary>
+    public static string ToJson(LatheJob job, bool keepEmptyFields = false)
     {
         var root = new JsonObject
         {
@@ -25,10 +29,44 @@ public static class LatheJobJson
             ["version"] = LatheJob.CurrentVersion,
             ["name"] = job.Name,
             ["dialect"] = job.Dialect.ToString(),
-            ["programNumber"] = job.ProgramNumber,
-            ["workOffset"] = job.WorkOffset,
-            ["coolant"] = job.Coolant,
         };
+        // TORNO-T1: Programa nº, G5x e refrigeração vazios não vão para o arquivo (nada suposto); com valor, na ordem de sempre
+        if (job.ProgramNumber is { } number)
+        {
+            root["programNumber"] = number;
+        }
+
+        if (job.WorkOffset is { } offset)
+        {
+            root["workOffset"] = offset;
+        }
+
+        if (job.Coolant is { } coolant)
+        {
+            root["coolant"] = coolant;
+        }
+
+        if (job.Stock is { IsEmpty: false } stock)
+        {
+            var so = new JsonObject();
+            if (stock.Diameter is { } sd)
+            {
+                so["diameter"] = sd;
+            }
+
+            if (stock.Length is { } sl)
+            {
+                so["length"] = sl;
+            }
+
+            if (stock.FaceZ is { } sz)
+            {
+                so["faceZ"] = sz;
+            }
+
+            root["stock"] = so;
+        }
+
         if (job.Profile is { } p)
         {
             root["profile"] = CamJobJson.SegmentsToJson(p.Segments);
@@ -59,14 +97,14 @@ public static class LatheJobJson
         var ops = new JsonArray();
         foreach (LatheOperationSpec s in job.Operations)
         {
-            ops.Add(OpToJson(s));
+            ops.Add(OpToJson(s, keepEmptyFields));
         }
 
         root["operations"] = ops;
         return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 
-    private static JsonObject OpToJson(LatheOperationSpec s)
+    private static JsonObject OpToJson(LatheOperationSpec s, bool keepEmptyFields)
     {
         var o = new JsonObject
         {
@@ -85,6 +123,12 @@ public static class LatheJobJson
                 ["rpm"] = s.Tool.Rpm,
             },
         };
+        // TORNO-T1: campos que o usuário deixou vazios (nome da tela); o número guardado deles é 0 e nunca é usado
+        if (keepEmptyFields && s.MissingFields.Count > 0)
+        {
+            o["missing"] = new JsonArray([.. s.MissingFields.Select(f => (JsonNode)f)]);
+        }
+
         if (s.Turning is { } t)
         {
             o["turning"] = new JsonObject
@@ -196,10 +240,23 @@ public static class LatheJobJson
             {
                 Name = CamJobJson.Str(root, "name"),
                 Dialect = CamJobJson.Enum<CamDialect>(CamJobJson.Str(root, "dialect"), "comando"),
-                ProgramNumber = (int)CamJobJson.Num(root, "programNumber"),
-                WorkOffset = (int)CamJobJson.Num(root, "workOffset"),
-                Coolant = CamJobJson.Bool(root, "coolant"),
+                // chave ausente = vazio (TORNO-T1); arquivo antigo sempre traz as três
+                ProgramNumber = root["programNumber"] is null ? null : (int)CamJobJson.Num(root, "programNumber"),
+                WorkOffset = root["workOffset"] is null ? null : (int)CamJobJson.Num(root, "workOffset"),
+                Coolant = root["coolant"] is null ? null : CamJobJson.Bool(root, "coolant"),
             };
+            if (root["stock"] is JsonObject so)
+            {
+                double? Opt(string key) => so[key] is null ? null : CamJobJson.Num(so, key);
+                var stock = new LatheJobStock(Opt("diameter"), Opt("length"), Opt("faceZ"));
+                if (stock.Validate() is { } stockError)
+                {
+                    throw new CamJobJson.FormatException(stockError);
+                }
+
+                job.Stock = stock.IsEmpty ? null : stock;
+            }
+
             if (root["profile"] is not null)
             {
                 job.Profile = LatheProfile.From(CamJobJson.SegmentsFrom(root["profile"], "Perfil inválido no arquivo."), out string? error)
@@ -260,6 +317,11 @@ public static class LatheJobJson
             SafeDiameter = CamJobJson.Num(o, "safeDiameter"),
             Clearance = CamJobJson.Num(o, "clearance"),
         };
+        if (o["missing"] is JsonArray missing)
+        {
+            spec = spec with { MissingFields = [.. missing.Select(m => m is JsonValue v && v.TryGetValue(out string? name) ? name : throw new CamJobJson.FormatException("Campo vazio inválido na operação."))] };
+        }
+
         if (o["turning"] is JsonObject tu)
         {
             spec = spec with

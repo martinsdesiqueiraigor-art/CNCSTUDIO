@@ -71,11 +71,13 @@ public class LathePaletteMissingTests
     [Fact]
     public void Botao_cria_a_mesma_operacao_da_lista_antiga_e_o_icone_volta()
     {
+        // TORNO-T1 (autorizado pelo Igor em 15/11): o botão passa a criar a operação vazia (NewBlank), não a de valores padrão
         foreach (CamPaletteItem item in CamPalette.LatheGroups.SelectMany(g => g.Items).Where(i => i.LatheKind is not null))
         {
             LatheOperationSpec made = CamPalette.NewLatheOperation(item)!;
-            LatheOperationSpec old = LatheJobInfo.NewOperation(item.LatheKind!.Value, item.Internal);
-            Assert.Equal(LatheJobJson.ToJson(Wrap(old)), LatheJobJson.ToJson(Wrap(made)));
+            LatheOperationSpec blank = LatheJobInfo.NewBlank(item.LatheKind!.Value, item.Internal);
+            Assert.Equal(LatheJobJson.ToJson(Wrap(blank), keepEmptyFields: true), LatheJobJson.ToJson(Wrap(made), keepEmptyFields: true));
+            Assert.NotEmpty(made.MissingFields);
             Assert.Same(item, CamPalette.LatheItemFor(made));
         }
 
