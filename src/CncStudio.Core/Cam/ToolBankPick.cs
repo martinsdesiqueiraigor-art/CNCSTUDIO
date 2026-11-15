@@ -216,7 +216,23 @@ public static class ToolBankPick
             : $"T{job.Number} no banco \"{bank.Name}\"{inactive} é diferente do trabalho: {string.Join("; ", diffs)}. O trabalho usa a cópia dele.";
     }
 
-    /// <summary>Ø do trabalho igual ao do banco (banco sem Ø conta como diferente).</summary>
+    /// <summary>
+    /// Aviso de T fora do banco ativo do torno (TORNO-T0): o mesmo texto do aviso da fresa para T que não está no banco. Só avisa; o
+    /// trabalho usa a cópia dele. O torno não compara Ø nem nome (a operação não usa o Ø). Null = T no banco, sem banco ou T vazio.
+    /// </summary>
+    public static string? LatheConflict(LatheOperationSpec s, ToolBank? bank)
+    {
+        if (bank is null || s.MissingFields.Contains(LatheJobInfo.ToolNumberField))
+        {
+            return null;
+        }
+
+        return bank.Tools.Any(t => t.Number == s.Tool.Number)
+            ? null
+            : $"T{s.Tool.Number} não está no banco \"{bank.Name}\". O trabalho usa a cópia dele.";
+    }
+
+    /// <summary>Ø do trabalho igual ao do banco (banco sem Ø conta como diferente).
     private static bool SameDiameter(CamTool job, BankTool b) => b.Diameter is { } d && Math.Abs(d - job.Diameter) <= 1e-6;
 
     /// <summary>Nome igual (só conta quando o banco tem o nome; espaços nas pontas não contam).</summary>

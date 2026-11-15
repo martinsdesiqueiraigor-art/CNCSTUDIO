@@ -49,7 +49,7 @@ public static class CamShell
     /// Monta a faixa grande a partir dos grupos do Core: ícone de 2 cores, nome e, nos botões que ainda não existem, o selo
     /// "em breve" (apagados). Devolve cada botão com o seu item, para a tela apagar o que não serve à seleção.
     /// </summary>
-    public static List<(CamPaletteItem Item, Button Button)> BuildPalette(Panel palette, IEnumerable<CamPaletteGroup> groups, Func<CamPaletteItem, Task> click)
+    public static List<(CamPaletteItem Item, Button Button)> BuildPalette(Panel palette, IEnumerable<CamPaletteGroup> groups, Func<CamPaletteItem, Task> click, double minButtonWidth = 66)
     {
         palette.Children.Clear();
         var list = new List<(CamPaletteItem, Button)>();
@@ -77,7 +77,7 @@ public static class CamShell
                     content.Children.Add(new TextBlock { Text = "em breve", FontSize = 10, Foreground = Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
                 }
 
-                // 66 px, ou mais se a palavra mais longa do nome não couber (nunca quebrar no meio da palavra: "Torneamento")
+                // 66 px (o torno passa menos: a faixa dele tem 15 botões), ou mais se a palavra mais longa do nome não couber (nunca quebrar no meio da palavra: "Torneamento")
                 double word = item.Name.Split(' ').Max(w =>
                 {
                     var probe = new TextBlock { Text = w, FontSize = 11 };
@@ -86,7 +86,7 @@ public static class CamShell
                 });
                 var button = new Button
                 {
-                    Content = content, Width = Math.Max(66, Math.Ceiling(word) + 10), Height = 76, Padding = new Thickness(2, 4), MinHeight = 0,
+                    Content = content, Width = Math.Max(minButtonWidth, Math.Ceiling(word) + 10), Height = 76, Padding = new Thickness(2, 4), MinHeight = 0,
                     VerticalContentAlignment = VerticalAlignment.Center, HorizontalContentAlignment = HorizontalAlignment.Center,
                     Background = Brush.Parse("#18202b"), BorderBrush = Brush.Parse("#243040"),
                     BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
