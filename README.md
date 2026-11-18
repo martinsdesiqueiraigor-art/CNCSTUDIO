@@ -65,6 +65,8 @@ dotnet workload install wasm-tools
 dotnet publish src/CncStudio.Web -c Release -o publish/web   # site estático em publish/web/wwwroot
 ```
 
+Os `.wasm` publicados já saem comprimidos em brotli: o servidor precisa mandar `Content-Encoding: br` para eles (o Cloudflare Pages faz isso pelo `wwwroot/_headers`).
+
 O CI publica o resultado no ramo `ci-web` e, só a partir da `main`, no Cloudflare Pages (segredos `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`).
 
 ## Compilar e rodar a partir do código (Windows 11)

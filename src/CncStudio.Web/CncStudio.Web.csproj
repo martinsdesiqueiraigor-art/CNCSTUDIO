@@ -17,10 +17,15 @@
     <TrimMode>partial</TrimMode>
   </PropertyGroup>
 
+  <!-- WEB-03: o que só serve ao editor visual do Avalonia (pré-visualização) e a diálogos que a web não usa pode ser cortado -->
+  <ItemGroup>
+    <TrimmableAssembly Include="Avalonia.DesignerSupport" />
+    <TrimmableAssembly Include="Avalonia.Dialogs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Browser" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.22" />
     <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
   </ItemGroup>
 
@@ -36,7 +41,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="Assets\**" Exclude="Assets\Fonts\*.txt" />
+    <!-- WEB-03: Inter (Regular, SemiBold, Bold) e DejaVu Sans Mono só com latim, grego, pontuação e símbolos (pyftsubset):
+         a primeira visita baixa ~290 kB a menos. Licenças (OFL e DejaVu) ao lado das fontes. -->
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\Fonts\**\*.txt" />
     <!-- Programas de exemplo embutidos (no navegador não há pasta samples ao lado) -->
     <EmbeddedResource Include="..\..\samples\EXEMPLO.nc" LogicalName="samples/EXEMPLO.nc" />
     <EmbeddedResource Include="..\..\samples\EXEMPLO.mpf" LogicalName="samples/EXEMPLO.mpf" />
@@ -48,5 +55,20 @@
     <EmbeddedResource Include="..\..\samples\exemplos\**\*.nc;..\..\samples\exemplos\**\*.mpf"
                       LogicalName="samples/exemplos/$([System.String]::Copy('%(RecursiveDir)').Replace('\','/'))%(Filename)%(Extension)" />
   </ItemGroup>
+
+  <!--
+    WEB-03: o Cloudflare comprime os .wasm na hora com brotli leve (~25% maior que o .wasm.br que a publicação já gera).
+    Depois de publicar, cada .wasm vira o próprio .wasm.br e o _headers manda "Content-Encoding: br": a primeira visita baixa menos.
+    Um .wasm sem .br para a publicação (o cabeçalho vale para todos).
+  -->
+  <Target Name="CasillasWasmBrotli" AfterTargets="Publish">
+    <ItemGroup>
+      <_CasillasWasm Include="$(PublishDir)wwwroot/_framework/*.wasm" />
+      <_CasillasWasmSemBr Include="@(_CasillasWasm)" Condition="!Exists('%(FullPath).br')" />
+    </ItemGroup>
+    <Error Condition="'@(_CasillasWasm)' == ''" Text="WEB-03: nenhum .wasm em $(PublishDir)wwwroot/_framework." />
+    <Error Condition="'@(_CasillasWasmSemBr)' != ''" Text="WEB-03: .wasm sem a cópia .br: @(_CasillasWasmSemBr)" />
+    <Copy SourceFiles="@(_CasillasWasm->'%(FullPath).br')" DestinationFiles="@(_CasillasWasm)" />
+  </Target>
 
 </Project>

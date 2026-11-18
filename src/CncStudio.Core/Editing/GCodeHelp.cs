@@ -113,6 +113,8 @@ public static partial class GCodeHelp
         [91] = "G91 — Coordenadas incrementais (por eixo: IC(...)).",
         [94] = "G94 — Avanço em mm/min.",
         [95] = "G95 — Avanço em mm por rotação.",
+        [58] = "G58 — Deslocamento programável por eixo, absoluto: G58 X10 troca só o X do deslocamento (como TRANS, sem mover).",
+        [59] = "G59 — Deslocamento programável por eixo, somado: G59 X5 soma ao X do deslocamento (como ATRANS, sem mover).",
         [500] = "G500 — Desliga o zero de peça ajustável.",
         [505] = "G505 — Zero de peça ajustável 5." + NotSupported,
         [110] = "G110 — Polo em relação à última posição." + NotSupported,
