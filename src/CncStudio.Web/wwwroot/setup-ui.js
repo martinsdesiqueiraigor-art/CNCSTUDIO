@@ -1,9 +1,13 @@
 import { mountToolEditor } from './tools-ui.js';
 // Casillas Code: configurador de setup no celular. O SVG é uma projeção ilustrativa, não geometria de colisão.
-export function openSetup(json, hasMyTools) {
+export function openSetup(json, hasMyTools, contextJson) {
   return new Promise(resolve => {
     let data;
     try { data = JSON.parse(json); } catch { resolve(null); return; }
+    // WEB-01: máquina do programa e o bruto do comentário BRUTO (para sugerir e comparar)
+    let ctx = {};
+    try { ctx = contextJson ? JSON.parse(contextJson) : {}; } catch { ctx = {}; }
+    const lathe = ctx.machine === 'torno';
     // Formato 2 do setup: o bruto vem sempre preenchido (sugestão quando não informado).
     // Prisma: (X, Y) é o canto; redondo e tubo: (X, Y) é o centro; Z é o fundo.
     const stock = data.Stock;
@@ -11,10 +15,13 @@ export function openSetup(json, hasMyTools) {
     const round0 = Number(stock.Kind) !== 0;
     // Posição do conjunto no programa: centro do bruto em XY e topo em Z
     // Cilindro deitado (Axis 1 = X, 2 = Y): o campo do eixo é o começo e os outros dois são o centro; aqui a origem é o centro da barra
-    let axis = round0 ? Number(stock.Axis ?? 0) : 0;
+    // Torno: barra redonda (ou tubo) no eixo Z, centro no eixo; prisma não serve
+    if (lathe && !round0) { stock.Kind = 1; stock.X = 0; stock.Y = 0; }
+    let axis = lathe ? 0 : round0 ? Number(stock.Axis ?? 0) : 0;
+    if (lathe) stock.Axis = 0;
     const origin = {
-      X: round0 ? +stock.X + (axis === 1 || axis === 3 ? (+stock.Height) / 2 : 0) : +stock.X + (+stock.Width) / 2,
-      Y: round0 ? +stock.Y + (axis === 2 ? (+stock.Height) / 2 : 0) : +stock.Y + (+stock.Depth) / 2,
+      X: lathe ? 0 : round0 ? +stock.X + (axis === 1 || axis === 3 ? (+stock.Height) / 2 : 0) : +stock.X + (+stock.Width) / 2,
+      Y: lathe ? 0 : round0 ? +stock.Y + (axis === 2 ? (+stock.Height) / 2 : 0) : +stock.Y + (+stock.Depth) / 2,
       Z: axis === 0 ? +stock.Z + (+stock.Height) : +stock.Z
     };
     const old = data.Fixtures?.[0];
@@ -22,7 +29,7 @@ export function openSetup(json, hasMyTools) {
     const root = document.createElement('div');
     root.style.cssText = 'position:fixed;inset:0;z-index:10030;background:#0d1117;color:#e6edf3;overflow-y:auto;overscroll-behavior:contain;font:15px system-ui,sans-serif;padding:14px 14px 50px;box-sizing:border-box';
     const heading = document.createElement('h2'); heading.textContent='Setup de Usinagem'; heading.style.margin='0 0 10px';
-    const subtitle = document.createElement('p'); subtitle.textContent='Configure o bruto e a fixação. A imagem muda antes de salvar.';subtitle.style.cssText='color:#9baab9;font-size:13px;margin:0 0 14px';
+    const subtitle = document.createElement('p'); subtitle.textContent=lathe?'Torno: barra (ou tubo) no eixo Z, presa na placa. A imagem muda antes de salvar.':'Configure o bruto e a fixação. A imagem muda antes de salvar.';subtitle.style.cssText='color:#9baab9;font-size:13px;margin:0 0 14px';
     const preview = document.createElement('section');
     preview.style.cssText='position:relative;background:#121d29;border:1px solid #30445a;border-radius:10px;padding:8px;margin-bottom:12px';
     const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -42,23 +49,40 @@ export function openSetup(json, hasMyTools) {
     const field=(parent,label,obj,key,positive=false)=>{const row=document.createElement('label');row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(115px,1fr);align-items:center;gap:12px;min-height:46px';const text=document.createElement('span');text.textContent=label;const input=document.createElement('input');input.type='number';input.dataset.setupKey=key;input.inputMode='decimal';input.step='any';input.required=true;input.value=String(obj[key]??0);input.style.cssText='min-width:0;width:100%;box-sizing:border-box;background:#161b22;color:white;border:1px solid #4a5665;border-radius:7px;min-height:44px;padding:8px;font-size:17px';input.addEventListener('input',()=>{obj[key]=input.value===''?NaN:Number(input.value);draw()});if(positive)input.min='0.001';row.append(text,input);parent.append(row);return input;};
     const stockBox=section('01 · Bruto');
     let stockKind=Number(stock.Kind??0);
-    select(stockBox,'Tipo de bruto',['Prisma retangular','Redondo maciço','Tubo'],stockKind,v=>{stockKind=v;stock.Kind=v});
+    if(lathe)select(stockBox,'Tipo de bruto',['Barra redonda','Tubo'],Math.max(0,stockKind-1),v=>{stockKind=v+1;stock.Kind=v+1});
+    else select(stockBox,'Tipo de bruto',['Prisma retangular','Redondo maciço','Tubo'],stockKind,v=>{stockKind=v;stock.Kind=v});
+    // WEB-01 S1: o bruto do comentário BRUTO do programa (sugestão ou comparação com o setup salvo)
+    const programBox=document.createElement('div');programBox.style.cssText='display:flex;flex-direction:column;gap:6px';stockBox.insertBefore(programBox,stockBox.children[1]);
+    function sameAsProgram(){const p=ctx.programStock;if(!p)return true;const near=(a,b)=>Math.abs((+a)-(+b))<=0.01;if(Number(p.Kind)!==stockKind&&!(lathe&&stockKind!==0))return false;
+      if(lathe)return near(p.Diameter,stock.Diameter)&&near(p.Height,stock.Height)&&near(+p.Z+(+p.Height),origin.Z);
+      return near(p.Width,stock.Width)&&near(p.Depth,stock.Depth)&&near(p.Height,stock.Height)&&near(+p.X+(+p.Width)/2,origin.X)&&near(+p.Y+(+p.Depth)/2,origin.Y)&&near(+p.Z+(+p.Height),origin.Z);}
+    function renderProgram(){programBox.replaceChildren();if(!ctx.programStock)return;
+      const same=sameAsProgram();const p=document.createElement('p');p.style.cssText='margin:0;font-size:13px;line-height:1.4;color:'+(same?'#7ee2a8':'#ffb86b');
+      p.textContent=same?(ctx.fromProgram?'Bruto sugerido pelo comentário do programa (BRUTO '+ctx.programStockText+'). Confira e salve.':'Igual ao comentário do programa (BRUTO '+ctx.programStockText+').')
+        :'O programa diz BRUTO '+ctx.programStockText+', e este setup tem outro bruto. A simulação usa o do setup: rápidos (G00) podem aparecer "no material" sem erro no programa.';
+      programBox.append(p);
+      if(!same){const b=document.createElement('button');b.type='button';b.textContent='Usar o bruto do programa';b.style.cssText='align-self:flex-start;min-height:44px;padding:8px 14px;background:#27394a;color:white;border:1px solid #526579;border-radius:7px;font-size:15px';
+        b.onclick=()=>{const q=ctx.programStock;Object.assign(stock,{Kind:q.Kind,Diameter:q.Diameter,InnerDiameter:q.InnerDiameter??stock.InnerDiameter,Height:q.Height,Width:q.Width,Depth:q.Depth,Axis:0});stockKind=Number(q.Kind);axis=0;
+          origin.X=lathe||stockKind!==0?(lathe?0:+q.X):+q.X+(+q.Width)/2;origin.Y=lathe||stockKind!==0?(lathe?0:+q.Y):+q.Y+(+q.Depth)/2;origin.Z=+q.Z+(+q.Height);
+          const sel=stockBox.querySelector('select');if(sel)sel.value=String(lathe?Math.max(0,stockKind-1):stockKind);renderFields();};
+        programBox.append(b);}}
     const stockFields=document.createElement('div');stockFields.style.cssText='display:flex;flex-direction:column;gap:8px';stockBox.append(stockFields);
     const fixtureBox=section('02 · Fixação');
     let fixKind=old ? Number(old.Kind)+1 : 0;
-    select(fixtureBox,'Dispositivo',['Sem fixação','Morsa','Grampo','Placa de três castanhas'],fixKind,v=>{fixKind=v});
+    if(lathe){if(fixKind!==0&&fixKind!==3)fixKind=3;select(fixtureBox,'Dispositivo',['Sem fixação','Placa de três castanhas'],fixKind===3?1:0,v=>{fixKind=v?3:0});}
+    else select(fixtureBox,'Dispositivo',['Sem fixação','Morsa','Grampo','Placa de três castanhas'],fixKind,v=>{fixKind=v});
     const fixFields=document.createElement('div');fixFields.style.cssText='display:flex;flex-direction:column;gap:8px';fixtureBox.append(fixFields);
     const originBox=section('03 · Posição no programa');
-    const info=document.createElement('p');info.textContent='Coordenadas do programa (zero de peça = 0). O bruto e a fixação compartilham o mesmo centro XY.';info.style.cssText='color:#9baab9;font-size:12px;margin:0';originBox.append(info);
+    const info=document.createElement('p');info.textContent=lathe?'X0 é o centro da barra. Informe onde fica a face do bruto em Z (zero na face = 0; com sobra para facear, por exemplo 1).':'Coordenadas do programa (zero de peça = 0). O bruto e a fixação compartilham o mesmo centro XY.';info.style.cssText='color:#9baab9;font-size:12px;margin:0';originBox.append(info);
     const originFields=document.createElement('div');originFields.style.cssText='display:flex;flex-direction:column;gap:8px';originBox.append(originFields);
     const toolBox=section('04 · Ferramenta');
     const toolEditor = mountToolEditor(toolBox, data);
     // Minhas ferramentas: guardadas neste aparelho; todo programa sem setup salvo começa com elas.
     const mineRow=document.createElement('label');mineRow.style.cssText='display:flex;gap:10px;align-items:center;min-height:44px;color:#e6edf3;font-size:14px';
     const mineBox=document.createElement('input');mineBox.type='checkbox';mineBox.style.cssText='width:22px;height:22px;flex:none';
-    mineRow.append(mineBox,document.createTextNode(hasMyTools?'Substituir minhas ferramentas por esta lista':'Guardar esta lista como minhas ferramentas'));
+    mineRow.append(mineBox,document.createTextNode(hasMyTools?'Trocar minhas ferramentas por esta lista ao salvar':'Guardar esta lista como minhas ferramentas ao salvar'));
     const mineHint=document.createElement('p');mineHint.style.cssText='color:#9baab9;font-size:12px;margin:0';
-    mineHint.textContent='Programa novo (sem setup salvo) já abre com minhas ferramentas. Só vale neste navegador.';
+    mineHint.textContent='Minhas ferramentas: todo programa novo (sem setup salvo) começa com essa lista. Fica só neste navegador.';
     toolBox.append(mineRow,mineHint);
     fixtureBox.after(dimensionCard);
     const error=document.createElement('div');error.style.cssText='color:#ff9a83;font-size:13px';
@@ -71,6 +95,12 @@ export function openSetup(json, hasMyTools) {
     function renderFields(){
       stockFields.replaceChildren();fixFields.replaceChildren();originFields.replaceChildren();
       if(stockKind!==0&&axis===3){const hint=document.createElement('p');hint.textContent='Automático: o cilindro segue o eixo rotativo da mesa do perfil de máquina (A → ao longo de X, B → ao longo de Y), com o centro no pivô do perfil. Y e Z abaixo só valem se não houver perfil.';hint.style.cssText='color:#9baab9;font-size:12px;margin:0';originFields.append(hint);}
+      if(lathe){
+        field(originFields,'Z da face do bruto (mm)',origin,'Z');
+        field(stockFields,'Diâmetro (mm)',stock,'Diameter',true);if(stockKind===2)field(stockFields,'Diâmetro interno (mm)',stock,'InnerDiameter',true);field(stockFields,'Comprimento (mm)',stock,'Height',true);
+        if(fixKind===3){for(const [l,k] of [['Diâmetro da placa (mm)','Width'],['Espessura da placa (mm)','Height'],['Abertura das castanhas (mm)','JawOpening'],['Largura da castanha (mm)','JawThickness']])field(fixFields,l,fixture,k,true);}
+        renderProgram();draw();return;
+      }
       const lying=stockKind!==0&&axis!==0;
       if(lying){field(originFields,'Centro do bruto X (mm)',origin,'X');field(originFields,'Centro do bruto Y (mm)',origin,'Y');field(originFields,'Centro do bruto Z (mm)',origin,'Z');}
       else{field(originFields,'Centro do bruto X (mm)',origin,'X');field(originFields,'Centro do bruto Y (mm)',origin,'Y');field(originFields,'Topo do bruto Z (mm)',origin,'Z');}
@@ -92,7 +122,7 @@ export function openSetup(json, hasMyTools) {
       const fww=Math.max(4,fw*scale),fdd=Math.max(4,fd*scale);
       const rect=(a,b,c,e,fill,stroke)=>'<rect x="'+a+'" y="'+b+'" width="'+c+'" height="'+e+'" fill="'+fill+'" stroke="'+stroke+'"/>';
       const circle=(a,b,r,fill,stroke)=>'<circle cx="'+a+'" cy="'+b+'" r="'+r+'" fill="'+fill+'" stroke="'+stroke+'"/>';
-      let s='<rect width="360" height="320" fill="#101b26"/><text x="12" y="18" fill="#9baab9" font-size="11">PLANTA · X / Y</text>';
+      let s='<rect width="360" height="320" fill="#101b26"/><text x="12" y="18" fill="#9baab9" font-size="11">'+(lathe?'FACE DA BARRA · Ø':'PLANTA · X / Y')+'</text>';
       if(fixKind){
         if(isChuck)s+=circle(x,y,fww/2,'#526879','#b3c2cf');
         else s+=rect(x-fww/2,y-fdd/2,fww,fdd,'#526879','#b3c2cf');
@@ -116,7 +146,7 @@ export function openSetup(json, hasMyTools) {
       dim('A',isPrism?'Width':'Diameter',w,x-ww/2,184,x+ww/2,184,142,201);
       if(isPrism)dim('B','Depth',depth,42,y-dd/2,42,y+dd/2,10,107);
       if(stockKind===2)dim('C','InnerDiameter',stock.InnerDiameter,x-+stock.InnerDiameter*scale/2,y,x+stock.InnerDiameter*scale/2,y,142,116);
-      s+='<path d="M12 218H348" stroke="#30445a"/><text x="12" y="237" fill="#9baab9" font-size="11">ELEVAÇÃO · X / Z</text>';
+      s+='<path d="M12 218H348" stroke="#30445a"/><text x="12" y="237" fill="#9baab9" font-size="11">'+(lathe?'LATERAL · COMPRIMENTO EM Z':'ELEVAÇÃO · X / Z')+'</text>';
       const frontW=Math.min(240,ww),frontH=Math.min(55,Math.max(5,h*scale*.55));
       const z=295;
       if(fixKind)s+=rect(x-fww/2,z, fww,Math.min(18,Math.max(5,+fixture.Height*scale*.3)),'#526879','#b3c2cf');
@@ -159,7 +189,8 @@ export function openSetup(json, hasMyTools) {
       svg.innerHTML=parts;
       const stockText=kind===0?fmt(stock.Width)+' × '+fmt(stock.Depth)+' × '+fmt(stock.Height):'Ø'+fmt(stock.Diameter)+(kind===2?' / Ø'+fmt(stock.InnerDiameter):'')+' × '+fmt(stock.Height);
       drawDimensions();
-      note.textContent=(['Prisma','Redondo','Tubo'][kind])+' · '+stockText+' mm · '+(['Sem fixação','Morsa','Grampo','Placa 3 castanhas'][fix])+' · centro XY compartilhado';
+      note.textContent=(['Prisma','Redondo','Tubo'][kind])+' · '+stockText+' mm · '+(['Sem fixação','Morsa','Grampo','Placa 3 castanhas'][fix])+(lathe?' · face em Z '+fmt(origin.Z):' · centro XY compartilhado');
+      if(typeof renderProgram==='function'&&ctx.programStock)renderProgram();
     }
     save.addEventListener('click',()=>{
       error.textContent='';
@@ -171,6 +202,7 @@ export function openSetup(json, hasMyTools) {
       const toolError = toolEditor.validate(); if(toolError){error.textContent=toolError;return;}
       stock.Kind=stockKind;
       stock.Axis=stockKind===0?0:axis;
+      if(lathe){origin.X=0;origin.Y=0;stock.Axis=0;axis=0;fixture.Rotation=0;}
       if(![origin.X,origin.Y,origin.Z].every(Number.isFinite)){error.textContent='Confira a posição do bruto.';return;}
       // Alinha bruto e fixação em XY pelo centro informado; o topo do bruto fica em Z informado.
       const lyingSave=stockKind!==0&&axis!==0;

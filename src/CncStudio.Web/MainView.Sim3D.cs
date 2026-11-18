@@ -256,6 +256,12 @@ public partial class MainView
         RapidsButton.Content = $"⚠ {hits.Count}";
         var list = new StackPanel { Spacing = 2, Margin = new Avalonia.Thickness(4) };
         list.Children.Add(new TextBlock { Text = "G00 que encostaram no material", FontWeight = Avalonia.Media.FontWeight.SemiBold, Margin = new Avalonia.Thickness(4, 2, 4, 6) });
+        // WEB-01 S1: bruto do setup diferente do comentário é a causa mais comum de alarme falso
+        if (StockMismatch() is { } mismatch)
+        {
+            list.Children.Add(new TextBlock { Text = mismatch, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MaxWidth = 320, Foreground = Avalonia.Media.Brushes.Orange, Margin = new Avalonia.Thickness(4, 0, 4, 6) });
+        }
+
         foreach (int move in hits.Take(30))
         {
             int line = analysis.ToolPath.Moves[move].LineNumber;
