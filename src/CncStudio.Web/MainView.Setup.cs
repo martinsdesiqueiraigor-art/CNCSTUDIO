@@ -39,7 +39,7 @@ public partial class MainView
         try
         {
             MachiningSetup draft = _machiningSetup.Clone();
-            draft.Stock ??= SuggestedSetupStock();
+            draft.Stock ??= SuggestedSetupStock(); // com comentário BRUTO, a tela troca pelo do programa ("Do programa")
             string? edited = await WebInterop.EditMachiningSetupAsync(SetupJson.Serialize(draft), Stored(MyToolsKey) is not null, SetupContextJson());
             if (edited is null) return;
             if (SetupJson.Parse(edited).Setup is not { } parsed)
@@ -63,10 +63,10 @@ public partial class MainView
                 SetStatus("Setup salvo neste aparelho para " + parsed.ProjectKey);
             }
 
-            // WEB-01 S1: o aviso de bruto diferente do comentário aparece já ao salvar
-            if (StockMismatch() is { } mismatch)
+            // WEB-02: "Outro bruto" com comentário BRUTO no programa: aviso já ao salvar
+            if (StockOverrideNote() is { } note)
             {
-                SetStatus("⚠ " + mismatch);
+                SetStatus("⚠ " + note);
             }
         }
         finally
@@ -100,10 +100,18 @@ public partial class MainView
         return SetupBinding.FromStock(SetupBinding.SuggestStock(machine, Editor.Text, cutting));
     }
 
-    /// <summary>WEB-01 S1: bruto do setup diferente do comentário BRUTO do programa (null = iguais ou sem um dos dois).</summary>
-    private string? StockMismatch() => _analysis is { } a
-        ? SetupBinding.StockMismatch(_machiningSetup, a.ToolPath.Machine, Editor.Text, a.ToolPath.CuttingBounds)
+    /// <summary>WEB-02: "Outro bruto" escolhido com comentário BRUTO no programa (null = a simulação segue o programa).</summary>
+    private string? StockOverrideNote() => _analysis is { } a
+        ? SetupBinding.OverrideNote(_machiningSetup, a.ToolPath.Machine, Editor.Text, a.ToolPath.CuttingBounds)
         : null;
+
+    /// <summary>
+    /// WEB-02: o setup que a simulação, o desenho e a folha usam: o bruto do comentário BRUTO, na posição do programa, manda
+    /// (a não ser "Outro bruto"). O setup salvo não muda.
+    /// </summary>
+    private MachiningSetup SimSetup => _analysis is { } a
+        ? SetupBinding.ProgramFirst(_machiningSetup, a.ToolPath.Machine, Editor.Text, a.ToolPath.CuttingBounds)
+        : _machiningSetup;
 
     /// <summary>
     /// WEB-01 S1/S2: contexto para a tela do setup: máquina do programa e o bruto do comentário (para sugerir e comparar).
@@ -112,19 +120,36 @@ public partial class MainView
     {
         MachineKind machine = _analysis?.ToolPath.Machine ?? MachineKind.Mill;
         Bounds3 cutting = _analysis?.ToolPath.CuttingBounds ?? Bounds3.Empty;
-        Stock? comment = SetupBinding.FromProgramComments(Editor.Text, machine, cutting);
+        SetupStock? program = ProgramStock.Read(Editor.Text, machine, cutting);
         var o = new System.Text.Json.Nodes.JsonObject
         {
             ["machine"] = machine == MachineKind.Lathe ? "torno" : "fresa",
-            ["fromProgram"] = _machiningSetup.Stock is null,
+            ["fromProgram"] = _machiningSetup.Stock is not { OverridesProgram: true },
         };
-        if (comment is not null)
+        if (program is not null)
         {
-            o["programStock"] = System.Text.Json.Nodes.JsonNode.Parse(SetupJson.Serialize(new MachiningSetup { Stock = SetupBinding.FromStock(comment) }))!["Stock"]!.DeepClone();
-            o["programStockText"] = SetupBinding.Describe(comment);
+            o["programStock"] = System.Text.Json.Nodes.JsonNode.Parse(SetupJson.Serialize(new MachiningSetup { Stock = program }))!["Stock"]!.DeepClone();
+            o["programStockText"] = DescribeProgramStock(program, machine);
         }
 
         return o.ToJsonString();
+    }
+
+    // "100 × 80 × 20", "Ø50 × 30", "Ø50 / Ø30 × 30" (fresa); torno como a simulação descreve
+    private static string DescribeProgramStock(SetupStock s, MachineKind machine)
+    {
+        static string N(double v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
+        if (machine == MachineKind.Lathe && s.ToStock(machine) is { } bar)
+        {
+            return SetupBinding.Describe(bar);
+        }
+
+        return s.Kind switch
+        {
+            SetupStockKind.Round => $"Ø{N(s.Diameter)} × {N(s.Height)}",
+            SetupStockKind.Tube => $"Ø{N(s.Diameter)} / Ø{N(s.InnerDiameter)} × {N(s.Height)}",
+            _ => $"{N(s.Width)} × {N(s.Depth)} × {N(s.Height)}",
+        };
     }
 
     /// <summary>Ferramentas e bruto mudaram: refaz a trajetória (compensação G41/G42) mantendo a vista.</summary>
