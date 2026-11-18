@@ -424,11 +424,15 @@ public sealed class SimulationScene
 
         if (_turning is not null)
         {
-            // Torno: placa de 3 castanhas na ponta da barra (a do setup, se houver)
+            // Torno: placa de 3 castanhas na ponta da barra (a do setup, se houver). WEB-01 S5: setup salvo com "Sem fixação"
+            // (bruto informado e nenhuma placa) não desenha placa; sem setup salvo, a placa padrão continua
             SetupFixture? chuck = _setup?.Fixtures.FirstOrDefault(f => f.Kind == SetupFixtureKind.ThreeJawChuck);
-            (SolidMesh body, SolidMesh jaws) = SceneMeshes.LatheChuck(_turning, chuck, _palette);
-            _objects.Add(new SceneObject("fixacao/placa/base", SceneRole.Fixture, body));
-            _objects.Add(new SceneObject("fixacao/placa/castanhas", SceneRole.FixtureJaw, jaws));
+            if (chuck is not null || _setup?.Stock is null)
+            {
+                (SolidMesh body, SolidMesh jaws) = SceneMeshes.LatheChuck(_turning, chuck, _palette);
+                _objects.Add(new SceneObject("fixacao/placa/base", SceneRole.Fixture, body));
+                _objects.Add(new SceneObject("fixacao/placa/castanhas", SceneRole.FixtureJaw, jaws));
+            }
         }
         else if (_setup is not null)
         {

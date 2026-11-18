@@ -1403,6 +1403,11 @@ public partial class MainView : UserControl
             : $"{a.ErrorCount} erro(s), {a.WarningCount} aviso(s)";
         string note = _statusNote is null ? "" : _statusNote + " · ";
         _statusNote = null;
+        if (StockMismatch() is { } mismatch)
+        {
+            note = "⚠ " + mismatch + " · " + note;
+        }
+
         SetStatus(note + $"{machine} · {a.BlockCount} blocos · {a.ToolPath.Moves.Count} movimentos · " +
                           $"tempo estimado {DurationFormat.Format(a.Statistics.TotalTime)} · {problems}");
     }

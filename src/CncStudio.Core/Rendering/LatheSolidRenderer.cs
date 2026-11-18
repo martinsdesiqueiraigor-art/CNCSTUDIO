@@ -21,7 +21,7 @@ public static class LatheSolidRenderer
     private const uint StockColor = 0xD9BC8C;
     private const uint MachinedColor = 0xB9C6D3;
     private const uint SectionColor = 0xE8A866;
-    private const int Segments = 60;              // divisões da volta completa
+    private const int Segments = 60;              // divisões da volta completa (6°: acerta os cantos do sextavado)
 
     /// <summary>
     /// Renderiza com no máximo "maxPixels" no lado maior. Com "quarterSection", tira o quarto entre
@@ -82,19 +82,20 @@ public static class LatheSolidRenderer
             if (ro > ri)
             {
                 LatheSurface surface = ro < stock.InitialOuter - 1e-4 ? LatheSurface.Machined : LatheSurface.Stock;
-                Cylinder(quad, z0, z1, ro, start, step, segments, surface, outward: true);
+                Cylinder(quad, z0, z1, a => Clip(stock, ro, a), start, step, segments, surface, outward: true);
                 if (ri > 0)
                 {
-                    Cylinder(quad, z0, z1, ri, start, step, segments, LatheSurface.Machined, outward: false);
+                    Cylinder(quad, z0, z1, _ => ri, start, step, segments, LatheSurface.Machined, outward: false);
                 }
 
                 if (quarterSection)
                 {
                     // Faces cortadas: plano θ = 0 (X+, Y = 0) e θ = 90° (Y+, X = 0)
                     // Normais apontam para o quarto removido (+Y na face θ = 0, +X na face θ = 90°)
-                    quad(new Point3(ri, 0, z0), new Point3(ro, 0, z0), new Point3(ro, 0, z1), new Point3(ri, 0, z1),
+                    double ro0 = Clip(stock, ro, 0), ro90 = Clip(stock, ro, Math.PI / 2);
+                    quad(new Point3(ri, 0, z0), new Point3(ro0, 0, z0), new Point3(ro0, 0, z1), new Point3(ri, 0, z1),
                         new Point3(0, 1, 0), LatheSurface.Section);
-                    quad(new Point3(0, ri, z0), new Point3(0, ro, z0), new Point3(0, ro, z1), new Point3(0, ri, z1),
+                    quad(new Point3(0, ri, z0), new Point3(0, ro90, z0), new Point3(0, ro90, z1), new Point3(0, ri, z1),
                         new Point3(1, 0, 0), LatheSurface.Section);
                 }
             }
@@ -117,17 +118,27 @@ public static class LatheSolidRenderer
         }
     }
 
-    private static void Cylinder(Action<Point3, Point3, Point3, Point3, Point3, LatheSurface> quad, double z0, double z1, double radius, double start, double step, int segments, LatheSurface surface, bool outward)
+    /// <summary>Raio desenhado no ângulo: o da fatia, limitado pela borda da barra quadrada, retangular ou sextavada (WEB-01 S6).</summary>
+    private static double Clip(TurningStock stock, double radius, double angle) =>
+        stock.Section is { } section ? Math.Min(radius, section.RadiusAt(angle)) : radius;
+
+    private static void Cylinder(Action<Point3, Point3, Point3, Point3, Point3, LatheSurface> quad, double z0, double z1, Func<double, double> radiusAt, double start, double step, int segments, LatheSurface surface, bool outward)
     {
         for (int k = 0; k < segments; k++)
         {
-            double a0 = start + k * step, a1 = a0 + step, mid = a0 + step / 2;
-            var p0 = new Point3(radius * Math.Cos(a0), radius * Math.Sin(a0), z0);
-            var p1 = new Point3(radius * Math.Cos(a1), radius * Math.Sin(a1), z0);
-            var p2 = new Point3(radius * Math.Cos(a1), radius * Math.Sin(a1), z1);
-            var p3 = new Point3(radius * Math.Cos(a0), radius * Math.Sin(a0), z1);
+            double a0 = start + k * step, a1 = a0 + step;
+            double r0 = radiusAt(a0), r1 = radiusAt(a1);
+            var p0 = new Point3(r0 * Math.Cos(a0), r0 * Math.Sin(a0), z0);
+            var p1 = new Point3(r1 * Math.Cos(a1), r1 * Math.Sin(a1), z0);
+            var p2 = new Point3(r1 * Math.Cos(a1), r1 * Math.Sin(a1), z1);
+            var p3 = new Point3(r0 * Math.Cos(a0), r0 * Math.Sin(a0), z1);
+
+            // Normal da face no plano XY (perpendicular à corda): redonda = radial; face plana do sextavado = a da face
+            double nx = p1.Y - p0.Y, ny = -(p1.X - p0.X);
+            double len = Math.Sqrt((nx * nx) + (ny * ny));
             double sign = outward ? 1 : -1;
-            quad(p0, p1, p2, p3, new Point3(sign * Math.Cos(mid), sign * Math.Sin(mid), 0), surface);
+            Point3 normal = len < 1e-12 ? new Point3(sign * Math.Cos(a0 + step / 2), sign * Math.Sin(a0 + step / 2), 0) : new Point3(sign * nx / len, sign * ny / len, 0);
+            quad(p0, p1, p2, p3, normal, surface);
         }
     }
 
@@ -143,9 +154,15 @@ public static class LatheSolidRenderer
         for (int k = 0; k < segments; k++)
         {
             double a0 = start + k * step, a1 = a0 + step;
+            double r0a = Clip(stock, r0, a0), r0b = Clip(stock, r0, a1), r1a = Clip(stock, r1, a0), r1b = Clip(stock, r1, a1);
+            if (r1a - r0a < 1e-9 && r1b - r0b < 1e-9)
+            {
+                continue; // a borda da barra já cobre este trecho do anel
+            }
+
             quad(
-                new Point3(r0 * Math.Cos(a0), r0 * Math.Sin(a0), z), new Point3(r1 * Math.Cos(a0), r1 * Math.Sin(a0), z),
-                new Point3(r1 * Math.Cos(a1), r1 * Math.Sin(a1), z), new Point3(r0 * Math.Cos(a1), r0 * Math.Sin(a1), z),
+                new Point3(r0a * Math.Cos(a0), r0a * Math.Sin(a0), z), new Point3(r1a * Math.Cos(a0), r1a * Math.Sin(a0), z),
+                new Point3(r1b * Math.Cos(a1), r1b * Math.Sin(a1), z), new Point3(r0b * Math.Cos(a1), r0b * Math.Sin(a1), z),
                 normal, surface);
         }
     }

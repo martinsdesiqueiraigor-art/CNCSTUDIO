@@ -1,6 +1,7 @@
 using CncStudio.Core.Execution;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Setup;
+using CncStudio.Core.Simulation;
 using System.Text.Json;
 
 namespace CncStudio.Web;
@@ -39,7 +40,7 @@ public partial class MainView
         {
             MachiningSetup draft = _machiningSetup.Clone();
             draft.Stock ??= SuggestedSetupStock();
-            string? edited = await WebInterop.EditMachiningSetupAsync(SetupJson.Serialize(draft), Stored(MyToolsKey) is not null);
+            string? edited = await WebInterop.EditMachiningSetupAsync(SetupJson.Serialize(draft), Stored(MyToolsKey) is not null, SetupContextJson());
             if (edited is null) return;
             if (SetupJson.Parse(edited).Setup is not { } parsed)
             {
@@ -60,6 +61,12 @@ public partial class MainView
             else
             {
                 SetStatus("Setup salvo neste aparelho para " + parsed.ProjectKey);
+            }
+
+            // WEB-01 S1: o aviso de bruto diferente do comentário aparece já ao salvar
+            if (StockMismatch() is { } mismatch)
+            {
+                SetStatus("⚠ " + mismatch);
             }
         }
         finally
@@ -91,6 +98,33 @@ public partial class MainView
         MachineKind machine = _analysis?.ToolPath.Machine ?? MachineKind.Mill;
         Bounds3 cutting = _analysis?.ToolPath.CuttingBounds ?? Bounds3.Empty;
         return SetupBinding.FromStock(SetupBinding.SuggestStock(machine, Editor.Text, cutting));
+    }
+
+    /// <summary>WEB-01 S1: bruto do setup diferente do comentário BRUTO do programa (null = iguais ou sem um dos dois).</summary>
+    private string? StockMismatch() => _analysis is { } a
+        ? SetupBinding.StockMismatch(_machiningSetup, a.ToolPath.Machine, Editor.Text, a.ToolPath.CuttingBounds)
+        : null;
+
+    /// <summary>
+    /// WEB-01 S1/S2: contexto para a tela do setup: máquina do programa e o bruto do comentário (para sugerir e comparar).
+    /// </summary>
+    private string SetupContextJson()
+    {
+        MachineKind machine = _analysis?.ToolPath.Machine ?? MachineKind.Mill;
+        Bounds3 cutting = _analysis?.ToolPath.CuttingBounds ?? Bounds3.Empty;
+        Stock? comment = SetupBinding.FromProgramComments(Editor.Text, machine, cutting);
+        var o = new System.Text.Json.Nodes.JsonObject
+        {
+            ["machine"] = machine == MachineKind.Lathe ? "torno" : "fresa",
+            ["fromProgram"] = _machiningSetup.Stock is null,
+        };
+        if (comment is not null)
+        {
+            o["programStock"] = System.Text.Json.Nodes.JsonNode.Parse(SetupJson.Serialize(new MachiningSetup { Stock = SetupBinding.FromStock(comment) }))!["Stock"]!.DeepClone();
+            o["programStockText"] = SetupBinding.Describe(comment);
+        }
+
+        return o.ToJsonString();
     }
 
     /// <summary>Ferramentas e bruto mudaram: refaz a trajetória (compensação G41/G42) mantendo a vista.</summary>

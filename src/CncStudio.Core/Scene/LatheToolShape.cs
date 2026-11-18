@@ -58,7 +58,8 @@ public sealed record LatheToolShape(
     {
         ToolKind.PartExternal or ToolKind.PartInternal => new CutSpec(Math.Max(0.1, tool!.InsertWidth) / 2, -Math.Max(0.1, tool.InsertWidth) / 2),
         ToolKind.ThreadExternal or ToolKind.ThreadInternal => new CutSpec(0.2, 0),
-        _ => new CutSpec(NoseRadius, 0),
+        // WEB-01 S3: raio da ponta digitado no setup (campo "Raio da ponta"); sem ele, o padrão de sempre
+        _ => new CutSpec(tool is { IsLathe: true, CornerRadius: > 0 } t ? t.CornerRadius : NoseRadius, 0),
     };
 
     public static LatheToolShape Of(SetupTool? tool)
