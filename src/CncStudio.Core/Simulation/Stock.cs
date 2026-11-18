@@ -24,6 +24,9 @@ public sealed partial record Stock(MachineKind Machine, double MinX, double MaxX
     /// <summary>Seção da barra do torno que não é redonda (null = redonda). WEB-01 S6.</summary>
     public LatheBarSection? Section { get; init; }
 
+    /// <summary>Furo do tubo no torno, Ø em mm (0 = barra maciça). WEB-04.</summary>
+    public double BoreDiameter { get; init; }
+
     public double Diameter => MaxX * 2;
     public double Length => MaxZ - MinZ;
 

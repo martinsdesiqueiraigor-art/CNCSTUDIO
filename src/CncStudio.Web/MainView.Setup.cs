@@ -135,21 +135,18 @@ public partial class MainView
         return o.ToJsonString();
     }
 
-    // "100 × 80 × 20", "Ø50 × 30", "Ø50 / Ø30 × 30" (fresa); torno como a simulação descreve
+    // "100 × 80 × 20", "Ø50 × 30", "Ø50 / Ø30 × 30", "sextavado 60 × 100"; no torno, com a face em Z
     private static string DescribeProgramStock(SetupStock s, MachineKind machine)
     {
         static string N(double v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
-        if (machine == MachineKind.Lathe && s.ToStock(machine) is { } bar)
-        {
-            return SetupBinding.Describe(bar);
-        }
-
-        return s.Kind switch
+        string shape = s.Kind switch
         {
             SetupStockKind.Round => $"Ø{N(s.Diameter)} × {N(s.Height)}",
             SetupStockKind.Tube => $"Ø{N(s.Diameter)} / Ø{N(s.InnerDiameter)} × {N(s.Height)}",
+            SetupStockKind.Hexagon => $"sextavado {N(s.Width)} × {N(s.Height)}",
             _ => $"{N(s.Width)} × {N(s.Depth)} × {N(s.Height)}",
         };
+        return machine == MachineKind.Lathe ? $"{shape}, face em Z {N(s.Top)}" : shape;
     }
 
     /// <summary>Ferramentas e bruto mudaram: refaz a trajetória (compensação G41/G42) mantendo a vista.</summary>
