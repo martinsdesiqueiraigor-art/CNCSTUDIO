@@ -121,6 +121,9 @@ public sealed class LatheJob
     /// <summary>Perfil da peça (null = ainda não definido).</summary>
     public LatheProfile? Profile { get; set; }
 
+    /// <summary>Z0 do programa (TORNO-T5): face pronta ou face oposta; null = Z0 do perfil (arquivo antigo, programa igual).</summary>
+    public LatheZeroFace? ZeroFace { get; set; }
+
     /// <summary>Fixação da peça (null = não informada). Só informativa: não entra no programa.</summary>
     public LatheFixation? Fixation { get; set; }
 
@@ -259,7 +262,7 @@ public static class LatheJobBuilder
 
         IReadOnlyList<LatheOpResult> items = BuildOperations(job, maxSpindleRpm);
         // Programa nº, G5x e refrigeração vazios travam o programa (TORNO-T1); as operações seguem calculadas para a árvore
-        List<string> errors = [.. LatheJobProgram.Problems(job)];
+        List<string> errors = [.. LatheJobProgram.Problems(job), .. LatheZero.Problems(job)];
         errors.AddRange(items.Where(x => !x.Ok).Select(x => $"Operação {x.Index + 1}: {x.Error}"));
         List<LatheOperation> ops = items.Where(x => !x.Skipped && x.Ok).Select(x => x.Result!.Operation!).ToList();
         if (errors.Count == 0 && ops.Count == 0)
@@ -273,7 +276,10 @@ public static class LatheJobBuilder
         }
 
         List<string> warnings = ops.SelectMany(o => o.Warnings).Distinct().ToList();
-        string program = LathePost.Generate(ops, new LathePostOptions(job.Dialect, job.Name, job.ProgramNumber ?? 0, job.WorkOffset!.Value, job.Coolant!.Value));
+        // TORNO-T5: Z0 na face escolhida desloca só o programa (o que foi digitado fica no desenho do perfil)
+        double dz = LatheZero.Shift(job);
+        ops = ops.Select(o => LatheZero.Apply(o, dz)).ToList();
+        string program = LathePost.Generate(ops, new LathePostOptions(job.Dialect, job.Name, job.ProgramNumber ?? 0, job.WorkOffset!.Value, job.Coolant!.Value) { ZeroNote = LatheZero.ProgramNote(job) });
         return new LatheBuild(program, ops, items, errors, warnings);
     }
 
@@ -348,6 +354,7 @@ public static class LatheJobInfo
         }
 
         list.AddRange(LatheJobProgram.Problems(job));
+        list.AddRange(LatheZero.Problems(job));
         for (int i = 0; i < build.Items.Count; i++)
         {
             LatheOpResult r = build.Items[i];
@@ -366,10 +373,10 @@ public static class LatheJobInfo
     }
 
     /// <summary>
-    /// Linha "Origem" da árvore do torno: o deslocamento de trabalho, X0 no centro da peça e Z0 o do perfil.
+    /// Linha "Origem" da árvore do torno: o deslocamento de trabalho, X0 no centro da peça e o Z0 escolhido (TORNO-T5).
     /// O estado é o mesmo da fresa (<see cref="CamJobInfo.OriginState"/>): nunca conferido pelo app.
     /// </summary>
-    public static string OriginTitle(LatheJob job) => $"Origem {WorkOffsetName(job.WorkOffset)}: X0 no centro da peça, Z0 do perfil";
+    public static string OriginTitle(LatheJob job) => $"Origem {WorkOffsetName(job.WorkOffset)}: X0 no centro da peça, {LatheZero.Title(job)}";
 
     /// <summary>"G54", ou "G5x (falta)" quando vazio (como na fresa).</summary>
     public static string WorkOffsetName(int? workOffset) => workOffset is { } g ? "G" + g.ToString(CultureInfo.InvariantCulture) : "G5x (falta)";

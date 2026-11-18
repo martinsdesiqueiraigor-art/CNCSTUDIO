@@ -61,12 +61,40 @@ public partial class LatheJobView
         Into(PrepOrigin, ZeroProps);
     }
 
-    /// <summary>Zero da fixação 1: só o que o trabalho já tem (G5x, X0 no centro, Z0 do perfil). Sem campo novo.</summary>
+    /// <summary>Zero do trabalho (TORNO-T5): X0 no centro e o Z0 escolhido (desenho do perfil, face pronta ou face oposta).</summary>
     private void ZeroProps()
     {
-        PropsPanel.Children.Add(new TextBlock { Text = "Zero da fixação 1", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
+        PropsPanel.Children.Add(new TextBlock { Text = "Zero do trabalho", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
         PropsPanel.Children.Add(new TextBlock { Text = LatheJobInfo.OriginTitle(_job), TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
-        PropsPanel.Children.Add(UiKit.StatusNote("Origem " + CamJobInfo.OriginState().Text + ": confira na máquina. Escolher o zero pela peça e ter um zero por fixação vêm em breve.", "pending"));
+        var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        foreach (string k in LatheZero.ChoiceNames)
+        {
+            combo.Items.Add(new ComboBoxItem { Content = k });
+        }
+
+        combo.SelectedIndex = _job.ZeroFace is { } zf ? (int)zf + 1 : 0;
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (combo.SelectedIndex < 0)
+            {
+                return;
+            }
+
+            _job.ZeroFace = combo.SelectedIndex == 0 ? null : (LatheZeroFace)(combo.SelectedIndex - 1);
+            Refresh(keep: true, props: true);
+        };
+        PropsPanel.Children.Add(Row("Z0", combo));
+        PropsPanel.Children.Add(new TextBlock
+        {
+            Text = "Os Z digitados nas operações continuam no desenho do perfil; só o programa sai deslocado para o Z0 escolhido.",
+            Opacity = 0.7, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12,
+        });
+        if (LatheZero.Problems(_job).Count > 0)
+        {
+            PropsPanel.Children.Add(UiKit.StatusNote(LatheZero.NeedsProfile + ".", "bad"));
+        }
+
+        PropsPanel.Children.Add(UiKit.StatusNote("Origem " + CamJobInfo.OriginState().Text + ": confira na máquina.", "pending"));
     }
 
     private void BuildProps()

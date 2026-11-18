@@ -67,6 +67,12 @@ public static class LatheJobJson
             root["stock"] = so;
         }
 
+        // TORNO-T5: só quando escolhido (arquivo antigo regrava igual)
+        if (job.ZeroFace is { } zf)
+        {
+            root["zeroFace"] = LatheZero.FileName(zf);
+        }
+
         if (job.Profile is { } p)
         {
             root["profile"] = CamJobJson.SegmentsToJson(p.Segments);
@@ -302,6 +308,12 @@ public static class LatheJobJson
                 }
 
                 job.Stock = stock.IsEmpty ? null : stock;
+            }
+
+            if (root["zeroFace"] is not null)
+            {
+                string zf = CamJobJson.Str(root, "zeroFace");
+                job.ZeroFace = LatheZero.FromFileName(zf) ?? throw new CamJobJson.FormatException($"Valor desconhecido de Z0: \"{zf}\".");
             }
 
             if (root["profile"] is not null)
