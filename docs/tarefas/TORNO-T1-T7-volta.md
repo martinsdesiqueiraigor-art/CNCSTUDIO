@@ -1,48 +1,52 @@
-## TORNO-T1-T7: relatório (parcial: T1, T2 e T3 prontos; T4 a T7 não começados)
+## TORNO-T1-T7: relatório (torno completo para teste: T1 a T5 e T7; T6 fora)
 
-Ramo `ajuste-TORNO-T1-T7`, base `origin/dev` em `f28d593`. Modelo: Fable (ordem do Igor, teste de desempenho).
-**Onde parou e por quê:** depois do T3, em commit limpo. O limite de uso da sessão chegou a 80% (Fable da semana em 86%); pela regra da ficha, parei e abri o PR com o que está pronto. T4, T5, T6 e T7 não têm nenhuma linha de código.
-Conteúdo técnico em rascunho. Canal de face e sangramento são G-code novo, **nunca rodado em máquina**.
+Ramo `ajuste-TORNO-T1-T7`, base `origin/dev` em `f28d593`.
+- T1 a T3: Claude Code (Fable), 15/11.
+- S0, T4, T5 e T7: Claude (chat), 18/11, em **sprint** pedido pelo Igor: fatias seguidas sem teste no .exe entre elas; o Igor testa tudo no fim. **T6 (2ª fixação) saiu por decisão do Igor (18/11).**
+Conteúdo técnico em rascunho. Canal de face, sangramento e o Z deslocado da face oposta são G-code novo, **nunca rodado em máquina**.
 
-**Feito:** T1 Preparação, T2 Canal de face, T3 Sangramento (um commit cada).
-**Arquivos:** Core `Cam/LatheJob.cs`, `LatheJobJson.cs`, `CamPalette.cs` (itens do torno), novos `LatheJobProgram.cs`, `LatheFaceGroove.cs`, `LatheParting.cs`. App `Modules/LatheJobView.axaml`, `.axaml.cs`, `.Props.cs`, novo `LatheJobView.Prep.cs`, `CamView.axaml.cs` (só a ligação do cartão Máquina do torno). Testes novos: `LatheT1PrepTests`, `LatheFaceGrooveTests`, `LathePartingTests`, `LatheExamplesTests`. Exemplos: `exemplos/torno/` (4 trabalhos e os 4 programas).
+**Commits (um por fatia):** T1 Preparação · T2 Canal de face · T3 Sangramento · S0 ajustes do #185 · T4 Fixação · T5 Z0 · T7 Pacote do torno.
 
 **Testes:**
-- Aprovados: `dotnet test tests/CncStudio.Core.Tests` em Release, 1921 (eram 1889 na base). Build Release sem aviso.
-- Reprovados: nenhum.
-- Não executados: `CncStudio.Step.Tests` (nada do STEP foi tocado); nenhuma foto de tela; nada no .exe.
-- Teste mestre (8 G-codes): verde depois de cada fatia.
-- Testes alterados (autorizado pelo Igor na conversa de 15/11, "ajustar só esses"), todos em `LathePaletteMissingTests.cs`:
-  - `Grupos_do_torno_na_ordem_e_em_breve_apagados`: a lista "em breve" ficou `nova-fixacao` e `zero` (saíram `canal-face` e `sangrar`).
-  - `Faixa_do_torno_tem_cada_operacao_do_Core_uma_vez`: conta as 8 antigas mais `LatheJobInfo.AddedKinds` (2 novas).
-  - `Botao_cria_a_mesma_operacao_da_lista_antiga_e_o_icone_volta`: o botão cria a operação vazia (`NewBlank`).
-  - Ainda **não** alterados: `LatheJobTests` e a versão 1 em `LatheFixationTests` (seriam do T6).
+- Aprovados: `dotnet test tests/CncStudio.Core.Tests` em Release, **1941** (eram 1889 no `dev`). Build Release do Core e do App sem aviso (Linux).
+- Teste mestre (8 G-codes): verde depois de cada fatia; nenhum G-code de referência mudou.
+- Não executados: `CncStudio.Step.Tests` (STEP não foi tocado); nada no .exe; nenhuma foto de tela.
+- Testes alterados:
+  - `LathePaletteMissingTests` (3 testes da faixa, T1): autorizados pelo Igor em 15/11.
+  - `LathePaletteMissingTests.Campos_vazios_nao_vao_para_o_arquivo` trocado por `Campos_vazios_vao_para_o_arquivo_e_trabalho_sem_eles_regrava_igual` (S0): autorizado pelo Igor em 18/11.
+- Testes novos: `LatheT1PrepTests`, `LatheFaceGrooveTests`, `LathePartingTests`, `LatheExamplesTests`, `LatheT4FixationTests`, `LatheT5ZeroTests`, `LatheT7HandoffTests`.
 
-### T1 Preparação
-- Feito: cartão Máquina na Preparação (escolher, criar, editar; mesmos perfis da fresa). Programa nº, G5x e Refrigeração no cartão da Fixação, vazios no trabalho novo, com tracejado e motivo; vazio trava Gerar e Enviar. Operação nova nasce vazia. Bruto do trabalho digitado (Ø, comprimento, Z da face). Salvar não trava mais por campo vazio.
-- Arquivo: versão 1. `programNumber`, `workOffset`, `coolant` e `stock` só são gravados quando têm valor; cada operação ganha `"missing": [...]` com os campos vazios. Trabalho antigo abre e regrava idêntico.
-- Decisões que tomei e o Igor pode vetar: (1) terceiro campo no bruto, "Z da face do bruto"; (2) "Rotação fixa (0 = G96)" nasce 0, não vazia; (3) no Core, `new LatheJob()` e `NewOperation` continuam com os valores antigos e a tela usa `LatheJob.Blank()` e `NewBlank` (para não mexer em mais testes).
-- **Pendência para decidir:** o teste antigo `Campos_vazios_nao_vao_para_o_arquivo` contradiz "Salvar com campo vazio" e não estava na lista autorizada. Deixei-o verde com um parâmetro: `LatheJobJson.ToJson(job)` continua sem a lista; a tela chama `ToJson(job, keepEmptyFields: true)`. Sugiro autorizar a troca do teste e tirar o parâmetro.
-- Risco: um app antigo que abrir arquivo novo sem `programNumber` mostra erro de campo ausente (a versão continua 1 até o T6).
-- Corrigi de passagem: os campos do painel gravavam com os valores da hora em que o painel foi montado (digitar um campo podia desfazer o anterior); agora usam o valor atual da operação.
+### T1 Preparação (15/11)
+Cartão Máquina; Programa nº, G5x e Refrigeração vazios no trabalho novo, travam Gerar e Enviar; operação nova nasce vazia; bruto do trabalho (Ø, comprimento, Z da face); Salvar não trava por campo vazio. Arquivo continua versão 1; chaves novas só quando têm valor.
 
-### T2 Canal de face
-- Feito: operação nova, botão ativo, G0/G1 igual nos dois controles: mergulhos em Z com quebra-cavaco do Ø externo para o interno (passo de 80% da largura), acabamento das paredes e do fundo. Campos da ficha, todos digitados; faixa de Ø do bedame obrigatória. A largura vem do inserto do bedame ao escolher a ferramenta no banco (só leitura do banco).
-- Convenções a conferir: X do programa = aresta de **maior Ø** do bedame; a faixa de Ø do bedame é conferida contra o Ø externo do canal; o avanço reduzido vale nos cortes cujo destino tem Ø menor ou igual ao digitado (o arraste final pelo fundo sai todo no reduzido).
-- Não conferido: tela no .exe; o aviso da convenção de X aparece na tela, não como comentário no programa.
+### T2 Canal de face e T3 Sangramento (15/11)
+G0/G1 iguais nos dois controles. Canal de face: X do programa = **aresta de maior Ø** do bedame (conferido no teste; mantido). Sangramento: avanço reduzido no Ø digitado, Ø final 0 com aviso de peça solta, limite de rotação acima do fuso não gera, nada gera depois dele.
 
-### T3 Sangramento
-- Feito: operação nova, G1 radial no Z do corte até o Ø final, troca para o avanço reduzido exatamente no Ø digitado, mergulho e recuo. Ø final 0 mostra o aviso fixo de peça solta (vermelho no painel e na lista de avisos). Avanço reduzido e limite de rotação obrigatórios; com perfil de máquina, limite acima do fuso **não gera** (nas outras operações segue só aviso). Operação ligada depois do sangramento não gera; a faixa não deixa acrescentar, e Subir/Descer/Duplicar não deixam passar dele.
-- Não conferido: tela no .exe; a queda da peça não é simulada.
+### S0 Ajustes do #185 (18/11)
+- "Rotação fixa (0 = G96)" nasce **vazia** na operação nova (antes nascia 0 = G96, um valor suposto). O usuário digita 0 ou a rotação. Com ferramenta copiada da operação anterior, vem dela.
+- Tirado o parâmetro `keepEmptyFields`: o arquivo sempre guarda a lista de campos vazios; operação sem campo vazio não ganha a chave (arquivo antigo regrava igual).
 
-### T4 a T7
-Não feitos. O botão "Nova fixação" e "Zero" continuam "em breve". O plano aprovado segue em `C:\Users\Usuario\.claude\plans\tender-spinning-matsumoto.md` (fora do repositório).
+### T4 Fixação (18/11)
+Tipos novos "Castanha dura" e "Castanha mole" (arquivo: `castanha-dura`, `castanha-mole`); caixas "Contraponto" e "Luneta". Tudo informativo. Nomes antigos (`castanhas`, `placa`, `ponto`) ficam; `tailstock`/`steadyRest` só são gravados quando marcados.
 
-**Limitações e pendências:** fatias com mais de ~800 linhas: nenhuma (T1 ~900 contando testes e a cópia do cartão Máquina; aviso). `docs/ESTADO.md` não foi atualizado (fica para o fecho da missão).
+### T5 Z0 (18/11)
+- Cartão Zero com escolha: "Z0 do desenho do perfil" (padrão; arquivo antigo), "Face pronta" (início do perfil, maior Z) ou "Face oposta" (fim do perfil, menor Z). Chave `zeroFace` só quando escolhida.
+- Os Z digitados nas operações continuam no desenho do perfil; **só o programa sai deslocado** (movimentos, Z seguro, contorno do G71/CYCLE95 e rosca), com o comentário `Z0 NA FACE PRONTA`/`OPOSTA` depois do G5x. Teste confere linha a linha que só os Z mudam.
+- Face escolhida sem perfil trava Gerar ("Z0 na face escolhida precisa do perfil da peça").
+- Risco: a face oposta é o fim do perfil desenhado; se o perfil não cobre a peça inteira, o Z0 cai no fim do perfil, não na face real.
 
-**Como validar (itens 1 a 4 e 9 da ficha):** no .exe da Prévia, Trabalho torno.
-1. Trabalho novo → Preparação: cartão Máquina; Programa nº, G5x e Refrigeração tracejados; Gerar travado; Salvar funciona. Digitar os três e Gerar.
-2. Digitar o Bruto; acrescentar Faceamento: nasce com o Ø do bruto e o resto vazio.
-3. Canal de face: campo vazio mostra "Falta ..."; abrir `exemplos/torno/canal-de-face-fanuc.casillas-job`, ver a prévia e Enviar ao Code; repetir com o `-siemens`.
-4. Abrir `exemplos/torno/sangramento-fanuc.casillas-job`: aviso de peça solta; tentar acrescentar operação (bloqueia); simular no Code.
-5. Abrir `torno-eixo.casillas-job` antigo: mesmo programa de antes.
+### T7 Pacote do torno (18/11)
+- Enviar ao Code do torno vai com o pacote `.casillas-cam` (versão 1, máquina `torno`): Programa nº, G5x, fixação em texto, barra no referencial do programa (segue o Z0 do T5) e as ferramentas das operações ligadas.
+- Barra só vai com Ø, comprimento e Z da face do bruto preenchidos; senão o Code avisa e usa o bruto automático.
+- Ferramenta de torno vai **sem Ø** (não muda a tabela no Code); tipo e raio de canto do banco ativo do torno quando o T está nele.
+- O zero não vai como ponto (é da fresa): X0 no centro e o Z0 já estão no programa e na barra.
+- Mudou de passagem: programa Siemens do torno vai ao Code com `.mpf` (antes `.nc`), como na fresa.
+
+### Como validar no .exe (Trabalho torno)
+1. Trabalho novo → Preparação: cartão Máquina; Programa nº, G5x e Refrigeração tracejados; Gerar travado; Salvar funciona. Digitar os três.
+2. Bruto Ø 50 × 120, face em Z 2. Acrescentar Faceamento: Ø do bruto preenchido, **Rotação fixa vazia**; digitar e ver gerar.
+3. Fixação: escolher "Castanha mole", marcar Contraponto e Luneta; salvar, fechar e abrir.
+4. Zero: "Face oposta" → no Código NC, Z deslocados e a linha `Z0 NA FACE OPOSTA`; voltar a "Z0 do desenho do perfil" → programa igual ao de antes.
+5. Canal de face e sangramento: abrir `exemplos/torno/*.casillas-job`, ver a prévia e o aviso de peça solta.
+6. Enviar ao Code (com bruto preenchido): a barra aparece no simulador com as medidas do bruto; editar o texto → aviso de programa diferente.
+7. Abrir `torno-eixo.casillas-job` antigo: mesmo programa de antes.
