@@ -80,6 +80,12 @@ public sealed record CamOperationSpec(JobOpKind Kind, CamTool Tool, CamLevels Le
     /// <summary>Contorno do desenho (índice em <see cref="CamJob.Contours"/>); -1 = nenhum. Furação: -1 usa todos os círculos.</summary>
     public int ContourIndex { get; init; } = -1;
 
+    /// <summary>
+    /// Furação com lista de contornos (M3D-2: os furos escolhidos no 3D). Null = como antes (<see cref="ContourIndex"/>). Campo opcional
+    /// do arquivo (versão 4).
+    /// </summary>
+    public IReadOnlyList<int>? ContourIndices { get; init; }
+
     public ContourParams? ContourParams { get; init; }
 
     public PocketParams? PocketParams { get; init; }
@@ -123,9 +129,10 @@ public sealed class CamJob
     /// <summary>
     /// Versão mais nova que o app lê. Um arquivo só sai na versão 2 quando usa algo do UX-04f (formato novo do bruto ou altura da
     /// peça) e na versão 3 quando o Programa nº ou o G5x está vazio (UX-04g); sem isso continua na versão 1, com o mesmo texto de antes
-    /// (<see cref="CamJobStock.NeedsVersion2"/>, <see cref="CamJobProgram.NeedsVersion3"/>).
+    /// (<see cref="CamJobStock.NeedsVersion2"/>, <see cref="CamJobProgram.NeedsVersion3"/>). Versão 4 quando tem peça STEP ou furação
+    /// com lista de contornos (M3D, <see cref="CamJobPart.NeedsVersion4"/>).
     /// </summary>
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     public string Name { get; set; } = "TRABALHO";
 
@@ -163,6 +170,9 @@ public sealed class CamJob
         Stock = shape is null ? absolute : null;
         StockShape = shape;
     }
+
+    /// <summary>Peça em STEP (M3D-1); null = peça só pelo DXF (como antes). Uma fonte só: com STEP, os contornos nascem das faces.</summary>
+    public JobPartStep? PartStep { get; set; }
 
     /// <summary>Fixação informada pelo usuário; null = "não definida" (arquivos antigos abrem assim). Fonte única: o Assist lê daqui.</summary>
     public JobFixture? Fixture { get; set; }
@@ -250,6 +260,11 @@ public sealed class CamJob
             if (s.Kind == JobOpKind.Drilling && s.ContourIndex >= Contours.Count)
             {
                 errors.Add(at + "o contorno escolhido não existe.");
+            }
+
+            if (s.ContourIndices is { } list && list.Any(c => c < 0 || c >= Contours.Count))
+            {
+                errors.Add(at + "um dos furos escolhidos não existe mais no desenho.");
             }
 
             if (s.Face is { } f && f.Axis is not ("A" or "B"))
@@ -427,7 +442,9 @@ public static class CamJobBuilder
                 (double x0, double y0, double x1, double y1) = part!.BoundsXY();
                 return CamOperations.Facing(s.Tool, s.Levels, x0, y0, x1 - x0, y1 - y0, s.FacingStepOverPercent);
             default:
-                IEnumerable<Contour> source = part is null ? job.Contours : [part];
+                // M3D-2: furos escolhidos no 3D (lista de contornos); senão, como antes
+                IEnumerable<Contour> source = s.ContourIndices is { Count: > 0 } chosen ? chosen.Select(c => job.Contours[c])
+                    : part is null ? job.Contours : [part];
                 IReadOnlyList<DrillHole> holes = CamOperations.HolesFromCircles(source);
                 if (holes.Count == 0)
                 {

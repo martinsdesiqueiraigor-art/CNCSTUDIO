@@ -42,8 +42,6 @@ public sealed partial class ModelView : Grid
     private readonly TextBlock _result = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
     private readonly TextBlock _zInfo = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold };
     private readonly TextBlock _sel = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Text = "Clique no modelo para escolher uma região ou uma aresta (Ctrl soma)." };
-    private readonly Button _drillButton = new() { Content = "Gerar furação dos furos escolhidos", Padding = new Thickness(12, 6), IsEnabled = false };
-    private readonly Button _pocketButton = new() { Content = "Gerar bolsão da região escolhida", Padding = new Thickness(12, 6), IsEnabled = false };
     private readonly HashSet<int> _selFaces = [];
     private readonly HashSet<int> _selEdges = [];
     private MeshFeatures? _features;
@@ -173,35 +171,10 @@ public sealed partial class ModelView : Grid
             Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12,
         });
         panel.Children.Add(_sel);
-        panel.Children.Add(new TextBlock { Text = "Fundos da furação e do bolsão: você informa (R-05)", FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 10, 0, 0) });
-        panel.Children.Add(new TextBlock
-        {
-            Text = "O Z seguro e a aproximação são os mesmos da varredura, acima. Valem na coordenada do modelo, que é a do programa. Nada é suposto: sem valor digitado, não gera. O número cinza é só a referência da malha. " +
-                   "Estar acima do modelo não garante estar livre de morsa, grampos ou castanhas (o CAM 3D não verifica isso).",
-            Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12,
-        });
         panel.Children.Add(_zInfo);
         panel.Children.Add(_originInfo);
-        AddField(panel, "DZ", "Furação: Z do fundo do furo (ponta da broca)", "");
-        AddField(panel, "PZB", "Bolsão: Z do fundo do bolsão", "");
-        AddField(panel, "DD", "Broca (mm)", "6");
-        AddField(panel, "DS", "Rotação da broca (rpm)", "2500");
-        AddField(panel, "DF", "Avanço de furação (mm/min)", "150");
-        AddField(panel, "DQ", "Bicada Q (mm)", "3");
-        _drillButton.Click += (_, _) => GenerateDrilling();
-        panel.Children.Add(_drillButton);
-        panel.Children.Add(new TextBlock
-        {
-            Text = "Bolsão: a região plana escolhida (voltada para cima) é o fundo e a borda dela é o contorno. Sem ilhas nem furos dentro.",
-            Opacity = 0.75, TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(0, 6, 0, 0),
-        });
-        AddField(panel, "PD", "Fresa de topo (mm)", "6");
-        AddField(panel, "PS", "Rotação da fresa (rpm)", "8000");
-        AddField(panel, "PF", "Avanço da fresa (mm/min)", "800");
-        AddField(panel, "PZ", "Passo em Z (mm)", "1");
-        AddField(panel, "PE", "Passo lateral (% do diâmetro)", "60");
-        _pocketButton.Click += (_, _) => GeneratePocket();
-        panel.Children.Add(_pocketButton);
+        // FECHO-01 F1: furação e bolsão pela face saem só pelo Trabalho (árvore, banco, zero e pacote; nada suposto)
+        panel.Children.Add(UiKit.StatusNote("Furação e bolsão pela face: abra a peça STEP no Trabalho (Preparação → Peça pronta → STEP da peça) e clique nas faces no 3D de lá. Aqui ficam a varredura e o desbaste 3D.", "pending"));
         _openEditor.Click += (_, _) => OpenInEditor?.Invoke(_program, Path.GetFileNameWithoutExtension(_fileName) + _programSuffix + ".nc");
         panel.Children.Add(_openEditor);
         panel.Children.Add(_result);
@@ -630,8 +603,6 @@ public sealed partial class ModelView : Grid
         _selEdges.Clear();
         CloseFaceMenu();
         _originInfo.IsVisible = false;
-        _drillButton.IsEnabled = false;
-        _pocketButton.IsEnabled = false;
         _sel.Text = "Lendo faces e arestas…";
         MeshFeatures features = await Task.Run(() => MeshFeatures.Analyze(mesh));
         if (mine != _analysis)
@@ -691,9 +662,6 @@ public sealed partial class ModelView : Grid
         }
     }
 
-    private IEnumerable<MeshFace> SelectedHoles(MeshFeatures features) =>
-        _selFaces.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole && f.Axis is { } a && Math.Abs(a.Z) >= 0.99);
-
     private void PublishSelection(MeshFeatures features, TriangleMesh mesh)
     {
         _version++;
@@ -727,8 +695,6 @@ public sealed partial class ModelView : Grid
         _gl.Show(new SceneSnapshot(objects, lines, mesh.Bounds, ScenePalette.Realistic));
         _sel.Text = Describe(features);
         UpdateZReference(features, mesh);
-        _drillButton.IsEnabled = SelectedHoles(features).Any();
-        _pocketButton.IsEnabled = _selFaces.Count == 1 && features.Faces[_selFaces.First()] is { Kind: FaceKind.Plane, Normal.Z: >= 0.99 };
         if (_originFace is { } of && !_selFaces.Contains(of))
         {
             _originFace = null;
@@ -742,58 +708,6 @@ public sealed partial class ModelView : Grid
         _zInfo.Text = $"Modelo: topo em Z {Fmt(mesh.Bounds.Max.Z)}, base em Z {Fmt(mesh.Bounds.Min.Z)}.";
         _f["ZS"].Watermark = $"acima de {Fmt(mesh.Bounds.Max.Z)}";
         _f["ZA"].Watermark = $"acima do topo trabalhado";
-        MeshFace[] holes = [.. SelectedHoles(features)];
-        _f["DZ"].Watermark = holes.Length > 0 ? $"malha: {Fmt(FaceDrilling.MeshBottomZ(holes))}" : "escolha furos";
-        _f["PZB"].Watermark = _selFaces.Count == 1 && features.Faces[_selFaces.First()] is { Kind: FaceKind.Plane } f ? $"malha: {Fmt(f.Center.Z)}" : "escolha a região do fundo";
-    }
-
-    private void GeneratePocket()
-    {
-        _openEditor.IsEnabled = false;
-        if (_features is not { } features || _current is not { } model || _selFaces.Count != 1)
-        {
-            return;
-        }
-
-        double[] v = new[] { "PD", "PS", "PF", "PZ", "PE", "TN" }.Select(Num).ToArray();
-        if (v.Any(double.IsNaN))
-        {
-            _result.Text = "• Preencha fresa, rotação, avanço, passo em Z e passo lateral.";
-            return;
-        }
-
-        var tool = new CamTool((int)v[5], v[0], v[1], v[2], v[2] / 2, "Fresa D" + v[0].ToString("0.##", Pt));
-        MeshFace face = features.Faces[_selFaces.First()];
-        if (!TryZ(model, model.Bounds.Max.Z, out ModelZ? z, out string? zError))
-        {
-            _result.Text = "• " + zError;
-            return;
-        }
-
-        double floorZ = Num("PZB");
-        if (double.IsNaN(floorZ))
-        {
-            _result.Text = $"• Digite o Z do fundo do bolsão (a região escolhida está em Z {Fmt(face.Center.Z)} na malha).";
-            return;
-        }
-
-        OperationResult r = FacePocket.Build(features, face, tool, z!, floorZ, model.Bounds.Max.Z, v[3], new PocketParams(v[4]));
-        if (!r.Ok)
-        {
-            _result.Text = "• " + r.Error;
-            return;
-        }
-
-        CamDialect dialect = _dialect.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
-        string name = Path.GetFileNameWithoutExtension(_fileName).ToUpperInvariant();
-        _program = CamPost.Generate([r.Operation!], new PostOptions(dialect, ProgramName: name.Length > 0 ? name + " BOLSAO" : "BOLSAO 3D"));
-        _programSuffix = "-bolsao";
-        _openEditor.IsEnabled = true;
-        string F(double x) => x.ToString("0.##", Pt);
-        _result.Text = $"Bolsão gerado: fundo em Z {F(floorZ)} (informado por você; a malha mostra {F(face.Center.Z)}), Z seguro {F(z!.SafeZ)}, aproximação {F(z.ClearanceZ)}, {r.Operation!.Moves.Count:N0} movimentos.\n" +
-            string.Join("\n", r.Operation!.Warnings.Select(w => "• " + w)) +
-            "\n• Alturas e fixação não verificadas: acima do modelo não é o mesmo que livre de morsa, grampos ou castanhas." +
-            "\n• O contorno é o da malha: confira se o bolsão é aberto por cima e se a fresa cabe nos cantos. Primeira vez, no ar.";
     }
 
     private string Describe(MeshFeatures features)
@@ -837,55 +751,5 @@ public sealed partial class ModelView : Grid
         }
 
         return string.Join("\n", lines);
-    }
-
-    private void GenerateDrilling()
-    {
-        _openEditor.IsEnabled = false;
-        if (_features is not { } features || _current is not { } model)
-        {
-            return;
-        }
-
-        MeshFace[] holes = [.. SelectedHoles(features)];
-        double[] v = new[] { "DD", "DS", "DF", "DQ", "TN" }.Select(Num).ToArray();
-        if (holes.Length == 0 || v.Any(double.IsNaN))
-        {
-            _result.Text = "• Escolha furos verticais e preencha broca, rotação, avanço e bicada.";
-            return;
-        }
-
-        double top = holes.Max(h => h.Box.Max.Z);
-        if (!TryZ(model, top, out ModelZ? z, out string? zError))
-        {
-            _result.Text = "• " + zError;
-            return;
-        }
-
-        double bottom = Num("DZ");
-        if (double.IsNaN(bottom))
-        {
-            _result.Text = $"• Digite o Z do fundo do furo (a malha mostra Z {Fmt(FaceDrilling.MeshBottomZ(holes))}, mas não diz se o furo é cego, passante ou tem fundo cônico).";
-            return;
-        }
-
-        var tool = new CamTool((int)v[4], v[0], v[1], v[2] * 4, v[2], "Broca D" + v[0].ToString("0.##", Pt));
-        OperationResult r = FaceDrilling.Build(holes, tool, z!, model.Bounds.Max.Z, bottom, v[3]);
-        if (!r.Ok)
-        {
-            _result.Text = "• " + r.Error;
-            return;
-        }
-
-        CamDialect dialect = _dialect.SelectedIndex == 1 ? CamDialect.Siemens : CamDialect.Fanuc;
-        string name = Path.GetFileNameWithoutExtension(_fileName).ToUpperInvariant();
-        _program = CamPost.Generate([r.Operation!], new PostOptions(dialect, ProgramName: name.Length > 0 ? name + " FUROS" : "FUROS 3D"));
-        _programSuffix = "-furos";
-        _openEditor.IsEnabled = true;
-        string F(double x) => x.ToString("0.##", Pt);
-        _result.Text = $"Furação gerada: {holes.Length} furo(s), de Z {F(top)} até Z {F(bottom)} (ponta da broca), bicada {F(v[3])} mm; Z seguro {F(z!.SafeZ)}, aproximação {F(z.ClearanceZ)} (valores seus).\n" +
-            $"• Fundo informado por você; a malha mostra Z {F(FaceDrilling.MeshBottomZ(holes))}.\n" +
-            "• Alturas e fixação não verificadas: acima do modelo não é o mesmo que livre de morsa, grampos ou castanhas.\n" +
-            "• O ponto do furo é o centro lido da malha: confira antes de rodar. Primeira vez, no ar.";
     }
 }

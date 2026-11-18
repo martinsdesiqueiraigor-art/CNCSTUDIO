@@ -28,8 +28,9 @@ public class LathePaletteMissingTests
     public void Faixa_do_torno_tem_cada_operacao_do_Core_uma_vez()
     {
         var ops = CamPalette.LatheVisibleGroups.SelectMany(g => g.Items).Where(i => i.LatheKind is not null).ToList();
-        Assert.Equal(LatheJobInfo.NewKinds.Count, ops.Count);
-        foreach ((string _, LatheOpKind kind, bool isInternal) in LatheJobInfo.NewKinds)
+        // TORNO-T2/T3 (autorizado pelo Igor em 15/11): a faixa tem as 8 operações antigas mais as novas (LatheJobInfo.AddedKinds)
+        Assert.Equal(LatheJobInfo.NewKinds.Count + LatheJobInfo.AddedKinds.Count, ops.Count);
+        foreach ((string _, LatheOpKind kind, bool isInternal) in LatheJobInfo.NewKinds.Concat(LatheJobInfo.AddedKinds))
         {
             Assert.Single(ops, i => i.LatheKind == kind && i.Internal == isInternal);
         }
@@ -42,7 +43,8 @@ public class LathePaletteMissingTests
     public void Grupos_do_torno_na_ordem_e_em_breve_apagados()
     {
         Assert.Equal(["Arquivo", "Fixação", "Torneamento", "Canal e corte", "Rosca"], CamPalette.LatheVisibleGroups.Select(g => g.Title));
-        foreach (string id in new[] { "nova-fixacao", "zero", "canal-face", "sangrar" })
+        // TORNO-T2 e T3 (autorizado pelo Igor em 15/11): "canal-face" e "sangrar" saíram do "em breve" (viraram operação)
+        foreach (string id in new[] { "nova-fixacao", "zero" })
         {
             CamPaletteItem item = Item(id);
             Assert.True(item.Soon);
@@ -71,11 +73,13 @@ public class LathePaletteMissingTests
     [Fact]
     public void Botao_cria_a_mesma_operacao_da_lista_antiga_e_o_icone_volta()
     {
+        // TORNO-T1 (autorizado pelo Igor em 15/11): o botão passa a criar a operação vazia (NewBlank), não a de valores padrão
         foreach (CamPaletteItem item in CamPalette.LatheGroups.SelectMany(g => g.Items).Where(i => i.LatheKind is not null))
         {
             LatheOperationSpec made = CamPalette.NewLatheOperation(item)!;
-            LatheOperationSpec old = LatheJobInfo.NewOperation(item.LatheKind!.Value, item.Internal);
-            Assert.Equal(LatheJobJson.ToJson(Wrap(old)), LatheJobJson.ToJson(Wrap(made)));
+            LatheOperationSpec blank = LatheJobInfo.NewBlank(item.LatheKind!.Value, item.Internal);
+            Assert.Equal(LatheJobJson.ToJson(Wrap(blank)), LatheJobJson.ToJson(Wrap(made)));
+            Assert.NotEmpty(made.MissingFields);
             Assert.Same(item, CamPalette.LatheItemFor(made));
         }
 
@@ -118,12 +122,17 @@ public class LathePaletteMissingTests
     }
 
     [Fact]
-    public void Campos_vazios_nao_vao_para_o_arquivo()
+    public void Campos_vazios_vao_para_o_arquivo_e_trabalho_sem_eles_regrava_igual()
     {
+        // Sprint do torno (autorizado pelo Igor em 18/11): substitui "Campos_vazios_nao_vao_para_o_arquivo". Salvar do torno nunca
+        // trava por campo vazio (decisão 5a), então o arquivo guarda a lista e o trabalho abre Incompleto como estava.
         LatheJob job = Sample();
         string clean = LatheJobJson.ToJson(job);
+        Assert.DoesNotContain("\"missing\"", clean);
         job.Operations[0] = LatheJobInfo.SetMissing(job.Operations[0], "Avanço", true);
-        Assert.Equal(clean, LatheJobJson.ToJson(job));
+        string withEmpty = LatheJobJson.ToJson(job);
+        Assert.Contains("\"missing\"", withEmpty);
+        Assert.Equal(["Avanço"], LatheJobJson.FromJson(withEmpty).Job!.Operations[0].MissingFields);
         Assert.Empty(LatheJobJson.FromJson(clean).Job!.Operations[0].MissingFields);
     }
 

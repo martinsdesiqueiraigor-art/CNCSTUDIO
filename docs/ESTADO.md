@@ -1,91 +1,38 @@
 # Estado atual
 
-Atualizado em 14/11/2026 (UX-04h D1) · base: `origin/dev` em `3b98343` (#174, plano D; D5 pelo #175); `origin/main` em `e738a5b` (#170, 13/11).
-Histórico completo em docs/historico/. Ler só se a tarefa pedir.
-Fonte deste resumo: `docs/historico/ESTADO-ate-2026-11-02.md` (citado como H:linha) e `git log`.
+Atualizado em 18/11/2026 (FECHO-01, versão 1.1.0). Vale para o `dev` depois do fecho e para a `main` quando o `dev` entrar nela (só com ordem do Igor).
+Histórico: `docs/historico/ESTADO-ate-2026-11-14.md` (o resumo anterior) e `docs/historico/ESTADO-ate-2026-11-02.md`. Ler só se a tarefa pedir.
+Nota da versão: `docs/versoes/1.1.0.md`.
 
-## Na main (datas = merges no git log)
-- **Code (web e desktop):** simulação 2D/3D, comparação, painel de controle, tema CMYK, teclado do editor e balão do código na web, faixa Renumerar/Formatar/Desfazer na web (H:5-38, H:406). Merges de 18/10 a 30/10 (#105).
-- **Plataforma web:** tela inicial com cartões, Configurações, Novidades (lista vazia), conta única com teste de 30 dias e travas por módulo (H:22, H:394, H:444). Merges de 24/10 a 02/11 (#117).
-- **Macro:** geradores no Core, tela web renovada e módulo nativo no desktop (H:15, H:24, H:50, H:402). Merges de 24/10 a 30/10 (#106).
-- **Otimizador:** Core, tela web com aviso de economia de linhas, módulo nativo no desktop (H:21, H:48, H:400). Merges de 24/10 a 30/10 (#107).
-- **Academy (só web):** leitor v1 e v2, tela nova; módulo 1 em v1, módulo 2 em v2, conteúdo em rascunho (H:52, H:415, H:428-435). Merges de 24/10 a 02/11 (#109, #110, #116, #118).
-- **CAM desktop:** Trabalho fresa e torno (árvore, propriedades, barra de pendências, Bruto, Origem, Máquina, Fixação, desfazer, 3D), DXF com unidade, bolsão com ilhas, torno (rosca, canal, rebaixo), 4º eixo, 3+2 na mesa dupla (só Core e Trabalho), rotativo a zero no fim, aba Fresa antiga removida (H:58-206, H:331, H:436-489). Merges de 26/10 a 02/11 (#119, #121-#126, #128).
-- **CAM 3D desktop:** STL, varredura e desbaste por níveis com Z digitado (H:261-269, H:342-345). Merges de 28/10 a 30/10 (#81, #82, #94).
-- **STEP no desktop (CAM-08, #143, 05/11):** leitura de STEP pelo OpenCASCADE 7.9.3 (projeto `CncStudio.Step`), orientação da peça (X/Y ±90°, Virar, Zerar), só os sólidos quando há sólido (superfícies auxiliares ignoradas, com aviso; só malha facetada, com aviso), 33 DLLs nativas fora (.exe ~61,7 MB), avisos do OCCT em “Licenças de terceiros”. Lote NIST: 32 de 33 fechadas.
-- **CAM web:** CAM rápido; trava de licença “soft”, livre enquanto o produto `cam` estiver inativo no servidor (H:139, H:238-241). Merges de 27/10 a 28/10 (#73).
-- **Assist (só desktop):** bibliotecas, orçamento, proposta HTML, plano 2D com travas (plano obsoleto, ferramenta nova, profundidade, peça solta, alturas Z, rpm do fuso, material obrigatório), etapas e marca de origem por operação (H:208-236, H:286-329, H:451, H:484-489). Merges de 28/10 a 02/11 (#120, #127, #129, #131).
-- **Web, Setup:** “minhas ferramentas” guardadas no navegador; desktop ainda sem isso (H:491-493). Merge em 02/11 (#132).
-- **CAM fresa, casca nova (UX-04c #155 e UX-04d #157, 06–07/11):** abas, faixa de ícones (`CamPalette`), árvore 240 px, painel 290 px, divisórias com larguras no `config.json`; 3D fixo com chips (`Scene/CamJobScene`, `Cam/CamViewOptions`).
-- **Pelo #170 (13/11, `dev` → `main`):** **UX-04e** casca do torno (#159). **UX-04f** Preparação da fresa: cartões Máquina, Peça pronta e Bruto, bruto em STEP (#160, #161). **UX-04g** Programa nº e G5x digitados (#162) e zero da peça no cartão Zero, 9 pontos, Z0 no topo ou na base (`Cam/JobZero.cs`, #163). **CAM-13** pacote do CAM para o Code (`CamHandoff`, #164) e "Enviar ao Code" com `NOME.nc.casillas-cam` (#165). Detalhe no `git log` desses PRs.
-- **UX-04h PR A e PR B1 (#166, #167, pelo #170):** banco de ferramentas no Core (`Cam/ToolBank*.cs`, vários bancos, T único, "a conferir", arquivo `.casillas-ferramentas` v1) e tela **Ferramentas** no CAM (`Modules/ToolBankView.cs`), gravada em `%APPDATA%\CncStudio\ferramentas`; migração única da tabela antiga, que fica no config.json sem ser escrita; simulador e folha de setup leem o banco (`Cam/ToolBankLookup.cs`). Testado na main em 14/11 (`docs/tarefas/UX-04h-B1-teste-volta.md`). **Pendente (B2):** o Trabalho do CAM ainda lê e grava a tabela antiga.
+## O que existe
+- **Code (web e desktop):** editor, simulação 2D/3D, comparação, painel de controle, Macro e Otimizador (web e desktop), Academy só na web (conteúdo em rascunho).
+- **Plataforma web:** tela inicial, conta única com teste de 30 dias e travas por módulo, domínio `casillas.com.br`. O merge na `main` publica a web na hora.
+- **CAM desktop, fresa:** Trabalho com faixa de ícones, árvore e propriedades; Preparação (Máquina, Peça pronta em DXF ou STEP, Bruto por sobra, cilindro, tubo ou STEP, Programa nº, G5x, Zero de 9 pontos); banco de ferramentas ativo; 4º eixo e 3+2 na mesa dupla; pacote `.casillas-cam` para o Code.
+- **Modelo 3D no Trabalho (M3D, #186):** peça STEP no Trabalho (caminho, resumo e giros; nunca lida ao abrir); no 3D, fundo plano vira Bolsão e furos verticais viram uma Furação, na árvore, vazios até digitar. A aba Modelo 3D fica com varredura e desbaste 3D.
+- **CAM desktop, torno (#184, #185):** Preparação (Máquina, Programa nº, G5x, refrigeração, bruto), operação nova vazia, faceamento, torneamento externo e interno, furação, rosca, canal radial, canal de face, sangramento, fixação (castanha dura e mole, contraponto, luneta), Z0 na face pronta ou oposta, pacote `.casillas-cam` do torno.
+- **Assist (só desktop):** bibliotecas, orçamento, proposta, plano 2D.
+- **STEP:** OpenCASCADE 7.9.3 (`CncStudio.Step`, só desktop).
 
-## Em ramo, sem merge na main (git, 05/11)
-- **CAM-09 seleção 3D (PR para o `dev`, 05/11):** `fase-cam3d-selecao-2` = ramo antigo + main (STEP e fluxo dev). Clique numa face a deixa laranja; faces e arestas geram furação e bolsão; virar ou girar o modelo limpa a seleção. Limite do topo plano em STEP tratado no CAM-11 (abaixo). O ramo antigo `fase-cam3d-selecao` fica como está. Há também `fase-cam-step-estudo` (só estudo).
-- **CAM-11 topo plano (PR rascunho para o `dev`, 06/11):** `ajuste-cam11-topo-plano`. Causa: o agrupador de faces (`MeshFeatures.Analyze`) espalha por dobras < 30°, então o topo e as facetas do filete viravam uma região só, “Superfície livre”. Agora a região livre é partida em peças planas; a peça bem mais larga que as vizinhas sai como plano e o filete volta a ser arredondamento. Furos e arestas iguais em 5 arquivos NIST (ctc_01, ctc_02, ctc_04, ftc_06, ftc_08). Não conferido no .exe.
-- **UX-03a faixa de operações (PR rascunho para o `dev`, 06/11):** `ajuste-cam-paleta`. Só desktop: a web tem apenas o CAM rápido, sem árvore. No Trabalho fresa, a caixa de escolha com o botão “Adicionar” virou uma faixa no topo com 3 grupos: 2D (Faceamento, Contorno fora/dentro/sobre a linha, Bolsão), Furação e 4º eixo (Texto no cilindro). Os grupos são dados no Core (`Cam/CamPalette.cs`), e o grupo 3D (varredura, desbaste) fica definido mas oculto até o Modelo 3D entrar na árvore. Botão que não serve à seleção fica apagado, com a dica do porquê. A árvore mostra Pronta/Incompleta. Geração igual. Conferido no .exe (UX-03a-teste); ajuste: dica separa sem desenho / contorno aberto (DXF só com cadeia aberta) / outras causas, e a caixa de avisos abaixo da árvore cresce para 4 linhas com barra visível. Campo numérico vazio: tratado no CAM-12 (abaixo).
-- **CAM-12 campo vazio (PR rascunho para o `dev`, 06/11):** `ajuste-cam-campo-vazio`. Campo numérico vazio ou com texto numa operação do Trabalho fresa fica marcado na operação (`CamOperationSpec.MissingFields`, fora do arquivo): ela vira Incompleta (“Falta Z fundo”), o campo fica vermelho e vazio, Gerar trava e o número antigo não vale. Valor válido tira a marca. Bicada (Q) e Pausa só contam se o ciclo usa. T só inteiro ≥ 1. Salvar bloqueado com campo vazio, listando operação e campo (formato igual). Junto: campos de Contorno, Bolsão, Furação, Texto no cilindro e Face liam cópia antiga dos parâmetros (editar um desfazia outro); agora leem a operação atual. Trajetória e geometria iguais. Conferido no .exe (CAM-12-teste); ajuste: nó Ferramentas mostra “?” no lugar do valor antigo, T inválido diz “T inválido: use inteiro ≥ 1”, Bicada/Pausa vazias em ciclo que não usa ficam sem vermelho.
-- **UX-03b menu da face (PR rascunho para o `dev`, 06/11):** `ajuste-cam-menu-face`. Na aba Modelo 3D, escolher uma face ou aresta abre um menu perto do clique: cabeçalho com tipo e cota da malha (“Face plana · Z = 12,0 mm”), só o que serve e “Ver todas as operações…” (o resto apagado, com o motivo escrito). Regra no Core (`Cam3D/FaceMenu.cs`, `FaceMenuRules`, com teste), nas mesmas condições de `FaceDrilling`/`FacePocket`: furo vertical → Furação; plano para cima abaixo do topo com um contorno → Bolsão. Topo plano: Faceamento apagado (“ainda não existe a partir do 3D”); bolsão com ilhas apagado. Furo inclinado, pino, curva e aresta: só cabeçalho e “Ver todas”. Escolher leva ao campo do fundo, vazio, com “origem: face selecionada”. Não entra na árvore do Trabalho (passo 4 do UX-03). Face plana para cima (topo ou fundo): o menu curto mostra também Faceamento e Bolsão apagados, com o motivo (`FaceMenu.Short`). Teclado: setas, Enter (vai ao campo do fundo), Esc (fecha nos dois estados do menu e devolve o foco ao 3D). Geometria e trajetória iguais. Conferido no build local (06/11).
-- **UX-04h B1, ajuste:** no `dev` pelo #171 (avisos da migração rolam, "Entendi" sempre à vista).
-- **UX-04h B2 (14/11, no `dev` pelo #172):** o Trabalho fresa escolhe a ferramenta no **banco ativo** (seletor "Banco ativo" fixo à direita da faixa; guardado em `ActiveMillBankId` no config.json, nunca no `.casillas-job`; sem escolha, o mesmo banco do simulador). Escolher copia T, Ø e nome; rotação e avanços só se cadastrados; tipo e medidas aparecem só para leitura. Operação nova nasce com T, Ø, rotação e avanços vazios. Aviso de T fora do banco ou com outro Ø/nome (só avisa). "Adicionar ao banco ativo" cria "a conferir"; T repetido recusa e oferece o próximo livre. Regras em `Cam/ToolBankPick.cs`. G-code e arquivo iguais. O Trabalho do torno segue na tabela antiga (PR D).
-- **UX-04h C e C2 (14/11, `fase-ux04h-pacote-banco`, PR #173 rascunho para o `dev`):** o pacote `.casillas-cam` (versão 1 mantida) leva tipo, raio de canto, ângulo da ponta, comprimento de corte e suporte (texto) quando o T está no banco ativo sem conflito de Ø/nome, só os cadastrados (`CamHandoff.FromBank`), e o nome do banco na chave opcional "banco" (sem banco, não é gravada). O Code lê o banco ativo da fresa no Ø da análise e do simulador, no aviso 3 e na folha de setup (sem escolha ou apagado: o `Primary`). O simulador corta e desenha com o perfil do pacote, sem `SetupTool` (`CamHandoffCode.PackageProfiles` → `SimulationFactory.MillProfiles`): esférica, toroidal com raio, broca com ângulo; o resto topo reto, igual a antes; o setup do programa vale por cima. Comprimento de corte e suporte seguem genéricos. G-code e `.casillas-job` iguais.
-- **UX-04h D5 (14/11, `fase-ux04h-d5-desenho-ferramenta`, PR rascunho para o `dev`):** o perfil do pacote ganha broca de centro com ângulo → cone e facear com raio → toroidal (`CamHandoffCode.ProfileOf`); macho, alargador e mandrilhadora seguem topo reto. Etiqueta "do CAM" na linha "Ferr." do desenho. G-code e arquivos iguais. Não conferido no .exe nem em máquina. No `dev` pelo #175.
-- **UX-04h D1 (14/11, `fase-ux04h-d1-torno-banco-ativo`, PR rascunho para o `dev`):** banco ativo do torno (`ActiveLatheBankId` no config.json; sem escolha ou apagado, o `Primary`). O Code lê esse banco no Ø, no desenho da ferramenta do torno e na folha de setup (a fresa segue por cima no mesmo T). Trabalho do torno: seletor "Banco ativo" à direita da faixa e escolha só com as ativas (copia T, nome e rpm se cadastrado); o Enviar ao Code não grava mais na tabela antiga. Migração única com marca `LatheToolsMigrated` (`Cam/ToolBankLatheMigration.cs`): T livre entra "a conferir"; mesmo nome e tipo não entra de novo; outra ferramenta no mesmo T vai ao próximo T livre, "a conferir", com aviso (o banco não aceita T repetido; opção a do Igor). A tabela antiga fica (D2; o Assist lê). G-code e `.casillas-job` iguais.
-- PRs abertos: UX-03b para o `dev` (rascunho). CAM-09 (#146), CAM-11 (#151), UX-03a (#152) e CAM-12 (#153) já estão no `dev`; UX-04c e UX-04d na main (#158); UX-04e a UX-04h e CAM-13 na main (#170).
-
-## Fluxo de ramos (05/11)
-`main` protegida (regra `proteger-main`: build + testes, sem force push/exclusão). Ramo `dev` = integração e teste do Igor; tarefas entram no `dev` por PR e o `dev` vai à `main` por PR do Igor.
-
-## Aguarda o Igor
-- Conferir na prévia/celular o que ficou “não conferido”: telas web do Code, Macro, Otimizador, Loja e Academy dentro do app (H:395-409, H:419); vista de frente para o eixo e peça girando na web (H:146, H:171).
-- Conferir no .exe da prévia: Trabalho 3D, DXF em polegadas e clique, STL real (H:256, H:264, H:334); telas do Assist e do Trabalho marcadas “tela não conferida” (H:453, H:468, H:486, H:489).
-- Decidir/ativar: produto `cam` no Supabase (H:240); publicação do texto de termos (H:273); origem/direitos da foto da Loja (H:399); uma peça real sua em STEP, quando puder (o teste só com o NIST foi aceito em 05/11; H:283).
-- Revisar o módulo 2 da Academy (já na main, #109) e marcar `revisado`.
-- Autorizar: CODE-14 (avisos do simulador); Handoff 21 (módulo 1 em v2); PLAT-07 (conta e licença no desktop).
-- Guardar por escrito a resposta do advogado; pedir que ele confira o texto do aviso do OpenCASCADE e os itens “a confirmar” (ver Licenças). Ver a janela ⓘ e o aviso de superfícies do STEP no .exe da prévia a 100%, 125% e 150%.
+## Arquivos
+- `.casillas-job` da fresa: versões 1 a 3 como antes; versão 4 só com peça STEP ou furação com lista de furos.
+- `.casillas-job` do torno: versão 1; chaves novas (Programa nº, bruto, Z0, fixação nova) só quando usadas.
+- Teste mestre: `CamJobGoldenTests`, 8 programas de referência, iguais desde o início.
 
 ## Limites que valem hoje
-- Nada do CAM rodou em máquina real: rosca, 4º eixo, 3+2, rotativo a zero, F com rotativo no Fanuc 21i, CYCLE95/FALX no Siemens (H:95, H:101, H:151, H:177, H:471, H:474).
-- Fixação e colisão nunca são verificadas; simular e rodar a primeira vez no ar (H:311, H:370).
-- Simulação web em 3 eixos com voxel aproximado; tempo no celular não medido (H:163, H:166).
-- Termos de uso não revisados por advogado (H:273). Licença OCCT do STEP: liberada pelo advogado em 05/11, segundo o Igor; texto do aviso e itens “a confirmar” em Licenças (H:282).
-- Conteúdo técnico da Academy e itens iniciais do Assist são rascunho (H:210, H:435).
-- O .exe e o instalador oficiais **não** estão publicados.
-- O merge na main publica na hora a web (casillas.com.br) e o painel.
-- Mínimo de tela do desktop: 1280×720 lógicos.
-- STEP: o lote NIST (33 arquivos) abre sem erro e 3 referências batem até 0,01 mm. Não testados: STEP muito grande, IGES, STL pelo OCCT, cores e PMI, peça real do Igor. `CncStudio.Step.Tests` (8 testes) está fora da solução e do CI.
+- Nada do CAM rodou em máquina real. G-code novo do torno (canal de face, sangramento, Z da face oposta) nunca rodado.
+- Fixação, queda da peça e colisão não são verificadas; simular e rodar a primeira vez no ar.
+- Contorno lido da malha do 3D é poligonal (arcos viram trechos retos).
+- STEP muito grande, IGES e peça real do Igor: não testados. `CncStudio.Step.Tests` fora da solução e do CI.
+- O `.exe` e o instalador oficiais não estão publicados. Mínimo de tela: 1280×720.
+- Siemens: o simulador trata G58/G59 como zeros 5 e 6 (`MachineExecutor.cs:630`).
 
-## Licenças (LIC-01)
-- Inventário feito em `C:\Projetos\inventario\` (fora do repositório).
-- 33 das 69 DLLs nativas do OpenCASCADE não são usadas (FFmpeg, FreeImage, OpenVR, TBB, jemalloc e 23 TK*); nenhum arquivo do repositório cita ffmpeg/FreeImage.
-- 05/11: o advogado liberou o uso das licenças (repassado pelo Igor). Condições: o aviso na tela basta; as DLLs podem ficar no `.exe` único; .NET sob MIT.
-- Feitos: Handoff 18 (33 DLLs fora, #140) e tela/arquivo de avisos de terceiros (LIC-02, #139); seções do OCCT 7.9.3 e das DLLs do OcctNet na janela de licenças (#143, na main). A confirmar antes de vender o `.exe`: texto do aviso do OCCT (advogado); DLLs do OcctNet compiladas do 7.9.3 sem modificação?; OcctNet.Wrapper (copyright, repositório, MIT); textos de zlib, libpng, bzip2, brotli (versão e licença), FreeType (ano do crédito) e Visual C++; textos do MicroCom e Tmds.DBus; versão do patch do .NET. Nada é publicado.
+## Fora desta versão
+2ª fixação do torno; faixa da fresa em 1280 (rola); armário de ferramentas, D2, D3 e importar da web; operações novas de fresa (chanfro, ranhura, macho, mandrilhar); faceamento e contorno pela face do 3D; bolsão com ilhas pelo 3D; FreeCAD (estudo parado).
 
-## Próximos passos já registrados
-- CAM desktop, na ordem de 28/10: desbaste (feito), DXF e seleção de contornos, leitura do STEP (feita, #143), seleção de faces e arestas no 3D; depois o Assist (H:281-283).
-- Pendências registradas: menu lateral pouco legível no tema claro; botão 3D do torno sobre fundo escuro (H:427); campo “espessura do bruto” do Assist abre com “10” suposto (contra o ASSIST-01); em 1280×720 a barra lateral de módulos corta os ícones abaixo do Academy (casca do app). UX-04f PR 2 (decisões de 08/11): STEP real grande não testado (maior lido: 3,2 MB, 1,7 s); torno mantém a regra antiga do fuso (fora da fatia); caminho do STEP do bruto é absoluto, relativo fica como melhoria; a 1280×720 a Preparação rola na vertical com o formulário do perfil aberto. UX-04g: o simulador trata G58/G59 do Siemens como zeros 5 e 6 (`MachineExecutor.cs:630`); no Siemens são deslocamentos programáveis: corrigir no simulador.
-- Não feito e citado: aviso ao Code quando o Trabalho muda (H:468); pontes no contorno (H:314); bedame interno e barras MVQNR (H:13); perfil real da rosca no editor (H:12); minhas ferramentas no desktop (H:493).
-
-## Testes
-- Contagem: ver o resultado do CI na main.
+## Para vender o `.exe` (pendente)
+Itens "a confirmar" do inventário de licenças (texto do aviso do OCCT, DLLs do OcctNet, textos de zlib, libpng, bzip2, brotli, FreeType, Visual C++, MicroCom, Tmds.DBus) e uma peça real em STEP testada.
 
 ## Ponteiros
-- Fichas: `docs/tarefas/` (modelo em `docs/tarefas/MODELO.md`); ex.: `docs/tarefas/CAM-01-plano.md`, `docs/tarefas/PLAT-06-desktop-plataforma.md`, `docs/tarefas/ACAD-02-modulos-2-a-4.md`.
-- Histórico: `docs/historico/ESTADO-ate-2026-11-02.md`.
-
-## Decisões do Igor (04/11)
-- CODE-08 DNC: mais adiante, fora do “Próximo”.
-- Loja: a nativa foi removida do desktop; a Loja abre a web.
-- Tela inicial: 9 cartões (a web confirma no código; o desktop não foi verificado).
-- Fixação (#119): testada no .exe pelo Igor.
-- Supabase da conta mestre: o Igor acredita já estar resolvido; o nome do projeto (“Casillas Code” ou “Casillas”) não foi conferido. Não mexer em Supabase sem ordem.
-
-## Divergências do histórico, fechadas em 04/11
-- Contagem de testes: vale o resultado do CI; os números do histórico não são fonte.
-- PR #85 está mesclado. Teste instável corrigido (#111, H:423). `ajuste-cam3d-desbaste-protecao` entrou pelo #94; `ajuste-cam3d-protecao` segue fora da main.
-- H:427 e H:440: já feitos o campo Bruto (H:437), o Assist relendo o desenho (H:443), a rotação acima do fuso (H:441) e Origem/Máquina no torno (H:477). Seguem pendentes: menu lateral no tema claro e botão 3D do torno.
-- “Na main (21/10)” e “Próximo: CODE-09, depois CODE-08” (H:5, H:9, H:14): desatualizados; ignorar.
-- Parágrafo duplicado do PLAT-03 (H:22-23): só histórico.
-- Planos “no Projeto” (H:118, H:182): ficam no Projeto “Casillas CNC — Plataforma” do claude.ai, fora do repositório.
-- ffmpeg/FreeImage: nenhum arquivo do repositório os cita (grep em 04/11); a menção vem do relatório do inventário (LIC-01), fora do repositório.
-- Ramos do STEP: estado registrado em “Em ramo”.
+- Fichas e relatórios: `docs/tarefas/` (modelo `docs/tarefas/_MODELO.md`; relatório de cada missão em `docs/tarefas/<ID>-volta.md`).
+- Planos do torno: `docs/tarefas/TORNO-01-plano.md`. Relatórios desta versão: `TORNO-T1-T7-volta.md`, `M3D-volta.md`, `FECHO-01-volta.md`.
+- Testes: vale o resultado do CI.

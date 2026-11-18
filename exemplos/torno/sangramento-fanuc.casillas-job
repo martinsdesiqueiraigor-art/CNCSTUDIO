@@ -1,0 +1,42 @@
+{
+  "format": "casillas-job-torno",
+  "version": 1,
+  "name": "SANGRAMENTO",
+  "dialect": "Fanuc",
+  "programNumber": 2002,
+  "workOffset": 54,
+  "coolant": true,
+  "stock": {
+    "diameter": 40,
+    "length": 80,
+    "faceZ": 0
+  },
+  "operations": [
+    {
+      "kind": "Parting",
+      "enabled": true,
+      "label": "",
+      "safeZ": 50,
+      "safeDiameter": 80,
+      "clearance": 2,
+      "tool": {
+        "number": 6,
+        "name": "Bedame 3",
+        "surfaceSpeed": 100,
+        "maxRpm": 1800,
+        "rpm": 0
+      },
+      "parting": {
+        "cutZ": -30,
+        "startDiameter": 40,
+        "finalDiameter": 0,
+        "toolWidth": 3,
+        "feed": 0.08,
+        "reducedFeed": 0.03,
+        "reducedFromDiameter": 8,
+        "peck": 5,
+        "retract": 0.5
+      }
+    }
+  ]
+}

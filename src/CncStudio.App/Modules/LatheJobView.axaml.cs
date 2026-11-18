@@ -15,7 +15,8 @@ namespace CncStudio.App.Modules;
 /// </summary>
 public partial class LatheJobView : UserControl
 {
-    private readonly LatheJob _job = new() { Name = "TORNO" };
+    // TORNO-T1: trabalho novo nasce sem Programa nº, G5x e refrigeração (nada suposto)
+    private readonly LatheJob _job = LatheJob.Blank("TORNO");
     private LatheBuild _build = new("", [], [], [], []);
     private bool _busy;
     private readonly UndoStack<LatheOperationSpec> _undo = new();
@@ -28,7 +29,7 @@ public partial class LatheJobView : UserControl
     {
         InitializeComponent();
         TabStrip = CamShell.BuildTabs(_tabs, SetTab);
-        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick));
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick, minButtonWidth: 58));
         BuildBankSelector();
         _panes = new CamPanes(Panes, TreeSplitter, PropsSplitter, () => _tab == 1);
         PointsBox.Text = "0 16\n-2 20\n-25 20\n-25 28\n-35 28\n-45 28";
@@ -41,6 +42,13 @@ public partial class LatheJobView : UserControl
         {
             if (SelectedOp() is { } i && i < _job.Operations.Count)
             {
+                // TORNO-T3: a cópia do sangramento ficaria depois dele
+                if (_job.Operations[i].Kind == LatheOpKind.Parting)
+                {
+                    Errors.Text = "• " + LatheParting.LastOperation;
+                    return;
+                }
+
                 Snap();
                 int at = _job.DuplicateOperation(i);
                 Refresh(op: at);
@@ -81,10 +89,10 @@ public partial class LatheJobView : UserControl
             }
 
             // Peça, Bruto, Fixação e Zero: o lugar deles é a Preparação (como o Zero na fresa)
-            if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "part" or "stock" or "fixation" or "zero" } t)
+            if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "machine" or "part" or "stock" or "fixation" or "zero" } t)
             {
                 SetTab(0);
-                Control card = t.Kind switch { "part" => PrepProfileCard, "fixation" => PrepFixationCard, "zero" => PrepOriginCard, _ => PrepStock };
+                Control card = t.Kind switch { "machine" => PrepMachineCard, "part" => PrepProfileCard, "fixation" => PrepFixationCard, "zero" => PrepOriginCard, _ => PrepStockCard };
                 card.BringIntoView();
             }
 
@@ -96,7 +104,16 @@ public partial class LatheJobView : UserControl
             if (_build.Ok && _build.Program.Length > 0)
             {
                 // UX-04h D1: não grava mais na tabela antiga (a ferramenta vem do banco ativo do torno)
-                OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
+                // TORNO-T7: vai com o pacote do CAM (bruto, fixação, ferramentas); Siemens com .mpf, como na fresa
+                string name = CamHandoffCode.ProgramFileName(FileBase(), _job.Dialect);
+                if (OpenWithPackage is { } open)
+                {
+                    open(_build.Program, name, CamHandoff.CreateLathe(_job, _build.Program, MachineSource?.Invoke(), ActiveBank));
+                }
+                else
+                {
+                    OpenInEditor?.Invoke(_build.Program, name);
+                }
             }
         };
         // um zero só no Core: o programa gerado é o da fixação 1
@@ -126,6 +143,9 @@ public partial class LatheJobView : UserControl
     public Func<string, string, Task>? SaveJobFile { get; set; }
 
     public Action<string, string>? OpenInEditor { get; set; }
+
+    /// <summary>TORNO-T7: abre o programa no Code com o pacote do CAM (memória da aba; nada no G-code).</summary>
+    public Action<string, string, CamHandoff>? OpenWithPackage { get; set; }
 
     /// <summary>Bancos carregados (UX-04h D1); o seletor mostra só os de torno.</summary>
     public Func<IReadOnlyList<ToolBank>>? BanksSource { get; set; }
@@ -209,7 +229,7 @@ public partial class LatheJobView : UserControl
         }
 
         LatheTool? tool = _job.Operations.Count > 0 ? _job.Operations[^1].Tool : null;
-        if (CamPalette.NewLatheOperation(item, tool) is not { } spec)
+        if (CamPalette.NewLatheOperation(item, tool, _job.Stock) is not { } spec)
         {
             return;
         }
@@ -314,6 +334,8 @@ public partial class LatheJobView : UserControl
         _job.ProgramNumber = j.ProgramNumber;
         _job.WorkOffset = j.WorkOffset;
         _job.Coolant = j.Coolant;
+        _job.Stock = j.Stock;
+        _programTypedError = null;
         _job.Profile = j.Profile;
         _job.Fixation = j.Fixation;
         _job.Operations.Clear();
@@ -325,15 +347,9 @@ public partial class LatheJobView : UserControl
         Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
     }
 
-    /// <summary>Salva o trabalho; campo vazio numa operação bloqueia (o arquivo guardaria o número antigo que não aparece).</summary>
+    /// <summary>Salva o trabalho. Nunca trava por campo vazio (TORNO-T1): o arquivo guarda quais campos estão vazios, sem valor antigo.</summary>
     private async Task SaveJob()
     {
-        if (LatheJobInfo.SaveBlockers(_job) is { Count: > 0 } blockers)
-        {
-            Errors.Text = "• Não dá para salvar com campo vazio:\n" + string.Join("\n", blockers.Select(b => "• " + b));
-            return;
-        }
-
         if (SaveJobFile is not null)
         {
             await SaveJobFile(FileBase() + ".casillas-job", LatheJobJson.ToJson(_job));
@@ -350,6 +366,15 @@ public partial class LatheJobView : UserControl
     {
         if (SelectedOp() is { } i && i + delta >= 0 && i + delta < _job.Operations.Count)
         {
+            // TORNO-T3: nada desce para depois do sangramento, e ele não sobe
+            List<LatheOperationSpec> after = [.. _job.Operations];
+            (after[i], after[i + delta]) = (after[i + delta], after[i]);
+            if (LatheParting.FirstAfterParting(after) is not null && LatheParting.FirstAfterParting(_job.Operations) is null)
+            {
+                Errors.Text = "• " + LatheParting.LastOperation;
+                return;
+            }
+
             Snap();
             _job.MoveOperation(i, i + delta);
             Refresh(op: i + delta);
@@ -369,7 +394,7 @@ public partial class LatheJobView : UserControl
         LatheOpKind.Facing => "faceamento",
         LatheOpKind.Drilling => "furo",
         LatheOpKind.Threading => "rosca",
-        _ => "canal",
+        _ => "canal",   // canal radial, canal de face e sangramento
     };
 
     /// <summary>Guarda o estado das operações antes de uma alteração (para Desfazer).</summary>
@@ -406,7 +431,7 @@ public partial class LatheJobView : UserControl
         {
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
-            _build = LatheJobBuilder.Build(_job);
+            _build = LatheJobBuilder.Build(_job, MachineSource?.Invoke()?.MaxSpindleRpm);
             BuildTree(keepOp, keepTag);
         }
         finally
@@ -420,9 +445,8 @@ public partial class LatheJobView : UserControl
         }
 
         Errors.Text = ""; // os erros de geração ficam no rodapé (clicáveis); aqui só os avisos ao abrir arquivo
-        Warnings.Text = string.Join("\n", _build.Warnings.Select(w => "⚠ " + w));
+        ShowWarnings();
         Output.Text = _build.Ok ? _build.Program : "";
-        Warnings.Foreground = UiKit.Status("pending").Fg;
         bool gcode = _build.Ok && _build.Program.Length > 0;
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
         CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
@@ -447,7 +471,7 @@ public partial class LatheJobView : UserControl
             ? (_job.Operations.Count == 0 ? "Nenhuma operação" : "Nenhuma operação incompleta")
             : $"⚠ {incomplete} {(incomplete == 1 ? "operação incompleta" : "operações incompletas")}";
         StatusIncomplete.Foreground = incomplete == 0 ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
-        StatusProgram.Text = "Programa nº: " + _job.ProgramNumber.ToString(CultureInfo.InvariantCulture);
+        StatusProgram.Text = LatheJobProgram.StatusText(_job.Dialect, _job.ProgramNumber, _job.WorkOffset);
     }
 
     /// <summary>Operação incompleta: campo vazio ou erro ao gerar.</summary>
@@ -482,6 +506,16 @@ public partial class LatheJobView : UserControl
             }));
         }
 
+        // Programa nº, G5x e refrigeração vazios (TORNO-T1): levam ao cartão da Fixação, na Preparação
+        foreach (string _ in LatheJobProgram.Problems(_job))
+        {
+            targets.Add(("pending", () =>
+            {
+                SetTab(0);
+                PrepFixationCard.BringIntoView();
+            }));
+        }
+
         for (int i = 0; i < _build.Items.Count; i++)
         {
             int index = i;
@@ -513,6 +547,15 @@ public partial class LatheJobView : UserControl
             item.BringIntoView();
             item.Focus(NavigationMethod.Tab);
         }
+    }
+
+    /// <summary>Avisos do programa e de T fora do banco ativo (TORNO-T0: só avisa; o trabalho usa a cópia dele, como na fresa).</summary>
+    private void ShowWarnings()
+    {
+        ToolBank? bank = ActiveBank;
+        IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.LatheConflict(o, bank)).OfType<string>();
+        Warnings.Text = string.Join("\n", _build.Warnings.Concat(conflicts).Distinct().Select(w => "⚠ " + w));
+        Warnings.Foreground = UiKit.Status("pending").Fg;
     }
 
     /// <summary>Alterna 2D/3D e, no 3D, simula o programa atual (o 3D de antes, sem chips).</summary>
@@ -567,18 +610,20 @@ public partial class LatheJobView : UserControl
         }
 
         MachineProfile? machine = MachineSource?.Invoke();
-        Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta"));
+        Tree.Items.Add(NodeState(CamJobInfo.MachineTitle(machine), CamJobInfo.MachineState(machine), "ferramenta", new TreeTag("machine", 0)));
         // material ainda não existe no CAM: aparece apagado, sem valor suposto
         Tree.Items.Add(Soon("Material: não definido", "material", "Em breve: o material entra numa próxima etapa."));
         // perfil ausente é pendência (âmbar, como no rodapé)
         Tree.Items.Add(NodeState("Peça · " + LatheJobInfo.ProfileTitle(_job.Profile), _job.Profile is null ? ("pending", "falta definir") : ("ok", "OK"), "perfil", new TreeTag("part", 0)));
-        // o torno não tem bruto próprio: só leitura do Ø digitado nas operações
-        Tree.Items.Add(NodeState(LatheJobInfo.StockTitle(_job), ("neutral", "das operações · só leitura"), "bruto", new TreeTag("stock", 0)));
+        // bruto do trabalho (TORNO-T1), digitado na Preparação; sem ele, a linha mostra o Ø digitado nas operações
+        Tree.Items.Add(LatheJobInfo.JobStockTitle(_job.Stock) is { } stockTitle
+            ? NodeState(stockTitle, ("neutral", "digitado"), "bruto", new TreeTag("stock", 0))
+            : NodeState(LatheJobInfo.StockTitle(_job), ("neutral", "das operações"), "bruto", new TreeTag("stock", 0)));
         Tree.Items.Add(Soon("Banco de ferramentas", "ferramentas", "Em breve. Hoje a ferramenta vem da tabela do Code, nas propriedades de cada operação."));
 
         // Fixação 1: o trabalho tem uma fixação e um zero só (Core); dentro, o zero e as operações
         string fixationName = LatheFixation.Title(_job.Fixation)["Fixação: ".Length..];
-        TreeViewItem setup = NodeState($"Fixação 1 · G{_job.WorkOffset} · {fixationName}", LatheFixation.State(_job.Fixation), "fixacao", new TreeTag("fixation", 0));
+        TreeViewItem setup = NodeState($"Fixação 1 · {LatheJobInfo.WorkOffsetName(_job.WorkOffset)} · {fixationName}", LatheFixation.State(_job.Fixation), "fixacao", new TreeTag("fixation", 0));
         setup.IsExpanded = true;
         setup.Items.Add(NodeState("Zero: " + LatheJobInfo.OriginTitle(_job), CamJobInfo.OriginState(), "zero", new TreeTag("zero", 0)));
         for (int i = 0; i < _job.Operations.Count; i++)

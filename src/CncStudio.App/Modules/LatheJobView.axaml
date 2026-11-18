@@ -24,6 +24,27 @@
       <Setter Property="Padding" Value="12" />
       <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
+    <!-- Botão 3D (TORNO-T0): legível sobre o fundo escuro, ligado (laranja da seleção) e desligado (cinza da faixa). Só visual. -->
+    <Style Selector="ToggleButton#View3DButton /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#18202b" />
+      <Setter Property="BorderBrush" Value="#243040" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="#e6edf3" />
+    </Style>
+    <Style Selector="ToggleButton#View3DButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#243040" />
+      <Setter Property="Foreground" Value="#ffffff" />
+    </Style>
+    <Style Selector="ToggleButton#View3DButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#2b1a0a" />
+      <Setter Property="BorderBrush" Value="#ff8a1f" />
+      <Setter Property="Foreground" Value="#ffb066" />
+    </Style>
+    <Style Selector="ToggleButton#View3DButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#3a230c" />
+      <Setter Property="BorderBrush" Value="#ff8a1f" />
+      <Setter Property="Foreground" Value="#ffb066" />
+    </Style>
   </UserControl.Styles>
   <ThemeVariantScope RequestedThemeVariant="Dark">
   <Grid RowDefinitions="Auto,*,Auto,Auto" Background="#0d1117">
@@ -87,6 +108,8 @@
         <ScrollViewer x:Name="PrepCenter" IsVisible="False" HorizontalScrollBarVisibility="Disabled">
           <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="12">
             <StackPanel Grid.Column="0">
+              <!-- TORNO-T1: cartão Máquina (o mesmo editor de perfil da fresa) -->
+              <Border x:Name="PrepMachineCard" Classes="camcard"><StackPanel x:Name="PrepMachine" Spacing="4" /></Border>
               <Border x:Name="PrepProfileCard" Classes="camcard">
                 <StackPanel Spacing="6">
                   <TextBlock Text="Peça (perfil)" FontSize="18" FontWeight="Bold" />
@@ -98,7 +121,7 @@
                   <Button x:Name="UsePointsButton" Content="Usar estes pontos" Padding="10,5" HorizontalAlignment="Left" />
                 </StackPanel>
               </Border>
-              <Border Classes="camcard"><StackPanel x:Name="PrepStock" Spacing="6" /></Border>
+              <Border x:Name="PrepStockCard" Classes="camcard"><StackPanel x:Name="PrepStock" Spacing="6" /></Border>
               <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
                 <StackPanel Spacing="4">
                   <TextBlock Text="Material" FontSize="18" FontWeight="Bold" />

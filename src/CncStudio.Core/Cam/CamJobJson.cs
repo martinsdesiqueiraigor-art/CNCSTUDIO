@@ -46,7 +46,8 @@ public static class CamJobJson
     public static string ToJson(CamJob job)
     {
         // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
-        int version = CamJobProgram.NeedsVersion3(job) || CamJobZero.NeedsVersion3(job) ? 3 : CamJobStock.NeedsVersion2(job) ? 2 : 1;
+        int version = CamJobPart.NeedsVersion4(job) ? 4
+            : CamJobProgram.NeedsVersion3(job) || CamJobZero.NeedsVersion3(job) ? 3 : CamJobStock.NeedsVersion2(job) ? 2 : 1;
         var root = new JsonObject
         {
             ["format"] = Format,
@@ -108,6 +109,20 @@ public static class CamJobJson
         if (job.StockShape is { } shape)
         {
             root["stockShape"] = StockShapeToJson(shape);
+        }
+
+        // M3D-1 (versão 4): peça STEP = caminho, caixa e volume da peça girada e os giros; nunca a malha
+        if (job.PartStep is { } part)
+        {
+            StepStockSummary b = part.Summary;
+            root["partStep"] = new JsonObject
+            {
+                ["path"] = part.Path,
+                ["box"] = new JsonObject { ["minX"] = b.MinX, ["minY"] = b.MinY, ["minZ"] = b.MinZ, ["maxX"] = b.MaxX, ["maxY"] = b.MaxY, ["maxZ"] = b.MaxZ },
+                ["volume"] = b.Volume,
+                ["turns"] = new JsonArray([.. part.Turns.Select(t => (JsonNode)t.ToString())]),
+                ["topAtZero"] = part.TopAtZero,
+            };
         }
 
         var contours = new JsonArray();
@@ -338,6 +353,12 @@ public static class CamJobJson
             o["facingStepOver"] = s.FacingStepOverPercent;
         }
 
+        // M3D-2 (versão 4): furos escolhidos no 3D
+        if (s.ContourIndices is { Count: > 0 } chosen)
+        {
+            o["contours"] = new JsonArray([.. chosen.Select(c => (JsonNode)c)]);
+        }
+
         if (s.Drill is { } d)
         {
             o["drill"] = new JsonObject { ["cycle"] = d.Cycle.ToString(), ["peck"] = d.Peck, ["dwell"] = d.DwellSeconds };
@@ -484,6 +505,19 @@ public static class CamJobJson
                 }
             }
 
+            if (root["partStep"] is not null)
+            {
+                // peça STEP estragada não impede de abrir: fica sem peça STEP, com aviso (os contornos já salvos continuam)
+                if (PartStepFrom(root["partStep"]) is { } part)
+                {
+                    job.PartStep = part;
+                }
+                else
+                {
+                    warnings.Add("Peça STEP do arquivo ignorada (formato inválido): o trabalho abriu sem ela.");
+                }
+            }
+
             if (root["fixture"] is JsonObject fx)
             {
                 string Text(string key) => fx[key] is JsonValue v && v.TryGetValue(out string? s) ? s ?? "" : "";
@@ -542,6 +576,42 @@ public static class CamJobJson
         return list;
     }
 
+    /// <summary>Peça STEP do arquivo (M3D-1); null se faltar o caminho, a caixa ou o volume, ou se um giro for desconhecido.</summary>
+    private static JobPartStep? PartStepFrom(JsonNode? node)
+    {
+        if (node is not JsonObject o || o["path"] is not JsonValue pv || !pv.TryGetValue(out string? path) || string.IsNullOrWhiteSpace(path)
+            || o["box"] is not JsonObject b)
+        {
+            return null;
+        }
+
+        double? N(JsonNode? n) => n is JsonValue v && v.TryGetValue(out double d) && double.IsFinite(d) ? d : null;
+        if (N(b["minX"]) is not { } x0 || N(b["minY"]) is not { } y0 || N(b["minZ"]) is not { } z0 || N(b["maxX"]) is not { } x1
+            || N(b["maxY"]) is not { } y1 || N(b["maxZ"]) is not { } z1 || N(o["volume"]) is not { } volume)
+        {
+            return null;
+        }
+
+        var summary = new StepStockSummary(x0, y0, z0, x1, y1, z1, volume);
+        var turns = new List<Cam3D.ModelTurn>();
+        if (o["turns"] is JsonArray ta)
+        {
+            foreach (JsonNode? t in ta)
+            {
+                if (t is not JsonValue tv || !tv.TryGetValue(out string? name) || !System.Enum.TryParse(name, false, out Cam3D.ModelTurn turn)
+                    || !System.Enum.IsDefined(turn) || int.TryParse(name, out _))
+                {
+                    return null;
+                }
+
+                turns.Add(turn);
+            }
+        }
+
+        bool top = o["topAtZero"] is not JsonValue tz || !tz.TryGetValue(out bool flag) || flag;
+        return summary.Valid ? new JobPartStep(path, summary) { Turns = turns, TopAtZero = top } : null;
+    }
+
     private static CamOperationSpec OpFrom(JsonObject o)
     {
         JsonObject t = Obj(o, "tool"), l = Obj(o, "levels");
@@ -567,6 +637,11 @@ public static class CamJobJson
         if (o["facingStepOver"] is not null)
         {
             spec = spec with { FacingStepOverPercent = Num(o, "facingStepOver") };
+        }
+
+        if (o["contours"] is JsonArray chosen)
+        {
+            spec = spec with { ContourIndices = [.. chosen.Select(c => c is JsonValue cv && cv.TryGetValue(out int i) ? i : throw new FormatException("Lista de furos inválida."))] };
         }
 
         if (o["drill"] is JsonObject d)

@@ -34,6 +34,13 @@ public partial class CamView : UserControl
     private Func<Task<(string Name, string Text)?>>? _pickDxf;
 
     /// <summary>Escolhe o STEP do bruto da fresa e devolve o caminho no computador (null se cancelou).</summary>
+    /// <summary>M3D-1: escolhe o STEP da peça do Trabalho fresa (caminho no computador).</summary>
+    public Func<Task<string?>>? PickPartStep
+    {
+        get => JobPanel.PickPartStep;
+        set => JobPanel.PickPartStep = value;
+    }
+
     public Func<Task<string?>>? PickStockStep
     {
         get => JobPanel.PickStockStep;
@@ -71,11 +78,15 @@ public partial class CamView : UserControl
 
     private Action<string, string>? _openInEditor;
 
-    /// <summary>CAM-13: o Trabalho fresa envia o programa com o pacote do CAM (só a fresa; o torno segue sem pacote).</summary>
+    /// <summary>CAM-13: os Trabalhos fresa e torno (TORNO-T7) enviam o programa com o pacote do CAM.</summary>
     public Action<string, string, CncStudio.Core.Cam.CamHandoff>? OpenWithPackage
     {
         get => JobPanel.OpenWithPackage;
-        set => JobPanel.OpenWithPackage = value;
+        set
+        {
+            JobPanel.OpenWithPackage = value;
+            LatheJobPanel.OpenWithPackage = value;
+        }
     }
 
     public Func<string, Task>? CopyText
@@ -177,6 +188,12 @@ public partial class CamView : UserControl
         JobPanel.SetActiveMachine = name => MachinePanel.SetActive?.Invoke(name);
         JobPanel.SaveMachines = () => MachinePanel.Save?.Invoke();
         JobPanel.OpenMachineProfiles = () => ShowMachine(profile: true);
+        // TORNO-T1: o cartão Máquina do Trabalho torno usa os mesmos perfis e o mesmo perfil ativo
+        LatheJobPanel.ProfilesSource = JobPanel.ProfilesSource;
+        LatheJobPanel.ActiveMachineName = JobPanel.ActiveMachineName;
+        LatheJobPanel.SetActiveMachine = JobPanel.SetActiveMachine;
+        LatheJobPanel.SaveMachines = JobPanel.SaveMachines;
+        LatheJobPanel.OpenMachineProfiles = JobPanel.OpenMachineProfiles;
     }
 
     /// <summary>Ao abrir o módulo: marca o programa do Trabalho fresa como desatualizado se o perfil da máquina mudou.</summary>
