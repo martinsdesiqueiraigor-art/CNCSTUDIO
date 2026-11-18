@@ -10,3 +10,6 @@
   Cache-Control: no-cache
 /version.txt
   Cache-Control: no-cache
+# TESTE TEMPORÁRIO WEB-03 (sai antes do merge)
+/brtest/*
+  Content-Encoding: br

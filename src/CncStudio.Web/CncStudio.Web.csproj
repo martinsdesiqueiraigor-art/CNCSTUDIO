@@ -17,6 +17,12 @@
     <TrimMode>partial</TrimMode>
   </PropertyGroup>
 
+  <!-- WEB-03: o que só serve ao editor visual do Avalonia (pré-visualização) e a diálogos que a web não usa pode ser cortado -->
+  <ItemGroup>
+    <TrimmableAssembly Include="Avalonia.DesignerSupport" />
+    <TrimmableAssembly Include="Avalonia.Dialogs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Browser" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
