@@ -46,8 +46,8 @@ public sealed record LatheOperationSpec(LatheOpKind Kind, LatheTool Tool)
 
     /// <summary>
     /// Campos (nome como na tela) que o usuário deixou vazios ou com texto (UX-04e, a regra do CAM-12 da fresa): a operação fica
-    /// Incompleta e não gera (<see cref="LatheJobInfo.MissingError"/>), e o número antigo guardado não vale. Não vai para o arquivo;
-    /// Salvar fica bloqueado enquanto houver (<see cref="LatheJobInfo.SaveBlockers"/>).
+    /// Incompleta e não gera (<see cref="LatheJobInfo.MissingError"/>), e o número antigo guardado não vale. Vai para o arquivo
+    /// (chave "missing", TORNO-T1); Salvar nunca trava por campo vazio.
     /// </summary>
     public IReadOnlyList<string> MissingFields { get; init; } = [];
 
@@ -642,12 +642,12 @@ public static class LatheJobInfo
     public const string PartingFinalField = "Ø final (0 = até o centro)";
 
     /// <summary>
-    /// Campos numéricos da operação, com o nome da tela (os rótulos do painel), na ordem do painel. A rotação fixa não entra: 0 é a
-    /// escolha "G96", não um número de corte.
+    /// Campos numéricos da operação, com o nome da tela (os rótulos do painel), na ordem do painel. A rotação fixa entra (sprint
+    /// do torno): 0 = G96 é escolha do usuário, digitada, nunca suposta.
     /// </summary>
     public static IReadOnlyList<string> NumericFields(LatheOperationSpec s)
     {
-        var list = new List<string> { ToolNumberField, SurfaceSpeedField, MaxRpmField, SafeZField, SafeDiameterField, ClearanceField };
+        var list = new List<string> { ToolNumberField, SurfaceSpeedField, MaxRpmField, FixedRpmField, SafeZField, SafeDiameterField, ClearanceField };
         list.AddRange(KindFields(s));
         return list;
     }
@@ -705,7 +705,7 @@ public static class LatheJobInfo
         var missing = NumericFields(spec).ToList();
         if (tool is not null)
         {
-            missing.RemoveAll(f => f is ToolNumberField or SurfaceSpeedField or MaxRpmField);
+            missing.RemoveAll(f => f is ToolNumberField or SurfaceSpeedField or MaxRpmField or FixedRpmField);
         }
 
         if (stock?.Diameter is { } d && (kind == LatheOpKind.Facing || (kind == LatheOpKind.Turning && !isInternal)))

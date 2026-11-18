@@ -78,7 +78,7 @@ public class LathePaletteMissingTests
         {
             LatheOperationSpec made = CamPalette.NewLatheOperation(item)!;
             LatheOperationSpec blank = LatheJobInfo.NewBlank(item.LatheKind!.Value, item.Internal);
-            Assert.Equal(LatheJobJson.ToJson(Wrap(blank), keepEmptyFields: true), LatheJobJson.ToJson(Wrap(made), keepEmptyFields: true));
+            Assert.Equal(LatheJobJson.ToJson(Wrap(blank)), LatheJobJson.ToJson(Wrap(made)));
             Assert.NotEmpty(made.MissingFields);
             Assert.Same(item, CamPalette.LatheItemFor(made));
         }
@@ -122,12 +122,17 @@ public class LathePaletteMissingTests
     }
 
     [Fact]
-    public void Campos_vazios_nao_vao_para_o_arquivo()
+    public void Campos_vazios_vao_para_o_arquivo_e_trabalho_sem_eles_regrava_igual()
     {
+        // Sprint do torno (autorizado pelo Igor em 18/11): substitui "Campos_vazios_nao_vao_para_o_arquivo". Salvar do torno nunca
+        // trava por campo vazio (decisão 5a), então o arquivo guarda a lista e o trabalho abre Incompleto como estava.
         LatheJob job = Sample();
         string clean = LatheJobJson.ToJson(job);
+        Assert.DoesNotContain("\"missing\"", clean);
         job.Operations[0] = LatheJobInfo.SetMissing(job.Operations[0], "Avanço", true);
-        Assert.Equal(clean, LatheJobJson.ToJson(job));
+        string withEmpty = LatheJobJson.ToJson(job);
+        Assert.Contains("\"missing\"", withEmpty);
+        Assert.Equal(["Avanço"], LatheJobJson.FromJson(withEmpty).Job!.Operations[0].MissingFields);
         Assert.Empty(LatheJobJson.FromJson(clean).Job!.Operations[0].MissingFields);
     }
 

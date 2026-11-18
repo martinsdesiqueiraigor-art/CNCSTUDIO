@@ -340,7 +340,7 @@ public partial class LatheJobView : UserControl
     {
         if (SaveJobFile is not null)
         {
-            await SaveJobFile(FileBase() + ".casillas-job", LatheJobJson.ToJson(_job, keepEmptyFields: true));
+            await SaveJobFile(FileBase() + ".casillas-job", LatheJobJson.ToJson(_job));
         }
     }
 

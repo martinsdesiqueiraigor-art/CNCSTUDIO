@@ -76,7 +76,7 @@ public class LatheT1PrepTests
     public void Arquivo_novo_nao_grava_chave_vazia_e_abre_vazio()
     {
         LatheJob job = BlankWithFacing();
-        string json = LatheJobJson.ToJson(job, keepEmptyFields: true);
+        string json = LatheJobJson.ToJson(job);
         Assert.DoesNotContain("programNumber", json);
         Assert.DoesNotContain("workOffset", json);
         Assert.DoesNotContain("coolant", json);
@@ -88,11 +88,11 @@ public class LatheT1PrepTests
         Assert.Null(back.Job.WorkOffset);
         Assert.Null(back.Job.Coolant);
         Assert.Null(back.Job.Stock);
-        Assert.Equal(json, LatheJobJson.ToJson(back.Job, keepEmptyFields: true));
+        Assert.Equal(json, LatheJobJson.ToJson(back.Job));
 
         // só um dos três preenchido: os outros continuam fora do arquivo
         job.WorkOffset = 56;
-        string partial = LatheJobJson.ToJson(job, keepEmptyFields: true);
+        string partial = LatheJobJson.ToJson(job);
         Assert.Contains("\"workOffset\": 56", partial);
         Assert.DoesNotContain("programNumber", partial);
         Assert.Equal(56, LatheJobJson.FromJson(partial).Job!.WorkOffset);
@@ -165,18 +165,18 @@ public class LatheT1PrepTests
     {
         LatheJob job = LatheJob.Blank("PECA");
         job.Operations.Add(LatheJobInfo.NewBlank(LatheOpKind.Drilling, false));
-        string json = LatheJobJson.ToJson(job, keepEmptyFields: true);
+        string json = LatheJobJson.ToJson(job);
         Assert.Contains("\"missing\"", json);
 
         LatheLoadResult back = LatheJobJson.FromJson(json);
         Assert.True(back.Ok, back.Error);
         Assert.Equal(job.Operations[0].MissingFields, back.Job!.Operations[0].MissingFields);
-        Assert.Equal(json, LatheJobJson.ToJson(back.Job, keepEmptyFields: true));
+        Assert.Equal(json, LatheJobJson.ToJson(back.Job));
 
         // digitar tudo tira a lista do arquivo
         LatheOperationSpec filled = back.Job.Operations[0] with { MissingFields = [] };
         back.Job.Operations[0] = filled;
-        Assert.DoesNotContain("\"missing\"", LatheJobJson.ToJson(back.Job, keepEmptyFields: true));
+        Assert.DoesNotContain("\"missing\"", LatheJobJson.ToJson(back.Job));
     }
 
     [Fact]

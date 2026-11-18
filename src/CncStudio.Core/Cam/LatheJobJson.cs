@@ -18,10 +18,10 @@ public static class LatheJobJson
     internal const string Format = "casillas-job-torno";
 
     /// <summary>
-    /// Texto do arquivo. <paramref name="keepEmptyFields"/> (TORNO-T1, o Salvar da tela): grava em cada operação a lista dos campos
-    /// que o usuário deixou vazios, para o trabalho abrir Incompleto como estava. Sem ele, a lista não é gravada (como antes).
+    /// Texto do arquivo. Grava em cada operação a lista dos campos que o usuário deixou vazios (TORNO-T1), para o trabalho abrir
+    /// Incompleto como estava; operação sem campo vazio não ganha a chave (arquivo antigo regrava igual).
     /// </summary>
-    public static string ToJson(LatheJob job, bool keepEmptyFields = false)
+    public static string ToJson(LatheJob job)
     {
         var root = new JsonObject
         {
@@ -97,14 +97,14 @@ public static class LatheJobJson
         var ops = new JsonArray();
         foreach (LatheOperationSpec s in job.Operations)
         {
-            ops.Add(OpToJson(s, keepEmptyFields));
+            ops.Add(OpToJson(s));
         }
 
         root["operations"] = ops;
         return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 
-    private static JsonObject OpToJson(LatheOperationSpec s, bool keepEmptyFields)
+    private static JsonObject OpToJson(LatheOperationSpec s)
     {
         var o = new JsonObject
         {
@@ -124,7 +124,7 @@ public static class LatheJobJson
             },
         };
         // TORNO-T1: campos que o usuário deixou vazios (nome da tela); o número guardado deles é 0 e nunca é usado
-        if (keepEmptyFields && s.MissingFields.Count > 0)
+        if (s.MissingFields.Count > 0)
         {
             o["missing"] = new JsonArray([.. s.MissingFields.Select(f => (JsonNode)f)]);
         }
