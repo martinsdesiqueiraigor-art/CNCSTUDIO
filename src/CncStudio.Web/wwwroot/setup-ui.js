@@ -51,23 +51,26 @@ export function openSetup(json, hasMyTools, contextJson) {
     let stockKind=Number(stock.Kind??0);
     // Torno: ordem na tela → tipo do modelo (1 redonda, 2 tubo, 0 quadrada/retangular, 3 sextavada)
     const LK=[1,2,0,3];
-    if(lathe)select(stockBox,'Tipo de bruto',['Barra redonda','Tubo','Barra quadrada ou retangular','Barra sextavada'],Math.max(0,LK.indexOf(stockKind)),v=>{stockKind=LK[v];stock.Kind=stockKind});
-    else select(stockBox,'Tipo de bruto',['Prisma retangular','Redondo maciço','Tubo'],stockKind,v=>{stockKind=v;stock.Kind=v});
-    // WEB-01 S1: o bruto do comentário BRUTO do programa (sugestão ou comparação com o setup salvo)
+    const kindSel=lathe?select(stockBox,'Tipo de bruto',['Barra redonda','Tubo','Barra quadrada ou retangular','Barra sextavada'],Math.max(0,LK.indexOf(stockKind)),v=>{stockKind=LK[v];stock.Kind=stockKind})
+      :select(stockBox,'Tipo de bruto',['Prisma retangular','Redondo maciço','Tubo'],stockKind,v=>{stockKind=v;stock.Kind=v});
+    // WEB-02: com comentário BRUTO no programa, a simulação segue o programa ("Do programa"); "Outro bruto" é troca de propósito
     const programBox=document.createElement('div');programBox.style.cssText='display:flex;flex-direction:column;gap:6px';stockBox.insertBefore(programBox,stockBox.children[1]);
-    function sameAsProgram(){const p=ctx.programStock;if(!p)return true;const near=(a,b)=>Math.abs((+a)-(+b))<=0.01;if(lathe&&(stockKind===0||stockKind===3))return false;if(Number(p.Kind)!==stockKind&&!(lathe&&stockKind!==0))return false;
-      if(lathe)return near(p.Diameter,stock.Diameter)&&near(p.Height,stock.Height)&&near(+p.Z+(+p.Height),origin.Z);
-      return near(p.Width,stock.Width)&&near(p.Depth,stock.Depth)&&near(p.Height,stock.Height)&&near(+p.X+(+p.Width)/2,origin.X)&&near(+p.Y+(+p.Depth)/2,origin.Y)&&near(+p.Z+(+p.Height),origin.Z);}
-    function renderProgram(){programBox.replaceChildren();if(!ctx.programStock)return;
-      const same=sameAsProgram();const p=document.createElement('p');p.style.cssText='margin:0;font-size:13px;line-height:1.4;color:'+(same?'#7ee2a8':'#ffb86b');
-      p.textContent=same?(ctx.fromProgram?'Bruto sugerido pelo comentário do programa (BRUTO '+ctx.programStockText+'). Confira e salve.':'Igual ao comentário do programa (BRUTO '+ctx.programStockText+').')
-        :'O programa diz BRUTO '+ctx.programStockText+', e este setup tem outro bruto. A simulação usa o do setup: rápidos (G00) podem aparecer "no material" sem erro no programa.';
-      programBox.append(p);
-      if(!same){const b=document.createElement('button');b.type='button';b.textContent='Usar o bruto do programa';b.style.cssText='align-self:flex-start;min-height:44px;padding:8px 14px;background:#27394a;color:white;border:1px solid #526579;border-radius:7px;font-size:15px';
-        b.onclick=()=>{const q=ctx.programStock;Object.assign(stock,{Kind:q.Kind,Diameter:q.Diameter,InnerDiameter:q.InnerDiameter??stock.InnerDiameter,Height:q.Height,Width:q.Width,Depth:q.Depth,Axis:0});stockKind=Number(q.Kind);axis=0;
-          origin.X=lathe||stockKind!==0?(lathe?0:+q.X):+q.X+(+q.Width)/2;origin.Y=lathe||stockKind!==0?(lathe?0:+q.Y):+q.Y+(+q.Depth)/2;origin.Z=+q.Z+(+q.Height);
-          const sel=stockBox.querySelector('select');if(sel)sel.value=String(lathe?Math.max(0,LK.indexOf(stockKind)):stockKind);renderFields();};
-        programBox.append(b);}}
+    let followProgram=!!ctx.programStock&&stock.OverridesProgram!==true;
+    const programText=document.createElement('p');programText.style.cssText='margin:0;font-size:13px;line-height:1.4';
+    function applyProgram(){const q=ctx.programStock;if(!q)return;Object.assign(stock,{Kind:q.Kind,Diameter:q.Diameter,InnerDiameter:q.InnerDiameter??stock.InnerDiameter,Height:q.Height,Width:q.Width,Depth:q.Depth,Axis:0,X:q.X,Y:q.Y,Z:q.Z});stockKind=Number(q.Kind);axis=0;
+      origin.X=lathe?0:stockKind===0?+q.X+(+q.Width)/2:+q.X;origin.Y=lathe?0:stockKind===0?+q.Y+(+q.Depth)/2:+q.Y;origin.Z=+q.Z+(+q.Height);
+      kindSel.value=String(lathe?Math.max(0,LK.indexOf(stockKind)):stockKind);}
+    function lockProgram(){for(const el of [...stockFields.querySelectorAll('input,select'),...originFields.querySelectorAll('input,select')]){el.disabled=followProgram;el.style.opacity=followProgram?'.55':'';}
+      kindSel.disabled=followProgram;kindSel.style.opacity=followProgram?'.55':'';}
+    function renderProgram(){if(!ctx.programStock)return;
+      programText.style.color=followProgram?'#7ee2a8':'#ffb86b';
+      programText.textContent=followProgram?'A simulação usa o bruto do programa (BRUTO '+ctx.programStockText+'), na posição do zero do programa. Para trocar, escolha "Outro bruto".'
+        :'Outro bruto: a simulação não segue o comentário do programa (BRUTO '+ctx.programStockText+') e mostra um aviso fixo.';
+      lockProgram();}
+    if(ctx.programStock){
+      if(followProgram)applyProgram();
+      select(programBox,'Origem do bruto',['Do programa (BRUTO '+ctx.programStockText+')','Outro bruto'],followProgram?0:1,v=>{followProgram=v===0;if(followProgram)applyProgram();});
+      programBox.append(programText);}
     const stockFields=document.createElement('div');stockFields.style.cssText='display:flex;flex-direction:column;gap:8px';stockBox.append(stockFields);
     const fixtureBox=section('02 · Fixação');
     let fixKind=old ? Number(old.Kind)+1 : 0;
@@ -195,7 +198,7 @@ export function openSetup(json, hasMyTools, contextJson) {
       const stockText=kind===0?fmt(stock.Width)+' × '+fmt(stock.Depth)+' × '+fmt(stock.Height):kind===3?'chave '+fmt(stock.Width)+' × '+fmt(stock.Height):'Ø'+fmt(stock.Diameter)+(kind===2?' / Ø'+fmt(stock.InnerDiameter):'')+' × '+fmt(stock.Height);
       drawDimensions();
       note.textContent=(['Prisma','Redondo','Tubo','Sextavado'][kind])+' · '+stockText+' mm · '+(['Sem fixação','Morsa','Grampo','Placa 3 castanhas'][fix])+(lathe?' · face em Z '+fmt(origin.Z):' · centro XY compartilhado');
-      if(typeof renderProgram==='function'&&ctx.programStock)renderProgram();
+      if(ctx.programStock)renderProgram();
     }
     save.addEventListener('click',()=>{
       error.textContent='';
@@ -205,6 +208,7 @@ export function openSetup(json, hasMyTools, contextJson) {
       if(stockKind===2&&!(Number.isFinite(stock.InnerDiameter)&&stock.InnerDiameter>0&&stock.InnerDiameter<stock.Diameter)){error.textContent='O diâmetro interno deve ser menor que o externo.';return;}
       if(fixKind!==0&&!positive(fixture.Width,fixture.Height,fixture.JawThickness,...(fixKind===3?[]:[fixture.Depth]),...(fixKind===2?[]:[fixture.JawOpening]))){error.textContent='Confira as dimensões da fixação.';return;}
       const toolError = toolEditor.validate(); if(toolError){error.textContent=toolError;return;}
+      if(ctx.programStock&&!followProgram)stock.OverridesProgram=true;else delete stock.OverridesProgram;
       stock.Kind=stockKind;
       stock.Axis=stockKind===0?0:axis;
       if(lathe){origin.X=0;origin.Y=0;stock.Axis=0;axis=0;fixture.Rotation=0;}

@@ -257,7 +257,7 @@ public partial class MainView
         var list = new StackPanel { Spacing = 2, Margin = new Avalonia.Thickness(4) };
         list.Children.Add(new TextBlock { Text = "G00 que encostaram no material", FontWeight = Avalonia.Media.FontWeight.SemiBold, Margin = new Avalonia.Thickness(4, 2, 4, 6) });
         // WEB-01 S1: bruto do setup diferente do comentário é a causa mais comum de alarme falso
-        if (StockMismatch() is { } mismatch)
+        if (StockOverrideNote() is { } mismatch)
         {
             list.Children.Add(new TextBlock { Text = mismatch, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MaxWidth = 320, Foreground = Avalonia.Media.Brushes.Orange, Margin = new Avalonia.Thickness(4, 0, 4, 6) });
         }
@@ -334,13 +334,14 @@ public partial class MainView
         }
 
         int cells = SimulationFactory.CellsFor(GraphHost.Bounds.Width, GraphHost.Bounds.Height);
-        _material = SimulationFactory.Create(analysis, _machiningSetup, Editor.Text, cells);
+        Core.Setup.MachiningSetup simSetup = SimSetup;
+        _material = SimulationFactory.Create(analysis, simSetup, Editor.Text, cells);
         ScenePalette palette = _technical ? ScenePalette.Technical : ScenePalette.Realistic;
         _scene = _material.Bar is { } bar
-            ? SimulationScene.ForLathe(bar, analysis.ToolPath, _machiningSetup, palette)
+            ? SimulationScene.ForLathe(bar, analysis.ToolPath, simSetup, palette)
             : _material.Voxels is { } voxels
-                ? SimulationScene.ForVoxels(voxels, analysis.ToolPath, _material.Profiles, _machiningSetup, palette)
-                : SimulationScene.ForMill(_material.Map!, analysis.ToolPath, _material.Profiles, _machiningSetup, palette);
+                ? SimulationScene.ForVoxels(voxels, analysis.ToolPath, _material.Profiles, simSetup, palette)
+                : SimulationScene.ForMill(_material.Map!, analysis.ToolPath, _material.Profiles, simSetup, palette);
         _scene.QuarterSection = _quarterSection;
         _scene.TransparentMaterial = _transparent;
         ApplyToolVisibility();

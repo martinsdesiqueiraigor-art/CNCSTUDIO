@@ -517,7 +517,7 @@ public partial class MainView : UserControl
 
         string text = Editor.Text;
         SetupSheet sheet = SetupSheetBuilder.Build(text, analysis, _fileName, _libraryPath, _ => null);
-        EffectiveStockResult stock = SetupBinding.EffectiveStock(_machiningSetup, sheet.Machine, text, sheet.CuttingBounds);
+        EffectiveStockResult stock = SetupBinding.EffectiveStock(SimSetup, sheet.Machine, text, sheet.CuttingBounds);
         if (stock.Stock is { } effective && (stock.Source == StockSource.Setup || sheet.Stock is null))
         {
             sheet = sheet with { Stock = effective.Describe(BrazilianCulture.Instance) };
@@ -1364,6 +1364,9 @@ public partial class MainView : UserControl
             return;
         }
 
+        // WEB-02: o desenho 2D mostra o bruto que a simulação usa (o do programa, salvo "Outro bruto")
+        Backplot.SetMachiningSetup(SimSetup);
+
         StopSimulation();
         UpdateAxisViewButton();
         Backplot.SetPath(_analysis.ToolPath, keepView);
@@ -1403,7 +1406,7 @@ public partial class MainView : UserControl
             : $"{a.ErrorCount} erro(s), {a.WarningCount} aviso(s)";
         string note = _statusNote is null ? "" : _statusNote + " · ";
         _statusNote = null;
-        if (StockMismatch() is { } mismatch)
+        if (StockOverrideNote() is { } mismatch)
         {
             note = "⚠ " + mismatch + " · " + note;
         }
