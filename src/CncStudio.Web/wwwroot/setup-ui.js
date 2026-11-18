@@ -52,7 +52,7 @@ export function openSetup(json, hasMyTools, contextJson) {
     // Torno: ordem na tela → tipo do modelo (1 redonda, 2 tubo, 0 quadrada/retangular, 3 sextavada)
     const LK=[1,2,0,3];
     const kindSel=lathe?select(stockBox,'Tipo de bruto',['Barra redonda','Tubo','Barra quadrada ou retangular','Barra sextavada'],Math.max(0,LK.indexOf(stockKind)),v=>{stockKind=LK[v];stock.Kind=stockKind})
-      :select(stockBox,'Tipo de bruto',['Prisma retangular','Redondo maciço','Tubo'],stockKind,v=>{stockKind=v;stock.Kind=v});
+      :select(stockBox,'Tipo de bruto',['Prisma retangular','Redondo maciço','Tubo','Sextavado (em pé)'],stockKind,v=>{stockKind=v;stock.Kind=v;if(v===3){axis=0;stock.Axis=0;}});
     // WEB-02: com comentário BRUTO no programa, a simulação segue o programa ("Do programa"); "Outro bruto" é troca de propósito
     const programBox=document.createElement('div');programBox.style.cssText='display:flex;flex-direction:column;gap:6px';stockBox.insertBefore(programBox,stockBox.children[1]);
     let followProgram=!!ctx.programStock&&stock.OverridesProgram!==true;
@@ -113,6 +113,7 @@ export function openSetup(json, hasMyTools, contextJson) {
       if(lying){field(originFields,'Centro do bruto X (mm)',origin,'X');field(originFields,'Centro do bruto Y (mm)',origin,'Y');field(originFields,'Centro do bruto Z (mm)',origin,'Z');}
       else{field(originFields,'Centro do bruto X (mm)',origin,'X');field(originFields,'Centro do bruto Y (mm)',origin,'Y');field(originFields,'Topo do bruto Z (mm)',origin,'Z');}
       if(stockKind===0){field(stockFields,'Comprimento X (mm)',stock,'Width',true);field(stockFields,'Largura Y (mm)',stock,'Depth',true);field(stockFields,'Espessura Z (mm)',stock,'Height',true);}
+      else if(stockKind===3){field(stockFields,'Medida entre faces, chave (mm)',stock,'Width',true);field(stockFields,'Altura (mm)',stock,'Height',true);}
       else {select(stockFields,'Eixo do cilindro',['Z (em pé)','X (deitado)','Y (deitado)','Automático (eixo da máquina)'],axis,v=>{const was=axis;axis=v;stock.Axis=v;const r=(+stock.Diameter||0)/2;if(was===0&&v!==0)origin.Z-=r;else if(was!==0&&v===0)origin.Z+=r;});field(stockFields,'Diâmetro externo (mm)',stock,'Diameter',true);if(stockKind===2)field(stockFields,'Diâmetro interno (mm)',stock,'InnerDiameter',true);field(stockFields,stockKind===1&&axis===0?'Altura (mm)':'Comprimento (mm)',stock,'Height',true);}
       if(fixKind===1){for(const [l,k] of [['Comprimento da base (mm)','Width'],['Largura da base (mm)','Depth'],['Altura da base (mm)','Height'],['Abertura entre mordentes (mm)','JawOpening'],['Espessura dos mordentes (mm)','JawThickness'],['Rotação Z (graus)','Rotation']])field(fixFields,l,fixture,k,k!=='Rotation');}
       else if(fixKind===2){for(const [l,k] of [['Comprimento do apoio (mm)','Width'],['Largura do apoio (mm)','Depth'],['Altura do apoio (mm)','Height'],['Espessura do grampo (mm)','JawThickness'],['Rotação Z (graus)','Rotation']])field(fixFields,l,fixture,k,k!=='Rotation');}
