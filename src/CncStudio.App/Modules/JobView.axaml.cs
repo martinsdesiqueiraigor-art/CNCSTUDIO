@@ -32,6 +32,8 @@ public partial class JobView : UserControl
         InitializeComponent();
         // chips do 3D: cada mudança vai para o config do app
         Scene3D.OptionsChanged += (_, o) => SaveViewOptions?.Invoke(o.ToText());
+        // M3D-2: clique numa face da peça STEP no 3D
+        Scene3D.SceneClicked += OnPartClicked;
         TabStrip = BuildTabs();
         BuildPalette();
         UndoButton.Click += (_, _) => Undo();
@@ -312,6 +314,12 @@ public partial class JobView : UserControl
         }
 
         DxfImportResult r = DxfImporter.ParseInMillimeters(file.Text);
+        if (CamJobPart.CannotSwitch(_job, toStep: false) is { } why)
+        {
+            Errors.Text = "• " + why;
+            return;
+        }
+
         if (_job.Operations.Count > 0 && _job.Contours.Count > 0)
         {
             Errors.Text = "• O desenho já tem operações. Abra o DXF num trabalho novo (Abrir trabalho… ou reabra o programa) para não misturar contornos.";
@@ -319,6 +327,9 @@ public partial class JobView : UserControl
         }
 
         StockSolid? before = CamJobStock.Check(_job).Solid;
+        // uma fonte só (M3D): o DXF substitui a peça STEP
+        _job.PartStep = null;
+        ForgetPartMesh();
         _job.Contours.Clear();
         _job.Contours.AddRange(r.Contours);
         _openChains = r.OpenChains.Count;
@@ -366,6 +377,10 @@ public partial class JobView : UserControl
         _absoluteMode = false;
         ForgetStockMemory();
         _job.PartHeight = j.PartHeight;
+        // M3D-1: peça STEP só confere se o arquivo está no lugar (nunca lê ao abrir)
+        _job.PartStep = j.PartStep;
+        ForgetPartMesh();
+        CamJobPart.VerifyFile(_job, File.Exists);
         _job.Fixture = j.Fixture;
         _job.Contours.Clear();
         _job.Contours.AddRange(j.Contours);
@@ -798,6 +813,7 @@ public partial class JobView : UserControl
         {
             Scene3D.Render(_build.Ok ? _build.Program : "", _job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc, StockForScene(), [.. _job.Contours],
                 CamJobZero.Position(_job) ?? default);
+            ShowPartInScene();
         }
     }
 

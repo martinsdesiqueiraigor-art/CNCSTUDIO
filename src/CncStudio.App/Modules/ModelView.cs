@@ -182,6 +182,8 @@ public sealed partial class ModelView : Grid
         });
         panel.Children.Add(_zInfo);
         panel.Children.Add(_originInfo);
+        // M3D-3: o caminho novo é o Trabalho; aqui o programa sai solto, fora da árvore
+        panel.Children.Add(UiKit.StatusNote("Para a furação e o bolsão entrarem na árvore do Trabalho (com banco de ferramentas, zero e pacote para o Code), abra a peça STEP no Trabalho (Preparação → Peça pronta → STEP da peça) e clique nas faces no 3D. Aqui o programa sai solto.", "pending"));
         AddField(panel, "DZ", "Furação: Z do fundo do furo (ponta da broca)", "");
         AddField(panel, "PZB", "Bolsão: Z do fundo do bolsão", "");
         AddField(panel, "DD", "Broca (mm)", "6");

@@ -34,6 +34,13 @@ public partial class CamView : UserControl
     private Func<Task<(string Name, string Text)?>>? _pickDxf;
 
     /// <summary>Escolhe o STEP do bruto da fresa e devolve o caminho no computador (null se cancelou).</summary>
+    /// <summary>M3D-1: escolhe o STEP da peça do Trabalho fresa (caminho no computador).</summary>
+    public Func<Task<string?>>? PickPartStep
+    {
+        get => JobPanel.PickPartStep;
+        set => JobPanel.PickPartStep = value;
+    }
+
     public Func<Task<string?>>? PickStockStep
     {
         get => JobPanel.PickStockStep;

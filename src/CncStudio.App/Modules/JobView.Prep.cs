@@ -406,21 +406,30 @@ public partial class JobView
 
     // ---------------------------------------------------------------- Peça pronta
 
-    /// <summary>Peça pronta: X e Y do desenho (caixa de todos os contornos), altura Z digitada. STEP da peça: em breve.</summary>
+    /// <summary>Peça pronta: DXF (X e Y da caixa dos contornos) ou STEP (M3D-1: caminho, resumo e giros), e a altura Z digitada.</summary>
     private void PartCard(StackPanel card)
     {
         card.Children.Clear();
         card.Children.Add(CardTitle("Peça pronta"));
-        card.Children.Add(Choices(Choice("Desenho DXF", true, null), Choice("STEP da peça · em breve", false, null, "Em breve: a peça em STEP fica hoje na aba Modelo 3D (Mais).")));
-        (double X, double Y, double Width, double Length)? box = CamJobInfo.DrawingBox(_job.Contours);
-        card.Children.Add(Note(box is { } b
-            ? $"Largura X e profundidade Y vêm do desenho: {Fmt(b.Width)} × {Fmt(b.Length)} mm."
-            : "Sem desenho: abra um DXF (faixa Arquivo) ou desenhe uma forma (item Peça pronta + bruto, aba Operações)."));
+        PartSourceChoices(card);
+        if (_job.PartStep is not null)
+        {
+            PartStepCard(card);
+        }
+        else
+        {
+            (double X, double Y, double Width, double Length)? box = CamJobInfo.DrawingBox(_job.Contours);
+            card.Children.Add(Note(box is { } b
+                ? $"Largura X e profundidade Y vêm do desenho: {Fmt(b.Width)} × {Fmt(b.Length)} mm."
+                : "Sem desenho: abra um DXF (faixa Arquivo) ou desenhe uma forma (item Peça pronta + bruto, aba Operações)."));
+        }
+
         card.Children.Add(PrepNum(CamJobStock.PartHeightField, () => _job.PartHeight, () => _job.StockShape is not null,
             () => _job.PartHeight is { } h ? CamJobStock.PartHeightError(h) : null, v => _job.PartHeight = v));
+        string heightNote = _job.PartStep is not null ? "Altura digitada (ou copiada do STEP pelo botão acima)." : "Um DXF não informa a altura.";
         card.Children.Add(Note(_job.StockShape is null
-            ? "Um DXF não informa a altura. Só o bruto por sobra, cilindro e tubo usam."
-            : "Um DXF não informa a altura. Sem ela, o bruto fica incompleto e Gerar e Enviar ficam travados."));
+            ? heightNote + " Só o bruto por sobra, cilindro e tubo usam."
+            : heightNote + " Sem ela, o bruto fica incompleto e Gerar e Enviar ficam travados."));
     }
 
     // ---------------------------------------------------------------- Bruto
