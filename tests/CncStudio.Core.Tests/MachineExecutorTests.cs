@@ -77,6 +77,28 @@ public class MachineExecutorTests
     }
 
     [Fact]
+    public void Siemens_G58TrocaEG59SomaSoNoEixoEscrito()
+    {
+        // G58/G59 no 840D não são zeros de peça 5 e 6: deslocam o sistema por eixo, sem mover
+        var settings = new MachineSettings { WorkOffsets = new Dictionary<int, Point3> { [58] = new Point3(500, 500, 0) } };
+        ToolPath path = Siemens("TRANS X100 Y-7\nG58 X20\nG0 X0 Y0\nG59 Y3\nG0 X0 Y0\nTRANS\nG0 X0 Y0", settings);
+
+        Assert.Equal(3, path.Moves.Count);
+        AssertPoint(new Point3(20, -7, 0), path.Moves[0].End);
+        AssertPoint(new Point3(20, -4, 0), path.Moves[1].End);
+        AssertPoint(new Point3(0, 0, 0), path.Moves[2].End);
+    }
+
+    [Fact]
+    public void Fanuc_G58ContinuaZeroDePeca5()
+    {
+        var settings = new MachineSettings { WorkOffsets = new Dictionary<int, Point3> { [58] = new Point3(100, 0, 0) } };
+        ToolPath path = Fanuc("G58 G00 X10 Y0", settings);
+
+        AssertPoint(new Point3(110, 0, 0), path.Moves[0].End);
+    }
+
+    [Fact]
     public void G53EG04NaoGeramMovimento()
     {
         ToolPath path = Fanuc("G00 X10\nG53 G00 Z-110\nG04 X2.\nG01 X20 F100");

@@ -226,6 +226,10 @@ public sealed partial class MachineExecutor
         {
             ApplyFrame(block, frameKind);
         }
+        else if (words.AxialFrame is { } axial)
+        {
+            ApplyAxialFrame(block, axial);
+        }
         else if (words.LatheCycle is { } latheCycle)
         {
             ExecuteLatheCycle(block, words, latheCycle);
@@ -455,6 +459,18 @@ public sealed partial class MachineExecutor
         _frame = kind == FrameKind.Trans ? shift : _frame + shift;
     }
 
+    /// <summary>
+    /// Siemens G58 (troca) e G59 (soma) o deslocamento programável só nos eixos escritos no bloco; os outros eixos ficam como estão.
+    /// Como no TRANS, a ferramenta não se move: muda só o sistema de coordenadas.
+    /// </summary>
+    private void ApplyAxialFrame(NcBlock block, int code)
+    {
+        double? x = Length(block.Find('X')), y = Length(block.Find('Y')), z = Length(block.Find('Z'));
+        _frame = code == 58
+            ? new Point3(x ?? _frame.X, y ?? _frame.Y, z ?? _frame.Z)
+            : new Point3(_frame.X + (x ?? 0), _frame.Y + (y ?? 0), _frame.Z + (z ?? 0));
+    }
+
     // ───────────────────────── Palavras de endereço ─────────────────────────
 
     /// <summary>O que as palavras de endereço do bloco pedem.</summary>
@@ -465,6 +481,7 @@ public sealed partial class MachineExecutor
         public bool? Incremental { get; set; }
         public double? Units { get; set; }
         public int? WorkOffsetCode { get; set; }
+        public int? AxialFrame { get; set; }         // Siemens G58/G59: deslocamento programável por eixo (não é zero de peça)
         public double? Feed { get; set; }
         public double? Spindle { get; set; }         // S (rotação; no Siemens G4, rotações de espera)
         public bool Rotary { get; set; }             // palavra A/B/C no bloco (fresa)
@@ -626,6 +643,11 @@ public sealed partial class MachineExecutor
             case 42: w.CompensationSide = -1; return;
             case 53:
                 w.SuppressMotion = true; // coordenada de máquina: posição real desconhecida, não desenhada
+                return;
+            // Siemens (840D): G58 e G59 não são zeros de peça; são deslocamento programável por eixo, como TRANS/ATRANS
+            case 58 or 59 when siemens:
+                w.AxialFrame = code;
+                w.SuppressMotion = true;
                 return;
             case >= 54 and <= 59: w.WorkOffsetCode = code; return;
             case 500 when siemens: w.WorkOffsetCode = 0; return;

@@ -51,9 +51,17 @@ public static class SimulationFactory
         return HeightMap.CreateForToolPath(path, largest, maxCellsPerSide: maxCellsPerSide);
     }
 
-    /// <summary>Bruto redondo ou tubo na fresa: só o círculo (menos o furo do tubo) tem material.</summary>
+    /// <summary>Bruto redondo, tubo ou sextavado (WEB-04) na fresa: só a seção (menos o furo do tubo) tem material.</summary>
     public static void ApplyRoundShape(HeightMap map, SetupStock stock)
     {
+        if (stock.Kind == SetupStockKind.Hexagon)
+        {
+            // WEB-04: sextavado em pé, cantos no eixo X e faces paralelas a X (como o Extent do setup)
+            double a = stock.Width;
+            map.SetMaterialShape((x, y) => Math.Abs(y - stock.Y) <= a / 2 && (Math.Sqrt(3) * Math.Abs(x - stock.X)) + Math.Abs(y - stock.Y) <= a);
+            return;
+        }
+
         double outer = stock.Diameter / 2, inner = stock.Kind == SetupStockKind.Tube ? stock.InnerDiameter / 2 : 0;
         map.SetMaterialShape((x, y) =>
         {
@@ -139,7 +147,7 @@ public static class SimulationFactory
         }
 
         HeightMap map = MillStock(stock, path, profiles, maxCellsPerSide);
-        if (setup?.Stock is { IsRound: true } round && stock is not null && round.ToStock(MachineKind.Mill) is not null
+        if (setup?.Stock is { } round && (round.IsRound || round.Kind == SetupStockKind.Hexagon) && stock is not null && round.ToStock(MachineKind.Mill) is not null
             && SetupBinding.EffectiveStock(setup, path.Machine, programText, path.CuttingBounds).Source == StockSource.Setup)
         {
             ApplyRoundShape(map, round);

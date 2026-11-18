@@ -142,6 +142,13 @@ public sealed class SetupStock
     public double InnerDiameter { get; set; } = 40;
     public string Material { get; set; } = "Aço";
 
+    /// <summary>
+    /// WEB-02: "Outro bruto" escolhido de propósito no Code web: vale este bruto mesmo com comentário (BRUTO ...) no programa.
+    /// Ausente (setup antigo ou "Do programa") = o comentário manda na web. Não é gravado quando ausente.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? OverridesProgram { get; set; }
+
     /// <summary>Eixo do cilindro (redondo e tubo). Prisma e torno ignoram.</summary>
     public SetupAxis Axis { get; set; } = SetupAxis.Z;
 
