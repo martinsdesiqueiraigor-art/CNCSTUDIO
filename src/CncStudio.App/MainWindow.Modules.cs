@@ -124,6 +124,18 @@ public partial class MainWindow
             await stream.CopyToAsync(memory);
             return (files[0].Name, memory.ToArray());
         };
+        Cam.PickPartStep = async () =>
+        {
+            IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Peça em STEP",
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Modelo STEP") { Patterns = ["*.step", "*.STEP", "*.stp", "*.STP"] }],
+            });
+
+            // o trabalho guarda o caminho: só arquivo com caminho no computador serve
+            return files.Count == 0 ? null : files[0].TryGetLocalPath();
+        };
         Cam.PickStockStep = async () =>
         {
             IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions

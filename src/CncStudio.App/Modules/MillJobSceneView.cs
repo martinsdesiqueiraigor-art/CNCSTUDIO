@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using CncStudio.App.Graphics;
 using CncStudio.Core;
 using CncStudio.Core.Cam;
+using CncStudio.Core.Cam3D;
 using CncStudio.Core.Dialects;
 using CncStudio.Core.Geometry;
 using CncStudio.Core.Scene;
@@ -58,6 +59,11 @@ public sealed class MillJobSceneView : Grid
     private Point3 _zero;
     private int _generation;
     private bool _fitted;
+
+    /// <summary>Id da malha da peça STEP na cena.</summary>
+    private const string PartId = "peca-step";
+
+    private int _partVersion = 1;
     private bool _failed;
     private bool _syncing;
 
@@ -161,6 +167,27 @@ public sealed class MillJobSceneView : Grid
     /// <summary>Enquadra de novo (vista pronta).</summary>
     public void Fit(SceneView view) => _gl.Fit(view);
 
+    /// <summary>Clique na vista 3D (raio na cena), para escolher faces da peça STEP (M3D-2).</summary>
+    public event EventHandler<SceneClickEventArgs>? SceneClicked
+    {
+        add => _gl.SceneClicked += value;
+        remove => _gl.SceneClicked -= value;
+    }
+
+    private TriangleMesh? _part;
+    private int[] _selected = [];
+
+    /// <summary>
+    /// Peça STEP do Trabalho já na posição (M3D-1) e os triângulos das faces escolhidas (laranja). Null = sem peça 3D (só os contornos).
+    /// Só mostra: não verifica colisão nem simula.
+    /// </summary>
+    public void SetPart(TriangleMesh? part, IReadOnlyCollection<int> selectedTriangles)
+    {
+        _part = part;
+        _selected = [.. selectedTriangles];
+        Rebuild();
+    }
+
     private void Rebuild()
     {
         if (_failed)
@@ -168,11 +195,31 @@ public sealed class MillJobSceneView : Grid
             return;
         }
 
-        _gl.Show(CamJobScene.BuildResolved(_stock, _contours, _path, _options, zero: _zero));
+        SceneSnapshot scene = CamJobScene.BuildResolved(_stock, _contours, _path, _options, zero: _zero);
+        if (_part is { TriangleCount: > 0 } part && _options.Part != PartDisplay.Hidden)
+        {
+            // peça STEP: opaca mesmo com o bruto transparente (papel de fixação só para a opacidade); faces escolhidas em laranja
+            var objects = scene.Objects.ToList();
+            if (_selected.Length == 0)
+            {
+                objects.Add(new SceneObjectState(PartId, SceneRole.Fixture, part.ToSolidMesh(), _partVersion, Point3.Origin, true));
+            }
+            else
+            {
+                objects.Add(new SceneObjectState(PartId, SceneRole.Fixture, part.Subset(_selected, invert: true).ToSolidMesh(), _partVersion, Point3.Origin, true));
+                objects.Add(new SceneObjectState(PartId + "/selecao", SceneRole.Fixture, part.Subset(_selected).ToSolidMesh(0xFF9F1C), _partVersion, Point3.Origin, true));
+            }
+
+            Bounds3 b = scene.Bounds.Include(part.Bounds.Min).Include(part.Bounds.Max);
+            scene = scene with { Objects = objects, Bounds = b };
+        }
+
+        _partVersion++;
+        _gl.Show(scene);
         bool hasStock = _stock is { SizeX: > 0, SizeY: > 0, SizeZ: > 0 };
         _stockChip.IsEnabled = hasStock;
         ToolTip.SetTip(_stockChip, hasStock ? "Como o bruto aparece. O 3D não remove material: a simulação fica no Casillas Code." : "Sem bruto completo: defina o bruto na Preparação.");
-        bool hasPart = _contours.Count > 0;
+        bool hasPart = _contours.Count > 0 || _part is not null;
         _partChip.IsEnabled = hasPart;
         ToolTip.SetTip(_partChip, hasPart ? "Como a peça aparece. Hoje a peça são os contornos 2D, desenhados em Z 0." : "Sem desenho: abra um DXF ou desenhe uma forma.");
     }
