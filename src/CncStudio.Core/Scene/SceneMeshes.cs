@@ -13,7 +13,7 @@ namespace CncStudio.Core.Scene;
 public static class SceneMeshes
 {
     /// <summary>Divisões da volta completa nas peças de revolução.</summary>
-    public const int RevolutionSegments = 48;
+    public const int RevolutionSegments = 72; // WEB-01 S4: 72 divisões (antes 48) para a barra e a placa não parecerem facetadas
 
     // ── Torno ──
 

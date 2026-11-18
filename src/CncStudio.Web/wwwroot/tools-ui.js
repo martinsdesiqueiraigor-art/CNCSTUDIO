@@ -5,7 +5,9 @@ const KINDS=[['fresa','Fresa de topo'],['fresa-esferica','Fresa esférica'],['fr
 const LATHE=['torno-externa','torno-interna','bedame','bedame-interno','rosca-externa','rosca-interna'];
 const PARTING=['bedame','bedame-interno'];
 export function mountToolEditor(parent, data) {
+  // Valores só para completar o que veio do arquivo; ferramenta nova nasce vazia (WEB-01 S3: nada suposto)
   const defaults = () => ({Kind:'fresa',Number:1,Diameter:10,CornerRadius:0,TipAngle:118,CuttingLength:25,HolderDiameter:35,HolderLength:45,InsertWidth:3});
+  const blank = n => ({Kind:'',Number:n,Diameter:NaN,CornerRadius:0,TipAngle:NaN,CuttingLength:NaN,HolderDiameter:NaN,HolderLength:NaN,InsertWidth:NaN});
   const tools = Array.isArray(data.Tools) ? data.Tools.map(t => ({...defaults(),...t})).slice(0,20) : [];
   let selected = 0;
   const ui = document.createElement('div');
@@ -16,34 +18,42 @@ export function mountToolEditor(parent, data) {
   selector.style.cssText='width:100%;min-height:46px;background:#161b22;color:#e6edf3;border:1px solid #4a5665;border-radius:7px;padding:8px;font-size:16px';
   const buttons=document.createElement('div');buttons.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
   function btn(label, action) {const b=document.createElement('button');b.type='button';b.textContent=label;b.style.cssText='min-height:44px;padding:8px 12px;background:#27394a;color:white;border:1px solid #526579;border-radius:7px';b.onclick=action;buttons.append(b);return b;}
-  const add=btn('+ Adicionar',()=>{if(tools.length>=20)return;let n=1;while(tools.some(t=>t.Number===n))n++;tools.push({...defaults(),Number:n});selected=tools.length-1;render();});
+  const add=btn('+ Adicionar',()=>{if(tools.length>=20)return;let n=1;while(tools.some(t=>t.Number===n))n++;tools.push(blank(n));selected=tools.length-1;render();});
   const remove=btn('Excluir',()=>{if(!tools.length)return;tools.splice(selected,1);selected=Math.max(0,Math.min(selected,tools.length-1));render();});
   const count=document.createElement('div');count.style.cssText='font-size:12px;color:#9baab9';
   const preview=document.createElementNS('http://www.w3.org/2000/svg','svg');preview.setAttribute('viewBox','0 0 340 230');preview.style.cssText='width:100%;max-height:230px;background:#101b26;border:1px solid #30445a;border-radius:9px';
   const fields=document.createElement('div');fields.style.cssText='display:flex;flex-direction:column;gap:8px';
   ui.append(selector,buttons,count,preview,fields);
   selector.onchange=()=>{selected=Number(selector.value);render();};
-  const numeric=(label,key,integer=false)=>{
+  const numeric=(label,key,integer=false,optional=false)=>{
     const row=document.createElement('label');row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(115px,1fr);align-items:center;gap:12px';
     const title=document.createElement('span');title.textContent=label;
-    const input=document.createElement('input');input.type='number';input.inputMode='decimal';input.step=integer?'1':'any';input.min=integer?'1':'0.001';input.required=true;input.value=String(tools[selected][key]);
+    const input=document.createElement('input');input.type='number';input.inputMode='decimal';input.step=integer?'1':'any';input.min=integer?'1':'0.001';input.required=!optional;input.value=Number.isFinite(tools[selected][key])&&!(optional&&tools[selected][key]===0)?String(tools[selected][key]):'';if(optional)input.placeholder='vazio = 0,4 na simulação';
     input.style.cssText='width:100%;min-width:0;box-sizing:border-box;background:#161b22;color:white;border:1px solid #4a5665;border-radius:7px;min-height:44px;padding:8px;font-size:17px';
-    input.oninput=()=>{tools[selected][key]=input.value===''?NaN:Number(input.value);draw();updateLabels();};
+    input.oninput=()=>{tools[selected][key]=input.value===''?(optional?0:NaN):Number(input.value);draw();updateLabels();};
     row.append(title,input);fields.append(row);
   };
   function toolType(){
     const row=document.createElement('label');row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(115px,1fr);align-items:center;gap:12px';
     const label=document.createElement('span');label.textContent='Tipo de ferramenta';
     const input=document.createElement('select');input.style.cssText='width:100%;min-width:0;background:#161b22;color:white;border:1px solid #4a5665;border-radius:7px;min-height:44px;padding:8px;font-size:16px';
+    const none=document.createElement('option');none.value='';none.textContent='Escolha o tipo';none.disabled=true;input.append(none);
     for(const [code,label] of KINDS){const option=document.createElement('option');option.value=code;option.textContent=label;input.append(option);}
     input.value=tools[selected].Kind;
-    input.onchange=()=>{tools[selected].Kind=input.value;render();};
+    input.onchange=()=>{const t=tools[selected];t.Kind=input.value;if(LATHE.includes(t.Kind)){t.Diameter=NaN;}render();};
     row.append(label,input);fields.append(row);
   }
   function updateLabels(){
     count.textContent=tools.length?tools.length+' de 20 ferramentas cadastradas':'Nenhuma ferramenta cadastrada: valem a tabela e os comentários do programa.';
     add.disabled=tools.length>=20;remove.disabled=tools.length===0;selector.disabled=tools.length===0;
-    [...selector.options].forEach((opt,i)=>opt.textContent='T'+tools[i].Number+' · Ø'+tools[i].Diameter+' mm');
+    [...selector.options].forEach((opt,i)=>opt.textContent=toolLabel(tools[i]));
+  }
+  // WEB-01 S3: a lista diz o que é a ferramenta; torno não tem Ø
+  function toolLabel(t){
+    const n=v=>Number.isFinite(+v)?(+v).toLocaleString('pt-BR',{maximumFractionDigits:3}):'?';
+    const name=(KINDS.find(k=>k[0]===t.Kind)||[0,'escolha o tipo'])[1];
+    if(LATHE.includes(t.Kind))return 'T'+t.Number+' · '+name+(PARTING.includes(t.Kind)?' L'+n(t.InsertWidth):(+t.CornerRadius>0?' R'+n(t.CornerRadius):''));
+    return 'T'+t.Number+' · '+name+(Number.isFinite(+t.Diameter)?' Ø'+n(t.Diameter):'');
   }
   function drawLathe(t,kind){
     const w=Math.min(20,Math.max(0.5,+t.InsertWidth||3)),inner=kind.endsWith('interna')||kind==='bedame-interno',k=4.2;
@@ -59,7 +69,7 @@ export function mountToolEditor(parent, data) {
       '<path d="M'+(ox)+' 30 V205" stroke="#415569" stroke-dasharray="4 4"/>'+
       holders.map(h=>poly(h,'#4a6fa5')).join('')+poly(ins,'#f2c230')+
       '<circle cx="'+ox+'" cy="'+oy+'" r="3" fill="#ff7b72"/><text x="'+(ox+8)+'" y="'+(oy-6)+'" fill="#8dbbd0" font-size="11">ponta</text>'+
-      (PARTING.includes(kind)?'<text x="12" y="216" fill="#8dbbd0" font-size="12">Largura do inserto '+w+' mm</text>':'<text x="12" y="216" fill="#8dbbd0" font-size="12">Ilustração · lado '+(inner?'interno (no furo)':'externo')+'</text>');
+      (PARTING.includes(kind)?'<text x="12" y="216" fill="#8dbbd0" font-size="12">Largura do inserto '+(Number.isFinite(+t.InsertWidth)?t.InsertWidth:'?')+' mm</text>':'<text x="12" y="216" fill="#8dbbd0" font-size="12">Ilustração · lado '+(inner?'interno (no furo)':'externo')+(+t.CornerRadius>0?' · raio da ponta '+t.CornerRadius+' mm':'')+'</text>');
   }
   function draw(){
     if(!tools.length){preview.innerHTML='<rect width="340" height="230" fill="#101b26"/><text x="170" y="118" text-anchor="middle" fill="#8dbbd0" font-size="13">Toque em + Adicionar para cadastrar</text>';return;}
@@ -69,7 +79,8 @@ export function mountToolEditor(parent, data) {
     const shaftW=Math.max(5,diameter*scale),holderW=Math.max(5,holder*scale);
     const tipY=194,cutH=Math.max(8,cut*scale),holderH=Math.max(10,length*scale),center=164;
     const shaftTop=tipY-cutH,holderTop=shaftTop-holderH;
-    const kind=t.Kind||'fresa';
+    if(!t.Kind){preview.innerHTML='<rect width="340" height="230" fill="#101b26"/><text x="170" y="118" text-anchor="middle" fill="#8dbbd0" font-size="13">Escolha o tipo da ferramenta</text>';return;}
+    const kind=t.Kind;
     if(LATHE.includes(kind)){drawLathe(t,kind);return;}
     const tip=kind==='broca'?'<path d="M'+(center-shaftW/2)+' '+(tipY-9)+' L'+center+' '+tipY+' L'+(center+shaftW/2)+' '+(tipY-9)+'Z" fill="#58a6ff" stroke="#d4e7f5"/>':kind==='fresa-esferica'?'<path d="M'+(center-shaftW/2)+' '+(tipY-shaftW/2)+' A'+(shaftW/2)+' '+(shaftW/2)+' 0 0 0 '+(center+shaftW/2)+' '+(tipY-shaftW/2)+'" fill="none" stroke="#d4e7f5" stroke-width="2"/>':kind==='macho'?'<path d="M'+(center-shaftW/2)+' '+(tipY-22)+' l'+shaftW+' 5 l-'+shaftW+' 5 l'+shaftW+' 5 l-'+shaftW+' 5" fill="none" stroke="#d4e7f5" stroke-width="1.5"/>':'<path d="M'+(center-shaftW/2)+' '+tipY+' H'+(center+shaftW/2)+'" stroke="#d4e7f5" stroke-width="2"/>';
     const corner=kind==='fresa-toroidal'?(()=>{const rc=Math.min(shaftW/2,Math.max(2,(+t.CornerRadius||0)*scale));return '<path d="M'+(center-shaftW/2)+' '+(tipY-rc)+' Q'+(center-shaftW/2)+' '+tipY+' '+(center-shaftW/2+rc)+' '+tipY+' H'+(center+shaftW/2-rc)+' Q'+(center+shaftW/2)+' '+tipY+' '+(center+shaftW/2)+' '+(tipY-rc)+'" fill="none" stroke="#d4e7f5" stroke-width="2"/>';})():'';
@@ -93,6 +104,8 @@ export function mountToolEditor(parent, data) {
     if(!tools.length){updateLabels();draw();return;}
     toolType();numeric('Número T','Number',true);
     if(PARTING.includes(tools[selected].Kind))numeric('Largura do inserto (mm)','InsertWidth');
+    if(['torno-externa','torno-interna'].includes(tools[selected].Kind))numeric('Raio da ponta (mm)','CornerRadius',false,true);
+    if(!tools[selected].Kind){updateLabels();draw();return;}
     if(!LATHE.includes(tools[selected].Kind))numeric('Diâmetro de corte (mm)','Diameter');
     if(tools[selected].Kind==='fresa-toroidal')numeric('Raio de canto (mm)','CornerRadius');
     if(tools[selected].Kind==='broca')numeric('Ângulo da ponta (°)','TipAngle');
@@ -106,7 +119,16 @@ export function mountToolEditor(parent, data) {
       if(tools.length>20)return 'Cadastre no máximo 20 ferramentas.';
       const nums=new Set();
       for(const t of tools){
-        if(!KINDS.some(k=>k[0]===t.Kind))return 'Selecione um tipo de ferramenta válido.';
+        if(!KINDS.some(k=>k[0]===t.Kind))return 'T'+t.Number+': escolha o tipo da ferramenta.';
+        // campos que a tela não mostra para este tipo (o modelo do Core exige um valor; não são usados)
+        const lathe=LATHE.includes(t.Kind),ok=v=>Number.isFinite(v)&&v>0;
+        if(lathe){for(const [k,v] of [['Diameter',10],['CuttingLength',25],['HolderDiameter',35],['HolderLength',45]])if(!ok(t[k]))t[k]=v;}
+        if(!PARTING.includes(t.Kind)&&!ok(t.InsertWidth))t.InsertWidth=3;
+        if(t.Kind!=='broca'&&!ok(t.TipAngle))t.TipAngle=118;
+        if(!lathe&&t.Kind!=='fresa-toroidal')t.CornerRadius=0;
+        if(!lathe&&!['Diameter','CuttingLength','HolderDiameter','HolderLength'].every(k=>ok(t[k])))return 'T'+t.Number+': preencha Ø de corte, comprimento de corte e o porta-ferramenta.';
+        if(PARTING.includes(t.Kind)&&!ok(t.InsertWidth))return 'T'+t.Number+': informe a largura do inserto.';
+        if(t.Kind==='broca'&&!ok(t.TipAngle))return 'T'+t.Number+': informe o ângulo da ponta.';
         if(!Number.isInteger(t.Number)||t.Number<1||t.Number>9999||nums.has(t.Number))return 'Números T devem ser únicos, entre 1 e 9999.';
         nums.add(t.Number);
         if(!['Diameter','CuttingLength','HolderDiameter','HolderLength'].every(k=>Number.isFinite(t[k])&&t[k]>0&&t[k]<=100000))return 'Confira as dimensões das ferramentas.';

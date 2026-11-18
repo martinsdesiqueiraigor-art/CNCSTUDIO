@@ -45,12 +45,14 @@ public class SetupBindingTests
     }
 
     [Fact]
-    public void PrismaNoTornoEIgnoradoEValeOComentario()
+    public void PrismaNoTornoViraBarraQuadradaOuRetangular()
     {
+        // WEB-01 S6 (pedido do Igor em 18/11): antes o prisma era ignorado no torno e valia o comentário; agora é barra
+        // quadrada ou retangular, com o raio do canto e a seção para o desenho
         const string torno = "(BRUTO D50 X 70)\nG00 X52 Z2\n";
         EffectiveStockResult result = SetupBinding.EffectiveStock(ComPrisma(), MachineKind.Lathe, torno, Bounds3.Empty);
-        Assert.Equal(StockSource.Comment, result.Source);
-        Assert.Equal(Stock.Bar(50, 70), result.Stock);
+        Assert.Equal(StockSource.Setup, result.Source);
+        Assert.Equal(LatheBarShape.Rectangle, result.Stock!.Section!.Shape);
     }
 
     // ───────── Convenções de posição ─────────

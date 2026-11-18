@@ -103,6 +103,9 @@ public enum SetupStockKind
 
     /// <summary>Cilindro com furo central.</summary>
     Tube = 2,
+
+    /// <summary>Barra sextavada (WEB-01 S6, torno): Width é a medida entre faces (chave); (X, Y) é o centro.</summary>
+    Hexagon = 3,
 }
 
 /// <summary>Eixo do cilindro do bruto (redondo e tubo): em pé (Z) ou deitado ao longo de X ou Y.</summary>
@@ -192,6 +195,7 @@ public sealed class SetupStock
             double r = Diameter / 2;
             (double, double, double, double, double, double) b = Axis switch
             {
+                _ when Kind == SetupStockKind.Hexagon => (X - (Width / Math.Sqrt(3)), X + (Width / Math.Sqrt(3)), Y - (Width / 2), Y + (Width / 2), Z, Top),
                 _ when !IsRound => (X, X + Width, Y, Y + Depth, Z, Top),
                 SetupAxis.X or SetupAxis.Auto => (X, X + Height, Y - r, Y + r, Z - r, Z + r),
                 SetupAxis.Y => (X - r, X + r, Y, Y + Height, Z - r, Z + r),
@@ -226,7 +230,9 @@ public sealed class SetupStock
 
     /// <summary>Retângulo ocupado no plano XY (menor X, menor Y, maior X, maior Y).</summary>
     [JsonIgnore]
-    public (double MinX, double MinY, double MaxX, double MaxY) Footprint => IsRound
+    public (double MinX, double MinY, double MaxX, double MaxY) Footprint => Kind == SetupStockKind.Hexagon
+        ? (X - (Width / Math.Sqrt(3)), Y - (Width / 2), X + (Width / Math.Sqrt(3)), Y + (Width / 2))
+        : IsRound
         ? (X - Diameter / 2, Y - Diameter / 2, X + Diameter / 2, Y + Diameter / 2)
         : (X, Y, X + Width, Y + Depth);
 
@@ -245,6 +251,11 @@ public sealed class SetupStock
         if (Kind == SetupStockKind.Prism && !(SetupNumbers.Positive(Width) && SetupNumbers.Positive(Depth)))
         {
             return "Largura e profundidade do bruto precisam ser positivas.";
+        }
+
+        if (Kind == SetupStockKind.Hexagon && !SetupNumbers.Positive(Width))
+        {
+            return "A medida entre faces do sextavado precisa ser positiva.";
         }
 
         if (IsRound && !SetupNumbers.Positive(Diameter))

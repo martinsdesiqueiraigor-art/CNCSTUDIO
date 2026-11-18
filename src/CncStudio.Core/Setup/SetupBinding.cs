@@ -40,12 +40,21 @@ public static class SetupBinding
 
         if (machine == MachineKind.Lathe)
         {
-            return stock.IsRound ? Stock.Bar(stock.Diameter, stock.Height, stock.Top) : null;
+            // WEB-01 S6: barra quadrada, retangular ou sextavada começa no raio do canto; a seção fica para o desenho
+            return stock.Kind switch
+            {
+                SetupStockKind.Prism => SectionBar(new LatheBarSection(LatheBarShape.Rectangle, stock.Width, stock.Depth), stock),
+                SetupStockKind.Hexagon => SectionBar(new LatheBarSection(LatheBarShape.Hexagon, stock.Width, stock.Width), stock),
+                _ => Stock.Bar(stock.Diameter, stock.Height, stock.Top),
+            };
         }
 
         Bounds3 box = stock.Extent;
         return Stock.Block(box.Min.X, box.Max.X, box.Min.Y, box.Max.Y, box.Min.Z, box.Max.Z);
     }
+
+    private static Stock SectionBar(LatheBarSection section, SetupStock stock) =>
+        Stock.Bar(section.Circumradius * 2, stock.Height, stock.Top) with { Section = section };
 
     /// <summary>Bruto da simulação → bruto do setup (fresa: prisma; torno: redondo no eixo).</summary>
     public static SetupStock FromStock(Stock stock, string material = "Aço") => stock.Machine == MachineKind.Lathe
@@ -102,6 +111,38 @@ public static class SetupBinding
             : Stock.Block(b.Min.X - margin, b.Max.X + margin, b.Min.Y - margin, b.Max.Y + margin, Math.Min(b.Min.Z, 0) - margin, 0);
     }
 
+    /// <summary>
+    /// WEB-01 S1: aviso quando o bruto salvo no setup é diferente do bruto do comentário do programa (BRUTO ...). A simulação usa o do
+    /// setup; um bruto trocado por engano faz rápidos (G00) "encostarem no material" sem o programa estar errado. Null = sem setup, sem
+    /// comentário ou iguais (até 0,01 mm).
+    /// </summary>
+    public static string? StockMismatch(MachiningSetup? setup, MachineKind machine, string programText, Bounds3 cutting)
+    {
+        if (setup?.Stock?.ToStock(machine) is not { } fromSetup || FromProgramComments(programText, machine, cutting) is not { } fromComment)
+        {
+            return null;
+        }
+
+        static bool Same(double a, double b) => Math.Abs(a - b) <= 0.01;
+        bool same = machine == MachineKind.Lathe
+            ? fromSetup.Section == fromComment.Section && Same(fromSetup.Diameter, fromComment.Diameter) && Same(fromSetup.Length, fromComment.Length)
+              && Same(fromSetup.MaxZ, fromComment.MaxZ)
+            : Same(fromSetup.MinX, fromComment.MinX) && Same(fromSetup.MaxX, fromComment.MaxX) && Same(fromSetup.MinY, fromComment.MinY)
+              && Same(fromSetup.MaxY, fromComment.MaxY) && Same(fromSetup.MinZ, fromComment.MinZ) && Same(fromSetup.MaxZ, fromComment.MaxZ);
+        return same ? null
+            : $"O bruto do setup ({Describe(fromSetup)}) é diferente do comentário do programa ({Describe(fromComment)}). A simulação usa o do setup: confira no Setup.";
+    }
+
+    /// <summary>Bruto em texto curto: "Ø50 × 70, face em Z 0" no torno; "100 × 80 × 20" na fresa.</summary>
+    public static string Describe(Stock stock)
+    {
+        // a web roda sem tabelas de cultura (InvariantGlobalization): vírgula à mão
+        static string N(double v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
+        return stock.Machine == MachineKind.Lathe
+            ? (stock.Section is { } sec ? sec.Describe() : $"Ø{N(stock.Diameter)}") + $" × {N(stock.Length)}, face em Z {N(stock.MaxZ)}"
+            : $"{N(stock.MaxX - stock.MinX)} × {N(stock.MaxY - stock.MinY)} × {N(stock.MaxZ - stock.MinZ)}";
+    }
+
     /// <summary>Sugestão de bruto para quem vai informar um: do comentário, se houver; senão, pela trajetória.</summary>
     public static Stock SuggestStock(MachineKind machine, string programText, Bounds3 cutting) =>
         FromProgramComments(programText, machine, cutting) ?? FitToPath(machine, cutting);
@@ -135,8 +176,9 @@ public static class SetupBinding
         }
 
         // Cópia: a análise roda em outra thread e não deve ver edições do setup no meio
+        // WEB-01 S3: ferramenta de torno não tem Ø (o campo fica escondido na tela); não vira diâmetro de compensação nem de furo
         Dictionary<int, double> diameters = setup.Tools
-            .Where(t => t.Diameter > 0)
+            .Where(t => t.Diameter > 0 && !t.IsLathe)
             .GroupBy(t => t.Number)
             .ToDictionary(g => g.Key, g => g.Last().Diameter);
         Func<int, double>? table = settings.ToolDiameterOf;
