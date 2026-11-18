@@ -91,6 +91,17 @@ public static class LatheJobJson
                 o["stickOut"] = s;
             }
 
+            // TORNO-T4: apoios só quando marcados (arquivo antigo regrava igual)
+            if (fx.Tailstock)
+            {
+                o["tailstock"] = true;
+            }
+
+            if (fx.SteadyRest)
+            {
+                o["steadyRest"] = true;
+            }
+
             root["fixation"] = o;
         }
 
@@ -336,7 +347,11 @@ public static class LatheJobJson
         string name = CamJobJson.Str(o, "kind");
         LatheFixationKind kind = LatheFixation.FromFileName(name) ?? throw new CamJobJson.FormatException($"Valor desconhecido de fixação: \"{name}\".");
         double? Opt(string key) => o[key] is null ? null : CamJobJson.Num(o, key);
-        var f = new LatheFixation(kind, Opt("gripDiameter"), Opt("gripLength"), Opt("stickOut"));
+        var f = new LatheFixation(kind, Opt("gripDiameter"), Opt("gripLength"), Opt("stickOut"))
+        {
+            Tailstock = o["tailstock"] is not null && CamJobJson.Bool(o, "tailstock"),
+            SteadyRest = o["steadyRest"] is not null && CamJobJson.Bool(o, "steadyRest"),
+        };
         return f.Validate() is { } error ? throw new CamJobJson.FormatException(error) : f;
     }
 

@@ -208,7 +208,7 @@ public partial class LatheJobView
     {
         PropsPanel.Children.Add(UiKit.StatusNote("Fixação não verificada: o app não confere se a peça está presa nem colisão com a placa. Primeira execução sempre no ar.", "pending"));
         LatheFixation? f = _job.Fixation;
-        string[] kinds = ["Não informada", "Castanhas", "Placa", "Entre pontas (castanhas + contraponto)"];
+        string[] kinds = ["Não informada", .. LatheFixation.KindNames];
         var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         foreach (string k in kinds)
         {
@@ -236,10 +236,27 @@ public partial class LatheJobView
         FixNum("Ø de fixação", f.GripDiameter, (x, v) => x with { GripDiameter = v });
         FixNum("Comprimento preso", f.GripLength, (x, v) => x with { GripLength = v });
         FixNum("Balanço livre", f.StickOut, (x, v) => x with { StickOut = v });
+        // TORNO-T4: apoios informativos
+        FixCheck("Contraponto", f.Tailstock, (x, v) => x with { Tailstock = v });
+        FixCheck("Luneta", f.SteadyRest, (x, v) => x with { SteadyRest = v });
         if (f.Validate() is { } error)
         {
             PropsPanel.Children.Add(UiKit.StatusNote(error, "bad"));
         }
+    }
+
+    /// <summary>Apoio da fixação (contraponto ou luneta): marcado ou não. Só informativo.</summary>
+    private void FixCheck(string label, bool value, Func<LatheFixation, bool, LatheFixation> apply)
+    {
+        var box = new CheckBox { Content = label, IsChecked = value };
+        box.IsCheckedChanged += (_, _) =>
+        {
+            if (_job.Fixation is { } f)
+            {
+                SetFixation(apply(f, box.IsChecked == true), rebuild: false);
+            }
+        };
+        PropsPanel.Children.Add(box);
     }
 
     /// <summary>Medida opcional da fixação: vazio = não informada.</summary>
