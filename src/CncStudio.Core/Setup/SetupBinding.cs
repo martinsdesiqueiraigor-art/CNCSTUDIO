@@ -40,12 +40,21 @@ public static class SetupBinding
 
         if (machine == MachineKind.Lathe)
         {
-            return stock.IsRound ? Stock.Bar(stock.Diameter, stock.Height, stock.Top) : null;
+            // WEB-01 S6: barra quadrada, retangular ou sextavada começa no raio do canto; a seção fica para o desenho
+            return stock.Kind switch
+            {
+                SetupStockKind.Prism => SectionBar(new LatheBarSection(LatheBarShape.Rectangle, stock.Width, stock.Depth), stock),
+                SetupStockKind.Hexagon => SectionBar(new LatheBarSection(LatheBarShape.Hexagon, stock.Width, stock.Width), stock),
+                _ => Stock.Bar(stock.Diameter, stock.Height, stock.Top),
+            };
         }
 
         Bounds3 box = stock.Extent;
         return Stock.Block(box.Min.X, box.Max.X, box.Min.Y, box.Max.Y, box.Min.Z, box.Max.Z);
     }
+
+    private static Stock SectionBar(LatheBarSection section, SetupStock stock) =>
+        Stock.Bar(section.Circumradius * 2, stock.Height, stock.Top) with { Section = section };
 
     /// <summary>Bruto da simulação → bruto do setup (fresa: prisma; torno: redondo no eixo).</summary>
     public static SetupStock FromStock(Stock stock, string material = "Aço") => stock.Machine == MachineKind.Lathe
@@ -116,7 +125,8 @@ public static class SetupBinding
 
         static bool Same(double a, double b) => Math.Abs(a - b) <= 0.01;
         bool same = machine == MachineKind.Lathe
-            ? Same(fromSetup.Diameter, fromComment.Diameter) && Same(fromSetup.Length, fromComment.Length) && Same(fromSetup.MaxZ, fromComment.MaxZ)
+            ? fromSetup.Section == fromComment.Section && Same(fromSetup.Diameter, fromComment.Diameter) && Same(fromSetup.Length, fromComment.Length)
+              && Same(fromSetup.MaxZ, fromComment.MaxZ)
             : Same(fromSetup.MinX, fromComment.MinX) && Same(fromSetup.MaxX, fromComment.MaxX) && Same(fromSetup.MinY, fromComment.MinY)
               && Same(fromSetup.MaxY, fromComment.MaxY) && Same(fromSetup.MinZ, fromComment.MinZ) && Same(fromSetup.MaxZ, fromComment.MaxZ);
         return same ? null
@@ -129,7 +139,7 @@ public static class SetupBinding
         // a web roda sem tabelas de cultura (InvariantGlobalization): vírgula à mão
         static string N(double v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
         return stock.Machine == MachineKind.Lathe
-            ? $"Ø{N(stock.Diameter)} × {N(stock.Length)}, face em Z {N(stock.MaxZ)}"
+            ? (stock.Section is { } sec ? sec.Describe() : $"Ø{N(stock.Diameter)}") + $" × {N(stock.Length)}, face em Z {N(stock.MaxZ)}"
             : $"{N(stock.MaxX - stock.MinX)} × {N(stock.MaxY - stock.MinY)} × {N(stock.MaxZ - stock.MinZ)}";
     }
 

@@ -16,7 +16,7 @@ export function openSetup(json, hasMyTools, contextJson) {
     // Posição do conjunto no programa: centro do bruto em XY e topo em Z
     // Cilindro deitado (Axis 1 = X, 2 = Y): o campo do eixo é o começo e os outros dois são o centro; aqui a origem é o centro da barra
     // Torno: barra redonda (ou tubo) no eixo Z, centro no eixo; prisma não serve
-    if (lathe && !round0) { stock.Kind = 1; stock.X = 0; stock.Y = 0; }
+    if (lathe) { if (![0,1,2,3].includes(Number(stock.Kind))) stock.Kind = 1; stock.X = 0; stock.Y = 0; }
     let axis = lathe ? 0 : round0 ? Number(stock.Axis ?? 0) : 0;
     if (lathe) stock.Axis = 0;
     const origin = {
@@ -49,11 +49,13 @@ export function openSetup(json, hasMyTools, contextJson) {
     const field=(parent,label,obj,key,positive=false)=>{const row=document.createElement('label');row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(115px,1fr);align-items:center;gap:12px;min-height:46px';const text=document.createElement('span');text.textContent=label;const input=document.createElement('input');input.type='number';input.dataset.setupKey=key;input.inputMode='decimal';input.step='any';input.required=true;input.value=String(obj[key]??0);input.style.cssText='min-width:0;width:100%;box-sizing:border-box;background:#161b22;color:white;border:1px solid #4a5665;border-radius:7px;min-height:44px;padding:8px;font-size:17px';input.addEventListener('input',()=>{obj[key]=input.value===''?NaN:Number(input.value);draw()});if(positive)input.min='0.001';row.append(text,input);parent.append(row);return input;};
     const stockBox=section('01 · Bruto');
     let stockKind=Number(stock.Kind??0);
-    if(lathe)select(stockBox,'Tipo de bruto',['Barra redonda','Tubo'],Math.max(0,stockKind-1),v=>{stockKind=v+1;stock.Kind=v+1});
+    // Torno: ordem na tela → tipo do modelo (1 redonda, 2 tubo, 0 quadrada/retangular, 3 sextavada)
+    const LK=[1,2,0,3];
+    if(lathe)select(stockBox,'Tipo de bruto',['Barra redonda','Tubo','Barra quadrada ou retangular','Barra sextavada'],Math.max(0,LK.indexOf(stockKind)),v=>{stockKind=LK[v];stock.Kind=stockKind});
     else select(stockBox,'Tipo de bruto',['Prisma retangular','Redondo maciço','Tubo'],stockKind,v=>{stockKind=v;stock.Kind=v});
     // WEB-01 S1: o bruto do comentário BRUTO do programa (sugestão ou comparação com o setup salvo)
     const programBox=document.createElement('div');programBox.style.cssText='display:flex;flex-direction:column;gap:6px';stockBox.insertBefore(programBox,stockBox.children[1]);
-    function sameAsProgram(){const p=ctx.programStock;if(!p)return true;const near=(a,b)=>Math.abs((+a)-(+b))<=0.01;if(Number(p.Kind)!==stockKind&&!(lathe&&stockKind!==0))return false;
+    function sameAsProgram(){const p=ctx.programStock;if(!p)return true;const near=(a,b)=>Math.abs((+a)-(+b))<=0.01;if(lathe&&(stockKind===0||stockKind===3))return false;if(Number(p.Kind)!==stockKind&&!(lathe&&stockKind!==0))return false;
       if(lathe)return near(p.Diameter,stock.Diameter)&&near(p.Height,stock.Height)&&near(+p.Z+(+p.Height),origin.Z);
       return near(p.Width,stock.Width)&&near(p.Depth,stock.Depth)&&near(p.Height,stock.Height)&&near(+p.X+(+p.Width)/2,origin.X)&&near(+p.Y+(+p.Depth)/2,origin.Y)&&near(+p.Z+(+p.Height),origin.Z);}
     function renderProgram(){programBox.replaceChildren();if(!ctx.programStock)return;
@@ -64,7 +66,7 @@ export function openSetup(json, hasMyTools, contextJson) {
       if(!same){const b=document.createElement('button');b.type='button';b.textContent='Usar o bruto do programa';b.style.cssText='align-self:flex-start;min-height:44px;padding:8px 14px;background:#27394a;color:white;border:1px solid #526579;border-radius:7px;font-size:15px';
         b.onclick=()=>{const q=ctx.programStock;Object.assign(stock,{Kind:q.Kind,Diameter:q.Diameter,InnerDiameter:q.InnerDiameter??stock.InnerDiameter,Height:q.Height,Width:q.Width,Depth:q.Depth,Axis:0});stockKind=Number(q.Kind);axis=0;
           origin.X=lathe||stockKind!==0?(lathe?0:+q.X):+q.X+(+q.Width)/2;origin.Y=lathe||stockKind!==0?(lathe?0:+q.Y):+q.Y+(+q.Depth)/2;origin.Z=+q.Z+(+q.Height);
-          const sel=stockBox.querySelector('select');if(sel)sel.value=String(lathe?Math.max(0,stockKind-1):stockKind);renderFields();};
+          const sel=stockBox.querySelector('select');if(sel)sel.value=String(lathe?Math.max(0,LK.indexOf(stockKind)):stockKind);renderFields();};
         programBox.append(b);}}
     const stockFields=document.createElement('div');stockFields.style.cssText='display:flex;flex-direction:column;gap:8px';stockBox.append(stockFields);
     const fixtureBox=section('02 · Fixação');
@@ -97,7 +99,10 @@ export function openSetup(json, hasMyTools, contextJson) {
       if(stockKind!==0&&axis===3){const hint=document.createElement('p');hint.textContent='Automático: o cilindro segue o eixo rotativo da mesa do perfil de máquina (A → ao longo de X, B → ao longo de Y), com o centro no pivô do perfil. Y e Z abaixo só valem se não houver perfil.';hint.style.cssText='color:#9baab9;font-size:12px;margin:0';originFields.append(hint);}
       if(lathe){
         field(originFields,'Z da face do bruto (mm)',origin,'Z');
-        field(stockFields,'Diâmetro (mm)',stock,'Diameter',true);if(stockKind===2)field(stockFields,'Diâmetro interno (mm)',stock,'InnerDiameter',true);field(stockFields,'Comprimento (mm)',stock,'Height',true);
+        if(stockKind===0){field(stockFields,'Largura (mm)',stock,'Width',true);field(stockFields,'Altura (mm)',stock,'Depth',true);}
+        else if(stockKind===3)field(stockFields,'Medida entre faces, chave (mm)',stock,'Width',true);
+        else{field(stockFields,'Diâmetro (mm)',stock,'Diameter',true);if(stockKind===2)field(stockFields,'Diâmetro interno (mm)',stock,'InnerDiameter',true);}
+        field(stockFields,'Comprimento (mm)',stock,'Height',true);
         if(fixKind===3){for(const [l,k] of [['Diâmetro da placa (mm)','Width'],['Espessura da placa (mm)','Height'],['Abertura das castanhas (mm)','JawOpening'],['Largura da castanha (mm)','JawThickness']])field(fixFields,l,fixture,k,true);}
         renderProgram();draw();return;
       }
@@ -113,8 +118,8 @@ export function openSetup(json, hasMyTools, contextJson) {
     }
     const fmt=n=>Number.isFinite(+n)?(+n).toLocaleString('pt-BR',{maximumFractionDigits:2}):'—';
     function drawDimensions(){
-      const isPrism=stockKind===0, isChuck=fixKind===3;
-      const w=isPrism?+stock.Width:+stock.Diameter, depth=isPrism?+stock.Depth:+stock.Diameter;
+      const isPrism=stockKind===0, isChuck=fixKind===3, isHex=stockKind===3;
+      const w=isPrism?+stock.Width:isHex?(+stock.Width)*2/Math.sqrt(3):+stock.Diameter, depth=isPrism?+stock.Depth:isHex?+stock.Width:+stock.Diameter;
       const h=+stock.Height, fw=+fixture.Width, fd=isChuck?fw:+fixture.Depth;
       const maxW=Math.max(w||1,fixKind?fw:0),maxD=Math.max(depth||1,fixKind?fd:0);
       const scale=Math.min(1.25,230/Math.max(maxW,maxD,1));
@@ -127,7 +132,7 @@ export function openSetup(json, hasMyTools, contextJson) {
         if(isChuck)s+=circle(x,y,fww/2,'#526879','#b3c2cf');
         else s+=rect(x-fww/2,y-fdd/2,fww,fdd,'#526879','#b3c2cf');
       }
-      s+=isPrism?rect(x-ww/2,y-dd/2,ww,dd,'#277d89','#73c9e8'):circle(x,y,ww/2,'#277d89','#73c9e8');
+      s+=isPrism?rect(x-ww/2,y-dd/2,ww,dd,'#277d89','#73c9e8'):isHex?'<polygon points="'+[0,1,2,3,4,5].map(k=>{const a=k*Math.PI/3;return (x+Math.cos(a)*ww/2)+','+(y+Math.sin(a)*ww/2);}).join(' ')+'" fill="#277d89" stroke="#73c9e8"/>':circle(x,y,ww/2,'#277d89','#73c9e8');
       if(stockKind===2)s+=circle(x,y,Math.max(1,+stock.InnerDiameter*scale/2),'#101b26','#73c9e8');
       if(fixKind===1){
         const gap=Math.min(fdd*.85,Math.max(2,+fixture.JawOpening*scale));
@@ -143,7 +148,7 @@ export function openSetup(json, hasMyTools, contextJson) {
         s+='<g data-dim="'+letter+'" style="cursor:pointer"><path d="M'+x1+' '+y1+'L'+x2+' '+y2+'" stroke="#9cb4c5" stroke-width="1"/><circle cx="'+x1+'" cy="'+y1+'" r="2" fill="#7dd3fc"/><circle cx="'+x2+'" cy="'+y2+'" r="2" fill="#7dd3fc"/><rect x="'+(tx-28)+'" y="'+(ty-12)+'" width="68" height="19" rx="4" fill="#223446"/><text x="'+tx+'" y="'+ty+'" font-size="11" fill="#e8f3fa">'+letter+' · '+fmt(value)+'</text></g>';
         dims.push([letter,key]);
       };
-      dim('A',isPrism?'Width':'Diameter',w,x-ww/2,184,x+ww/2,184,142,201);
+      dim('A',isPrism||isHex?'Width':'Diameter',isHex?+stock.Width:w,x-ww/2,184,x+ww/2,184,142,201);
       if(isPrism)dim('B','Depth',depth,42,y-dd/2,42,y+dd/2,10,107);
       if(stockKind===2)dim('C','InnerDiameter',stock.InnerDiameter,x-+stock.InnerDiameter*scale/2,y,x+stock.InnerDiameter*scale/2,y,142,116);
       s+='<path d="M12 218H348" stroke="#30445a"/><text x="12" y="237" fill="#9baab9" font-size="11">'+(lathe?'LATERAL · COMPRIMENTO EM Z':'ELEVAÇÃO · X / Z')+'</text>';
@@ -165,7 +170,7 @@ export function openSetup(json, hasMyTools, contextJson) {
     }
     function draw(){
       const kind=stockKind, fix=fixKind;
-      const sw=kind===0?Math.max(1,+stock.Width||1):Math.max(1,+stock.Diameter||1);
+      const sw=kind===0?Math.max(1,+stock.Width||1):kind===3?Math.max(1,(+stock.Width||1)*2/Math.sqrt(3)):Math.max(1,+stock.Diameter||1);
       const sd=kind===0?Math.max(1,+stock.Depth||1):sw;
       const sh=Math.max(1,+stock.Height||1);
       const fw=fix===0?0:Math.max(1,+fixture.Width||1);
@@ -187,16 +192,16 @@ export function openSetup(json, hasMyTools, contextJson) {
       if(fix===3){const r=fx/2;const contact=(kind===0?Math.max(sw,sy):sx)/2;const jawWidth=Math.max(4,Math.min(24,(+fixture.JawThickness||10)*scale));const jawRadius=Math.max(0,Math.min(Math.max(0,r-jawWidth/2),Math.max(contact+jawWidth/2,(+fixture.JawOpening||0)*scale/2)));for(let i=0;i<3;i++){const a=(i*120+(+fixture.Rotation||0))*Math.PI/180;const x=cx+Math.cos(a)*jawRadius,y=base-12+Math.sin(a)*jawRadius*.48;const jawHeight=Math.max(9,Math.min(18,sh*scale*.3));parts+=rect(x-jawWidth/2,y-jawHeight/2,jawWidth,jawHeight,'#a4b2bd','#d4dce3');parts+='<path d="M'+(x-jawWidth/2)+' '+(y-jawHeight/2+3)+'h'+jawWidth+'" stroke="#e6edf3" stroke-width="1"/>';}}
       parts+='<path d="M22 195h35m-35 0v-31" stroke="#58a6ff" stroke-width="2"/><text x="62" y="200" fill="#58a6ff" font-size="11">X</text><text x="14" y="158" fill="#58a6ff" font-size="11">Y</text><text x="12" y="17" fill="#c9d1d9" font-size="12">Montagem ilustrativa</text>';
       svg.innerHTML=parts;
-      const stockText=kind===0?fmt(stock.Width)+' × '+fmt(stock.Depth)+' × '+fmt(stock.Height):'Ø'+fmt(stock.Diameter)+(kind===2?' / Ø'+fmt(stock.InnerDiameter):'')+' × '+fmt(stock.Height);
+      const stockText=kind===0?fmt(stock.Width)+' × '+fmt(stock.Depth)+' × '+fmt(stock.Height):kind===3?'chave '+fmt(stock.Width)+' × '+fmt(stock.Height):'Ø'+fmt(stock.Diameter)+(kind===2?' / Ø'+fmt(stock.InnerDiameter):'')+' × '+fmt(stock.Height);
       drawDimensions();
-      note.textContent=(['Prisma','Redondo','Tubo'][kind])+' · '+stockText+' mm · '+(['Sem fixação','Morsa','Grampo','Placa 3 castanhas'][fix])+(lathe?' · face em Z '+fmt(origin.Z):' · centro XY compartilhado');
+      note.textContent=(['Prisma','Redondo','Tubo','Sextavado'][kind])+' · '+stockText+' mm · '+(['Sem fixação','Morsa','Grampo','Placa 3 castanhas'][fix])+(lathe?' · face em Z '+fmt(origin.Z):' · centro XY compartilhado');
       if(typeof renderProgram==='function'&&ctx.programStock)renderProgram();
     }
     save.addEventListener('click',()=>{
       error.textContent='';
       if(!form.reportValidity())return;
       const positive=(...vals)=>vals.every(v=>Number.isFinite(v)&&v>0);
-      if(!positive(stock.Height,...(stockKind===0?[stock.Width,stock.Depth]:[stock.Diameter]))){error.textContent='Informe dimensões positivas do bruto.';return;}
+      if(!positive(stock.Height,...(stockKind===0?[stock.Width,stock.Depth]:stockKind===3?[stock.Width]:[stock.Diameter]))){error.textContent='Informe dimensões positivas do bruto.';return;}
       if(stockKind===2&&!(Number.isFinite(stock.InnerDiameter)&&stock.InnerDiameter>0&&stock.InnerDiameter<stock.Diameter)){error.textContent='O diâmetro interno deve ser menor que o externo.';return;}
       if(fixKind!==0&&!positive(fixture.Width,fixture.Height,fixture.JawThickness,...(fixKind===3?[]:[fixture.Depth]),...(fixKind===2?[]:[fixture.JawOpening]))){error.textContent='Confira as dimensões da fixação.';return;}
       const toolError = toolEditor.validate(); if(toolError){error.textContent=toolError;return;}

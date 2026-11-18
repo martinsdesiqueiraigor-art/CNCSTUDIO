@@ -21,6 +21,9 @@ public sealed partial record Stock(MachineKind Machine, double MinX, double MaxX
     public static Stock Bar(double diameter, double length, double faceZ = 0) =>
         new(MachineKind.Lathe, 0, Math.Abs(diameter) / 2, 0, 0, faceZ - Math.Abs(length), faceZ);
 
+    /// <summary>Seção da barra do torno que não é redonda (null = redonda). WEB-01 S6.</summary>
+    public LatheBarSection? Section { get; init; }
+
     public double Diameter => MaxX * 2;
     public double Length => MaxZ - MinZ;
 
