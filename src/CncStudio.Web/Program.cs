@@ -21,9 +21,21 @@ internal sealed class Program
 
         await WebInterop.LoadAsync();
         await BuildAvaloniaApp()
-            .WithInterFont()
+            .ConfigureFonts(fonts => fonts.AddFontCollection(new InterFonts())) // o tema Fluent usa "fonts:Inter#Inter"
             .StartBrowserAppAsync("out");
     }
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>();
+}
+
+/// <summary>
+/// WEB-03: a fonte Inter do tema, embutida só com os pesos usados (Regular, SemiBold, Bold) e os caracteres latinos, gregos e
+/// símbolos (antes: o pacote Avalonia.Fonts.Inter, com 6 pesos e todos os alfabetos). Mesmo nome de coleção do pacote.
+/// </summary>
+internal sealed class InterFonts : Avalonia.Media.Fonts.EmbeddedFontCollection
+{
+    public InterFonts()
+        : base(new Uri("fonts:Inter", UriKind.Absolute), new Uri("avares://CncStudio.Web/Assets/Fonts/Inter", UriKind.Absolute))
+    {
+    }
 }
