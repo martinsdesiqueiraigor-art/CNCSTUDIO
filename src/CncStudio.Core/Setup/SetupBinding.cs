@@ -133,6 +133,39 @@ public static class SetupBinding
             : $"O bruto do setup ({Describe(fromSetup)}) é diferente do comentário do programa ({Describe(fromComment)}). A simulação usa o do setup: confira no Setup.";
     }
 
+    /// <summary>
+    /// WEB-02: o setup que a web simula. Com comentário de bruto no programa, o comentário manda (na posição do programa,
+    /// <see cref="ProgramStock"/>), a não ser que o setup tenha "Outro bruto" escolhido de propósito
+    /// (<see cref="SetupStock.OverridesProgram"/>). Sem comentário, o setup como está. Devolve uma cópia; o original não muda.
+    /// </summary>
+    public static MachiningSetup ProgramFirst(MachiningSetup? setup, MachineKind machine, string programText, Bounds3 cutting)
+    {
+        MachiningSetup copy = setup?.Clone() ?? MachiningSetup.CreateDefault("");
+        if (copy.Stock is { OverridesProgram: true } || ProgramStock.Read(programText, machine, cutting) is not { } fromProgram)
+        {
+            return copy;
+        }
+
+        fromProgram.Material = copy.Stock?.Material ?? fromProgram.Material;
+        copy.Stock = fromProgram;
+        return copy;
+    }
+
+    /// <summary>
+    /// WEB-02: aviso fixo quando a web simula "Outro bruto" e o programa tem comentário de bruto (null = segue o programa ou não há
+    /// comentário).
+    /// </summary>
+    public static string? OverrideNote(MachiningSetup? setup, MachineKind machine, string programText, Bounds3 cutting)
+    {
+        if (setup?.Stock is not { OverridesProgram: true } informed || informed.ToStock(machine) is not { } fromSetup
+            || ProgramStock.Read(programText, machine, cutting)?.ToStock(machine) is not { } fromComment)
+        {
+            return null;
+        }
+
+        return $"Simulando com outro bruto ({Describe(fromSetup)}), não com o do programa ({Describe(fromComment)}). Para seguir o programa: Setup → Bruto → Do programa.";
+    }
+
     /// <summary>Bruto em texto curto: "Ø50 × 70, face em Z 0" no torno; "100 × 80 × 20" na fresa.</summary>
     public static string Describe(Stock stock)
     {
