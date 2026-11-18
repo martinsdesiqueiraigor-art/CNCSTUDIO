@@ -104,7 +104,16 @@ public partial class LatheJobView : UserControl
             if (_build.Ok && _build.Program.Length > 0)
             {
                 // UX-04h D1: não grava mais na tabela antiga (a ferramenta vem do banco ativo do torno)
-                OpenInEditor?.Invoke(_build.Program, FileBase() + ".nc");
+                // TORNO-T7: vai com o pacote do CAM (bruto, fixação, ferramentas); Siemens com .mpf, como na fresa
+                string name = CamHandoffCode.ProgramFileName(FileBase(), _job.Dialect);
+                if (OpenWithPackage is { } open)
+                {
+                    open(_build.Program, name, CamHandoff.CreateLathe(_job, _build.Program, MachineSource?.Invoke(), ActiveBank));
+                }
+                else
+                {
+                    OpenInEditor?.Invoke(_build.Program, name);
+                }
             }
         };
         // um zero só no Core: o programa gerado é o da fixação 1
@@ -134,6 +143,9 @@ public partial class LatheJobView : UserControl
     public Func<string, string, Task>? SaveJobFile { get; set; }
 
     public Action<string, string>? OpenInEditor { get; set; }
+
+    /// <summary>TORNO-T7: abre o programa no Code com o pacote do CAM (memória da aba; nada no G-code).</summary>
+    public Action<string, string, CamHandoff>? OpenWithPackage { get; set; }
 
     /// <summary>Bancos carregados (UX-04h D1); o seletor mostra só os de torno.</summary>
     public Func<IReadOnlyList<ToolBank>>? BanksSource { get; set; }

@@ -143,7 +143,7 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
 
     public int Version { get; init; } = CurrentVersion;
 
-    /// <summary>"fresa" ou "torno" (só a fresa é preenchida por enquanto; o campo fica para o torno).</summary>
+    /// <summary>"fresa" ou "torno" (o torno desde o TORNO-T7, <see cref="CreateLathe"/>).</summary>
     public string Machine { get; init; } = Mill;
 
     /// <summary>Nome do perfil de máquina usado ao gerar (null = sem perfil).</summary>
@@ -186,6 +186,70 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
         Tools = ProgramTools(job).Select(t => FromBank(t, bank)).ToList(),
         BankName = bank?.Name,
     };
+
+    /// <summary>
+    /// Pacote do trabalho de torno (TORNO-T7), na mesma versão 1 (só chaves que já existem): máquina "torno", Programa nº, G5x, a
+    /// fixação em texto, a barra no referencial do programa (<see cref="LatheStockInProgram"/>) e as ferramentas das operações ligadas.
+    /// O zero não vai como ponto da fresa: X0 é o centro e o Z0 já está no bruto e no programa. Ferramenta de torno não tem Ø: vai 0 e
+    /// não muda o Ø da tabela no Code. <paramref name="bank"/>: banco ativo do torno; T achado nele dá tipo e raio de canto.
+    /// </summary>
+    public static CamHandoff CreateLathe(LatheJob job, string program, MachineProfile? machine, ToolBank? bank = null) => new(Hash(program), job.Dialect)
+    {
+        Machine = Lathe,
+        MachineProfile = machine?.Name,
+        ProgramNumber = job.ProgramNumber,
+        WorkOffset = job.WorkOffset,
+        Fixture = LatheFixture(job.Fixation),
+        Stock = LatheStockInProgram(job),
+        Tools = job.Operations.Where(o => o.Enabled).Select(o => o.Tool).GroupBy(t => t.Number).Select(g => g.First()).OrderBy(t => t.Number)
+            .Select(t => FromLatheBank(t, bank)).ToList(),
+        BankName = bank?.Name,
+    };
+
+    /// <summary>
+    /// Barra do torno no referencial do programa (o mesmo do bruto do torno no Code: redondo no eixo Z, Z = ponta do lado da placa,
+    /// Height = comprimento). Precisa do Ø, do comprimento e do Z da face do bruto; o Z0 escolhido (TORNO-T5) desloca como o programa.
+    /// Null quando falta algum dos três (o Code usa o bruto automático e avisa).
+    /// </summary>
+    public static HandoffStock? LatheStockInProgram(LatheJob job)
+    {
+        if (job.Stock is not { Diameter: { } d, Length: { } l, FaceZ: { } face } || job.Stock.Validate() is not null)
+        {
+            return null;
+        }
+
+        double top = face + LatheZero.Shift(job);
+        return new HandoffStock(HandoffStockKind.Round) { Axis = StockAxis.Z, X = 0, Y = 0, Z = top - l, Height = l, Diameter = d };
+    }
+
+    /// <summary>Fixação do torno em texto: "placa" para castanhas e placa, "outro" para entre pontas; a descrição é a linha da árvore.</summary>
+    public static JobFixture? LatheFixture(LatheFixation? f)
+    {
+        if (f is null)
+        {
+            return null;
+        }
+
+        string text = LatheFixation.Title(f)["Fixação: ".Length..];
+        if (text.Length > JobFixture.MaxDescription)
+        {
+            text = text[..JobFixture.MaxDescription];
+        }
+
+        return new JobFixture(f.Kind == LatheFixationKind.Center ? "outro" : "placa", text);
+    }
+
+    /// <summary>Ferramenta do torno no pacote: T, nome e rotação (fixa, ou o limite em G96); tipo e raio de canto do banco quando o T está nele.</summary>
+    public static HandoffTool FromLatheBank(LatheTool t, ToolBank? bank)
+    {
+        var tool = new HandoffTool(t.Number, 0, t.Name, LatheJobInfo.SpindleRpm(t), 0, 0);
+        if (bank?.Tools.FirstOrDefault(b => b.Number == t.Number) is not { } b)
+        {
+            return tool;
+        }
+
+        return tool with { Type = b.Type is { } type ? BankToolTypes.Code(type) : null, CornerRadius = b.CornerRadius };
+    }
 
     /// <summary>
     /// Ferramenta do pacote: a cópia do trabalho e, se o T está no banco sem conflito (Ø e nome, a mesma comparação do aviso do B2,
