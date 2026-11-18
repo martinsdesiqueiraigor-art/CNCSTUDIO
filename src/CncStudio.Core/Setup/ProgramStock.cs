@@ -7,11 +7,13 @@ using CncStudio.Core.Simulation;
 namespace CncStudio.Core.Setup;
 
 /// <summary>
-/// WEB-02: bruto do comentário do programa já no formato do setup, na posição que o programa indica.
-/// Fresa: bloco "(BRUTO 100 X 80 X 20)", redondo "(BRUTO D50 X 30)" e tubo "(BRUTO D50 D30 X 30)" (cilindros em pé, eixo Z).
+/// WEB-02/WEB-04: bruto do comentário do programa já no formato do setup, na posição que o programa indica. A mesma escrita no
+/// torno e na fresa; o último número é sempre o comprimento (torno) ou a altura (fresa):
+/// redondo "(BRUTO D100 X 60)", tubo "(BRUTO D100 X D70 X 100)", prisma ou barra retangular "(BRUTO 100 X 80 X 20)" e sextavado
+/// "(BRUTO S60 X 100)" (chave 60; também "SEXT60"). Na fresa, cilindro, tubo e sextavado ficam em pé (eixo Z).
 /// Posição: a linha "ZERO G54: CENTRO DA PECA, Z0 NO TOPO" (escrita pelo CAM) manda; sem ela, cada eixo é deduzido do corte
 /// (corte dos dois lados do zero → bruto centrado no zero; só no positivo → canto no zero; só no negativo → canto oposto no zero;
-/// corte todo acima de Z0 → Z0 na base). Torno: a barra "(BRUTO D50 X 70)" com a face em Z0, como antes.
+/// corte todo acima de Z0 → Z0 na base). Torno: a barra no eixo Z com a face em Z0, como antes.
 /// O tamanho vem do texto; a posição é a do programa, nunca um valor escondido: sem comentário de bruto, null.
 /// </summary>
 public static partial class ProgramStock
@@ -22,19 +24,34 @@ public static partial class ProgramStock
         string[] lines = (programText ?? "").Split('\n');
         if (machine == MachineKind.Lathe)
         {
-            return SetupBinding.FromProgramComments(programText ?? "", machine, cutting) is { } bar ? SetupBinding.FromStock(bar) : null;
+            foreach (string line in lines)
+            {
+                if (Shape(line) is { } bar)
+                {
+                    bar.X = 0;
+                    bar.Y = 0;
+                    bar.Z = -bar.Height; // face em Z0
+                    return bar;
+                }
+            }
+
+            return null;
         }
 
         (double fx, double fy, bool? base0) = ZeroOf(lines);
         foreach (string line in lines)
         {
-            if (Mill(line) is not { } shape)
+            if (Shape(line) is not { } shape)
             {
                 continue;
             }
 
-            double sx = shape.Kind == SetupStockKind.Prism ? shape.Width : shape.Diameter;
-            double sy = shape.Kind == SetupStockKind.Prism ? shape.Depth : shape.Diameter;
+            (double sx, double sy) = shape.Kind switch
+            {
+                SetupStockKind.Prism => (shape.Width, shape.Depth),
+                SetupStockKind.Hexagon => (shape.Width * 2 / Math.Sqrt(3), shape.Width), // cantos em X, faces em Y
+                _ => (shape.Diameter, shape.Diameter),
+            };
             double ax = double.IsNaN(fx) ? Fraction(cutting, c => c.X) : fx;
             double ay = double.IsNaN(fy) ? Fraction(cutting, c => c.Y) : fy;
             bool atBase = base0 ?? (!cutting.IsEmpty && cutting.Min.Z >= -1 && cutting.Max.Z >= 1);
@@ -49,8 +66,8 @@ public static partial class ProgramStock
             }
             else
             {
-                shape.X = minX + (shape.Diameter / 2);
-                shape.Y = minY + (shape.Diameter / 2);
+                shape.X = minX + (sx / 2); // redondo, tubo e sextavado: (X, Y) é o centro
+                shape.Y = minY + (sy / 2);
             }
 
             shape.X = Clean(shape.X);
@@ -76,13 +93,19 @@ public static partial class ProgramStock
     }
 
     // forma e medidas do bruto de uma linha (sem posição)
-    private static SetupStock? Mill(string line)
+    private static SetupStock? Shape(string line)
     {
         Match tube = TubeRegex().Match(line);
         if (tube.Success)
         {
             double outer = Number(tube.Groups[1].Value), inner = Number(tube.Groups[2].Value), height = Number(tube.Groups[3].Value);
             return new SetupStock { Kind = SetupStockKind.Tube, Diameter = Math.Max(outer, inner), InnerDiameter = Math.Min(outer, inner), Height = height, Axis = SetupAxis.Z };
+        }
+
+        Match hex = HexRegex().Match(line);
+        if (hex.Success)
+        {
+            return new SetupStock { Kind = SetupStockKind.Hexagon, Width = Number(hex.Groups[1].Value), Height = Number(hex.Groups[2].Value), Axis = SetupAxis.Z };
         }
 
         if (Stock.FromComment(line, MachineKind.Mill, Bounds3.Empty) is { } block)
@@ -136,6 +159,10 @@ public static partial class ProgramStock
     // BRUTO ... D50 D30 X 30 | Ø50/Ø30 X 30 | D50 X D30 X 30 (tubo: externo, interno, altura)
     [GeneratedRegex(@"(?:BRUTO|STOCK|BLANK)\b[^0-9\n)]*?(?:\bDIAM\.?|\bD|Ø)\s*(\d+(?:[.,]\d+)?)\s*(?:[X×*/]\s*)?(?:\bDIAM\.?|\bDI|\bD|Ø)\s*(\d+(?:[.,]\d+)?)\s*(?:X|×|\*)\s*(\d+(?:[.,]\d+)?)", RegexOptions.IgnoreCase)]
     private static partial Regex TubeRegex();
+
+    // BRUTO ... S60 X 100 | SEXT60 X 100 | SEXTAVADO 60 X 100 (chave, comprimento)
+    [GeneratedRegex(@"(?:BRUTO|STOCK|BLANK)\b[^0-9\n)]*?(?:\bSEXT(?:AVADO)?\.?|\bS)\s*(\d+(?:[.,]\d+)?)\s*(?:X|×|\*)\s*(\d+(?:[.,]\d+)?)(?!\s*(?:X|×|\*)\s*\d)", RegexOptions.IgnoreCase)]
+    private static partial Regex HexRegex();
 
     // BRUTO ... D50 X 30 | REDONDO Ø50 X 30
     [GeneratedRegex(@"(?:BRUTO|STOCK|BLANK)\b[^0-9\n)]*?(?:\bDIAM\.?|\bD|Ø)\s*(\d+(?:[.,]\d+)?)\s*(?:X|×|\*)\s*(\d+(?:[.,]\d+)?)", RegexOptions.IgnoreCase)]

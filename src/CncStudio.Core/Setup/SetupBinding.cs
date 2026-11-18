@@ -45,6 +45,8 @@ public static class SetupBinding
             {
                 SetupStockKind.Prism => SectionBar(new LatheBarSection(LatheBarShape.Rectangle, stock.Width, stock.Depth), stock),
                 SetupStockKind.Hexagon => SectionBar(new LatheBarSection(LatheBarShape.Hexagon, stock.Width, stock.Width), stock),
+                // WEB-04: tubo no torno começa com o furo (antes era barra maciça)
+                SetupStockKind.Tube => Stock.Bar(stock.Diameter, stock.Height, stock.Top) with { BoreDiameter = stock.InnerDiameter },
                 _ => Stock.Bar(stock.Diameter, stock.Height, stock.Top),
             };
         }

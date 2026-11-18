@@ -82,7 +82,7 @@ public sealed class TurningStock
     }
 
     /// <summary>Bruto informado pelo usuário (barra).</summary>
-    public static TurningStock CreateForStock(Stock stock) => new(stock.MinZ, stock.MaxZ, stock.MaxX) { Section = stock.Section };
+    public static TurningStock CreateForStock(Stock stock) => new(stock.MinZ, stock.MaxZ, stock.MaxX, stock.BoreDiameter / 2) { Section = stock.Section };
 
     /// <summary>Seção da barra quadrada, retangular ou sextavada (null = redonda). Só muda o desenho (WEB-01 S6).</summary>
     public LatheBarSection? Section { get; init; }
