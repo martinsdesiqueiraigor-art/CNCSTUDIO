@@ -108,6 +108,8 @@
         <ScrollViewer x:Name="PrepCenter" IsVisible="False" HorizontalScrollBarVisibility="Disabled">
           <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="12">
             <StackPanel Grid.Column="0">
+              <!-- TORNO-T1: cartão Máquina (o mesmo editor de perfil da fresa) -->
+              <Border x:Name="PrepMachineCard" Classes="camcard"><StackPanel x:Name="PrepMachine" Spacing="4" /></Border>
               <Border x:Name="PrepProfileCard" Classes="camcard">
                 <StackPanel Spacing="6">
                   <TextBlock Text="Peça (perfil)" FontSize="18" FontWeight="Bold" />
@@ -119,7 +121,7 @@
                   <Button x:Name="UsePointsButton" Content="Usar estes pontos" Padding="10,5" HorizontalAlignment="Left" />
                 </StackPanel>
               </Border>
-              <Border Classes="camcard"><StackPanel x:Name="PrepStock" Spacing="6" /></Border>
+              <Border x:Name="PrepStockCard" Classes="camcard"><StackPanel x:Name="PrepStock" Spacing="6" /></Border>
               <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
                 <StackPanel Spacing="4">
                   <TextBlock Text="Material" FontSize="18" FontWeight="Bold" />

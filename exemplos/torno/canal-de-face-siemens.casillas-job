@@ -1,0 +1,46 @@
+{
+  "format": "casillas-job-torno",
+  "version": 1,
+  "name": "CANAL DE FACE",
+  "dialect": "Siemens",
+  "programNumber": 2001,
+  "workOffset": 54,
+  "coolant": true,
+  "stock": {
+    "diameter": 60,
+    "length": 80,
+    "faceZ": 0
+  },
+  "operations": [
+    {
+      "kind": "FaceGrooving",
+      "enabled": true,
+      "label": "",
+      "safeZ": 50,
+      "safeDiameter": 80,
+      "clearance": 2,
+      "tool": {
+        "number": 5,
+        "name": "Bedame de face 3",
+        "surfaceSpeed": 120,
+        "maxRpm": 2000,
+        "rpm": 0
+      },
+      "faceGroove": {
+        "outerDiameter": 40,
+        "innerDiameter": 24,
+        "faceZ": 0,
+        "bottomZ": -5,
+        "toolWidth": 3,
+        "peck": 2,
+        "retract": 0.5,
+        "feed": 0.08,
+        "reducedFeed": 0.04,
+        "reducedFromDiameter": 30,
+        "allowance": 0.1,
+        "toolMinDiameter": 30,
+        "toolMaxDiameter": 60
+      }
+    }
+  ]
+}

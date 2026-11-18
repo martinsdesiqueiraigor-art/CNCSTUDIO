@@ -2,20 +2,35 @@ using System.Globalization;
 
 namespace CncStudio.Core.Cam;
 
-/// <summary>Como a peça fica presa no torno: castanhas, placa ou entre pontas (castanhas + contraponto).</summary>
-public enum LatheFixationKind { Jaws, Faceplate, Center }
+/// <summary>
+/// Como a peça fica presa no torno: castanhas, placa ou entre pontas (castanhas + contraponto); castanha dura e castanha mole
+/// (TORNO-T4) vêm depois para não mudar os nomes antigos.
+/// </summary>
+public enum LatheFixationKind { Jaws, Faceplate, Center, HardJaws, SoftJaws }
 
 /// <summary>
 /// Fixação do Trabalho de torno, só informativa: o app nunca verifica se a peça está presa nem se há colisão com ela.
 /// Medidas opcionais (null = não informada): Ø de fixação, comprimento preso e balanço livre, em mm.
+/// <see cref="Tailstock"/> e <see cref="SteadyRest"/> (TORNO-T4): apoios marcados pelo usuário, também só informativos.
 /// </summary>
 public sealed record LatheFixation(LatheFixationKind Kind, double? GripDiameter = null, double? GripLength = null, double? StickOut = null)
 {
+    /// <summary>Contraponto apoiando a ponta da peça (informativo).</summary>
+    public bool Tailstock { get; init; }
+
+    /// <summary>Luneta apoiando o meio da peça (informativo).</summary>
+    public bool SteadyRest { get; init; }
+
+    /// <summary>Nomes da tela, na ordem do <see cref="LatheFixationKind"/>.</summary>
+    public static readonly IReadOnlyList<string> KindNames = ["Castanhas", "Placa", "Entre pontas (castanhas + contraponto)", "Castanha dura", "Castanha mole"];
+
     /// <summary>Nome gravado no arquivo para cada tipo (o mesmo mostrado na tela).</summary>
     public static string FileName(LatheFixationKind k) => k switch
     {
         LatheFixationKind.Jaws => "castanhas",
         LatheFixationKind.Faceplate => "placa",
+        LatheFixationKind.HardJaws => "castanha-dura",
+        LatheFixationKind.SoftJaws => "castanha-mole",
         _ => "ponto",
     };
 
@@ -25,6 +40,8 @@ public sealed record LatheFixation(LatheFixationKind Kind, double? GripDiameter 
         "castanhas" => LatheFixationKind.Jaws,
         "placa" => LatheFixationKind.Faceplate,
         "ponto" => LatheFixationKind.Center,
+        "castanha-dura" => LatheFixationKind.HardJaws,
+        "castanha-mole" => LatheFixationKind.SoftJaws,
         _ => null,
     };
 
@@ -57,7 +74,13 @@ public sealed record LatheFixation(LatheFixationKind Kind, double? GripDiameter 
             return "Fixação: não informada";
         }
 
-        string kind = f.Kind == LatheFixationKind.Center ? "entre pontas" : FileName(f.Kind);
+        string kind = f.Kind switch
+        {
+            LatheFixationKind.Center => "entre pontas",
+            LatheFixationKind.HardJaws => "castanha dura",
+            LatheFixationKind.SoftJaws => "castanha mole",
+            _ => FileName(f.Kind),
+        };
         var parts = new List<string> { "Fixação: " + kind };
         if (f.GripDiameter is { } d)
         {
@@ -72,6 +95,16 @@ public sealed record LatheFixation(LatheFixationKind Kind, double? GripDiameter 
         if (f.StickOut is { } s)
         {
             parts.Add($"balanço {N(s)} mm");
+        }
+
+        if (f.Tailstock)
+        {
+            parts.Add("contraponto");
+        }
+
+        if (f.SteadyRest)
+        {
+            parts.Add("luneta");
         }
 
         return string.Join(" · ", parts);

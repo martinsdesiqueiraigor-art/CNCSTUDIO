@@ -4,7 +4,11 @@ using System.Text;
 namespace CncStudio.Core.Cam;
 
 /// <summary>Opções do pós de torno: dialeto, nome, número do programa, zero de peça e refrigeração.</summary>
-public sealed record LathePostOptions(CamDialect Dialect, string ProgramName = "CASILLAS CAM TORNO", int ProgramNumber = 1002, int WorkOffset = 54, bool Coolant = true);
+public sealed record LathePostOptions(CamDialect Dialect, string ProgramName = "CASILLAS CAM TORNO", int ProgramNumber = 1002, int WorkOffset = 54, bool Coolant = true)
+{
+    /// <summary>Comentário do Z0 logo depois do G5x (TORNO-T5); null = nenhum (programa igual ao antigo).</summary>
+    public string? ZeroNote { get; init; }
+}
 
 /// <summary>
 /// Pós-processador de torno (Fanuc e Siemens): faceamento e furação em movimentos simples; desbaste e acabamento de perfil
@@ -55,6 +59,10 @@ public static class LathePost
         }
 
         Line($"G{o.WorkOffset}");
+        if (o.ZeroNote is { } zero)
+        {
+            Line(Comment(zero));
+        }
 
         foreach (LatheOperation op in operations)
         {

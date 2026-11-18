@@ -17,6 +17,10 @@ public static class LatheJobJson
 {
     internal const string Format = "casillas-job-torno";
 
+    /// <summary>
+    /// Texto do arquivo. Grava em cada operação a lista dos campos que o usuário deixou vazios (TORNO-T1), para o trabalho abrir
+    /// Incompleto como estava; operação sem campo vazio não ganha a chave (arquivo antigo regrava igual).
+    /// </summary>
     public static string ToJson(LatheJob job)
     {
         var root = new JsonObject
@@ -25,10 +29,50 @@ public static class LatheJobJson
             ["version"] = LatheJob.CurrentVersion,
             ["name"] = job.Name,
             ["dialect"] = job.Dialect.ToString(),
-            ["programNumber"] = job.ProgramNumber,
-            ["workOffset"] = job.WorkOffset,
-            ["coolant"] = job.Coolant,
         };
+        // TORNO-T1: Programa nº, G5x e refrigeração vazios não vão para o arquivo (nada suposto); com valor, na ordem de sempre
+        if (job.ProgramNumber is { } number)
+        {
+            root["programNumber"] = number;
+        }
+
+        if (job.WorkOffset is { } offset)
+        {
+            root["workOffset"] = offset;
+        }
+
+        if (job.Coolant is { } coolant)
+        {
+            root["coolant"] = coolant;
+        }
+
+        if (job.Stock is { IsEmpty: false } stock)
+        {
+            var so = new JsonObject();
+            if (stock.Diameter is { } sd)
+            {
+                so["diameter"] = sd;
+            }
+
+            if (stock.Length is { } sl)
+            {
+                so["length"] = sl;
+            }
+
+            if (stock.FaceZ is { } sz)
+            {
+                so["faceZ"] = sz;
+            }
+
+            root["stock"] = so;
+        }
+
+        // TORNO-T5: só quando escolhido (arquivo antigo regrava igual)
+        if (job.ZeroFace is { } zf)
+        {
+            root["zeroFace"] = LatheZero.FileName(zf);
+        }
+
         if (job.Profile is { } p)
         {
             root["profile"] = CamJobJson.SegmentsToJson(p.Segments);
@@ -51,6 +95,17 @@ public static class LatheJobJson
             if (fx.StickOut is { } s)
             {
                 o["stickOut"] = s;
+            }
+
+            // TORNO-T4: apoios só quando marcados (arquivo antigo regrava igual)
+            if (fx.Tailstock)
+            {
+                o["tailstock"] = true;
+            }
+
+            if (fx.SteadyRest)
+            {
+                o["steadyRest"] = true;
             }
 
             root["fixation"] = o;
@@ -85,6 +140,12 @@ public static class LatheJobJson
                 ["rpm"] = s.Tool.Rpm,
             },
         };
+        // TORNO-T1: campos que o usuário deixou vazios (nome da tela); o número guardado deles é 0 e nunca é usado
+        if (s.MissingFields.Count > 0)
+        {
+            o["missing"] = new JsonArray([.. s.MissingFields.Select(f => (JsonNode)f)]);
+        }
+
         if (s.Turning is { } t)
         {
             o["turning"] = new JsonObject
@@ -158,6 +219,42 @@ public static class LatheJobJson
             };
         }
 
+        if (s.FaceGroove is { } fg)
+        {
+            o["faceGroove"] = new JsonObject
+            {
+                ["outerDiameter"] = fg.OuterDiameter,
+                ["innerDiameter"] = fg.InnerDiameter,
+                ["faceZ"] = fg.FaceZ,
+                ["bottomZ"] = fg.BottomZ,
+                ["toolWidth"] = fg.ToolWidth,
+                ["peck"] = fg.Peck,
+                ["retract"] = fg.Retract,
+                ["feed"] = fg.Feed,
+                ["reducedFeed"] = fg.ReducedFeed,
+                ["reducedFromDiameter"] = fg.ReducedFromDiameter,
+                ["allowance"] = fg.Allowance,
+                ["toolMinDiameter"] = fg.ToolMinDiameter,
+                ["toolMaxDiameter"] = fg.ToolMaxDiameter,
+            };
+        }
+
+        if (s.Parting is { } pt)
+        {
+            o["parting"] = new JsonObject
+            {
+                ["cutZ"] = pt.CutZ,
+                ["startDiameter"] = pt.StartDiameter,
+                ["finalDiameter"] = pt.FinalDiameter,
+                ["toolWidth"] = pt.ToolWidth,
+                ["feed"] = pt.Feed,
+                ["reducedFeed"] = pt.ReducedFeed,
+                ["reducedFromDiameter"] = pt.ReducedFromDiameter,
+                ["peck"] = pt.Peck,
+                ["retract"] = pt.Retract,
+            };
+        }
+
         return o;
     }
 
@@ -196,10 +293,29 @@ public static class LatheJobJson
             {
                 Name = CamJobJson.Str(root, "name"),
                 Dialect = CamJobJson.Enum<CamDialect>(CamJobJson.Str(root, "dialect"), "comando"),
-                ProgramNumber = (int)CamJobJson.Num(root, "programNumber"),
-                WorkOffset = (int)CamJobJson.Num(root, "workOffset"),
-                Coolant = CamJobJson.Bool(root, "coolant"),
+                // chave ausente = vazio (TORNO-T1); arquivo antigo sempre traz as três
+                ProgramNumber = root["programNumber"] is null ? null : (int)CamJobJson.Num(root, "programNumber"),
+                WorkOffset = root["workOffset"] is null ? null : (int)CamJobJson.Num(root, "workOffset"),
+                Coolant = root["coolant"] is null ? null : CamJobJson.Bool(root, "coolant"),
             };
+            if (root["stock"] is JsonObject so)
+            {
+                double? Opt(string key) => so[key] is null ? null : CamJobJson.Num(so, key);
+                var stock = new LatheJobStock(Opt("diameter"), Opt("length"), Opt("faceZ"));
+                if (stock.Validate() is { } stockError)
+                {
+                    throw new CamJobJson.FormatException(stockError);
+                }
+
+                job.Stock = stock.IsEmpty ? null : stock;
+            }
+
+            if (root["zeroFace"] is not null)
+            {
+                string zf = CamJobJson.Str(root, "zeroFace");
+                job.ZeroFace = LatheZero.FromFileName(zf) ?? throw new CamJobJson.FormatException($"Valor desconhecido de Z0: \"{zf}\".");
+            }
+
             if (root["profile"] is not null)
             {
                 job.Profile = LatheProfile.From(CamJobJson.SegmentsFrom(root["profile"], "Perfil inválido no arquivo."), out string? error)
@@ -243,7 +359,11 @@ public static class LatheJobJson
         string name = CamJobJson.Str(o, "kind");
         LatheFixationKind kind = LatheFixation.FromFileName(name) ?? throw new CamJobJson.FormatException($"Valor desconhecido de fixação: \"{name}\".");
         double? Opt(string key) => o[key] is null ? null : CamJobJson.Num(o, key);
-        var f = new LatheFixation(kind, Opt("gripDiameter"), Opt("gripLength"), Opt("stickOut"));
+        var f = new LatheFixation(kind, Opt("gripDiameter"), Opt("gripLength"), Opt("stickOut"))
+        {
+            Tailstock = o["tailstock"] is not null && CamJobJson.Bool(o, "tailstock"),
+            SteadyRest = o["steadyRest"] is not null && CamJobJson.Bool(o, "steadyRest"),
+        };
         return f.Validate() is { } error ? throw new CamJobJson.FormatException(error) : f;
     }
 
@@ -260,6 +380,11 @@ public static class LatheJobJson
             SafeDiameter = CamJobJson.Num(o, "safeDiameter"),
             Clearance = CamJobJson.Num(o, "clearance"),
         };
+        if (o["missing"] is JsonArray missing)
+        {
+            spec = spec with { MissingFields = [.. missing.Select(m => m is JsonValue v && v.TryGetValue(out string? name) ? name : throw new CamJobJson.FormatException("Campo vazio inválido na operação."))] };
+        }
+
         if (o["turning"] is JsonObject tu)
         {
             spec = spec with
@@ -302,6 +427,29 @@ public static class LatheJobJson
                 Groove = new GroovingParams(
                     CamJobJson.Bool(g, "internal"), CamJobJson.Num(g, "surfaceDiameter"), CamJobJson.Num(g, "bottomDiameter"), CamJobJson.Num(g, "zStart"), CamJobJson.Num(g, "width"), CamJobJson.Num(g, "toolWidth"),
                     CamJobJson.Num(g, "peck"), CamJobJson.Num(g, "feed"), CamJobJson.Num(g, "retract"), CamJobJson.Num(g, "allowance"), CamJobJson.Bool(g, "finish"), spec.Clearance),
+            };
+        }
+
+        if (o["faceGroove"] is JsonObject fg)
+        {
+            spec = spec with
+            {
+                FaceGroove = new FaceGroovingParams(
+                    CamJobJson.Num(fg, "outerDiameter"), CamJobJson.Num(fg, "innerDiameter"), CamJobJson.Num(fg, "faceZ"), CamJobJson.Num(fg, "bottomZ"),
+                    CamJobJson.Num(fg, "toolWidth"), CamJobJson.Num(fg, "peck"), CamJobJson.Num(fg, "retract"), CamJobJson.Num(fg, "feed"),
+                    CamJobJson.Num(fg, "reducedFeed"), CamJobJson.Num(fg, "reducedFromDiameter"), CamJobJson.Num(fg, "allowance"),
+                    CamJobJson.Num(fg, "toolMinDiameter"), CamJobJson.Num(fg, "toolMaxDiameter"), spec.Clearance),
+            };
+        }
+
+        if (o["parting"] is JsonObject pt)
+        {
+            spec = spec with
+            {
+                Parting = new PartingParams(
+                    CamJobJson.Num(pt, "cutZ"), CamJobJson.Num(pt, "startDiameter"), CamJobJson.Num(pt, "finalDiameter"), CamJobJson.Num(pt, "toolWidth"),
+                    CamJobJson.Num(pt, "feed"), CamJobJson.Num(pt, "reducedFeed"), CamJobJson.Num(pt, "reducedFromDiameter"),
+                    CamJobJson.Num(pt, "peck"), CamJobJson.Num(pt, "retract"), spec.Clearance),
             };
         }
 
