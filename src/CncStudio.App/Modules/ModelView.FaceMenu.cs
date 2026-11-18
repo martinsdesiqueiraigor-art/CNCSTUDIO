@@ -13,8 +13,7 @@ namespace CncStudio.App.Modules;
 /// Menu da face (UX-03b): ao escolher uma face ou aresta na vista 3D, abre perto do clique um menu com o tipo e a cota,
 /// as operações que servem e as do tipo da seleção que estão apagadas (com o motivo), e "Ver todas as operações…"
 /// (o catálogo inteiro). A regra vem do
-/// Core (<see cref="FaceMenuRules"/>). A operação continua na aba Modelo 3D (não entra na árvore do Trabalho) e nada é
-/// preenchido: o menu leva ao campo do fundo, que o usuário digita. Teclado: setas, Enter e Esc (Esc fecha nos dois
+/// Core (<see cref="FaceMenuRules"/>). Desde o FECHO-01 a operação sai só pelo Trabalho (M3D): escolher no menu diz para onde ir. Teclado: setas, Enter e Esc (Esc fecha nos dois
 /// estados do menu e devolve o foco ao 3D; Enter leva ao campo do fundo).
 /// </summary>
 public sealed partial class ModelView
@@ -151,17 +150,18 @@ public sealed partial class ModelView
 
     private static void AutomationName(Control c, string name) => Avalonia.Automation.AutomationProperties.SetName(c, name);
 
-    /// <summary>Leva à seção da operação, presa à face clicada; o fundo fica vazio para o usuário digitar (nada é suposto).</summary>
+    /// <summary>
+    /// FECHO-01 F1: a operação pela face sai só pelo Trabalho (árvore, banco de ferramentas, zero e pacote). Aqui o menu só diz o que a
+    /// face é e para onde ir.
+    /// </summary>
     private void ApplyFaceMenu(FaceMenuItem item, string header, int? faceId)
     {
         CloseFaceMenu();
-        (string name, string field) = item.Item.Id == "furacao" ? ("Furação", "DZ") : ("Bolsão", "PZB");
+        string name = item.Item.Id == "furacao" ? "Furação" : "Bolsão";
         _originFace = faceId;
-        _originInfo.Text = $"{name} · origem: face selecionada ({header}). Digite o Z do fundo e confira os campos; nada é suposto.";
+        _originInfo.Text = $"{name} desta face ({header}): faça pelo Trabalho. Preparação → Peça pronta → STEP da peça, ligue o 3D e clique na mesma face.";
         _originInfo.IsVisible = true;
-        TextBox box = _f[field];
-        box.BringIntoView();
-        box.Focus();
+        _originInfo.BringIntoView();
     }
 
     /// <summary>Põe o menu perto do clique, dentro da vista, sem passar de 60% da altura (não cobre a peça inteira).</summary>
