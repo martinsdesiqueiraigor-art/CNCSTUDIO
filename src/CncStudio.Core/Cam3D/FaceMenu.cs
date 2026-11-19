@@ -29,7 +29,7 @@ public sealed record FaceMenu(string Header, IReadOnlyList<FaceMenuItem> All)
 /// <summary>
 /// Regra "o que serve a cada seleção" do Modelo 3D. Só leitura: não cria trajetória e não muda geometria. Segue as mesmas
 /// condições de <see cref="FaceDrilling"/> e <see cref="FacePocket"/> (furo vertical; fundo plano para cima, abaixo do topo,
-/// com um contorno só). Faceamento, contornos e texto no cilindro ainda não saem do 3D; varredura e desbaste usam o modelo inteiro.
+/// com um contorno só). Faceamento, contornos e bolsão com ilhas saem no Trabalho fresa (STEP-OPS), não desta aba; texto no cilindro não sai do 3D; varredura e desbaste usam o modelo inteiro.
 /// </summary>
 public static class FaceMenuRules
 {
@@ -100,8 +100,8 @@ public static class FaceMenuRules
     /// <summary>Motivo comum aos itens que não dependem da seleção (null = depende, ver Bolsão e Furação).</summary>
     private static string? Fixed(string id) => id switch
     {
-        "faceamento" => "Faceamento ainda não existe a partir do 3D: use o Faceamento do Trabalho fresa.",
-        "contorno-fora" or "contorno-dentro" or "contorno-linha" => "Contorno a partir do 3D ainda não existe: use um DXF no Trabalho fresa.",
+        "faceamento" => "Faceamento pela face sai no Trabalho fresa: abra o STEP lá e clique na face.",
+        "contorno-fora" or "contorno-dentro" or "contorno-linha" => "Contorno pela aresta ou face sai no Trabalho fresa: abra o STEP lá e escolha as arestas.",
         "texto-cilindro" => "Texto no cilindro é do Trabalho fresa (4º eixo), não sai do 3D.",
         "varredura" => "Não depende da face: usa o modelo inteiro (botão “Gerar varredura” no painel).",
         "desbaste-niveis" => "Não depende da face: usa o modelo inteiro (botão “Gerar desbaste” no painel).",
@@ -131,7 +131,7 @@ public static class FaceMenuRules
         return f.Kind switch
         {
             FaceKind.Plane when IsTop(f, topZ) => "Esta face é o topo do modelo: o bolsão precisa de um fundo abaixo do topo.",
-            FaceKind.Plane when f.Normal.Z >= 0.99 && loops > 1 => "Bolsão com ilhas ainda não sai do 3D.",
+            FaceKind.Plane when f.Normal.Z >= 0.99 && loops > 1 => "Bolsão com ilhas sai no Trabalho fresa: abra o STEP lá e clique no fundo do rebaixo.",
             FaceKind.Plane when f.Normal.Z >= 0.99 && loops == 0 => "Não achei o contorno desta região (malha aberta?).",
             FaceKind.Plane when f.Normal.Z >= 0.99 => null,
             FaceKind.Plane when f.Normal.Z <= -0.99 => "Face voltada para baixo: a fresa só chega por cima (3 eixos).",

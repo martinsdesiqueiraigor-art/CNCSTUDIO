@@ -162,7 +162,7 @@ public static class CamJobPart
     /// Alturas da operação nova medidas a partir do topo lido (as mesmas folgas da operação nova da faixa, que contam a partir de Z 0):
     /// Z seguro e de aproximação ficam acima do topo; o fundo fica vazio (marcado à parte).
     /// </summary>
-    private static CamLevels AboveTop(CamLevels l, double top) =>
+    internal static CamLevels AboveTop(CamLevels l, double top) =>
         l with { TopZ = top, SafeZ = top + (l.SafeZ - l.TopZ), ClearanceZ = top + (l.ClearanceZ - l.TopZ), BottomZ = 0 };
 
     /// <summary>Contorno fechado de trechos retos pelos pontos do laço (em XY).</summary>

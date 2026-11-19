@@ -166,6 +166,12 @@ public partial class MainWindow
             return (files[0].Name, await reader.ReadToEndAsync());
         };
         Assist.PlanDrawing = () => (Cam.JobContours, Cam.JobStockInfo?.Thickness);
+        Assist.PlanStepDrawing = () => Cam.JobStepPlan;
+        Assist.ApplyStepPlan = (contours, operations) =>
+        {
+            Cam.ApplyStepPlan(contours, operations);
+            ShowModule("cam");
+        };
         Assist.PlanFixture = () => Cam.JobFixtureInfo;
         Assist.PlanMaxRpm = () => _settings.MachineProfiles.FirstOrDefault(p => p.Name == _settings.ActiveMachineProfile)?.MaxSpindleRpm;
         Assist.PlanTools = () => _settings.Tools.Select(t => new PlanTool(

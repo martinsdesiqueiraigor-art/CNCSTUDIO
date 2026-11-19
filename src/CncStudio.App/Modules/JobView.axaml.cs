@@ -418,7 +418,7 @@ public partial class JobView : UserControl
         _absoluteMode = false;
         ForgetStockMemory();
         _job.PartHeight = j.PartHeight;
-        // M3D-1: peça STEP só confere se o arquivo está no lugar (nunca lê ao abrir)
+        // M3D-1: peça STEP confere se o arquivo está no lugar; a leitura vem logo depois do Refresh (STEP-OPS, em segundo plano)
         _job.PartStep = j.PartStep;
         ForgetPartMesh();
         CamJobPart.VerifyFile(_job, File.Exists);
@@ -430,6 +430,11 @@ public partial class JobView : UserControl
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
         Refresh();
+        // STEP-OPS: trabalho com peça STEP abre no 3D (lê o arquivo em segundo plano; some o 3D se o arquivo não está no lugar)
+        if (_job.PartStep is { FileProblem: null })
+        {
+            _ = LoadPartMesh(open3D: true);
+        }
     }
 
     /// <summary>Fixação do Trabalho aberto: o Assist lê daqui (fonte única).</summary>
@@ -508,13 +513,21 @@ public partial class JobView : UserControl
         int target = PaletteTarget();
         foreach ((CamPaletteItem item, Button button) in _paletteButtons)
         {
-            CamShell.SetPaletteState(item, button, CamPalette.Unavailable(item, _job, target, _openChains));
+            string? why = StepReady && item.Kind is JobOpKind.Pocket or JobOpKind.Drilling or JobOpKind.Facing or JobOpKind.Contour && HasSelection
+                ? StepPaletteWhy(item)
+                : CamPalette.Unavailable(item, _job, target, _openChains);
+            CamShell.SetPaletteState(item, button, why);
         }
     }
 
     private void AddOperation(CamPaletteItem item)
     {
         Errors.Text = "";
+        if (AddFromSelection(item))
+        {
+            return;
+        }
+
         int contour = PaletteTarget();
         if (CamPalette.Unavailable(item, _job, contour, _openChains) is { } why)
         {

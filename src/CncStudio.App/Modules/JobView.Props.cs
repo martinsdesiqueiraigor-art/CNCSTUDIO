@@ -61,6 +61,7 @@ public partial class JobView
         }
 
         Text(i, "Nome", s.Label, "padrão", (x, v) => x with { Label = v.Trim() });
+        GeometrySection(i, s);
 
         if (s.Kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Facing or JobOpKind.Drilling)
         {

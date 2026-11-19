@@ -86,6 +86,12 @@ public sealed record CamOperationSpec(JobOpKind Kind, CamTool Tool, CamLevels Le
     /// </summary>
     public IReadOnlyList<int>? ContourIndices { get; init; }
 
+    /// <summary>
+    /// STEP-OPS S0: de onde a operação tirou a geometria no 3D (faces, arestas, filtro de laços e contornos que são dela). Null = operação
+    /// feita à mão ou do DXF. Campo opcional do arquivo (versão 6).
+    /// </summary>
+    public GeoSource? Geometry { get; init; }
+
     public ContourParams? ContourParams { get; init; }
 
     public PocketParams? PocketParams { get; init; }
@@ -132,7 +138,7 @@ public sealed class CamJob
     /// (<see cref="CamJobStock.NeedsVersion2"/>, <see cref="CamJobProgram.NeedsVersion3"/>). Versão 4 quando tem peça STEP ou furação
     /// com lista de contornos (M3D, <see cref="CamJobPart.NeedsVersion4"/>).
     /// </summary>
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
 
     public string Name { get; set; } = "TRABALHO";
 

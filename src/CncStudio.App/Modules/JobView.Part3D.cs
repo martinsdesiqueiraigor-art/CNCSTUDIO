@@ -30,6 +30,9 @@ public partial class JobView
     /// <summary>Faces escolhidas no 3D (ids de <see cref="MeshFeatures.Faces"/>).</summary>
     private readonly HashSet<int> _partSelection = [];
 
+    /// <summary>STEP-OPS S2: arestas escolhidas no 3D (contorno pela aresta). Não são desenhadas em cor: a contagem aparece no aviso.</summary>
+    private readonly HashSet<int> _partEdges = [];
+
     private int _partAnalysis;
 
     private static readonly (string Label, ModelTurn Turn)[] PartTurns =
@@ -123,7 +126,7 @@ public partial class JobView
         {
             var show = new Button { Content = _partReading ? "Lendo o STEP…" : "Mostrar a peça no 3D (lê o STEP)", Padding = new Thickness(10, 4), FontSize = 12, IsEnabled = !_partReading };
             ToolTip.SetTip(show, "A leitura não trava a tela. Depois de ler, clique nas faces no 3D (botão 3D) para criar operações.");
-            show.Click += async (_, _) => await LoadPartMesh();
+            show.Click += async (_, _) => await LoadPartMesh(open3D: true);
             card.Children.Add(show);
         }
         else if (_partMesh is not null)
@@ -240,7 +243,7 @@ public partial class JobView
     }
 
     /// <summary>Lê o STEP já escolhido só para o 3D. Se mudou desde que foi aberto (caixa diferente), não usa.</summary>
-    private async Task LoadPartMesh()
+    private async Task LoadPartMesh(bool open3D = false)
     {
         if (_partReading || _job.PartStep is not { } part)
         {
@@ -268,6 +271,12 @@ public partial class JobView
             }
 
             message = $"• STEP da peça lido em {seconds.ToString("0.0", Br)} s.";
+            if (open3D)
+            {
+                // STEP-OPS: com peça STEP o 3D é a tela principal do Trabalho (a peça enquadrada, faces para clicar)
+                View3DButton.IsChecked = true;
+                message += " Clique nas faces ou arestas no 3D para criar operações.";
+            }
         }
 
         Refresh(keep: true);
@@ -282,6 +291,7 @@ public partial class JobView
         _partMesh = (path, raw, placed);
         _partFeatures = null;
         _partSelection.Clear();
+        _partEdges.Clear();
         int mine = ++_partAnalysis;
         ShowPartInScene();
         MeshFeatures features = await Task.Run(() => MeshFeatures.Analyze(placed));
@@ -291,7 +301,13 @@ public partial class JobView
         }
 
         _partFeatures = features;
+        // STEP-OPS: operação cuja face não é achada neste STEP fica Incompleta até Reselecionar (salvar continua livre)
+        int pending = CamJobFromGeometry.Reconcile(_job, features);
         Refresh(keep: true);
+        if (pending > 0)
+        {
+            Errors.Text = $"• {pending} operação(ões) do 3D não acharam a face neste STEP e ficaram Incompletas: selecione a face no 3D e use Trocar seleção em Geometria (Reselecionar).";
+        }
     }
 
     /// <summary>Peça e seleção no 3D do Trabalho.</summary>
@@ -299,8 +315,9 @@ public partial class JobView
     {
         if (_partMesh is { } m && _job.PartStep?.Path == m.Path)
         {
-            int[] chosen = _partFeatures is { } f ? [.. _partSelection.SelectMany(i => f.Faces[i].Triangles)] : [];
-            Scene3D.SetPart(m.Placed, chosen);
+            int[] chosen = _partFeatures is { } f ? [.. _partSelection.SelectMany(i => f.Faces[i].Triangles).Concat(SelectedOpTriangles()).Distinct()] : [];
+            // arestas escolhidas (e as da operação escolhida na árvore) acendem em laranja
+            Scene3D.SetPart(m.Placed, chosen, HighlightedEdges());
         }
         else
         {
@@ -316,20 +333,34 @@ public partial class JobView
             return;
         }
 
-        (MeshFace? face, _) = features.Pick(e.Origin, e.Direction, e.Tolerance);
+        (MeshFace? face, MeshEdge? edge) = features.Pick(e.Origin, e.Direction, e.Tolerance);
         if (!e.Additive)
         {
-            bool same = face is not null && _partSelection.Count == 1 && _partSelection.Contains(face.Id);
+            bool same = (face is not null && _partSelection.Count == 1 && _partEdges.Count == 0 && _partSelection.Contains(face.Id))
+                || (edge is not null && _partEdges.Count == 1 && _partSelection.Count == 0 && _partEdges.Contains(edge.Id));
             _partSelection.Clear();
+            _partEdges.Clear();
             if (same)
             {
                 face = null;
+                edge = null;
             }
         }
 
         if (face is not null && !_partSelection.Remove(face.Id))
         {
             _partSelection.Add(face.Id);
+        }
+
+        if (edge is not null && !_partEdges.Remove(edge.Id))
+        {
+            _partEdges.Add(edge.Id);
+        }
+
+        if (edge is not null)
+        {
+            Errors.Text = $"• {_partEdges.Count} aresta(s) escolhida(s) no 3D (Ctrl soma): use Contorno na faixa. Arestas vizinhas viram um laço só.";
+            UpdatePalette();
         }
 
         ShowPartInScene();
@@ -346,12 +377,19 @@ public partial class JobView
         flyout.Items.Add(new MenuItem { Header = menu.Header, IsEnabled = false });
         foreach (FaceMenuItem item in menu.Short)
         {
-            var mi = new MenuItem { Header = item.Item.Name, IsEnabled = item.Fits };
-            if (!item.Fits)
+            // STEP-OPS S1: o menu do Core ainda diz "faceamento não sai do 3D" (aba Modelo 3D); no Trabalho sai pela geometria da face
+            // S3: o bolsão com ilhas também sai (as ilhas vão para o motor de ilhas do Trabalho)
+            JobOpKind? geoKind = item.Item.Id switch { "faceamento" => JobOpKind.Facing, "bolsao" => JobOpKind.Pocket, _ => null };
+            bool facing = geoKind is not null && _partFeatures is not null;
+            string? facingWhy = facing ? CamJobFromGeometry.Unavailable(geoKind!.Value, _partFeatures!, [face], [], PartTopZ) : null;
+            bool fits = facing ? facingWhy is null : item.Fits;
+            string? why = facing ? facingWhy : item.Unavailable;
+            var mi = new MenuItem { Header = item.Item.Name, IsEnabled = fits };
+            if (!fits)
             {
-                ToolTip.SetTip(mi, item.Unavailable);
+                ToolTip.SetTip(mi, why);
                 ToolTip.SetShowOnDisabled(mi, true);
-                mi.Header = item.Item.Name + " — " + item.Unavailable;
+                mi.Header = item.Item.Name + " — " + why;
             }
 
             string id = item.Item.Id;
@@ -361,7 +399,7 @@ public partial class JobView
 
         if (menu.Short.Count == 0)
         {
-            flyout.Items.Add(new MenuItem { Header = "Nada sai desta face ainda (Faceamento e contorno pela face vêm depois).", IsEnabled = false });
+            flyout.Items.Add(new MenuItem { Header = "Nada sai desta face ainda (contorno pela aresta vem depois).", IsEnabled = false });
         }
 
         flyout.ShowAt(Scene3D, showAtPointer: true);
@@ -376,12 +414,13 @@ public partial class JobView
         }
 
         Snap();
-        (int index, string? error) = id switch
-        {
-            "bolsao" => CamJobPart.AddPocket(_job, features, face, m.Placed.Bounds.Max.Z),
-            "furacao" => CamJobPart.AddDrilling(_job, [.. _partSelection.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole)]),
-            _ => (-1, CamPalette.SoonMessage),
-        };
+        JobOpKind? kind = id switch { "bolsao" => JobOpKind.Pocket, "faceamento" => JobOpKind.Facing, "furacao" => JobOpKind.Drilling, _ => null };
+        (IReadOnlyList<int> made, string? error) = kind is { } k
+            ? CamJobFromGeometry.Add(_job, k, features,
+                k == JobOpKind.Drilling ? [.. _partSelection.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole)] : [face],
+                [], m.Placed.Bounds.Max.Z)
+            : ([], CamPalette.SoonMessage);
+        int index = made.Count > 0 ? made[0] : -1;
         if (error is not null)
         {
             Errors.Text = "• " + error;

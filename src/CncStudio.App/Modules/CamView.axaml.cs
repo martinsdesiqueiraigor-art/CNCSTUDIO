@@ -53,6 +53,16 @@ public partial class CamView : UserControl
 
     public JobStock? JobStockInfo => JobPanel.Stock;
 
+    /// <summary>STEP-OPS S4: a peça STEP lida no Trabalho como desenho do Assist; null = sem peça STEP lida.</summary>
+    public CncStudio.Core.Assist.StepPlanDrawing? JobStepPlan => JobPanel.StepPlan;
+
+    /// <summary>Põe no Trabalho fresa os contornos do STEP e as operações do plano do Assist.</summary>
+    public void ApplyStepPlan(IReadOnlyList<Contour> contours, IReadOnlyList<CamOperationSpec> operations)
+    {
+        JobPanel.AddStepPlan(contours, operations);
+        ShowMachine(job: true);
+    }
+
     /// <summary>Fixação do Trabalho fresa (fonte única; o Assist lê daqui).</summary>
     public JobFixture? JobFixtureInfo => JobPanel.Fixture;
 
