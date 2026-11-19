@@ -164,4 +164,94 @@ public class StepPlanSourceTests
         Assert.True(build.Ok, string.Join("; ", build.Errors));
         Assert.All(job.Operations, o => Assert.True(o.ContourIndex >= offset));
     }
+
+    /// <summary>Arruela raio 20, furo raio 5, altura 8, com chanfro na borda de cima (raio 20 até Z5, 17 no topo).</summary>
+    private static TriangleMesh ChamferedWasher(int n = 48)
+    {
+        var t = new List<(Point3, Point3, Point3)>();
+        for (int i = 0; i < n; i++)
+        {
+            double a0 = 2 * Math.PI * i / n, a1 = 2 * Math.PI * (i + 1) / n;
+            Point3 Pt(double r, double a, double z) => P(r * Math.Cos(a), r * Math.Sin(a), z);
+            Quad(t, Pt(20, a0, 0), Pt(20, a1, 0), Pt(20, a1, 5), Pt(20, a0, 5)); // parede reta
+            Quad(t, Pt(20, a0, 5), Pt(20, a1, 5), Pt(17, a1, 8), Pt(17, a0, 8)); // chanfro
+            Quad(t, Pt(17, a0, 8), Pt(17, a1, 8), Pt(5, a1, 8), Pt(5, a0, 8)); // topo
+            Quad(t, Pt(5, a0, 0), Pt(5, a0, 8), Pt(5, a1, 8), Pt(5, a1, 0)); // furo
+            Quad(t, Pt(20, a0, 0), Pt(5, a0, 0), Pt(5, a1, 0), Pt(20, a1, 0)); // fundo
+        }
+
+        return new TriangleMesh(t);
+    }
+
+    [Fact]
+    public void Contorno_da_peca_e_a_silhueta_mesmo_com_chanfro_na_borda_de_cima()
+    {
+        TriangleMesh m = ChamferedWasher();
+        StepPlanDrawing d = Read(m);
+        Assert.True(d.Ok);
+        (double x0, double y0, double x1, double y1) = d.Contours[0].BoundsXY();
+        Assert.Equal(40, x1 - x0, 1); // Ø40 (a base), não Ø34 (a face de cima)
+        Assert.Equal(40, y1 - y0, 1);
+        Assert.Contains(d.Notes, x => x.Contains("40"));
+    }
+
+    [Fact]
+    public void Peca_sem_chanfro_continua_com_o_mesmo_contorno()
+    {
+        StepPlanDrawing d = Read(Washer());
+        (double x0, double _, double x1, double _) = d.Contours[0].BoundsXY();
+        Assert.Equal(40, x1 - x0, 1);
+        Assert.Equal(2, d.Contours.Count);
+    }
+
+    [Fact]
+    public void Profundidade_lida_do_STEP_nao_vira_marca_de_digitada_mas_a_mudada_vira()
+    {
+        TriangleMesh m = Block();
+        StepPlanDrawing d = Read(m);
+        var input = new PlanInput(d.Contours, d.Thickness, AssistLibrary.Defaults().Materials[3], []) { Depths = d.Depths };
+        PlanResult plan = AssistPlanner.Plan(input);
+        Assert.True(plan.Ok, string.Join("; ", plan.Notes));
+        var depths = PlanReview.DepthsOf(plan).ToDictionary(x => x.Key, x => x.Presumed);
+        var heights = new PlanHeights(50, 2, 0);
+
+        PlanReviewResult fromModel = PlanReview.Review(plan, input, new HashSet<int> { 3, 4 }, depths, ReleaseStrategy.HeldBySetup, heights, null, null, depths.Keys.ToHashSet());
+        Assert.True(fromModel.Operations is not null, fromModel.Error);
+        CamOperationSpec pocket = Assert.Single(fromModel.Operations!, o => o.Kind == JobOpKind.Pocket);
+        Assert.DoesNotContain("depth", pocket.Origin!.Typed);
+        Assert.Contains("heights", pocket.Origin.Typed);
+
+        PlanReviewResult typed = PlanReview.Review(plan, input, new HashSet<int> { 3, 4 }, depths, ReleaseStrategy.HeldBySetup, heights, null, null, new HashSet<int>());
+        Assert.Contains("depth", Assert.Single(typed.Operations!, o => o.Kind == JobOpKind.Pocket).Origin!.Typed);
+    }
+
+    /// <summary>Flange com chanfro (raio 20 até Z3, 17 em Z6) e cubo de raio 8 até Z12: a face do flange é degrau, não bolsão.</summary>
+    private static TriangleMesh ChamferedFlangeWithHub(int n = 48)
+    {
+        var t = new List<(Point3, Point3, Point3)>();
+        for (int i = 0; i < n; i++)
+        {
+            double a0 = 2 * Math.PI * i / n, a1 = 2 * Math.PI * (i + 1) / n;
+            Point3 Pt(double r, double a, double z) => P(r * Math.Cos(a), r * Math.Sin(a), z);
+            Quad(t, Pt(20, a0, 0), Pt(20, a1, 0), Pt(20, a1, 3), Pt(20, a0, 3)); // parede
+            Quad(t, Pt(20, a0, 3), Pt(20, a1, 3), Pt(17, a1, 6), Pt(17, a0, 6)); // chanfro
+            Quad(t, Pt(17, a0, 6), Pt(17, a1, 6), Pt(8, a1, 6), Pt(8, a0, 6)); // topo do flange
+            Quad(t, Pt(8, a0, 6), Pt(8, a1, 6), Pt(8, a1, 12), Pt(8, a0, 12)); // cubo
+            t.Add((P(0, 0, 12), Pt(8, a0, 12), Pt(8, a1, 12))); // topo do cubo
+            t.Add((P(0, 0, 0), Pt(20, a1, 0), Pt(20, a0, 0))); // fundo
+        }
+
+        return new TriangleMesh(t);
+    }
+
+    [Fact]
+    public void Face_do_flange_com_chanfro_continua_degrau_e_nao_vira_bolsao()
+    {
+        StepPlanDrawing d = Read(ChamferedFlangeWithHub());
+        Assert.True(d.Ok);
+        Assert.Single(d.Contours); // só o contorno da peça
+        (double x0, double _, double x1, double _) = d.Contours[0].BoundsXY();
+        Assert.Equal(40, x1 - x0, 1);
+        Assert.Contains(d.Notes, x => x.Contains("degrau"));
+    }
 }

@@ -364,6 +364,12 @@ public partial class JobView
         }
 
         ShowPartInScene();
+        // STEP-CONT-01: a operação aberta no painel mostra Trocar seleção / + Adicionar conforme há seleção no 3D; refaz o painel agora
+        if (SelectedOp() is { } selectedOp && selectedOp < _job.Operations.Count && _job.Operations[selectedOp].Geometry is not null)
+        {
+            BuildProps();
+        }
+
         if (face is not null && _partSelection.Contains(face.Id))
         {
             ShowPartMenu(FaceMenuRules.For(features, face, m.Placed.Bounds.Max.Z), face);

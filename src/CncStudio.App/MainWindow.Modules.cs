@@ -165,7 +165,7 @@ public partial class MainWindow
             using var reader = new StreamReader(stream);
             return (files[0].Name, await reader.ReadToEndAsync());
         };
-        Assist.PlanDrawing = () => (Cam.JobContours, Cam.JobStockInfo?.Thickness);
+        Assist.PlanDrawing = () => (Cam.JobPlanContours, Cam.JobStockInfo?.Thickness);
         Assist.PlanStepDrawing = () => Cam.JobStepPlan;
         Assist.ApplyStepPlan = (contours, operations) =>
         {

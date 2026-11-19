@@ -250,6 +250,22 @@ public partial class JobView : UserControl
     /// <summary>Contornos e bruto do Trabalho aberto (o Assist lê para sugerir um plano).</summary>
     public IReadOnlyList<Contour> Contours => _job.Contours;
 
+    /// <summary>
+    /// Índices (no trabalho) dos contornos que são desenho de verdade: sem os que as operações criadas pelo 3D guardam como seus
+    /// (STEP-CONT-01). O Assist por desenho lê só estes, para não planejar de novo o que o 3D já fez.
+    /// </summary>
+    public IReadOnlyList<int> PlanContourMap
+    {
+        get
+        {
+            HashSet<int> owned = [.. _job.Operations.SelectMany(o => o.Geometry?.Owned ?? [])];
+            return [.. Enumerable.Range(0, _job.Contours.Count).Where(i => !owned.Contains(i))];
+        }
+    }
+
+    /// <summary>Contornos para o Assist por desenho, na ordem de <see cref="PlanContourMap"/>.</summary>
+    public IReadOnlyList<Contour> PlanContours => [.. PlanContourMap.Select(i => _job.Contours[i])];
+
     /// <summary>Caixa do bruto para o Assist (espessura): bloco absoluto ou bloco por sobra completo; cilindro e tubo, null.</summary>
     public JobStock? Stock => CamJobStock.BlockBox(_job);
 

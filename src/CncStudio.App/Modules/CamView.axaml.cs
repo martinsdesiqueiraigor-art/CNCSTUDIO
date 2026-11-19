@@ -51,6 +51,9 @@ public partial class CamView : UserControl
     /// <summary>Contornos e bruto do Trabalho de fresa (para o Assist).</summary>
     public IReadOnlyList<Contour> JobContours => JobPanel.Contours;
 
+    /// <summary>Contornos de desenho para o Assist por DXF (sem os guardados pelas operações do 3D).</summary>
+    public IReadOnlyList<Contour> JobPlanContours => JobPanel.PlanContours;
+
     public JobStock? JobStockInfo => JobPanel.Stock;
 
     /// <summary>STEP-OPS S4: a peça STEP lida no Trabalho como desenho do Assist; null = sem peça STEP lida.</summary>
@@ -69,7 +72,13 @@ public partial class CamView : UserControl
     /// <summary>Põe as operações sugeridas no Trabalho de fresa e mostra essa aba.</summary>
     public void ApplyPlan(IEnumerable<CamOperationSpec> operations)
     {
-        JobPanel.AddOperations(operations);
+        // o plano numerou só os contornos de desenho: volta para o índice deles no trabalho
+        IReadOnlyList<int> map = JobPanel.PlanContourMap;
+        JobPanel.AddOperations(operations.Select(o => o with
+        {
+            ContourIndex = o.ContourIndex >= 0 && o.ContourIndex < map.Count ? map[o.ContourIndex] : o.ContourIndex,
+            ContourIndices = o.ContourIndices?.Select(c => c >= 0 && c < map.Count ? map[c] : c).ToList(),
+        }));
         ShowMachine(job: true);
     }
 
