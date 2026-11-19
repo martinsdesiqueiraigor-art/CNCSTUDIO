@@ -63,7 +63,7 @@ public partial class JobView
         Text(i, "Nome", s.Label, "padrão", (x, v) => x with { Label = v.Trim() });
         GeometrySection(i, s);
 
-        if (s.Kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Facing or JobOpKind.Drilling)
+        if (s.Kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Facing or JobOpKind.Drilling or JobOpKind.Chamfer)
         {
             var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
             bool drill = s.Kind == JobOpKind.Drilling;
@@ -113,8 +113,12 @@ public partial class JobView
             Num(i, "Z seguro (rápido)", "mm", s.Levels.SafeZ, (x, v) => x with { Levels = x.Levels with { SafeZ = v } });
             Num(i, "Z de aproximação", "mm", s.Levels.ClearanceZ, (x, v) => x with { Levels = x.Levels with { ClearanceZ = v } });
             Num(i, "Z topo da peça", "mm", s.Levels.TopZ, (x, v) => x with { Levels = x.Levels with { TopZ = v } });
-            Num(i, "Z fundo", "mm", s.Levels.BottomZ, (x, v) => x with { Levels = x.Levels with { BottomZ = v } });
-            Num(i, "Passe em Z", "mm", s.Levels.StepDown, (x, v) => x with { Levels = x.Levels with { StepDown = v } });
+            if (s.Kind != JobOpKind.Chamfer)
+            {
+                // o chanfro tem um passe só: o fundo é o topo menos a profundidade do chanfro
+                Num(i, "Z fundo", "mm", s.Levels.BottomZ, (x, v) => x with { Levels = x.Levels with { BottomZ = v } });
+                Num(i, "Passe em Z", "mm", s.Levels.StepDown, (x, v) => x with { Levels = x.Levels with { StepDown = v } });
+            }
         }
 
         switch (s.Kind)
@@ -126,6 +130,15 @@ public partial class JobView
                 Check(i, "Compensação no controle (G41/G42)", c.ControllerComp, (x, b) => x with { ContourParams = x.ContourParams! with { ControllerComp = b } });
                 Num(i, "Sobremetal", "mm", c.Allowance, (x, v) => x with { ContourParams = x.ContourParams! with { Allowance = v } });
                 Num(i, "Raio de entrada", "mm", c.LeadRadius, (x, v) => x with { ContourParams = x.ContourParams! with { LeadRadius = v } });
+                break;
+            case JobOpKind.Chamfer when s.Chamfer is { } ch:
+                Section("Chanfro (fresa em V)");
+                Pick(i, "Lado", ["Por fora do contorno", "Por dentro do contorno"], ch.Side == ContourSide.Inside ? 1 : 0, (x, n) => x with { Chamfer = x.Chamfer! with { Side = n == 1 ? ContourSide.Inside : ContourSide.Outside } });
+                Num(i, CamJobInfo.TipAngleField, "°", ch.TipAngle, (x, v) => x with { Chamfer = x.Chamfer! with { TipAngle = v } });
+                Num(i, CamJobInfo.ChamferWidthField, "mm", ch.Width, (x, v) => x with { Chamfer = x.Chamfer! with { Width = v } });
+                Num(i, CamJobInfo.ChamferDepthField, "mm", ch.Depth, (x, v) => x with { Chamfer = x.Chamfer! with { Depth = v } });
+                Num(i, CamJobInfo.ChamferLeadField, "mm", ch.LeadRadius, (x, v) => x with { Chamfer = x.Chamfer! with { LeadRadius = v } });
+                PropsPanel.Children.Add(new TextBlock { Text = "O Ø da ferramenta é o Ø da fresa em V. A profundidade é da ponta, abaixo do topo. Considera ponta afiada: ponta plana deixa o chanfro menor que o digitado.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
                 break;
             case JobOpKind.Pocket when s.PocketParams is { } p:
                 Section("Bolsão");
@@ -357,7 +370,8 @@ public partial class JobView
         var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         foreach (string o in options)
         {
-            combo.Items.Add(new ComboBoxItem { Content = o });
+            // OPS-A-02 C2: o texto quebra de linha em vez de ser cortado
+            combo.Items.Add(new ComboBoxItem { Content = new TextBlock { Text = o, TextWrapping = Avalonia.Media.TextWrapping.Wrap } });
         }
 
         combo.SelectedIndex = Math.Clamp(selected, 0, options.Length - 1);
@@ -370,7 +384,11 @@ public partial class JobView
                 Edit(i, x => apply(x, current), rebuild);
             }
         };
-        PropsPanel.Children.Add(Row(label, combo));
+        // rótulo em cima e a lista na largura toda do painel (antes ficava numa coluna estreita e cortava o texto)
+        var stack = new StackPanel { Spacing = 2 };
+        stack.Children.Add(new TextBlock { Text = label, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
+        stack.Children.Add(combo);
+        PropsPanel.Children.Add(stack);
     }
 
     private void Check(int i, string label, bool value, Func<CamOperationSpec, bool, CamOperationSpec> apply, bool rebuild = false)
