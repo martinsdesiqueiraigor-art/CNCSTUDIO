@@ -83,6 +83,7 @@ public partial class LatheJobView : UserControl
         };
         Tree.SelectionChanged += (_, _) =>
         {
+            ShowTimes();
             if (_busy)
             {
                 return;
@@ -197,6 +198,7 @@ public partial class LatheJobView : UserControl
         OpsCenter.IsVisible = tab == 1;
         CodeCenter.IsVisible = tab == 2;
         PaletteBar.IsVisible = tab == 1;
+        Timeline.IsVisible = tab == 1;
         RightColumn.IsVisible = tab == 1;
         _panes.Fit();
         if (tab == 0)
@@ -488,6 +490,7 @@ public partial class LatheJobView : UserControl
         Errors.Text = ""; // os erros de geração ficam no rodapé (clicáveis); aqui só os avisos ao abrir arquivo
         ShowWarnings();
         Output.Text = _build.Ok ? _build.Program : "";
+        StartTimes();
         bool gcode = _build.Ok && _build.Program.Length > 0;
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
         CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
@@ -626,6 +629,7 @@ public partial class LatheJobView : UserControl
 
     private void BuildTree(int? selectOp, string? selectTag = null)
     {
+        _timeLabels.Clear();
         Tree.Items.Clear();
         TreeViewItem? select = null;
         TreeViewItem Node(string text, object? tag = null, string? icon = null) =>
@@ -704,7 +708,8 @@ public partial class LatheJobView : UserControl
         lead.Children.Add(CamShell.Badge(mark, kind));
         lead.Children.Add(UiKit.Icon(OpIcon(spec), CamColors.Muted, 15));
         string tip = LatheJobInfo.OpTitle(i, spec) + "\n" + st.Text;
-        Grid row = CamShell.TreeRow(LatheJobInfo.OpTitle(i, spec), null, lead, eye, tip);
+        Grid row = CamShell.TreeRow(LatheJobInfo.OpTitle(i, spec), ("neutral", " "), lead, eye, tip);
+        KeepTimeLabel(i, row);
         row.Opacity = spec.Enabled ? 1 : 0.55;
         return UiKit.StateItem(row, new TreeTag("op", i));
     }
@@ -743,5 +748,75 @@ public partial class LatheJobView : UserControl
 
         Preview.Set(contours, 0, lines);
         PreviewHint.IsVisible = _job.Profile is null && View3DButton.IsChecked != true;
+    }
+
+    // ---------------------------------------------------------------- linha do tempo (UI-05)
+
+    private Dictionary<int, TimeSpan?> _opTimes = [];
+    private readonly Dictionary<int, TextBlock> _timeLabels = [];
+    private int _timesVersion;
+
+    /// <summary>Calcula, fora da tela, o tempo estimado de cada operação pelo G-code gerado e depois mostra na árvore e na linha do tempo.</summary>
+    private async void StartTimes()
+    {
+        int version = ++_timesVersion;
+        string program = _build.Ok ? _build.Program : "";
+        var ops = _build.Items.Where(x => !x.Skipped && x.Result?.Operation is not null).Select(x => (x.Index, x.Result!.Operation!.Name)).ToList();
+        bool siemens = _job.Dialect == CamDialect.Siemens;
+        _opTimes = [];
+        ShowTimes();
+        try
+        {
+            Dictionary<int, TimeSpan?> times = await Task.Run(() => CamOpTimes.Estimate(program, ops, siemens, true));
+            if (version == _timesVersion)
+            {
+                _opTimes = times;
+                ShowTimes();
+            }
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // sem estimativa: a linha do tempo fica "sem tempo"; o programa e a tela continuam iguais
+            if (version == _timesVersion)
+            {
+                _opTimes = [];
+                ShowTimes();
+            }
+        }
+    }
+
+    /// <summary>Tempo na segunda linha de cada operação da árvore e as faixas da linha do tempo (operações ligadas).</summary>
+    private void ShowTimes()
+    {
+        var items = new List<CamTimelineItem>();
+        for (int i = 0; i < _job.Operations.Count; i++)
+        {
+            bool known = _opTimes.TryGetValue(i, out TimeSpan? t);
+            if (_timeLabels.TryGetValue(i, out TextBlock? label))
+            {
+                label.Text = !_job.Operations[i].Enabled ? "desligada" : known ? CamOpTimes.Text(t) + (t is null ? "" : " estimado") : "";
+            }
+
+            if (!_job.Operations[i].Enabled)
+            {
+                continue;
+            }
+
+            string? error = i < _build.Items.Count ? _build.Items[i].Error : null;
+            string kind = error is not null ? "bad" : OpIncomplete(i) || i >= _build.Items.Count || !_build.Items[i].Ok ? "pending" : "ok";
+            items.Add(new CamTimelineItem(i, LatheJobInfo.OpTitle(i, _job.Operations[i]), kind, known ? t : null));
+        }
+
+        Timeline.Show(items, SelectedOp());
+    }
+
+    /// <summary>Segunda linha (pequena) da operação na árvore, onde vai o tempo estimado.</summary>
+    private void KeepTimeLabel(int index, Grid row)
+    {
+        if (row.Children.OfType<TextBlock>().FirstOrDefault(t => Grid.GetRow(t) == 1) is { } label)
+        {
+            label.Foreground = CamColors.MutedBrush;
+            _timeLabels[index] = label;
+        }
     }
 }

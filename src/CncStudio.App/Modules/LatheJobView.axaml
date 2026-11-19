@@ -94,6 +94,8 @@
       <ScrollViewer DockPanel.Dock="Bottom" MaxHeight="44" Margin="10,0,10,4" HorizontalScrollBarVisibility="Disabled">
         <TextBlock x:Name="Warnings" TextWrapping="Wrap" Foreground="{x:Static modules:CamColors.PendingBrush}" FontSize="12" />
       </ScrollViewer>
+      <!-- UI-05: linha do tempo das operações (só na aba Operações) -->
+      <modules:CamTimeline x:Name="Timeline" DockPanel.Dock="Bottom" Margin="10,0,10,4" IsVisible="False" />
       <Grid>
         <!-- Aba Operações: perfil 2D e o 3D de antes (sem chips) -->
         <Border x:Name="OpsCenter" Margin="10,10,10,6" CornerRadius="8" ClipToBounds="True" Background="{x:Static modules:CamColors.ViewportBrush}" BorderBrush="{x:Static modules:CamColors.BorderBrush}" BorderThickness="1">
@@ -130,6 +132,13 @@
               </Border>
             </StackPanel>
             <StackPanel Grid.Column="1">
+              <!-- UI-04: desenho do bruto e da fixação (fora de escala), muda com os campos do Bruto, da Fixação e do Zero -->
+              <Border Classes="camcard">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="Bruto e fixação" FontSize="18" FontWeight="Bold" />
+                  <modules:LatheSetupSketch x:Name="SetupSketch" />
+                </StackPanel>
+              </Border>
               <Border x:Name="PrepFixationCard" Classes="camcard"><StackPanel x:Name="PrepFixation" Spacing="6" /></Border>
               <Border x:Name="PrepOriginCard" Classes="camcard"><StackPanel x:Name="PrepOrigin" Spacing="6" /></Border>
               <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">

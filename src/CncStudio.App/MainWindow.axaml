@@ -175,6 +175,7 @@
         <controls:SearchBar x:Name="Search" Grid.Row="1" />
         <ae:TextEditor x:Name="Editor"
                        Grid.Row="2"
+                       Background="{DynamicResource EditorBackground}"
                        ShowLineNumbers="True"
                        FontFamily="Cascadia Mono, Consolas, Menlo, monospace"
                        FontSize="14"
