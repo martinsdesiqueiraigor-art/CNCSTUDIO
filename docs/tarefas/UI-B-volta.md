@@ -21,3 +21,6 @@ Ramo `ajuste-UI-B`, saído do `ajuste-UI-A` (PR #197, que contém #195 e #196): 
 2. Fresa e torno, aba Operações, com um trabalho com várias operações: a linha do tempo aparece embaixo da vista; clicar numa faixa seleciona a operação; a árvore mostra o tempo de cada uma. Desligar uma operação: ela sai da linha do tempo.
 3. Code: abrir um programa; botões ligados e marcados em laranja; editor em grafite. Trocar para o tema claro e para o CMYK e voltar: nada fica ilegível.
 4. Um trabalho antigo abre, salva e gera o mesmo G-code de antes.
+
+### Achado no teste do Igor (19/11, 05:56) e corrigido
+- No Windows, "Faceamento" quebrava no meio na faixa ("Faceament o"): a largura do botão era medida com a fonte padrão, e o botão usa a Inter. Agora mede com a Inter e mais folga; a faixa continua cabendo em 1280×720. Conferido na tela do Igor: desenho do torno (entre pontas, preso 10, balanço 60), linha do tempo da fresa e do torno, tempos na árvore, recentes do Início (caminhos do Windows) e Code em laranja e grafite.
