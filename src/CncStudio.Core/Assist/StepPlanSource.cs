@@ -45,7 +45,8 @@ public static class StepPlanSource
         // Só as faces para cima davam o laço da face de cima, menor que a peça quando a borda tem chanfro ou raio.
         // Faces verticais têm laço sem área no plano e não pesam.
         IReadOnlyList<Point3>? outer = null;
-        double best = -1;
+        IReadOnlyList<Point3>? topOuter = null; // o maior laço só entre as faces para cima: serve para separar degrau de rebaixo fechado
+        double best = -1, bestTop = -1;
         foreach (MeshFace f in features.Faces)
         {
             IReadOnlyList<IReadOnlyList<Point3>> loops = features.BoundaryLoops(f);
@@ -61,9 +62,15 @@ public static class StepPlanSource
                 best = a;
                 outer = o;
             }
+
+            if (f.Kind == FaceKind.Plane && f.Normal.Z >= 0.99 && a > bestTop)
+            {
+                bestTop = a;
+                topOuter = o;
+            }
         }
 
-        if (outer is null)
+        if (outer is null || topOuter is null)
         {
             return new StepPlanDrawing([], thickness, depths, ["Não achei o contorno externo da peça (malha aberta?)."]);
         }
@@ -71,6 +78,8 @@ public static class StepPlanSource
         Contour outline = CamJobPart.Polygon(outer);
         contours.Add(outline);
         (double ox0, double oy0, double ox1, double oy1) = outline.BoundsXY();
+        // degrau = toca a borda do topo da peça (com chanfro, o topo é menor que a silhueta)
+        (double tx0, double ty0, double tx1, double ty1) = CamJobPart.Polygon(topOuter).BoundsXY();
 
         // furos verticais (Ø e profundidade reais)
         int inclined = 0, down = 0, curved = 0;
@@ -111,7 +120,7 @@ public static class StepPlanSource
             (IReadOnlyList<Point3> o, IReadOnlyList<IReadOnlyList<Point3>> inner) = CamJobFromGeometry.SplitLoops(loops);
             Contour pocket = CamJobPart.Polygon(o);
             (double x0, double y0, double x1, double y1) = pocket.BoundsXY();
-            if (x0 <= ox0 + Tolerance || y0 <= oy0 + Tolerance || x1 >= ox1 - Tolerance || y1 >= oy1 - Tolerance)
+            if (x0 <= tx0 + Tolerance || y0 <= ty0 + Tolerance || x1 >= tx1 - Tolerance || y1 >= ty1 - Tolerance)
             {
                 steps++; // toca a borda da peça: é degrau, não bolsão fechado
                 continue;

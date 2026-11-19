@@ -224,4 +224,34 @@ public class StepPlanSourceTests
         PlanReviewResult typed = PlanReview.Review(plan, input, new HashSet<int> { 3, 4 }, depths, ReleaseStrategy.HeldBySetup, heights, null, null, new HashSet<int>());
         Assert.Contains("depth", Assert.Single(typed.Operations!, o => o.Kind == JobOpKind.Pocket).Origin!.Typed);
     }
+
+    /// <summary>Flange com chanfro (raio 20 até Z3, 17 em Z6) e cubo de raio 8 até Z12: a face do flange é degrau, não bolsão.</summary>
+    private static TriangleMesh ChamferedFlangeWithHub(int n = 48)
+    {
+        var t = new List<(Point3, Point3, Point3)>();
+        for (int i = 0; i < n; i++)
+        {
+            double a0 = 2 * Math.PI * i / n, a1 = 2 * Math.PI * (i + 1) / n;
+            Point3 Pt(double r, double a, double z) => P(r * Math.Cos(a), r * Math.Sin(a), z);
+            Quad(t, Pt(20, a0, 0), Pt(20, a1, 0), Pt(20, a1, 3), Pt(20, a0, 3)); // parede
+            Quad(t, Pt(20, a0, 3), Pt(20, a1, 3), Pt(17, a1, 6), Pt(17, a0, 6)); // chanfro
+            Quad(t, Pt(17, a0, 6), Pt(17, a1, 6), Pt(8, a1, 6), Pt(8, a0, 6)); // topo do flange
+            Quad(t, Pt(8, a0, 6), Pt(8, a1, 6), Pt(8, a1, 12), Pt(8, a0, 12)); // cubo
+            t.Add((P(0, 0, 12), Pt(8, a0, 12), Pt(8, a1, 12))); // topo do cubo
+            t.Add((P(0, 0, 0), Pt(20, a1, 0), Pt(20, a0, 0))); // fundo
+        }
+
+        return new TriangleMesh(t);
+    }
+
+    [Fact]
+    public void Face_do_flange_com_chanfro_continua_degrau_e_nao_vira_bolsao()
+    {
+        StepPlanDrawing d = Read(ChamferedFlangeWithHub());
+        Assert.True(d.Ok);
+        Assert.Single(d.Contours); // só o contorno da peça
+        (double x0, double _, double x1, double _) = d.Contours[0].BoundsXY();
+        Assert.Equal(40, x1 - x0, 1);
+        Assert.Contains(d.Notes, x => x.Contains("degrau"));
+    }
 }
