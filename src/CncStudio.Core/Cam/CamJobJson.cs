@@ -47,7 +47,8 @@ public static class CamJobJson
     {
         // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
         // BANCO-01 (versão 5): operação com campo vazio é salva com a lista dos vazios (o app antigo não lê e não supõe o valor)
-        int version = JobGeometry.NeedsVersion6(job) ? 6
+        int version = CamJobInfo.NeedsVersion7(job) ? 7
+            : JobGeometry.NeedsVersion6(job) ? 6
             : job.Operations.Any(o => o.MissingFields.Count > 0) ? 5
             : CamJobPart.NeedsVersion4(job) ? 4
             : CamJobProgram.NeedsVersion3(job) || CamJobZero.NeedsVersion3(job) ? 3 : CamJobStock.NeedsVersion2(job) ? 2 : 1;
@@ -344,7 +345,18 @@ public static class CamJobJson
 
         if (s.PocketParams is { } p)
         {
-            o["pocketParams"] = new JsonObject { ["stepOver"] = p.StepOverPercent, ["finish"] = p.FinishAllowance, ["lead"] = p.LeadRadius };
+            var pocketNode = new JsonObject { ["stepOver"] = p.StepOverPercent, ["finish"] = p.FinishAllowance, ["lead"] = p.LeadRadius };
+            // OPS-A-01 (versão 7): entrada e estratégia só quando o usuário escolheu (sem elas o texto é o de antes)
+            if (p.UsesOptions)
+            {
+                pocketNode["entry"] = p.Entry.ToString();
+                pocketNode["strategy"] = p.Strategy.ToString();
+                pocketNode["rampAngle"] = p.RampAngle;
+                pocketNode["helixDiameter"] = p.HelixDiameter;
+                pocketNode["helixPitch"] = p.HelixPitch;
+            }
+
+            o["pocketParams"] = pocketNode;
             if (s.Islands)
             {
                 o["islands"] = true;
@@ -692,7 +704,20 @@ public static class CamJobJson
 
         if (o["pocketParams"] is JsonObject p)
         {
-            spec = spec with { PocketParams = new PocketParams(Num(p, "stepOver"), Num(p, "finish"), Num(p, "lead")), Islands = o["islands"] is not null && Bool(o, "islands") };
+            var pocket = new PocketParams(Num(p, "stepOver"), Num(p, "finish"), Num(p, "lead"));
+            if (p["entry"] is not null || p["strategy"] is not null)
+            {
+                pocket = pocket with
+                {
+                    Entry = Enum<PocketEntry>(Str(p, "entry"), "entrada do bolsão"),
+                    Strategy = Enum<PocketStrategy>(Str(p, "strategy"), "estratégia do bolsão"),
+                    RampAngle = Num(p, "rampAngle"),
+                    HelixDiameter = Num(p, "helixDiameter"),
+                    HelixPitch = Num(p, "helixPitch"),
+                };
+            }
+
+            spec = spec with { PocketParams = pocket, Islands = o["islands"] is not null && Bool(o, "islands") };
         }
 
         if (o["facingStepOver"] is not null)

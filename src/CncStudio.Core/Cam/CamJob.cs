@@ -138,7 +138,7 @@ public sealed class CamJob
     /// (<see cref="CamJobStock.NeedsVersion2"/>, <see cref="CamJobProgram.NeedsVersion3"/>). Versão 4 quando tem peça STEP ou furação
     /// com lista de contornos (M3D, <see cref="CamJobPart.NeedsVersion4"/>).
     /// </summary>
-    public const int CurrentVersion = 6;
+    public const int CurrentVersion = 7;
 
     public string Name { get; set; } = "TRABALHO";
 
@@ -248,6 +248,9 @@ public sealed class CamJob
                     break;
                 case JobOpKind.Pocket when s.PocketParams is null:
                     errors.Add(at + "faltam os dados do bolsão.");
+                    break;
+                case JobOpKind.Pocket when s.PocketParams is { } pp && CamOperations.PocketOptionsError(pp, s.Tool) is { } optionsError && s.MissingFields.Count == 0:
+                    errors.Add(at + optionsError);
                     break;
                 case JobOpKind.Drilling when s.Drill is null:
                     errors.Add(at + "faltam os dados da furação.");
@@ -441,9 +444,10 @@ public static class CamJobBuilder
             case JobOpKind.Contour:
                 return CamOperations.Contour(part!, s.Tool, s.Levels, s.ContourParams!);
             case JobOpKind.Pocket:
+                PocketParams pocket = s.PocketParams!.Entry == PocketEntry.PreDrill ? s.PocketParams with { PreDrillPoint = FirstPreDrill(job, s, part!) } : s.PocketParams!;
                 return s.Islands
-                    ? CamOperations.PocketWithIslands(part!, CamOperations.FindIslands(part!, job.Contours), s.Tool, s.Levels, s.PocketParams!)
-                    : CamOperations.Pocket(part!, s.Tool, s.Levels, s.PocketParams!);
+                    ? CamOperations.PocketWithIslands(part!, CamOperations.FindIslands(part!, job.Contours), s.Tool, s.Levels, pocket)
+                    : CamOperations.Pocket(part!, s.Tool, s.Levels, pocket);
             case JobOpKind.Facing:
                 (double x0, double y0, double x1, double y1) = part!.BoundsXY();
                 return CamOperations.Facing(s.Tool, s.Levels, x0, y0, x1 - x0, y1 - y0, s.FacingStepOverPercent);
@@ -460,6 +464,39 @@ public static class CamJobBuilder
                 DrillSpec d = s.Drill!;
                 return CamOperations.Drilling(s.Tool, s.Levels.SafeZ, holes.Select(h => h.Center), d.Cycle, s.Levels.TopZ, s.Levels.BottomZ, s.Levels.ClearanceZ, d.Peck, d.DwellSeconds);
         }
+    }
+
+    /// <summary>
+    /// Pré-furo: o primeiro furo (centro) de uma Furação ligada que vem antes do bolsão e cai por inteiro dentro dele. Null = nenhum.
+    /// </summary>
+    private static Point2? FirstPreDrill(CamJob job, CamOperationSpec pocket, Contour boundary)
+    {
+        List<Point2> area = boundary.Sample();
+        foreach (CamOperationSpec s in job.Operations)
+        {
+            if (ReferenceEquals(s, pocket))
+            {
+                break;
+            }
+
+            if (s.Kind != JobOpKind.Drilling || !s.Enabled)
+            {
+                continue;
+            }
+
+            Contour? one = s.ContourIndex >= 0 && s.ContourIndex < job.Contours.Count ? job.Contours[s.ContourIndex] : null;
+            IEnumerable<Contour> source = s.ContourIndices is { Count: > 0 } chosen ? chosen.Where(c => c >= 0 && c < job.Contours.Count).Select(c => job.Contours[c])
+                : one is null ? job.Contours : [one];
+            foreach (DrillHole h in CamOperations.HolesFromCircles(source))
+            {
+                if (CamOperations.PointInside(area, h.Center))
+                {
+                    return h.Center;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static OperationResult Wrap(CamOperationSpec s, MachineProfile? machine)

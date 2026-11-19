@@ -157,6 +157,12 @@ public static class CamJobInfo
     public const string PeckField = "Bicada (Q)";
     public const string DwellField = "Pausa";
     public const string SpindleField = "Rotação";
+    public const string RampAngleField = "Ângulo da rampa";
+    public const string HelixDiameterField = "Ø da hélice";
+    public const string HelixPitchField = "Passo da hélice";
+
+    /// <summary>OPS-A-01: arquivo versão 7 quando alguma operação usa escolha ou operação nova; sem elas o arquivo sai como antes.</summary>
+    public static bool NeedsVersion7(CamJob job) => job.Operations.Any(o => o.PocketParams is { UsesOptions: true });
 
     /// <summary>
     /// Nomes dos campos da face girada na tela, na ordem: ângulo, (segundo ângulo no 3+2), distância do centro do eixo até a face.
@@ -188,6 +194,8 @@ public static class CamJobInfo
     /// </summary>
     public static bool Counts(CamOperationSpec s, string field) => field switch
     {
+        RampAngleField => s.PocketParams?.Entry == PocketEntry.Ramp,
+        HelixDiameterField or HelixPitchField => s.PocketParams?.Entry == PocketEntry.Helix,
         PeckField when s.Kind == JobOpKind.Drilling => s.Drill?.Cycle is DrillCycleKind.Peck or DrillCycleKind.ChipBreak,
         DwellField when s.Kind == JobOpKind.Drilling => s.Drill?.Cycle == DrillCycleKind.Dwell,
         _ when IsFaceField(field) => FaceFields(s.Face).Contains(field),
