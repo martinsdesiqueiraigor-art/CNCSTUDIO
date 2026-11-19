@@ -142,6 +142,7 @@ public partial class MainWindow : Window
         LicensesButton.Click += async (_, _) => await new ThirdPartyLicensesWindow().ShowDialog(this);
         ApplyTheme(_settings.Theme);
         InitModules();
+        InitRibbon();
         InitToolBanks();
         RecentButton.Click += (_, _) => ShowRecentMenu();
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
@@ -703,6 +704,7 @@ public partial class MainWindow : Window
 
     private void ApplyAnalysis(ProgramAnalysis analysis, List<PathPolyline> figures)
     {
+        Graphics.PanelDialect = CurrentDialect;
         _figures = figures;
         Graphics.Stock = EffectiveStock(analysis);
         Graphics.Setup = _settings.WithToolKinds(SimSetup(analysis));

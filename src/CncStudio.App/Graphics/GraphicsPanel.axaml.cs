@@ -113,6 +113,9 @@ public partial class GraphicsPanel : UserControl
                 GoToMove((int)Math.Round(PositionSlider.Value));
             }
         };
+        // UI-C3: − e + da velocidade, como na web (passo de 10 no controle de velocidade)
+        SpeedDownButton.Click += (_, _) => SpeedSlider.Value = Math.Max(SpeedSlider.Minimum, SpeedSlider.Value - 10);
+        SpeedUpButton.Click += (_, _) => SpeedSlider.Value = Math.Min(SpeedSlider.Maximum, SpeedSlider.Value + 10);
         SpeedSlider.PropertyChanged += (_, e) =>
         {
             if (e.Property == Slider.ValueProperty)
@@ -758,8 +761,31 @@ public partial class GraphicsPanel : UserControl
         }
     }
 
+    /// <summary>Dialeto do programa, para o painel do comando escrever os G (G99/G95…) como no controle.</summary>
+    public CncStudio.Core.Dialects.Dialect PanelDialect { get; set; } = CncStudio.Core.Dialects.Dialect.Fanuc;
+
+    /// <summary>Painel do comando sobre o gráfico (UI-C2).</summary>
+    public ControlPanelOverlay CommandPanel => PanelOverlay;
+
+    /// <summary>
+    /// Painel do comando no ponto da simulação: movimentos já executados = os anteriores ao atual (a posição é a mesma que o X/Z
+    /// de baixo mostra e a falta é o movimento atual); no fim, todos.
+    /// </summary>
+    private void UpdateCommandPanel(GraphicsFrame frame)
+    {
+        if (_path is not { } path || path.Moves.Count == 0)
+        {
+            PanelOverlay.Show(null);
+            return;
+        }
+
+        int executed = frame.IsFinished ? path.Moves.Count : Math.Clamp(frame.MoveIndex, 0, path.Moves.Count);
+        PanelOverlay.Show(CncStudio.Core.Panel.ControlPanel.At(path, executed, PanelDialect));
+    }
+
     private void UpdateCoordinates(GraphicsFrame frame)
     {
+        UpdateCommandPanel(frame);
         CultureInfo culture = CultureInfo.CurrentCulture;
         Point3 p = frame.ToolPosition;
         bool lathe = IsLatheProgram;

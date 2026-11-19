@@ -116,6 +116,9 @@ public sealed class AppSettings
     /// <summary>As ferramentas de torno da tabela antiga já foram ao banco de torno (D1, marca própria): não migra de novo.</summary>
     public bool LatheToolsMigrated { get; set; }
 
+    /// <summary>UI-C2: painel do comando do Code aberto (true) ou recolhido.</summary>
+    public bool CodePanelOpen { get; set; } = true;
+
     /// <summary>Bancos carregados da pasta (fora do config.json). O simulador lê daqui.</summary>
     [JsonIgnore]
     public IReadOnlyList<ToolBank> Banks { get; set; } = [];

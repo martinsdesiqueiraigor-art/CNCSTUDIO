@@ -26,12 +26,36 @@
       <Setter Property="Foreground" Value="#E6E8EB" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+    <!-- UI-C3: botões da simulação grandes, como na web; Executar em laranja -->
     <Style Selector="Button.play">
-      <Setter Property="MinWidth" Value="28" />
-      <Setter Property="MinHeight" Value="26" />
-      <Setter Property="Padding" Value="4,2" />
-      <Setter Property="FontSize" Value="13" />
-      <Setter Property="Margin" Value="0,0,1,0" />
+      <Setter Property="MinWidth" Value="40" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="#3A3F47" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button#PlayButton">
+      <Setter Property="MinWidth" Value="54" />
+      <Setter Property="Background" Value="#F08A24" />
+      <Setter Property="Foreground" Value="#16181C" />
+      <Setter Property="BorderBrush" Value="#F08A24" />
+    </Style>
+    <Style Selector="Button#PlayButton:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#F5A55A" />
+      <Setter Property="Foreground" Value="#16181C" />
+    </Style>
+    <Style Selector="Button.speed">
+      <Setter Property="Width" Value="32" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <!-- Ícones da barra de cima do gráfico -->
     <Style Selector="Button.gicon, ToggleButton.gicon">
@@ -58,6 +82,10 @@
       <Setter Property="CornerRadius" Value="0" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBlock.glabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.sepv">
       <Setter Property="Width" Value="1" />
@@ -111,21 +139,21 @@
       </Button>
 
       <StackPanel x:Name="ViewIcons" Orientation="Horizontal" VerticalAlignment="Center">
-        <ToggleButton x:Name="IsoView" Classes="gicon" ToolTip.Tip="Vista isométrica"><PathIcon Data="{StaticResource IconViewIso}" /></ToggleButton>
-        <ToggleButton x:Name="TopView" Classes="gicon" ToolTip.Tip="Vista de topo"><PathIcon Data="{StaticResource IconViewTop}" /></ToggleButton>
-        <ToggleButton x:Name="FrontView" Classes="gicon" ToolTip.Tip="Vista de frente"><PathIcon Data="{StaticResource IconViewFront}" /></ToggleButton>
-        <ToggleButton x:Name="SideView" Classes="gicon" ToolTip.Tip="Vista de lado"><PathIcon Data="{StaticResource IconViewSide}" /></ToggleButton>
+        <ToggleButton x:Name="IsoView" Classes="gicon" ToolTip.Tip="Vista isométrica"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconViewIso}" /><TextBlock Classes="glabel" Text="Iso" /></StackPanel></ToggleButton>
+        <ToggleButton x:Name="TopView" Classes="gicon" ToolTip.Tip="Vista de topo"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconViewTop}" /><TextBlock Classes="glabel" Text="Topo" /></StackPanel></ToggleButton>
+        <ToggleButton x:Name="FrontView" Classes="gicon" ToolTip.Tip="Vista de frente"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconViewFront}" /><TextBlock Classes="glabel" Text="Frente" /></StackPanel></ToggleButton>
+        <ToggleButton x:Name="SideView" Classes="gicon" ToolTip.Tip="Vista de lado"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconViewSide}" /><TextBlock Classes="glabel" Text="Lado" /></StackPanel></ToggleButton>
       </StackPanel>
       <Border Classes="sepv" />
-      <Button x:Name="FitButton" Classes="gicon" ToolTip.Tip="Ajustar: enquadra a peça inteira"><PathIcon Data="{StaticResource IconFit}" /></Button>
+      <Button x:Name="FitButton" Classes="gicon" ToolTip.Tip="Ajustar: enquadra a peça inteira"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconFit}" /><TextBlock Classes="glabel" Text="Ajustar" /></StackPanel></Button>
       <ToggleButton x:Name="MeasureToggle" Classes="gicon"
                     ToolTip.Tip="Medir: clique em dois pontos (encaixa nos pontos da trajetória). Esc sai."><PathIcon Data="{StaticResource IconMeasure}" /></ToggleButton>
-      <Button x:Name="StockButton" Classes="gicon" ToolTip.Tip="Bruto: medidas do material"><PathIcon Data="{StaticResource IconBlock}" /></Button>
-      <Button x:Name="ToolsButton" Classes="gicon" ToolTip.Tip="Ferramentas e zeros"><PathIcon Data="{StaticResource IconCutter}" /></Button>
+      <Button x:Name="StockButton" Classes="gicon" IsVisible="False" ToolTip.Tip="Bruto: medidas do material (também na aba Simular da faixa)"><PathIcon Data="{StaticResource IconBlock}" /></Button>
+      <Button x:Name="ToolsButton" Classes="gicon" IsVisible="False" ToolTip.Tip="Ferramentas e zeros (também na aba Simular da faixa)"><PathIcon Data="{StaticResource IconCutter}" /></Button>
     </WrapPanel>
 
     <!-- Faixa de baixo: linha de informações pequena + uma linha com reprodução, progresso e velocidade -->
-    <Border DockPanel.Dock="Bottom" Background="#1A1D22" BorderBrush="#3A3F47" BorderThickness="0,1,0,0" Padding="6,4">
+    <Border DockPanel.Dock="Bottom" Background="#1B1D22" BorderBrush="#2C3037" BorderThickness="0,1,0,0" Padding="8,6">
       <StackPanel Spacing="3">
         <Grid ColumnDefinitions="Auto,*,Auto">
           <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
@@ -140,13 +168,15 @@
           </StackPanel>
 
           <!-- Barra de progresso com as marcas de troca de ferramenta em cima -->
-          <StackPanel Grid.Column="1" Margin="8,0" VerticalAlignment="Center" MinWidth="120">
+          <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center" MinWidth="120">
             <controls:ToolMarksStrip x:Name="ToolMarks" />
             <Slider x:Name="PositionSlider" Minimum="0" Maximum="1" Margin="0,-4,0,0"
                     ToolTip.Tip="Arraste para qualquer ponto do programa" />
           </StackPanel>
 
-          <Button x:Name="SpeedButton" Grid.Column="2" Padding="8,2" MinHeight="26" FontSize="12" VerticalAlignment="Center"
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <Button x:Name="SpeedDownButton" Classes="speed" Content="−" ToolTip.Tip="Mais devagar" />
+          <Button x:Name="SpeedButton" Padding="8,2" Height="34" CornerRadius="8" FontSize="12" VerticalAlignment="Center"
                   ToolTip.Tip="Modo e velocidade da execução">
             <Button.Flyout>
               <Flyout Placement="TopEdgeAlignedRight">
@@ -162,6 +192,8 @@
               </Flyout>
             </Button.Flyout>
           </Button>
+          <Button x:Name="SpeedUpButton" Classes="speed" Content="+" ToolTip.Tip="Mais rápido" />
+          </StackPanel>
         </Grid>
 
         <!-- Informações do ponto atual (a ferramenta, o G, a linha, o passe e as coordenadas) -->
@@ -187,10 +219,14 @@
     </Border>
 
     <!-- 2D (vistas fixas e torno ZX) e 3D pela placa de vídeo lado a lado, com divisor ajustável -->
-    <Grid x:Name="ViewsGrid" ColumnDefinitions="*,0,0">
-      <g:GraphicsView x:Name="View" Grid.Column="0" />
-      <GridSplitter x:Name="ViewsSplitter" Grid.Column="1" ResizeDirection="Columns" Background="#3A3F47" IsVisible="False" />
-      <g:GlSceneView x:Name="Gl" Grid.Column="2" IsVisible="False" />
+    <Grid>
+      <Grid x:Name="ViewsGrid" ColumnDefinitions="*,0,0">
+        <g:GraphicsView x:Name="View" Grid.Column="0" />
+        <GridSplitter x:Name="ViewsSplitter" Grid.Column="1" ResizeDirection="Columns" Background="#3A3F47" IsVisible="False" />
+        <g:GlSceneView x:Name="Gl" Grid.Column="2" IsVisible="False" />
+      </Grid>
+      <!-- UI-C2: painel do comando (como na web), por cima do 2D e do 3D -->
+      <g:ControlPanelOverlay x:Name="PanelOverlay" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" ZIndex="5" />
     </Grid>
   </DockPanel>
 </UserControl>

@@ -23,7 +23,7 @@ public partial class MainWindow
         var brand = new StackPanel { Spacing = 0, Margin = new Thickness(0, 0, 0, 6) };
         brand.Children.Add(new Image
         {
-            Source = PlatformModules.Logo(), Width = 58, Height = 58, HorizontalAlignment = HorizontalAlignment.Center,
+            Source = PlatformModules.Logo(), Width = 40, Height = 40, HorizontalAlignment = HorizontalAlignment.Center,
             OpacityMask = new RadialGradientBrush { GradientStops = [new GradientStop(Colors.Black, 0.64), new GradientStop(Colors.Transparent, 0.78)] },
         });
         brand.Children.Add(new TextBlock
@@ -295,35 +295,52 @@ public partial class MainWindow
         ShowModule("code");
     }
 
+    /// <summary>UI-C4: ícones de linha de uma cor da barra de módulos (desenhados para o Casillas, grade 24 × 24).</summary>
+    private static readonly Dictionary<string, string> RailIcons = new()
+    {
+        ["inicio"] = "M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10",
+        ["code"] = "M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16",
+        ["otimizador"] = "M4 20V10M10 20V4M16 20v-8M2 20h20",
+        ["macro"] = "M4 4h16v16H4zM8 9h8M8 13h5M8 17h3",
+        ["cam"] = "M12 3v6M9 9h6l-1 6h-4zM6 21h12",
+        ["assist"] = "M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3zM9 22h6",
+        ["academy"] = "M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5",
+        ["loja"] = "M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2",
+        ["calculadoras"] = "M6 3h12v18H6zM8 7h8M8 12h2M12 12h2M8 16h2M12 16h2",
+        ["biblioteca"] = "M4 4h4v16H4zM10 4h4v16h-4zM16 6l3-1 3 15-3 1z",
+    };
+
+    private readonly Dictionary<string, (Avalonia.Controls.Shapes.Path Icon, TextBlock Label)> _railParts = [];
+
+    private static readonly IBrush RailMuted = new SolidColorBrush(Color.Parse("#9AA3AE"));
+    private static readonly IBrush RailAccent = new SolidColorBrush(Color.Parse("#F08A24"));
+
     private void AddRailItem(string id, string label, string tip, bool enabled, string color, Action? click, bool small = false, string? artId = null)
     {
+        // UI-C4: barra fina, ícone de linha de uma cor (cinza; laranja no módulo aberto) no lugar das ilustrações
         var stack = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Center };
-        string art = artId ?? id;
-        if (id != "inicio" && PlatformModules.Art(art) is { } bitmap)
+        string key = artId ?? id;
+        var icon = new Avalonia.Controls.Shapes.Path
         {
-            stack.Children.Add(new Image { Source = bitmap, Width = small ? 28 : 38, Height = small ? 28 : 38, HorizontalAlignment = HorizontalAlignment.Center });
-        }
-        else
+            Data = Geometry.Parse(RailIcons.TryGetValue(key, out string? d) ? d : RailIcons["inicio"]),
+            Stroke = RailMuted, StrokeThickness = 1.7, StrokeLineCap = PenLineCap.Round, StrokeJoin = PenLineJoin.Round,
+            Width = small ? 18 : 20, Height = small ? 18 : 20, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        stack.Children.Add(icon);
+        var text = new TextBlock
         {
-            stack.Children.Add(new PathIcon
-            {
-                Data = StreamGeometry.Parse("M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"),
-                Width = 26, Height = 26, Foreground = PlatformModules.Brush(color),
-            });
-        }
-
-        stack.Children.Add(new TextBlock
-        {
-            Text = label, FontSize = small ? 9.5 : 10.5, FontWeight = FontWeight.SemiBold, TextAlignment = TextAlignment.Center,
-            TextWrapping = TextWrapping.Wrap, Foreground = PlatformModules.Brush(color),
-        });
+            Text = label, FontSize = 9, FontWeight = FontWeight.SemiBold, TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap, Foreground = RailMuted,
+        };
+        stack.Children.Add(text);
+        _railParts[id] = (icon, text);
 
         var item = new Border
         {
             Child = stack,
-            Padding = new Thickness(2, 6),
+            Padding = new Thickness(2, 5),
             Margin = new Thickness(0, 1),
-            CornerRadius = new CornerRadius(10),
+            CornerRadius = new CornerRadius(8),
             BorderThickness = new Thickness(2, 0, 0, 0),
             BorderBrush = Brushes.Transparent,
             Background = Brushes.Transparent,
@@ -339,7 +356,7 @@ public partial class MainWindow
             {
                 if (_currentModule != id)
                 {
-                    item.Background = PlatformModules.Brush(color, 0x18);
+                    item.Background = new SolidColorBrush(Color.Parse("#808A96"), 0.14);
                 }
             };
             item.PointerExited += (_, _) =>
@@ -393,8 +410,13 @@ public partial class MainWindow
         foreach ((string key, Border item) in _railItems)
         {
             bool active = key == id;
-            item.Background = active ? PlatformModules.Brush(_railColors[key], 0x30) : Brushes.Transparent;
-            item.BorderBrush = active ? PlatformModules.Brush(_railColors[key]) : Brushes.Transparent;
+            item.Background = active ? new SolidColorBrush(Color.Parse("#F08A24"), 0.16) : Brushes.Transparent;
+            item.BorderBrush = active ? RailAccent : Brushes.Transparent;
+            if (_railParts.TryGetValue(key, out var parts))
+            {
+                parts.Icon.Stroke = active ? RailAccent : RailMuted;
+                parts.Label.Foreground = active ? RailAccent : RailMuted;
+            }
         }
     }
 
