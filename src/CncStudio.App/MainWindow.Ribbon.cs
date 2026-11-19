@@ -31,5 +31,12 @@ public partial class MainWindow
         // Estatísticas: alterna entre o gráfico e a aba de estatísticas (as mesmas abas de antes, embaixo da faixa)
         StatsTabButton.Click += (_, _) => ViewTabs.SelectedIndex = ViewTabs.SelectedIndex == 1 ? 0 : 1;
         CollapseEditorRibbonButton.Click += (_, _) => SetEditorCollapsed(!_editorCollapsed);
+        // UI-C2: painel do comando aberto ou recolhido, guardado nas preferências do app
+        Graphics.CommandPanel.SetOpen(_settings.CodePanelOpen);
+        Graphics.CommandPanel.OpenChanged += open =>
+        {
+            _settings.CodePanelOpen = open;
+            _settings.Save();
+        };
     }
 }

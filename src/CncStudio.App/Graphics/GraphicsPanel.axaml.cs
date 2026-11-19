@@ -758,8 +758,31 @@ public partial class GraphicsPanel : UserControl
         }
     }
 
+    /// <summary>Dialeto do programa, para o painel do comando escrever os G (G99/G95…) como no controle.</summary>
+    public CncStudio.Core.Dialects.Dialect PanelDialect { get; set; } = CncStudio.Core.Dialects.Dialect.Fanuc;
+
+    /// <summary>Painel do comando sobre o gráfico (UI-C2).</summary>
+    public ControlPanelOverlay CommandPanel => PanelOverlay;
+
+    /// <summary>
+    /// Painel do comando no ponto da simulação: movimentos já executados = os anteriores ao atual (a posição é a mesma que o X/Z
+    /// de baixo mostra e a falta é o movimento atual); no fim, todos.
+    /// </summary>
+    private void UpdateCommandPanel(GraphicsFrame frame)
+    {
+        if (_path is not { } path || path.Moves.Count == 0)
+        {
+            PanelOverlay.Show(null);
+            return;
+        }
+
+        int executed = frame.IsFinished ? path.Moves.Count : Math.Clamp(frame.MoveIndex, 0, path.Moves.Count);
+        PanelOverlay.Show(CncStudio.Core.Panel.ControlPanel.At(path, executed, PanelDialect));
+    }
+
     private void UpdateCoordinates(GraphicsFrame frame)
     {
+        UpdateCommandPanel(frame);
         CultureInfo culture = CultureInfo.CurrentCulture;
         Point3 p = frame.ToolPosition;
         bool lathe = IsLatheProgram;

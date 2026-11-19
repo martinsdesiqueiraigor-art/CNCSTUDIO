@@ -704,6 +704,7 @@ public partial class MainWindow : Window
 
     private void ApplyAnalysis(ProgramAnalysis analysis, List<PathPolyline> figures)
     {
+        Graphics.PanelDialect = CurrentDialect;
         _figures = figures;
         Graphics.Stock = EffectiveStock(analysis);
         Graphics.Setup = _settings.WithToolKinds(SimSetup(analysis));

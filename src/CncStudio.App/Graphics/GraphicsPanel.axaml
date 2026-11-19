@@ -187,10 +187,14 @@
     </Border>
 
     <!-- 2D (vistas fixas e torno ZX) e 3D pela placa de vídeo lado a lado, com divisor ajustável -->
-    <Grid x:Name="ViewsGrid" ColumnDefinitions="*,0,0">
-      <g:GraphicsView x:Name="View" Grid.Column="0" />
-      <GridSplitter x:Name="ViewsSplitter" Grid.Column="1" ResizeDirection="Columns" Background="#3A3F47" IsVisible="False" />
-      <g:GlSceneView x:Name="Gl" Grid.Column="2" IsVisible="False" />
+    <Grid>
+      <Grid x:Name="ViewsGrid" ColumnDefinitions="*,0,0">
+        <g:GraphicsView x:Name="View" Grid.Column="0" />
+        <GridSplitter x:Name="ViewsSplitter" Grid.Column="1" ResizeDirection="Columns" Background="#3A3F47" IsVisible="False" />
+        <g:GlSceneView x:Name="Gl" Grid.Column="2" IsVisible="False" />
+      </Grid>
+      <!-- UI-C2: painel do comando (como na web), por cima do 2D e do 3D -->
+      <g:ControlPanelOverlay x:Name="PanelOverlay" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" ZIndex="5" />
     </Grid>
   </DockPanel>
 </UserControl>
