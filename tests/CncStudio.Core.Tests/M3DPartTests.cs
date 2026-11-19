@@ -159,7 +159,9 @@ public class M3DPartTests
         Assert.Equal(JobOpKind.Pocket, op.Kind);
         Assert.Equal(CamJobPart.PocketLabel, op.Label);
         Assert.Equal(10, op.Levels.TopZ, 6);
-        Assert.Contains(CamJobPart.BottomField, op.MissingFields);
+        // DESK-01: o fundo vem do modelo (Z da face), preenchido para conferir
+        Assert.DoesNotContain(CamJobPart.BottomField, op.MissingFields);
+        Assert.Equal(5, op.Levels.BottomZ, 6);
         Assert.Contains(CamJobInfo.ToolNumberField, op.MissingFields);
         Assert.Single(job.Contours);
         Assert.Equal(20, job.Contours[0].BoundsXY().MaxX - job.Contours[0].BoundsXY().MinX, 6);
@@ -199,7 +201,8 @@ public class M3DPartTests
         Assert.Equal(JobOpKind.Drilling, op.Kind);
         Assert.Equal([0], op.ContourIndices);
         Assert.Equal(8, op.Levels.TopZ, 6);
-        Assert.Contains(CamJobPart.BottomField, op.MissingFields);
+        // DESK-01: o fundo vem do modelo (fundo do furo na malha), preenchido para conferir
+        Assert.DoesNotContain(CamJobPart.BottomField, op.MissingFields);
         Assert.Single(CamOperations.HolesFromCircles(job.Contours));
 
         // um círculo do DXF a mais não entra: só os furos escolhidos

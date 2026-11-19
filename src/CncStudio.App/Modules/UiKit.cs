@@ -79,6 +79,7 @@ public static class UiKit
     {
         ["abrir-dxf"] = ("M6 3h8l4 4v14H6zM14 3v4h4", "M9 12l3 3 3-3M12 15V9"),
         ["abrir"] = ("M3 7h6l2 2h10v10H3z", "M3 12h18"),
+        ["novo"] = ("M6 3h9l4 4v14H6z", "M15 3v4h4M12 11v6M9 14h6"),
         ["salvar"] = ("M5 3h12l2 2v16H5z", "M8 3v6h8V3M8 21v-7h8v7"),
         ["nova-fixacao"] = ("M3 18h18M6 18V8h4v10M14 18V8h4v10", "M10 13h4"),
         ["zero"] = ("M12 3v18M3 12h18", "M9 12a3 3 0 1 0 6 0 3 3 0 1 0-6 0"),

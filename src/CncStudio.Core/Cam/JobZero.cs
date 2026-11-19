@@ -170,7 +170,7 @@ public static class CamJobZero
             return new Point3(0, 0, z);
         }
 
-        if (CamJobInfo.DrawingBox(job.Contours) is not { } b)
+        if (CamJobInfo.PartBox(job) is not { } b)
         {
             return null;
         }
@@ -259,7 +259,7 @@ public static class CamJobZero
             return $"Zero na origem do desenho (X 0 · Y 0), {z}";
         }
 
-        return CamJobInfo.DrawingBox(job.Contours) is { } b
+        return CamJobInfo.PartBox(job) is { } b
             ? $"Zero em X {N(b.X + b.Width * Cell(p).X / 2)} · Y {N(b.Y + b.Length * Cell(p).Y / 2)} do desenho, {z}"
             : $"Zero no {PointName(p)} da peça (falta o desenho), {z}";
     }

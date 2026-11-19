@@ -71,9 +71,9 @@ public static class CamJobInfo
     public static IReadOnlyList<string> Pending(CamJob job, JobBuild build, double? maxRpm = null)
     {
         var list = new List<string>();
-        if (job.Contours.Count == 0)
+        if (!HasPart(job))
         {
-            list.Add("Falta a peça (abra um DXF ou desenhe uma forma)");
+            list.Add("Falta a peça (abra um DXF, um STEP ou desenhe uma forma)");
         }
 
         // sem bruto nenhum ou bruto incompleto (formato novo) travam Gerar e Enviar (decisão do Igor, adendo 2 do UX-04f, 08/11)
@@ -85,6 +85,10 @@ public static class CamJobInfo
         else if (CamJobStock.IncompleteReason(stock) is { } why)
         {
             list.Add(CamJobStock.IncompletePrefix + ": " + why);
+        }
+        else if (CamJobStock.PartFit(job, stock) is { } fit)
+        {
+            list.Add(fit);
         }
 
         if (job.Fixture is null)
@@ -353,6 +357,16 @@ public static class CamJobInfo
     }
 
     /// <summary>Retângulo que envolve todos os contornos do desenho (canto e medidas em X e Y), para preencher o bruto; null sem desenho.</summary>
+    /// <summary>
+    /// DESK-01: caixa XY da peça do trabalho. Com peça STEP, a caixa do STEP (já girada; os contornos que o 3D cria para as operações
+    /// ficam dentro dela e não mudam a peça); sem STEP, a caixa do desenho (DXF ou forma).
+    /// </summary>
+    public static (double X, double Y, double Width, double Length)? PartBox(CamJob job) =>
+        job.PartStep is { Summary: { Valid: true } s } ? (s.MinX, s.MinY, s.SizeX, s.SizeY) : DrawingBox(job.Contours);
+
+    /// <summary>A peça existe: desenho (DXF ou forma) ou peça STEP.</summary>
+    public static bool HasPart(CamJob job) => job.Contours.Count > 0 || job.PartStep is { Summary.Valid: true };
+
     public static (double X, double Y, double Width, double Length)? DrawingBox(IReadOnlyList<Contour> contours)
     {
         if (contours.Count == 0)

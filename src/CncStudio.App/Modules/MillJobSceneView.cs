@@ -183,9 +183,15 @@ public sealed class MillJobSceneView : Grid
     /// </summary>
     public void SetPart(TriangleMesh? part, IReadOnlyCollection<int> selectedTriangles)
     {
+        bool newPart = part is not null && !ReferenceEquals(part, _part);
         _part = part;
         _selected = [.. selectedTriangles];
         Rebuild();
+        if (newPart)
+        {
+            // DESK-01: peça nova enquadrada (antes o 3D abria no tamanho do bruto ou dos contornos e cortava a peça)
+            Dispatcher.UIThread.Post(() => _gl.Fit(SceneView.Isometric), DispatcherPriority.Background);
+        }
     }
 
     private void Rebuild()
