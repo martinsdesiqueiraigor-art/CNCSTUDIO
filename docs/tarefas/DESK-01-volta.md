@@ -42,6 +42,9 @@ Ramo `ajuste-DESK-01`, base `dev` em `78f77dc`. Executor: Claude (chat), em spri
 3. **Torno lê só o banco do torno** na janela de ferramentas e na folha de setup (mostra o raio da ponta, não um Ø). Antes o T1 da fresa (Ø20) aparecia no torno.
 4. "Entre pontas" marca o contraponto (dá para desmarcar). O item "Peça: Sólida" diz que é dos contornos do DXF (a peça STEP já aparece sólida).
 
+### E (teste do Igor: contraponto não aparecia)
+- O contraponto do CAM era desenhado no eixo do torno sem passar para a cena: ficava em pé na ponta da barra, escondido atrás do suporte. Agora fica deitado no eixo, saindo da face. Teste novo `Desk01TailstockSceneTests` (falha sem a correção).
+
 ### Ficou para depois
 - O aviso de G28/G30 continua na lista (a contagem de avisos não mudou).
 - Furação pelo 3D de furo passante vai até a base exata (sem passar a ponta): conferir o Z fundo.
