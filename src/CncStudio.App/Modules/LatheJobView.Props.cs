@@ -346,8 +346,7 @@ public partial class LatheJobView
 
     // ---------------------------------------------------------------- campos
 
-    private void Section(string title) =>
-        PropsPanel.Children.Add(new TextBlock { Text = title, FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
+    private void Section(string title) => CamShell.AddSection(PropsPanel, title);
 
     private static Grid Row(string label, Control field, string unit = "")
     {

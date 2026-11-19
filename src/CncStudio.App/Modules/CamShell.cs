@@ -144,6 +144,91 @@ public static class CamShell
         return b;
     }
 
+    /// <summary>Seções do painel de propriedades que o usuário fechou (pelo título; valem enquanto o app está aberto).</summary>
+    private static readonly HashSet<string> FoldedSections = [];
+
+    /// <summary>
+    /// UI-03: título de seção do painel de propriedades que abre e fecha (▾ aberta, ▸ fechada). Fechar só esconde os campos até o
+    /// próximo título (classe "camfolded"); os campos continuam lá e nada muda no trabalho. A escolha vale para todas as operações.
+    /// </summary>
+    public static void AddSection(Panel panel, string title)
+    {
+        bool folded = FoldedSections.Contains(title);
+        var arrow = new TextBlock { Text = folded ? "▸" : "▾", FontSize = 11, Foreground = CamColors.MutedBrush, Width = 12, VerticalAlignment = VerticalAlignment.Center };
+        var text = new TextBlock
+        {
+            Text = title.ToUpperInvariant(), FontSize = 11, FontWeight = FontWeight.SemiBold, LetterSpacing = 0.4,
+            Foreground = CamColors.MutedBrush, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+        row.Children.Add(arrow);
+        row.Children.Add(text);
+        var header = new Button
+        {
+            Content = row, Classes = { "camsection" }, Tag = title, HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent, BorderBrush = CamColors.BorderBrush,
+            BorderThickness = new Thickness(0, 1, 0, 0), CornerRadius = new CornerRadius(0), Padding = new Thickness(0, 7, 0, 3),
+            Margin = new Thickness(0, 6, 0, 0), MinHeight = 0,
+        };
+        ToolTip.SetTip(header, folded ? "Abrir a seção" : "Fechar a seção");
+        Avalonia.Automation.AutomationProperties.SetName(header, title);
+        header.Click += (_, _) =>
+        {
+            if (!FoldedSections.Add(title))
+            {
+                FoldedSections.Remove(title);
+            }
+
+            Fold(panel);
+        };
+        panel.Children.Add(header);
+        // os campos da seção entram depois deste título: dobra quando o painel terminar de montar
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => Fold(panel), Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// Aplica as seções fechadas: esconde (classe) os campos entre um título fechado e o próximo título. Seção com campo vazio ou
+    /// inválido (tracejado do CAM-12) nunca fica fechada: a pendência tem de estar à vista.
+    /// </summary>
+    private static void Fold(Panel panel)
+    {
+        var sections = new List<(Button Header, List<Control> Fields)>();
+        foreach (Control c in panel.Children)
+        {
+            if (c is Button { Tag: string } b && b.Classes.Contains("camsection"))
+            {
+                sections.Add((b, []));
+            }
+            else if (sections.Count > 0)
+            {
+                sections[^1].Fields.Add(c);
+            }
+        }
+
+        foreach ((Button header, List<Control> fields) in sections)
+        {
+            bool missing = fields.Any(HasMissingMark);
+            bool hide = FoldedSections.Contains((string)header.Tag!) && !missing;
+            if (header.Content is StackPanel { Children: [TextBlock arrow, ..] })
+            {
+                arrow.Text = hide ? "▸" : "▾";
+            }
+
+            ToolTip.SetTip(header, missing ? "Seção com campo pendente: fica aberta" : hide ? "Abrir a seção" : "Fechar a seção");
+            foreach (Control f in fields)
+            {
+                f.Classes.Set("camfolded", hide);
+            }
+        }
+    }
+
+    /// <summary>Campo com o tracejado de vazio ou inválido ligado (<see cref="DashedField"/>), em qualquer nível do controle.</summary>
+    private static bool HasMissingMark(Control c) =>
+        c is Avalonia.Controls.Shapes.Rectangle { StrokeDashArray.Count: > 0, IsVisible: true }
+        || (c is Panel p && p.Children.Any(HasMissingMark))
+        || (c is Decorator { Child: { } d } && HasMissingMark(d))
+        || (c is ContentControl { Content: Control cc } && HasMissingMark(cc));
+
     /// <summary>Liga ou apaga o botão da faixa; a dica diz o porquê.</summary>
     public static void SetPaletteState(CamPaletteItem item, Button button, string? why)
     {

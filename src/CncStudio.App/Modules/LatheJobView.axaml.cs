@@ -324,16 +324,26 @@ public partial class LatheJobView : UserControl
             return;
         }
 
-        LatheLoadResult loaded = LatheJobJson.FromJson(file.Text);
+        OpenText(file.Text);
+    }
+
+    /// <summary>
+    /// Abre um trabalho a partir do texto do arquivo (usado pelo Abrir da faixa e pela tela inicial do CAM, UI-06). Devolve o erro
+    /// do arquivo (null = abriu); os avisos do arquivo vão para a lista de erros da árvore, como antes.
+    /// </summary>
+    public string? OpenText(string text)
+    {
+        LatheLoadResult loaded = LatheJobJson.FromJson(text);
         if (!loaded.Ok)
         {
             Errors.Text = "• " + loaded.Error;
-            return;
+            return loaded.Error;
         }
 
         LoadJob(loaded.Job!);
         // avisos do arquivo (ex.: fixação inválida, que abre como "não informada")
         Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
+        return null;
     }
 
     private DateTime _newArmedUntil;

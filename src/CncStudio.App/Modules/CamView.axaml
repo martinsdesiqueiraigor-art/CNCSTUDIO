@@ -3,6 +3,12 @@
              xmlns:modules="using:CncStudio.App.Modules"
              x:Class="CncStudio.App.Modules.CamView"
              FontFamily="{x:Static modules:CamColors.UiFont}">
+  <UserControl.Styles>
+    <!-- UI-03: campos de uma seção fechada do painel de propriedades (CamShell.AddSection) -->
+    <Style Selector=":is(Control).camfolded">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+  </UserControl.Styles>
   <DockPanel>
   <!-- Topo (UX-04c): nome, abas do Trabalho fresa (vêm do JobView), seletor Fresa/Torno e o menu Mais com as telas antigas -->
   <Border DockPanel.Dock="Top" Background="{x:Static modules:CamColors.ChromeBrush}" BorderBrush="{x:Static modules:CamColors.BorderBrush}" BorderThickness="0,0,0,1" Padding="14,0" Height="40">
