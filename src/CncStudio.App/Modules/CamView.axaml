@@ -1,16 +1,24 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:modules="using:CncStudio.App.Modules"
-             x:Class="CncStudio.App.Modules.CamView">
+             x:Class="CncStudio.App.Modules.CamView"
+             FontFamily="{x:Static modules:CamColors.UiFont}">
+  <UserControl.Styles>
+    <!-- UI-03: campos de uma seção fechada do painel de propriedades (CamShell.AddSection) -->
+    <Style Selector=":is(Control).camfolded">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+  </UserControl.Styles>
   <DockPanel>
   <!-- Topo (UX-04c): nome, abas do Trabalho fresa (vêm do JobView), seletor Fresa/Torno e o menu Mais com as telas antigas -->
-  <Border DockPanel.Dock="Top" Background="#090c11" BorderBrush="#1f2733" BorderThickness="0,0,0,1" Padding="14,0" Height="40">
+  <Border DockPanel.Dock="Top" Background="{x:Static modules:CamColors.ChromeBrush}" BorderBrush="{x:Static modules:CamColors.BorderBrush}" BorderThickness="0,0,0,1" Padding="14,0" Height="40">
     <Grid ColumnDefinitions="Auto,*,Auto">
-      <TextBlock Text="Casillas CAM" Foreground="#ff8a1f" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,18,0" />
+      <TextBlock Text="Casillas CAM" Foreground="{x:Static modules:CamColors.AccentBrush}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,18,0" />
       <ContentControl Grid.Column="1" x:Name="HeaderSlot" VerticalAlignment="Bottom" ClipToBounds="True" />
       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-        <TextBlock x:Name="OtherTitle" Foreground="#9aa7b5" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
-        <ToggleButton x:Name="JobTab" Content="Fresa" Padding="14,4" IsChecked="True" ToolTip.Tip="Trabalho de fresa" />
+        <TextBlock x:Name="OtherTitle" Foreground="{x:Static modules:CamColors.MutedBrush}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+        <ToggleButton x:Name="HomeTab" Content="Início" Padding="14,4" ToolTip.Tip="Tela inicial do CAM: trabalhos e recentes" />
+        <ToggleButton x:Name="JobTab" Content="Fresa" Padding="14,4" ToolTip.Tip="Trabalho de fresa" />
         <ToggleButton x:Name="LatheJobTab" Content="Torno" Padding="14,4" ToolTip.Tip="Trabalho de torno" />
         <ToggleButton x:Name="ToolBankTab" Content="Ferramentas" Padding="14,4" ToolTip.Tip="Banco de ferramentas (fresa e torno)" />
         <Button x:Name="MoreButton" Content="Mais ▾" Padding="12,4" ToolTip.Tip="Torno rápido, Perfil 4/5 eixos e Modelo 3D (STL/STEP)">
@@ -28,7 +36,8 @@
   <Grid>
   <modules:LatheCamView x:Name="LathePanel" IsVisible="False" />
   <modules:MachineProfileView x:Name="MachinePanel" IsVisible="False" />
-  <modules:JobView x:Name="JobPanel" />
+  <modules:JobView x:Name="JobPanel" IsVisible="False" />
+  <modules:CamHomeView x:Name="HomePanel" />
   <modules:LatheJobView x:Name="LatheJobPanel" IsVisible="False" />
   <modules:ModelView x:Name="ModelPanel" IsVisible="False" />
   <modules:ToolBankView x:Name="ToolBankPanel" IsVisible="False" />

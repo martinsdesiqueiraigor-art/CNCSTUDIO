@@ -346,8 +346,7 @@ public partial class LatheJobView
 
     // ---------------------------------------------------------------- campos
 
-    private void Section(string title) =>
-        PropsPanel.Children.Add(new TextBlock { Text = title, FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
+    private void Section(string title) => CamShell.AddSection(PropsPanel, title);
 
     private static Grid Row(string label, Control field, string unit = "")
     {
@@ -504,7 +503,7 @@ public partial class LatheJobView
     /// <summary>Seletor do banco ativo do torno no fim da faixa (UX-04h D1, como na fresa). A escolha fica no App, nunca no trabalho.</summary>
     private void BuildBankSelector()
     {
-        _bankSelector = new ComboBox { Width = 150, PlaceholderText = "Nenhum banco de torno", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        _bankSelector = new ComboBox { Width = 140, PlaceholderText = "Nenhum banco de torno", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(_bankSelector, "Banco de onde a operação escolhe a ferramenta e de onde o Code lê as ferramentas do torno. Fica guardado no Casillas, não no arquivo do trabalho.");
         Avalonia.Automation.AutomationProperties.SetName(_bankSelector, "Banco ativo");
         _bankSelector.SelectionChanged += (_, _) =>
@@ -520,8 +519,8 @@ public partial class LatheJobView
             }
         };
         var box = new StackPanel { Spacing = 3 };
-        box.Children.Add(new Border { Height = 76, Child = _bankSelector });
-        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+        box.Children.Add(new Border { Height = CamShell.PaletteButtonHeight, Child = _bankSelector });
+        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = CamColors.MutedBrush, HorizontalAlignment = HorizontalAlignment.Center });
         BankSlot.Child = box;
         FillBankSelector();
     }

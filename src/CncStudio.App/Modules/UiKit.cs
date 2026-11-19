@@ -131,16 +131,16 @@ public static class UiKit
         return new Viewbox { Width = size, Height = size, Child = canvas, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
     }
 
-    /// <summary>Cores de estado ("ok", "bad", "pending", outro = neutro) legíveis no tema atual: texto e fundo da etiqueta.</summary>
+    /// <summary>Cores de estado ("ok", "bad", "pending", outro = neutro) legíveis no tema atual: texto e fundo da etiqueta. Escuro: paleta da UI-01.</summary>
     public static (IBrush Fg, IBrush Bg) Status(string kind)
     {
         bool light = Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Light;
         (string fg, string bg) = (kind, light) switch
         {
-            ("ok", false) => ("#2EE6A6", "#0D2A25"),
-            ("bad", false) => ("#FF6B6B", "#33181D"),
-            ("pending", false) => ("#FFC247", "#2A2314"),
-            (_, false) => ("#A3B1C9", "#18263D"),
+            ("ok", false) => ("#6FD38E", "#1E3324"),
+            ("bad", false) => ("#FF8A80", "#3A1C1C"),
+            ("pending", false) => ("#F0C060", "#2A2619"),
+            (_, false) => ("#A9B1BB", "#23262C"),
             ("ok", true) => ("#0E7A55", "#DDF4EA"),
             ("bad", true) => ("#B3261E", "#FBE3E1"),
             ("pending", true) => ("#8A5A00", "#FFEFCC"),

@@ -6,7 +6,19 @@ namespace CncStudio.App;
 
 public partial class App : Application
 {
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        // UI-01: Inter (fonts:Inter) para a interface do CAM; sem ela, o CAM cai na fonte do sistema
+        try
+        {
+            Avalonia.Media.FontManager.Current.AddFontCollection(new Avalonia.Fonts.Inter.InterFontCollection());
+        }
+        catch (System.ArgumentException)
+        {
+            // já registrada (ex.: AppBuilder.WithInterFont)
+        }
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {

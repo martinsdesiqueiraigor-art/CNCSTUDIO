@@ -39,17 +39,21 @@ public static class CamShell
         for (int k = 0; k < tabs.Length; k++)
         {
             bool on = k == tab;
-            tabs[k].Foreground = Brush.Parse(on ? "#ffb066" : "#9aa7b5");
-            tabs[k].BorderBrush = on ? Brush.Parse("#ff8a1f") : Brushes.Transparent;
+            tabs[k].Foreground = on ? CamColors.AccentTextBrush : CamColors.MutedBrush;
+            tabs[k].BorderBrush = on ? CamColors.AccentBrush : Brushes.Transparent;
             tabs[k].FontWeight = on ? FontWeight.SemiBold : FontWeight.Normal;
         }
     }
 
+    /// <summary>Altura dos botões da faixa (UI-02: mais baixa que a do UX-04c, para sobrar tela em 1280×720).</summary>
+    public const double PaletteButtonHeight = 62;
+
     /// <summary>
-    /// Monta a faixa grande a partir dos grupos do Core: ícone de 2 cores, nome e, nos botões que ainda não existem, o selo
-    /// "em breve" (apagados). Devolve cada botão com o seu item, para a tela apagar o que não serve à seleção.
+    /// Monta a faixa a partir dos grupos do Core, na mesma ordem: ícone de 2 cores e nome. UI-02, para caber em 1280×720 sem
+    /// rolar: o grupo só de arquivo (Novo, Abrir…) vira uma grade compacta 2 × 2; o botão "em breve" fica estreito, só com o ícone
+    /// apagado (o nome e o "em breve" vão para a dica). Devolve cada botão com o seu item, para a tela apagar o que não serve.
     /// </summary>
-    public static List<(CamPaletteItem Item, Button Button)> BuildPalette(Panel palette, IEnumerable<CamPaletteGroup> groups, Func<CamPaletteItem, Task> click, double minButtonWidth = 66)
+    public static List<(CamPaletteItem Item, Button Button)> BuildPalette(Panel palette, IEnumerable<CamPaletteGroup> groups, Func<CamPaletteItem, Task> click, double minButtonWidth = 60)
     {
         palette.Children.Clear();
         var list = new List<(CamPaletteItem, Button)>();
@@ -58,40 +62,25 @@ public static class CamShell
         {
             if (!first)
             {
-                palette.Children.Add(new Border { Width = 1, Margin = new Thickness(6, 2), Background = Brush.Parse("#1f2733") });
+                palette.Children.Add(new Border { Width = 1, Margin = new Thickness(6, 4, 6, 16), Background = CamColors.BorderBrush });
             }
 
             first = false;
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3 };
+            bool fileGroup = group.Items.Count > 0 && group.Items.All(i => i.Action is not null);
+            Panel buttons = fileGroup
+                ? new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto"), RowDefinitions = new RowDefinitions("*,*"), ColumnSpacing = 3, RowSpacing = 3, Height = PaletteButtonHeight }
+                : new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3 };
+            int n = 0;
             foreach (CamPaletteItem item in group.Items)
             {
-                var content = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Center };
-                content.Children.Add(UiKit.Icon2(item.Icon, "#e6edf3", "#ff8a1f", 24));
-                content.Children.Add(new TextBlock
+                Button button = fileGroup ? FileButton(item) : item.Soon ? SoonButton(item) : OpButton(item, minButtonWidth);
+                if (fileGroup)
                 {
-                    Text = item.Name, FontSize = 11, LineHeight = 13, MaxLines = 2, TextWrapping = TextWrapping.Wrap,
-                    TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center,
-                });
-                if (item.Soon)
-                {
-                    content.Children.Add(new TextBlock { Text = "em breve", FontSize = 10, Foreground = Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+                    Grid.SetColumn(button, n % 2);
+                    Grid.SetRow(button, n / 2);
                 }
 
-                // 66 px (o torno passa menos: a faixa dele tem 15 botões), ou mais se a palavra mais longa do nome não couber (nunca quebrar no meio da palavra: "Torneamento")
-                double word = item.Name.Split(' ').Max(w =>
-                {
-                    var probe = new TextBlock { Text = w, FontSize = 11 };
-                    probe.Measure(Size.Infinity);
-                    return probe.DesiredSize.Width;
-                });
-                var button = new Button
-                {
-                    Content = content, Width = Math.Max(minButtonWidth, Math.Ceiling(word) + 10), Height = 76, Padding = new Thickness(2, 4), MinHeight = 0,
-                    VerticalContentAlignment = VerticalAlignment.Center, HorizontalContentAlignment = HorizontalAlignment.Center,
-                    Background = Brush.Parse("#18202b"), BorderBrush = Brush.Parse("#243040"),
-                    BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
-                    Opacity = item.Soon ? 0.45 : 1,
-                };
+                n++;
                 ToolTip.SetShowOnDisabled(button, true);
                 Avalonia.Automation.AutomationProperties.SetName(button, item.Action is not null ? item.Name : item.Soon ? item.Name + " (em breve)" : "Adicionar " + item.Name);
                 CamPaletteItem picked = item;
@@ -100,20 +89,153 @@ public static class CamShell
                 list.Add((item, button));
             }
 
-            var box = new StackPanel { Spacing = 3 };
+            var box = new StackPanel { Spacing = 2 };
             box.Children.Add(buttons);
-            box.Children.Add(new TextBlock { Text = group.Title.ToUpperInvariant(), FontSize = 10, Foreground = Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+            box.Children.Add(new TextBlock { Text = group.Title.ToUpperInvariant(), FontSize = 10, Foreground = CamColors.MutedBrush, HorizontalAlignment = HorizontalAlignment.Center });
             palette.Children.Add(box);
         }
 
         return list;
     }
 
+    private static Button PaletteButton(Control content, double width, double height) => new()
+    {
+        Content = content, Width = width, Height = height, Padding = new Thickness(2, 3), MinHeight = 0,
+        VerticalContentAlignment = VerticalAlignment.Center, HorizontalContentAlignment = HorizontalAlignment.Center,
+        Background = CamColors.CardBrush, BorderBrush = CamColors.BorderBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+    };
+
+    /// <summary>Botão de operação: ícone de 2 cores e nome (até 2 linhas, nunca quebrando no meio da palavra).</summary>
+    private static Button OpButton(CamPaletteItem item, double minButtonWidth)
+    {
+        var content = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Center };
+        content.Children.Add(UiKit.Icon2(item.Icon, CamColors.Text, CamColors.Accent, 22));
+        content.Children.Add(new TextBlock
+        {
+            Text = item.Name, FontSize = 11, LineHeight = 13, MaxLines = 2, TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center,
+        });
+        double word = item.Name.Split(' ').Max(w =>
+        {
+            var probe = new TextBlock { Text = w, FontSize = 11 };
+            probe.Measure(Size.Infinity);
+            return probe.DesiredSize.Width;
+        });
+        return PaletteButton(content, Math.Max(minButtonWidth, Math.Ceiling(word) + 10), PaletteButtonHeight);
+    }
+
+    /// <summary>Botão "em breve": estreito, só o ícone apagado; o nome está na dica.</summary>
+    private static Button SoonButton(CamPaletteItem item)
+    {
+        Button b = PaletteButton(UiKit.Icon2(item.Icon, CamColors.Muted, CamColors.Muted, 20), 38, PaletteButtonHeight);
+        b.Opacity = 0.45;
+        return b;
+    }
+
+    /// <summary>Botão de arquivo da grade 2 × 2: ícone pequeno e nome na mesma linha.</summary>
+    private static Button FileButton(CamPaletteItem item)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, HorizontalAlignment = HorizontalAlignment.Left };
+        row.Children.Add(UiKit.Icon2(item.Icon, CamColors.Text, CamColors.Select, 16));
+        row.Children.Add(new TextBlock { Text = item.Name, FontSize = 11, VerticalAlignment = VerticalAlignment.Center });
+        Button b = PaletteButton(row, 84, (PaletteButtonHeight - 3) / 2);
+        b.HorizontalContentAlignment = HorizontalAlignment.Left;
+        b.Padding = new Thickness(6, 0);
+        return b;
+    }
+
+    /// <summary>Seções do painel de propriedades que o usuário fechou (pelo título; valem enquanto o app está aberto).</summary>
+    private static readonly HashSet<string> FoldedSections = [];
+
+    /// <summary>
+    /// UI-03: título de seção do painel de propriedades que abre e fecha (▾ aberta, ▸ fechada). Fechar só esconde os campos até o
+    /// próximo título (classe "camfolded"); os campos continuam lá e nada muda no trabalho. A escolha vale para todas as operações.
+    /// </summary>
+    public static void AddSection(Panel panel, string title)
+    {
+        bool folded = FoldedSections.Contains(title);
+        var arrow = new TextBlock { Text = folded ? "▸" : "▾", FontSize = 11, Foreground = CamColors.MutedBrush, Width = 12, VerticalAlignment = VerticalAlignment.Center };
+        var text = new TextBlock
+        {
+            Text = title.ToUpperInvariant(), FontSize = 11, FontWeight = FontWeight.SemiBold, LetterSpacing = 0.4,
+            Foreground = CamColors.MutedBrush, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+        row.Children.Add(arrow);
+        row.Children.Add(text);
+        var header = new Button
+        {
+            Content = row, Classes = { "camsection" }, Tag = title, HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent, BorderBrush = CamColors.BorderBrush,
+            BorderThickness = new Thickness(0, 1, 0, 0), CornerRadius = new CornerRadius(0), Padding = new Thickness(0, 7, 0, 3),
+            Margin = new Thickness(0, 6, 0, 0), MinHeight = 0,
+        };
+        ToolTip.SetTip(header, folded ? "Abrir a seção" : "Fechar a seção");
+        Avalonia.Automation.AutomationProperties.SetName(header, title);
+        header.Click += (_, _) =>
+        {
+            if (!FoldedSections.Add(title))
+            {
+                FoldedSections.Remove(title);
+            }
+
+            Fold(panel);
+        };
+        panel.Children.Add(header);
+        // os campos da seção entram depois deste título: dobra quando o painel terminar de montar
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => Fold(panel), Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// Aplica as seções fechadas: esconde (classe) os campos entre um título fechado e o próximo título. Seção com campo vazio ou
+    /// inválido (tracejado do CAM-12) nunca fica fechada: a pendência tem de estar à vista.
+    /// </summary>
+    private static void Fold(Panel panel)
+    {
+        var sections = new List<(Button Header, List<Control> Fields)>();
+        foreach (Control c in panel.Children)
+        {
+            if (c is Button { Tag: string } b && b.Classes.Contains("camsection"))
+            {
+                sections.Add((b, []));
+            }
+            else if (sections.Count > 0)
+            {
+                sections[^1].Fields.Add(c);
+            }
+        }
+
+        foreach ((Button header, List<Control> fields) in sections)
+        {
+            bool missing = fields.Any(HasMissingMark);
+            bool hide = FoldedSections.Contains((string)header.Tag!) && !missing;
+            if (header.Content is StackPanel { Children: [TextBlock arrow, ..] })
+            {
+                arrow.Text = hide ? "▸" : "▾";
+            }
+
+            ToolTip.SetTip(header, missing ? "Seção com campo pendente: fica aberta" : hide ? "Abrir a seção" : "Fechar a seção");
+            foreach (Control f in fields)
+            {
+                f.Classes.Set("camfolded", hide);
+            }
+        }
+    }
+
+    /// <summary>Campo com o tracejado de vazio ou inválido ligado (<see cref="DashedField"/>), em qualquer nível do controle.</summary>
+    private static bool HasMissingMark(Control c) =>
+        c is Avalonia.Controls.Shapes.Rectangle { StrokeDashArray.Count: > 0, IsVisible: true }
+        || (c is Panel p && p.Children.Any(HasMissingMark))
+        || (c is Decorator { Child: { } d } && HasMissingMark(d))
+        || (c is ContentControl { Content: Control cc } && HasMissingMark(cc));
+
     /// <summary>Liga ou apaga o botão da faixa; a dica diz o porquê.</summary>
     public static void SetPaletteState(CamPaletteItem item, Button button, string? why)
     {
         button.IsEnabled = why is null;
-        ToolTip.SetTip(button, why is null ? item.Hint : $"{item.Hint}\nAgora não: {why}");
+        // o botão "em breve" não mostra o nome (UI-02): a dica começa por ele
+        string hint = item.Soon ? $"{item.Name} · em breve\n{item.Hint}" : item.Hint;
+        ToolTip.SetTip(button, why is null || item.Soon ? hint : $"{hint}\nAgora não: {why}");
     }
 
     /// <summary>
@@ -171,7 +293,7 @@ public static class CamShell
     }
 
     /// <summary>Cor do tracejado do campo vazio ou inválido (laranja da casca).</summary>
-    public const string MissingStroke = "#ff8a1f";
+    public const string MissingStroke = CamColors.Pending;
 
     /// <summary>
     /// Campo com a marca de vazio ou inválido (regra do CAM-12; tracejado laranja do UX-04e, comum à fresa e ao torno desde o UX-04f).
@@ -202,7 +324,7 @@ public static class CamShell
     {
         var eye = new Button
         {
-            Content = UiKit.Icon(enabled ? "olho" : "olho-fechado", enabled ? "#9aa7b5" : "#5b6675", 15),
+            Content = UiKit.Icon(enabled ? "olho" : "olho-fechado", enabled ? CamColors.Muted : CamColors.Faint, 15),
             Padding = new Thickness(3), MinHeight = 0, MinWidth = 0, Background = Brushes.Transparent, BorderThickness = new Thickness(0),
             VerticalAlignment = VerticalAlignment.Center,
         };
