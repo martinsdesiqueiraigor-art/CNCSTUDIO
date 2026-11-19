@@ -67,9 +67,8 @@ public class CamJobMissingFieldTests
         IReadOnlyList<string> pending = CamJobInfo.Pending(job, build);
         Assert.Contains($"Operação 1: Falta {field}", pending);
         Assert.Contains(pending, CamJobInfo.Blocks);
-        string blocker = Assert.Single(CamJobInfo.SaveBlockers(job));
-        Assert.EndsWith("falta " + field, blocker);
-        Assert.StartsWith("Operação 1 (", blocker);
+        // BANCO-01: campo vazio não trava mais o Salvar (o arquivo guarda os vazios)
+        Assert.Empty(CamJobInfo.SaveBlockers(job));
 
         // digitar um valor válido tira o estado (aqui o mesmo número): volta o mesmo programa
         job.Operations[0] = CamJobInfo.SetMissing(job.Operations[0], field, false);
@@ -132,12 +131,13 @@ public class CamJobMissingFieldTests
     }
 
     [Fact]
-    public void Operacao_desligada_com_campo_vazio_gera_mas_nao_salva()
+    public void Operacao_desligada_com_campo_vazio_gera_e_salva()
     {
         CamJob job = Job(Op(JobOpKind.Contour));
         job.Operations.Add(CamJobInfo.SetMissing(Op(JobOpKind.Pocket), "Z fundo", true) with { Enabled = false });
         Assert.True(CamJobBuilder.Build(job, null).Ok);
-        Assert.Equal(["Operação 2 (Bolsão): falta Z fundo"], CamJobInfo.SaveBlockers(job));
+        // BANCO-01: salva (versão 5, com a lista dos vazios)
+        Assert.Empty(CamJobInfo.SaveBlockers(job));
     }
 
     [Fact]
@@ -183,10 +183,19 @@ public class CamJobMissingFieldTests
         string clean = CamJobJson.ToJson(job);
         job.Operations[0] = CamJobInfo.SetMissing(job.Operations[0], "Z fundo", true);
 
-        // formato igual: a marca não é gravada (o Salvar fica bloqueado na tela)
-        Assert.Equal(clean, CamJobJson.ToJson(job));
+        // BANCO-01: com campo vazio o arquivo sai na versão 5 com a lista dos vazios, e volta vazio ao abrir
+        string withEmpty = CamJobJson.ToJson(job);
+        Assert.Contains("\"version\": 5", withEmpty);
+        Assert.Contains("\"empty\"", withEmpty);
+        JobLoadResult back = CamJobJson.FromJson(withEmpty);
+        Assert.True(back.Ok, back.Error);
+        Assert.Equal(["Z fundo"], back.Job!.Operations[0].MissingFields);
+        Assert.False(CamJobBuilder.Build(back.Job, null).Ok);
+
+        // sem campo vazio: o arquivo de antes, sem a chave
         JobLoadResult loaded = CamJobJson.FromJson(clean);
         Assert.True(loaded.Ok, loaded.Error);
+        Assert.DoesNotContain("\"empty\"", clean);
         Assert.Empty(loaded.Job!.Operations[0].MissingFields);
         Assert.True(CamJobBuilder.Build(loaded.Job, null).Ok);
     }

@@ -46,7 +46,9 @@ public static class CamJobJson
     public static string ToJson(CamJob job)
     {
         // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
-        int version = CamJobPart.NeedsVersion4(job) ? 4
+        // BANCO-01 (versão 5): operação com campo vazio é salva com a lista dos vazios (o app antigo não lê e não supõe o valor)
+        int version = job.Operations.Any(o => o.MissingFields.Count > 0) ? 5
+            : CamJobPart.NeedsVersion4(job) ? 4
             : CamJobProgram.NeedsVersion3(job) || CamJobZero.NeedsVersion3(job) ? 3 : CamJobStock.NeedsVersion2(job) ? 2 : 1;
         var root = new JsonObject
         {
@@ -407,6 +409,12 @@ public static class CamJobJson
             o["origin"] = org;
         }
 
+        if (s.MissingFields.Count > 0)
+        {
+            // BANCO-01: campos vazios da operação (o número guardado ao lado não vale)
+            o["empty"] = new JsonArray([.. s.MissingFields.Select(f => (JsonNode?)JsonValue.Create(f))]);
+        }
+
         return o;
     }
 
@@ -623,6 +631,7 @@ public static class CamJobJson
             Enabled = Bool(o, "enabled"),
             Label = Str(o, "label"),
             ContourIndex = (int)Num(o, "contour"),
+            MissingFields = o["empty"] is JsonArray empty ? [.. empty.Select(e => e?.GetValue<string>() ?? "").Where(e => e.Length > 0)] : [],
         };
         if (o["contourParams"] is JsonObject c)
         {

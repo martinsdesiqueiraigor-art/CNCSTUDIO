@@ -751,9 +751,39 @@ public partial class JobView
             PropsPanel.Children.Add(UiKit.StatusNote(conflict, "pending"));
         }
 
-        // ferramenta digitada à mão (T fora do banco ou diferente dele); T vazio ou igual ao do banco não tem o que adicionar
-        if (knownT && conflict is not null)
+        // BANCO-01: T no banco com Ø ou nome diferente: resolver com um clique (usar a do banco ou atualizar o banco)
+        if (knownT && conflict is not null && bank.Tools.FirstOrDefault(t => t.Number == s.Tool.Number) is { } same)
         {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Avalonia.Thickness(0, 4, 0, 0) };
+            var useBank = new Button { Content = "Usar a do banco", Padding = new Avalonia.Thickness(10, 4), FontSize = 12 };
+            ToolTip.SetTip(useBank, "A operação passa a usar T, Ø, nome, rotação e avanços da ferramenta do banco (os que o banco tem).");
+            useBank.Click += (_, _) => Edit(i, x => ToolBankPick.Apply(x, same), rebuild: true);
+            var update = new Button { Content = "Atualizar o banco com esta", Padding = new Avalonia.Thickness(10, 4), FontSize = 12 };
+            ToolTip.SetTip(update, "O banco ativo passa a ter o Ø e o nome desta operação neste T, marcado \"a conferir\". O resto do cadastro fica.");
+            var message = new ContentControl();
+            update.Click += (_, _) =>
+            {
+                if (ToolBankPick.UpdateBank(bank, _job.Operations[i]) is not { } changed)
+                {
+                    return;
+                }
+
+                if (SaveBank?.Invoke(changed) is { } error)
+                {
+                    message.Content = UiKit.StatusNote("✕ " + error, "bad");
+                    return;
+                }
+
+                BuildProps();
+            };
+            row.Children.Add(useBank);
+            row.Children.Add(update);
+            PropsPanel.Children.Add(row);
+            PropsPanel.Children.Add(message);
+        }
+        else if (knownT && conflict is not null)
+        {
+            // ferramenta digitada à mão e T fora do banco: adicionar
             AddToBankButton(i, bank);
         }
     }

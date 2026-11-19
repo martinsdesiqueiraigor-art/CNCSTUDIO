@@ -268,7 +268,9 @@ public static class CamJobInfo
         for (int i = 0; i < job.Operations.Count; i++)
         {
             CamOperationSpec s = job.Operations[i];
-            if (MissingError(s) is { } why)
+            // BANCO-01: campo vazio não trava mais o Salvar (o arquivo guarda quais estão vazios, versão 5); valor inválido continua travando
+            string? why = InvalidFields(s).Count > 0 ? string.Join("; ", InvalidFields(s).Select(InvalidMessage)) : null;
+            if (why is not null)
             {
                 string name = s.Label.Length > 0 ? s.Label : KindName(s);
                 list.Add($"Operação {i + 1} ({name}): " + (why.StartsWith("Falta ", StringComparison.Ordinal) ? "f" + why[1..] : why));
