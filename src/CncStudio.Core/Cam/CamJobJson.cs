@@ -47,7 +47,8 @@ public static class CamJobJson
     {
         // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
         // BANCO-01 (versão 5): operação com campo vazio é salva com a lista dos vazios (o app antigo não lê e não supõe o valor)
-        int version = job.Operations.Any(o => o.MissingFields.Count > 0) ? 5
+        int version = JobGeometry.NeedsVersion6(job) ? 6
+            : job.Operations.Any(o => o.MissingFields.Count > 0) ? 5
             : CamJobPart.NeedsVersion4(job) ? 4
             : CamJobProgram.NeedsVersion3(job) || CamJobZero.NeedsVersion3(job) ? 3 : CamJobStock.NeedsVersion2(job) ? 2 : 1;
         var root = new JsonObject
@@ -361,6 +362,12 @@ public static class CamJobJson
             o["contours"] = new JsonArray([.. chosen.Select(c => (JsonNode)c)]);
         }
 
+        // STEP-OPS S0 (versão 6): de onde a operação tirou a geometria no 3D
+        if (s.Geometry is { } geo)
+        {
+            o["geometry"] = GeometryToJson(geo);
+        }
+
         if (s.Drill is { } d)
         {
             o["drill"] = new JsonObject { ["cycle"] = d.Cycle.ToString(), ["peck"] = d.Peck, ["dwell"] = d.DwellSeconds };
@@ -620,6 +627,51 @@ public static class CamJobJson
         return summary.Valid ? new JobPartStep(path, summary) { Turns = turns, TopAtZero = top } : null;
     }
 
+    private static JsonObject GeometryToJson(GeoSource g)
+    {
+        static JsonArray P(Geometry.Point3 p) => new(p.X, p.Y, p.Z);
+        return new JsonObject
+        {
+            ["loops"] = g.Loops.ToString(),
+            ["owned"] = new JsonArray([.. g.Owned.Select(i => (JsonNode)i)]),
+            ["refs"] = new JsonArray([.. g.Refs.Select(r => (JsonNode)new JsonObject
+            {
+                ["kind"] = r.Kind.ToString(),
+                ["shape"] = r.Shape,
+                ["center"] = P(r.Center),
+                ["dir"] = P(r.Direction),
+                ["size"] = r.Size,
+            })]),
+        };
+    }
+
+    private static GeoSource GeometryFrom(JsonObject g)
+    {
+        static Geometry.Point3 P(JsonObject o, string key) =>
+            o[key] is JsonArray a && a.Count == 3 && a[0] is JsonValue x && a[1] is JsonValue y && a[2] is JsonValue z
+                && x.TryGetValue(out double dx) && y.TryGetValue(out double dy) && z.TryGetValue(out double dz)
+                ? new Geometry.Point3(dx, dy, dz)
+                : throw new FormatException("Geometria da operação inválida no arquivo.");
+        var refs = new List<GeoRef>();
+        foreach (JsonNode? n in Arr(g, "refs"))
+        {
+            if (n is not JsonObject r)
+            {
+                throw new FormatException("Geometria da operação inválida no arquivo.");
+            }
+
+            refs.Add(new GeoRef(Enum<GeoKind>(Str(r, "kind"), "tipo da geometria"), Str(r, "shape"), P(r, "center"), P(r, "dir"), Num(r, "size")));
+        }
+
+        var owned = new List<int>();
+        foreach (JsonNode? n in Arr(g, "owned"))
+        {
+            owned.Add(n is JsonValue v && v.TryGetValue(out int i) ? i : throw new FormatException("Geometria da operação inválida no arquivo."));
+        }
+
+        return new GeoSource(refs, Enum<LoopFilter>(Str(g, "loops"), "filtro de laços"), owned);
+    }
+
     private static CamOperationSpec OpFrom(JsonObject o)
     {
         JsonObject t = Obj(o, "tool"), l = Obj(o, "levels");
@@ -651,6 +703,11 @@ public static class CamJobJson
         if (o["contours"] is JsonArray chosen)
         {
             spec = spec with { ContourIndices = [.. chosen.Select(c => c is JsonValue cv && cv.TryGetValue(out int i) ? i : throw new FormatException("Lista de furos inválida."))] };
+        }
+
+        if (o["geometry"] is JsonObject geoNode)
+        {
+            spec = spec with { Geometry = GeometryFrom(geoNode) };
         }
 
         if (o["drill"] is JsonObject d)
