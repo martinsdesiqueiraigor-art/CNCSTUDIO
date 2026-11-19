@@ -164,4 +164,43 @@ public class StepPlanSourceTests
         Assert.True(build.Ok, string.Join("; ", build.Errors));
         Assert.All(job.Operations, o => Assert.True(o.ContourIndex >= offset));
     }
+
+    /// <summary>Arruela raio 20, furo raio 5, altura 8, com chanfro na borda de cima (raio 20 até Z5, 17 no topo).</summary>
+    private static TriangleMesh ChamferedWasher(int n = 48)
+    {
+        var t = new List<(Point3, Point3, Point3)>();
+        for (int i = 0; i < n; i++)
+        {
+            double a0 = 2 * Math.PI * i / n, a1 = 2 * Math.PI * (i + 1) / n;
+            Point3 Pt(double r, double a, double z) => P(r * Math.Cos(a), r * Math.Sin(a), z);
+            Quad(t, Pt(20, a0, 0), Pt(20, a1, 0), Pt(20, a1, 5), Pt(20, a0, 5)); // parede reta
+            Quad(t, Pt(20, a0, 5), Pt(20, a1, 5), Pt(17, a1, 8), Pt(17, a0, 8)); // chanfro
+            Quad(t, Pt(17, a0, 8), Pt(17, a1, 8), Pt(5, a1, 8), Pt(5, a0, 8)); // topo
+            Quad(t, Pt(5, a0, 0), Pt(5, a0, 8), Pt(5, a1, 8), Pt(5, a1, 0)); // furo
+            Quad(t, Pt(20, a0, 0), Pt(5, a0, 0), Pt(5, a1, 0), Pt(20, a1, 0)); // fundo
+        }
+
+        return new TriangleMesh(t);
+    }
+
+    [Fact]
+    public void Contorno_da_peca_e_a_silhueta_mesmo_com_chanfro_na_borda_de_cima()
+    {
+        TriangleMesh m = ChamferedWasher();
+        StepPlanDrawing d = Read(m);
+        Assert.True(d.Ok);
+        (double x0, double y0, double x1, double y1) = d.Contours[0].BoundsXY();
+        Assert.Equal(40, x1 - x0, 1); // Ø40 (a base), não Ø34 (a face de cima)
+        Assert.Equal(40, y1 - y0, 1);
+        Assert.Contains(d.Notes, x => x.Contains("40"));
+    }
+
+    [Fact]
+    public void Peca_sem_chanfro_continua_com_o_mesmo_contorno()
+    {
+        StepPlanDrawing d = Read(Washer());
+        (double x0, double _, double x1, double _) = d.Contours[0].BoundsXY();
+        Assert.Equal(40, x1 - x0, 1);
+        Assert.Equal(2, d.Contours.Count);
+    }
 }

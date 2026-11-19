@@ -41,10 +41,12 @@ public static class StepPlanSource
             return new StepPlanDrawing([], thickness, depths, ["O STEP não tem face plana voltada para cima: nada para planejar."]);
         }
 
-        // contorno externo = o maior laço de fora entre as faces para cima (o contorno da peça visto de cima)
+        // contorno externo = a silhueta da peça vista de cima: o maior laço de fora entre TODAS as faces (STEP-CONT-01).
+        // Só as faces para cima davam o laço da face de cima, menor que a peça quando a borda tem chanfro ou raio.
+        // Faces verticais têm laço sem área no plano e não pesam.
         IReadOnlyList<Point3>? outer = null;
         double best = -1;
-        foreach (MeshFace f in up)
+        foreach (MeshFace f in features.Faces)
         {
             IReadOnlyList<IReadOnlyList<Point3>> loops = features.BoundaryLoops(f);
             if (loops.Count == 0)
