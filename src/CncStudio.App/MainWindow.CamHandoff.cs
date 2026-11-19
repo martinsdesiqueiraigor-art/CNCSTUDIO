@@ -28,6 +28,8 @@ public partial class MainWindow
         {
             document.Dialect = CamHandoffCode.DialectOf(p);
             CamHandoffCode.FillStock(document.Setup, p, document.Text.Text);
+            // DESK-01: placa, comprimento preso e contraponto do CAM (torno)
+            CamHandoffCode.FillLatheFixture(document.Setup, p);
         }
     }
 

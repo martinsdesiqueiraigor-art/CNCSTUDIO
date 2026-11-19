@@ -8,6 +8,9 @@ public sealed record LathePostOptions(CamDialect Dialect, string ProgramName = "
 {
     /// <summary>Comentário do Z0 logo depois do G5x (TORNO-T5); null = nenhum (programa igual ao antigo).</summary>
     public string? ZeroNote { get; init; }
+
+    /// <summary>DESK-01: comentário do bruto ("BRUTO D30 X 125"), logo depois do zero; null = sem a linha.</summary>
+    public string? StockNote { get; init; }
 }
 
 /// <summary>
@@ -62,6 +65,11 @@ public static class LathePost
         if (o.ZeroNote is { } zero)
         {
             Line(Comment(zero));
+        }
+
+        if (o.StockNote is { } stock)
+        {
+            Line(Comment(stock));
         }
 
         foreach (LatheOperation op in operations)

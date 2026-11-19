@@ -90,11 +90,13 @@ public static class CamHandoffCode
 
     /// <summary>
     /// Preenche o bruto do setup com o do CAM só quando não há bruto informado: nem setup salvo com bruto, nem comentário (BRUTO ...) no
-    /// texto (decisão do Igor de 08/11: setup → comentário → CAM → automático). Devolve se preencheu. Nunca sobrescreve.
+    /// texto diferente do CAM (decisão do Igor de 08/11: setup → comentário → CAM → automático). DESK-01: o CAM escreve o próprio
+    /// comentário; comentário com as mesmas medidas do CAM deixa entrar o bruto do CAM (que tem a posição exata). Nunca sobrescreve.
     /// </summary>
     public static bool FillStock(MachiningSetup setup, CamHandoff? p, string programText)
     {
-        if (setup.Stock is not null || CommentStock(programText) is not null || ToSetupStock(p?.Stock) is not { } cam)
+        if (setup.Stock is not null || ToSetupStock(p?.Stock) is not { } cam
+            || (CommentStock(programText) is { } comment && !SameAsComment(cam, comment, programText)))
         {
             return false;
         }
@@ -103,18 +105,53 @@ public static class CamHandoffCode
         return true;
     }
 
+    /// <summary>
+    /// DESK-01: placa do torno no setup a partir da fixação do CAM, só quando o setup não tem fixação: castanhas abertas no Ø preso, o
+    /// comprimento preso e o contraponto. Devolve se preencheu. Nunca sobrescreve.
+    /// </summary>
+    public static bool FillLatheFixture(MachiningSetup setup, CamHandoff? p)
+    {
+        if (setup.Fixtures.Count > 0 || p is not { Machine: CamHandoff.Lathe, LatheGrip: { } g })
+        {
+            return false;
+        }
+
+        double? bar = p.Stock is { Kind: HandoffStockKind.Round } s ? s.Diameter : null;
+        var chuck = new SetupFixture
+        {
+            Kind = SetupFixtureKind.ThreeJawChuck, Name = "Placa (do CAM)",
+            JawOpening = g.GripDiameter ?? bar ?? 0, GripLength = g.GripLength, Tailstock = g.Tailstock ? true : null,
+        };
+        chuck.Width = Math.Max(160, chuck.JawOpening * 2.2);
+        chuck.Height = Math.Max(40, chuck.Width * 0.3);
+        setup.Fixtures.Add(chuck);
+        return true;
+    }
+
     /// <summary>Bruto do comentário (BRUTO ...) do texto, como o simulador da fresa o lê; null se não há.</summary>
     private static Stock? CommentStock(string programText) => SetupBinding.FromProgramComments(programText, MachineKind.Mill, Bounds3.Empty);
 
     /// <summary>
-    /// O comentário descreve o mesmo bruto do CAM? O comentário só diz as medidas (a posição é um palpite do simulador), então compara
-    /// só as medidas de um prisma; redondo e tubo do CAM nunca batem com o bloco do comentário.
+    /// O comentário descreve o mesmo bruto do CAM? O comentário só diz forma e medidas (a posição é a do programa), então compara a
+    /// forma e as medidas (DESK-01: prisma, redondo, tubo e sextavado, pela leitura de <see cref="ProgramStock"/>).
     /// </summary>
-    private static bool SameAsComment(SetupStock cam, Stock comment)
+    private static bool SameAsComment(SetupStock cam, Stock comment, string programText)
     {
-        static bool Eq(double x, double y) => Math.Abs(x - y) < 1e-6;
-        return cam.Kind == SetupStockKind.Prism
-            && Eq(cam.Width, comment.MaxX - comment.MinX) && Eq(cam.Depth, comment.MaxY - comment.MinY) && Eq(cam.Height, comment.MaxZ - comment.MinZ);
+        static bool Eq(double x, double y) => Math.Abs(x - y) < 1e-3;
+        if (ProgramStock.Read(programText, MachineKind.Mill, Bounds3.Empty) is not { } read)
+        {
+            return cam.Kind == SetupStockKind.Prism
+                && Eq(cam.Width, comment.MaxX - comment.MinX) && Eq(cam.Depth, comment.MaxY - comment.MinY) && Eq(cam.Height, comment.MaxZ - comment.MinZ);
+        }
+
+        bool lying = cam.Kind is SetupStockKind.Round or SetupStockKind.Tube && cam.Axis != SetupAxis.Z;
+        return !lying && cam.Kind == read.Kind && Eq(cam.Height, read.Height) && cam.Kind switch
+        {
+            SetupStockKind.Prism => Eq(cam.Width, read.Width) && Eq(cam.Depth, read.Depth),
+            SetupStockKind.Tube => Eq(cam.Diameter, read.Diameter) && Eq(cam.InnerDiameter, read.InnerDiameter),
+            SetupStockKind.Hexagon => Eq(cam.Width, read.Width),
+            _ => Eq(cam.Diameter, read.Diameter),
+        };
     }
 
     /// <summary>O bruto do setup é o do CAM (etiqueta "do CAM")? Editar o bruto tira a etiqueta.</summary>
@@ -224,7 +261,7 @@ public static class CamHandoffCode
         {
             list.Add(new HandoffNotice(HandoffNoticeKind.NoStock, NoStockText));
         }
-        else if (setup?.Stock is { } informed ? !SameStock(informed, cam) : CommentStock(programText) is { } comment && !SameAsComment(cam, comment))
+        else if (setup?.Stock is { } informed ? !SameStock(informed, cam) : CommentStock(programText) is { } comment && !SameAsComment(cam, comment, programText))
         {
             list.Add(new HandoffNotice(HandoffNoticeKind.StockDiffers,
                 $"Este programa já tem um bruto informado no Code. O bruto do CAM ({Describe(cam)}) é diferente e não foi aplicado."));

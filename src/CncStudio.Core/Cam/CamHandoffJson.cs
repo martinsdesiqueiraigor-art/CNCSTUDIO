@@ -37,6 +37,9 @@ public static class CamHandoffJson
                 ? new JsonObject { ["tipo"] = f.Kind, ["nome"] = JobFixture.NameOf(f.Kind), ["descricao"] = f.Description }
                 : null,
             ["bruto"] = p.Stock is { } s ? StockToJson(s) : null,
+            ["fixacaoTorno"] = p.LatheGrip is { } g
+                ? new JsonObject { ["diametroPreso"] = g.GripDiameter, ["comprimentoPreso"] = g.GripLength, ["balanco"] = g.StickOut, ["contraponto"] = g.Tailstock }
+                : null,
             ["ferramentas"] = new JsonArray([.. p.Tools.Select(ToolToJson)]),
         };
         if (p.BankName is { } bank)
@@ -153,6 +156,9 @@ public static class CamHandoffJson
                 Zero = root["zero"] is JsonObject z ? ZeroFrom(z) : null,
                 Fixture = root["fixacao"] is JsonObject f ? new JobFixture(CamJobJson.Str(f, "tipo"), OptStr(f, "descricao") ?? "") : null,
                 Stock = root["bruto"] is JsonObject s ? StockFrom(s) : null,
+                LatheGrip = root["fixacaoTorno"] is JsonObject g
+                    ? new HandoffLatheGrip(OptNum(g, "diametroPreso"), OptNum(g, "comprimentoPreso"), OptNum(g, "balanco"), g["contraponto"]?.GetValue<bool>() == true)
+                    : null,
                 Tools = root["ferramentas"] is JsonArray tools ? [.. tools.Select(ToolFrom)] : [],
                 BankName = OptStr(root, "banco"),
             };

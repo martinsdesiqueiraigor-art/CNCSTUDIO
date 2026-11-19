@@ -359,7 +359,7 @@ public static class CamJobBuilder
         int number = job.ProgramNumber ?? 0;
         // zero da peça (UX-04g PR B): translação das operações já geradas; o Z digitado segue medido do topo da peça pronta
         IReadOnlyList<CamOperation> placed = CamJobZero.Translate(ops, CamJobZero.Position(job)!.Value);
-        var options = new PostOptions(job.Dialect, job.Name, number, job.WorkOffset!.Value, job.Coolant, machine) { ZeroNote = CamJobZero.HeaderNote(job) };
+        var options = new PostOptions(job.Dialect, job.Name, number, job.WorkOffset!.Value, job.Coolant, machine) { ZeroNote = CamJobZero.HeaderNote(job), StockNote = HandoffStock.InProgram(job)?.CommentText() };
         string program = CamPost.Generate(placed, options);
         return new JobBuild(program, ops, items, errors, warnings);
     }
