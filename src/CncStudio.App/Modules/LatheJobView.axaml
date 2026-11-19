@@ -94,6 +94,8 @@
       <ScrollViewer DockPanel.Dock="Bottom" MaxHeight="44" Margin="10,0,10,4" HorizontalScrollBarVisibility="Disabled">
         <TextBlock x:Name="Warnings" TextWrapping="Wrap" Foreground="{x:Static modules:CamColors.PendingBrush}" FontSize="12" />
       </ScrollViewer>
+      <!-- UI-05: linha do tempo das operações (só na aba Operações) -->
+      <modules:CamTimeline x:Name="Timeline" DockPanel.Dock="Bottom" Margin="10,0,10,4" IsVisible="False" />
       <Grid>
         <!-- Aba Operações: perfil 2D e o 3D de antes (sem chips) -->
         <Border x:Name="OpsCenter" Margin="10,10,10,6" CornerRadius="8" ClipToBounds="True" Background="{x:Static modules:CamColors.ViewportBrush}" BorderBrush="{x:Static modules:CamColors.BorderBrush}" BorderThickness="1">
