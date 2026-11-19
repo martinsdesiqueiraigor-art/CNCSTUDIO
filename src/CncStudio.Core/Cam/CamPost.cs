@@ -14,6 +14,9 @@ public sealed record PostOptions(CamDialect Dialect, string ProgramName = "CASIL
 {
     /// <summary>Linha de comentário do zero da peça no cabeçalho (UX-04g PR B); null = nenhuma linha (como antes).</summary>
     public string? ZeroNote { get; init; }
+
+    /// <summary>DESK-01: comentário do bruto ("BRUTO 100 X 80 X 20"), logo depois do zero; null = sem a linha.</summary>
+    public string? StockNote { get; init; }
 }
 
 /// <summary>
@@ -148,6 +151,11 @@ public static class CamPost
             if (o.ZeroNote is { } zero)
             {
                 Comment(Clean(zero));
+            }
+
+            if (o.StockNote is { } stock)
+            {
+                Comment(Clean(stock));
             }
 
             Line($"G{o.WorkOffset}");

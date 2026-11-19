@@ -433,6 +433,12 @@ public sealed class SimulationScene
                 _objects.Add(new SceneObject("fixacao/placa/base", SceneRole.Fixture, body));
                 _objects.Add(new SceneObject("fixacao/placa/castanhas", SceneRole.FixtureJaw, jaws));
             }
+
+            // DESK-01: contraponto do CAM (entre pontas)
+            if (chuck?.Tailstock == true)
+            {
+                _objects.Add(new SceneObject("fixacao/contraponto", SceneRole.Fixture, SceneMeshes.Tailstock(_turning, _palette)));
+            }
         }
         else if (_setup is not null)
         {

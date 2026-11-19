@@ -81,7 +81,7 @@
             <modules:CamPreview x:Name="Preview" />
             <modules:MillJobSceneView x:Name="Scene3D" IsVisible="False" />
             <ToggleButton x:Name="View3DButton" Content="3D" Padding="12,4" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" />
-            <TextBlock x:Name="PreviewHint" Text="Abra um DXF (faixa Arquivo), um trabalho salvo ou desenhe uma forma (item Peça) para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.7" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" />
+            <TextBlock x:Name="PreviewHint" Text="Comece com Novo, abra um DXF (faixa Arquivo) ou um trabalho salvo, escolha o STEP da peça (Preparação) ou desenhe uma forma (item Peça)." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.7" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" />
           </Grid>
         </Border>
         <!-- Aba Preparação (UX-04f): 3 colunas para caber em 1280×720 sem rolar. Máquina (leitura), Peça pronta, Banco e Material

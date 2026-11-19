@@ -125,7 +125,7 @@ public class CamPaletteTests
     public void Arquivo_tem_acoes_sempre_ligadas_sem_operacao()
     {
         CamPaletteGroup file = CamPalette.Groups.Single(g => g.Id == "arquivo");
-        Assert.Equal(["abrir-dxf", "abrir-trabalho", "salvar-trabalho"], file.Items.Select(i => i.Action));
+        Assert.Equal(["novo-trabalho", "abrir-dxf", "abrir-trabalho", "salvar-trabalho"], file.Items.Select(i => i.Action));
         Assert.Empty(CamPalette.OperationItems(file));
         Assert.All(file.Items, i => Assert.Null(CamPalette.Unavailable(i, new CamJob(), -1)));
         Assert.All(file.Items, i => Assert.Null(CamPalette.NewOperation(i, 0)));

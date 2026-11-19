@@ -275,7 +275,7 @@ public static class CamJobStock
         }
 
         var missing = new List<string>();
-        (double X, double Y, double Width, double Length)? box = CamJobInfo.DrawingBox(job.Contours);
+        (double X, double Y, double Width, double Length)? box = CamJobInfo.PartBox(job);
         if (box is null)
         {
             missing.Add("o desenho da peça");
@@ -421,6 +421,36 @@ public static class CamJobStock
     public static string VolumeText(double mm3) => (mm3 / 1000).ToString("0.##", Br) + " cm³";
 
     /// <summary>Altura da peça digitada: precisa ser maior que zero (null = vale).</summary>
+    /// <summary>
+    /// DESK-01: o bruto precisa envolver a peça (caixa XY da peça e Z de −altura a 0, folga de 0,01 mm) e, em STEP, não pode ser o
+    /// próprio arquivo da peça (bruto sem sobremetal). Null = ok ou sem dados para conferir (peça ou altura ausentes).
+    /// </summary>
+    public static string? PartFit(CamJob job, StockCheck stock)
+    {
+        if (job.StockShape is { Kind: StockShapeKind.Step, StepPath: { } stockPath } && job.PartStep?.Path is { } partPath
+            && string.Equals(stockPath.Trim().Replace('\\', '/'), partPath.Trim().Replace('\\', '/'), StringComparison.OrdinalIgnoreCase))
+        {
+            return "Bruto é o próprio STEP da peça (sem sobremetal): escolha o bruto (bloco, cilindro, tubo ou outro STEP)";
+        }
+
+        if (stock.Solid is not { } s || CamJobInfo.PartBox(job) is not { } p || job.PartHeight is not { } h || PartHeightError(h) is not null)
+        {
+            return null;
+        }
+
+        const double tol = 0.01;
+        bool inside = s.MinX <= p.X + tol && s.MaxX >= p.X + p.Width - tol && s.MinY <= p.Y + tol && s.MaxY >= p.Y + p.Length - tol
+            && s.MinZ <= -h + tol && s.MaxZ >= -tol;
+        if (inside)
+        {
+            return null;
+        }
+
+        static string N(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
+        return $"Bruto não envolve a peça: peça X {N(p.X)} a {N(p.X + p.Width)}, Y {N(p.Y)} a {N(p.Y + p.Length)}, Z {N(-h)} a 0; "
+            + $"bruto X {N(s.MinX)} a {N(s.MaxX)}, Y {N(s.MinY)} a {N(s.MaxY)}, Z {N(s.MinZ)} a {N(s.MaxZ)}";
+    }
+
     public static string? PartHeightError(double h) => double.IsFinite(h) && h > 0 ? null : "A altura Z da peça precisa ser maior que zero.";
 
     /// <summary>Motivo do bruto incompleto ("Falta Ø externo, Comprimento" / "Ø interno precisa ser menor…"); null se completo ou não definido.</summary>
@@ -486,7 +516,13 @@ public static class CamJobStock
             return ("pending", "bruto não definido");
         }
 
-        return c.Complete ? ("ok", "OK") : ("pending", "incompleto: " + IncompleteReason(c));
+        if (!c.Complete)
+        {
+            return ("pending", "incompleto: " + IncompleteReason(c));
+        }
+
+        // DESK-01: bruto que não envolve a peça (ou é o próprio STEP dela) também fica pendente na árvore
+        return PartFit(job, c) is { } fit ? ("pending", fit) : ("ok", "OK");
     }
 
     /// <summary>

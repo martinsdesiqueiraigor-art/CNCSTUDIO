@@ -86,7 +86,14 @@ public class CamHandoffCodeTests
         (CamHandoff p, string sent) = Sent();
         string program = InsertAfterFirstLine(sent, comment);
         MachiningSetup setup = MachiningSetup.CreateDefault("PECA.nc");
-        Assert.False(CamHandoffCode.FillStock(setup, p, program));
+        // DESK-01: comentário com as medidas do CAM (o CAM agora escreve o seu) deixa entrar o bruto do CAM, que tem a posição exata
+        Assert.Equal(!differs, CamHandoffCode.FillStock(setup, p, program));
+        if (!differs)
+        {
+            Assert.Equal(StockSource.Setup, SetupBinding.EffectiveStock(setup, MachineKind.Mill, program, Bounds3.Empty).Source);
+            setup.Stock = null;
+        }
+
         Assert.Null(setup.Stock);
         Assert.Equal(StockSource.Comment, SetupBinding.EffectiveStock(setup, MachineKind.Mill, program, Bounds3.Empty).Source);
 

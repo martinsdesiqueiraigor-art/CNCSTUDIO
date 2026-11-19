@@ -362,7 +362,36 @@ public partial class JobView : UserControl
             return;
         }
 
-        CamJob j = loaded.Job!;
+        LoadJob(loaded.Job!);
+        // avisos do arquivo (ex.: fixação inválida, que abre como "não definida")
+        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
+    }
+
+    private DateTime _newArmedUntil;
+
+    /// <summary>
+    /// DESK-01: trabalho novo (vazio, como ao abrir o app). Com peça, operações ou contornos, o primeiro clique só avisa; o segundo,
+    /// em até 6 s, descarta o trabalho atual (não salva sozinho).
+    /// </summary>
+    private void NewJob()
+    {
+        bool hasWork = _job.Operations.Count > 0 || CamJobInfo.HasPart(_job);
+        if (hasWork && DateTime.UtcNow > _newArmedUntil)
+        {
+            _newArmedUntil = DateTime.UtcNow.AddSeconds(6);
+            Errors.Text = "• Novo descarta o trabalho aberto sem salvar. Clique em Novo de novo para confirmar (ou Salvar antes).";
+            return;
+        }
+
+        _newArmedUntil = default;
+        LoadJob(new CamJob());
+        View3DButton.IsChecked = false;
+        Errors.Text = "• Trabalho novo. Abra um DXF, escolha o STEP da peça (Preparação) ou desenhe uma forma.";
+    }
+
+    /// <summary>Troca o trabalho da tela pelo dado (abrir ou novo).</summary>
+    private void LoadJob(CamJob j)
+    {
         _job.Name = j.Name;
         _job.Dialect = j.Dialect;
         _job.ProgramNumber = j.ProgramNumber;
@@ -389,8 +418,6 @@ public partial class JobView : UserControl
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
         Refresh();
-        // avisos do arquivo (ex.: fixação inválida, que abre como "não definida")
-        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
     }
 
     /// <summary>Fixação do Trabalho aberto: o Assist lê daqui (fonte única).</summary>
@@ -440,6 +467,9 @@ public partial class JobView : UserControl
     {
         switch (item.Action)
         {
+            case "novo-trabalho":
+                NewJob();
+                return;
             case "abrir-dxf":
                 await OpenDxf();
                 return;
@@ -839,9 +869,9 @@ public partial class JobView : UserControl
     /// </summary>
     private (string Kind, string Text) PartStockState()
     {
-        if (_job.Contours.Count == 0)
+        if (!CamJobInfo.HasPart(_job))
         {
-            return ("pending", "falta o desenho da peça");
+            return ("pending", "falta a peça (DXF, STEP ou forma)");
         }
 
         (string kind, string text) = CamJobStock.State(_job);
@@ -991,6 +1021,6 @@ public partial class JobView : UserControl
 
         int selected = SelectedContour() ?? (SelectedOp() is { } o && o < _job.Operations.Count ? _job.Operations[o].ContourIndex : -1);
         Preview.Set(_job.Contours, selected, path);
-        PreviewHint.IsVisible = _job.Contours.Count == 0;
+        PreviewHint.IsVisible = !CamJobInfo.HasPart(_job);
     }
 }

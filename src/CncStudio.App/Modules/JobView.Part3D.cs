@@ -224,9 +224,19 @@ public partial class JobView
             }
         }
 
+        // DESK-01: a altura da peça vem do STEP lido quando ainda está vazia (o campo continua editável)
+        string height = "";
+        if (_job.PartHeight is null && _job.PartStep is { Summary: { Valid: true } sum })
+        {
+            _job.PartHeight = Math.Round(sum.SizeZ, 3);
+            height = $" Altura da peça: {_job.PartHeight.Value.ToString("0.###", Br)} mm (do STEP).";
+        }
+
         SetPartMesh(path, raw);
         Refresh(keep: true);
-        Errors.Text = $"• STEP da peça lido em {seconds.ToString("0.0", Br)} s. Ligue o 3D e clique nas faces para criar operações.";
+        // DESK-01: abre o 3D já com a peça enquadrada
+        View3DButton.IsChecked = true;
+        Errors.Text = $"• STEP da peça lido em {seconds.ToString("0.0", Br)} s.{height} Clique nas faces no 3D para criar operações.";
     }
 
     /// <summary>Lê o STEP já escolhido só para o 3D. Se mudou desde que foi aberto (caixa diferente), não usa.</summary>

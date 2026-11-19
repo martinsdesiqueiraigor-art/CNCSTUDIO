@@ -60,7 +60,8 @@ public class CamJobTests
             CamOperations.Drilling(new CamTool(2, 6, 4000, 400, 150), Levels.SafeZ, [new Point2(30, 20)], DrillCycleKind.Peck, 0, -6, 2, 2).Operation!,
         };
         string direct = CamPost.Generate(ops, new PostOptions(dialect, "PECA TESTE", 1001, 54, true));
-        Assert.Equal(direct, build.Program);
+        // DESK-01: o trabalho escreve a linha do bruto; o resto é o fluxo direto
+        Assert.Equal(StockLine.Without(direct), StockLine.Without(build.Program));
     }
 
     [Fact]

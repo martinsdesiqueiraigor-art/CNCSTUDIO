@@ -418,7 +418,7 @@ public partial class JobView
         }
         else
         {
-            (double X, double Y, double Width, double Length)? box = CamJobInfo.DrawingBox(_job.Contours);
+            (double X, double Y, double Width, double Length)? box = CamJobInfo.PartBox(_job);
             card.Children.Add(Note(box is { } b
                 ? $"Largura X e profundidade Y vêm do desenho: {Fmt(b.Width)} × {Fmt(b.Length)} mm."
                 : "Sem desenho: abra um DXF (faixa Arquivo) ou desenhe uma forma (item Peça pronta + bruto, aba Operações)."));
@@ -585,7 +585,7 @@ public partial class JobView
     {
         const double w = 120, h = 64, pad = 5;
         var canvas = new Canvas { Width = w, Height = h, Background = Brush.Parse("#0d1117") };
-        (double X, double Y, double Width, double Length)? part = CamJobInfo.DrawingBox(_job.Contours);
+        (double X, double Y, double Width, double Length)? part = CamJobInfo.PartBox(_job);
         double x0 = Math.Min(s.MinX, part?.X ?? s.MinX), x1 = Math.Max(s.MaxX, part is { } p1 ? p1.X + p1.Width : s.MaxX);
         double y0 = Math.Min(s.MinY, part?.Y ?? s.MinY), y1 = Math.Max(s.MaxY, part is { } p2 ? p2.Y + p2.Length : s.MaxY);
         double k = Math.Min((w - 2 * pad) / Math.Max(x1 - x0, 1e-6), (h - 2 * pad) / Math.Max(y1 - y0, 1e-6));
@@ -620,7 +620,7 @@ public partial class JobView
     private void AbsoluteBlock(StackPanel card)
     {
         JobStock? st = _job.Stock;
-        (double X, double Y, double Width, double Length)? box = st is { } s0 ? (s0.X, s0.Y, s0.Width, s0.Length) : CamJobInfo.DrawingBox(_job.Contours);
+        (double X, double Y, double Width, double Length)? box = st is { } s0 ? (s0.X, s0.Y, s0.Width, s0.Length) : CamJobInfo.PartBox(_job);
         if (st is null)
         {
             card.Children.Add(UiKit.StatusNote(box is null

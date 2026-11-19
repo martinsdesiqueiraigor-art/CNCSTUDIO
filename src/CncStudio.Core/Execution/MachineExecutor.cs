@@ -238,6 +238,14 @@ public sealed partial class MachineExecutor
         {
             int before = _moves.Count;
             ExecuteMotion(block, words, keywords);
+            // DESK-01: o primeiro bloco com Z depois do retorno à referência devolve o Z conhecido (ele mesmo não é desenhado)
+            if (_zAtMachineHome && block.Find('Z') is not null)
+            {
+                // o movimento deste bloco começa na altura de máquina desconhecida: não é desenhado
+                _moves.RemoveRange(before, _moves.Count - before);
+                _tags.RemoveRange(before, _tags.Count - before);
+                _zAtMachineHome = false;
+            }
 
             // ,R / ,C valem para o canto no fim do movimento deste bloco
             if (_moves.Count > before && (keywords.CornerRadius > 0 || keywords.CornerChamfer > 0))
@@ -252,6 +260,11 @@ public sealed partial class MachineExecutor
         if (keywords.CycleCall is { } cycle && !keywords.IsModalCall)
         {
             ExecuteSiemensCycle(block, cycle); // ciclo chamado sem MCALL: executa já, na posição atual
+        }
+
+        if (words.MachineHome && block.Find('Z') is not null)
+        {
+            _zAtMachineHome = true;
         }
 
         if (words.Dwell)
@@ -498,6 +511,7 @@ public sealed partial class MachineExecutor
         public bool ToolChange { get; set; }
         public sbyte? CompensationSide { get; set; }   // G40 = 0, G41 = +1, G42 = −1
         public bool SuppressMotion { get; set; }     // G04, G53, G28...: eixos do bloco não são destino
+        public bool MachineHome { get; set; }        // DESK-01: G28/G30/G53 (com Z, o Z vai a uma altura de máquina desconhecida)
         public bool EndsProgram { get; set; }
         public bool CallSubprogram { get; set; }     // M98
         public bool ReturnFromSubprogram { get; set; } // M99 / M17
@@ -643,6 +657,7 @@ public sealed partial class MachineExecutor
             case 42: w.CompensationSide = -1; return;
             case 53:
                 w.SuppressMotion = true; // coordenada de máquina: posição real desconhecida, não desenhada
+                w.MachineHome = true;
                 return;
             // Siemens (840D): G58 e G59 não são zeros de peça; são deslocamento programável por eixo, como TRANS/ATRANS
             case 58 or 59 when siemens:
@@ -674,6 +689,7 @@ public sealed partial class MachineExecutor
                 return; // sem efeito na trajetória desenhada
             case 28 or 30:
                 w.SuppressMotion = true;
+                w.MachineHome = true;
                 Warning(line, word, $"G{code} (retorno à referência) não é desenhado: a posição da máquina não é conhecida.");
                 return;
             case 74 or 76 or 87 or 88 when !siemens:
@@ -995,8 +1011,21 @@ public sealed partial class MachineExecutor
     }
 
     /// <summary>Guarda o movimento junto com o estado da compensação.</summary>
+    /// <summary>
+    /// DESK-01: depois de G28/G30/G53 com Z, o Z está numa altura de máquina que o programa não diz. Até um bloco dar o Z de novo,
+    /// os movimentos não são desenhados (o começo deles é desconhecido) e não contam como rápido no material: antes, a ferramenta
+    /// ficava em Z0 e o primeiro rápido em X Y passava por dentro do bruto.
+    /// </summary>
+    private bool _zAtMachineHome;
+
     private void AddMove(Move move)
     {
+        // só os que andam em X ou Y somem: girar o eixo rotativo no lugar continua desenhado
+        if (_zAtMachineHome && !_capturing && (Math.Abs(move.End.X - move.Start.X) > 1e-9 || Math.Abs(move.End.Y - move.Start.Y) > 1e-9))
+        {
+            return;
+        }
+
         // Avanço por rotação (G95/G99): o movimento guarda mm/min, calculado com a rotação no ponto
         if (!move.IsRapid && _feedPerRevolution && !_capturing)
         {

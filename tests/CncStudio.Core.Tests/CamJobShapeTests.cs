@@ -44,6 +44,6 @@ public class CamJobShapeTests
     public void Pendencia_da_peca_cita_a_forma()
     {
         var job = new CamJob();
-        Assert.Contains("Falta a peça (abra um DXF ou desenhe uma forma)", CamJobInfo.Pending(job, CamJobBuilder.Build(job, null)));
+        Assert.Contains("Falta a peça (abra um DXF, um STEP ou desenhe uma forma)", CamJobInfo.Pending(job, CamJobBuilder.Build(job, null)));
     }
 }

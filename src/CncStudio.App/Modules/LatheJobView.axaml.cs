@@ -214,6 +214,9 @@ public partial class LatheJobView : UserControl
             case "abrir-dxf":
                 await OpenDxf();
                 return;
+            case "novo-trabalho":
+                NewJob();
+                return;
             case "abrir-trabalho":
                 await OpenJob();
                 return;
@@ -328,7 +331,32 @@ public partial class LatheJobView : UserControl
             return;
         }
 
-        LatheJob j = loaded.Job!;
+        LoadJob(loaded.Job!);
+        // avisos do arquivo (ex.: fixação inválida, que abre como "não informada")
+        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
+    }
+
+    private DateTime _newArmedUntil;
+
+    /// <summary>DESK-01: trabalho de torno novo; com perfil ou operações, o primeiro clique só avisa e o segundo (até 6 s) descarta.</summary>
+    private void NewJob()
+    {
+        bool hasWork = _job.Operations.Count > 0 || _job.Profile is not null;
+        if (hasWork && DateTime.UtcNow > _newArmedUntil)
+        {
+            _newArmedUntil = DateTime.UtcNow.AddSeconds(6);
+            Errors.Text = "• Novo descarta o trabalho aberto sem salvar. Clique em Novo de novo para confirmar (ou Salvar antes).";
+            return;
+        }
+
+        _newArmedUntil = default;
+        LoadJob(LatheJob.Blank("TORNO"));
+        Errors.Text = "• Trabalho de torno novo. Abra o DXF do perfil ou digite os pontos na Preparação.";
+    }
+
+    /// <summary>Troca o trabalho da tela pelo dado (abrir ou novo).</summary>
+    private void LoadJob(LatheJob j)
+    {
         _job.Name = j.Name;
         _job.Dialect = j.Dialect;
         _job.ProgramNumber = j.ProgramNumber;
@@ -337,14 +365,14 @@ public partial class LatheJobView : UserControl
         _job.Stock = j.Stock;
         _programTypedError = null;
         _job.Profile = j.Profile;
+        // DESK-01: a face do zero também vem do arquivo (antes ficava a do trabalho anterior)
+        _job.ZeroFace = j.ZeroFace;
         _job.Fixation = j.Fixation;
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
         UndoButton.IsEnabled = false;
         Refresh();
-        // avisos do arquivo (ex.: fixação inválida, que abre como "não informada")
-        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
     }
 
     /// <summary>Salva o trabalho. Nunca trava por campo vazio (TORNO-T1): o arquivo guarda quais campos estão vazios, sem valor antigo.</summary>

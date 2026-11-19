@@ -7,7 +7,7 @@ namespace CncStudio.Core.Cam;
 /// </summary>
 public sealed record CamPaletteItem(string Id, string Name, string Icon, JobOpKind? Kind, ContourSide Side, string Hint)
 {
-    /// <summary>Ação de arquivo do botão ("abrir-dxf", "abrir-trabalho", "salvar-trabalho"); null = não é ação.</summary>
+    /// <summary>Ação de arquivo do botão ("novo-trabalho", "abrir-dxf", "abrir-trabalho", "salvar-trabalho"); null = não é ação.</summary>
     public string? Action { get; init; }
 
     /// <summary>Ainda não existe: o botão aparece apagado com o selo "em breve" e não faz nada.</summary>
@@ -48,6 +48,7 @@ public static class CamPalette
     [
         new("arquivo", "Arquivo", true,
         [
+            CamPaletteItem.File("novo-trabalho", "Novo", "novo", "novo-trabalho", "Começa um trabalho de fresa vazio (salve o atual antes)."),
             CamPaletteItem.File("abrir-dxf", "Abrir DXF", "abrir-dxf", "abrir-dxf", "Abre o desenho (DXF) da peça."),
             CamPaletteItem.File("abrir-trabalho", "Abrir", "abrir", "abrir-trabalho", "Abre um trabalho salvo (.casillas-job)."),
             CamPaletteItem.File("salvar-trabalho", "Salvar", "salvar", "salvar-trabalho", "Salva o trabalho (.casillas-job)."),
@@ -157,6 +158,7 @@ public static class CamPalette
     [
         new("arquivo", "Arquivo", true,
         [
+            CamPaletteItem.File("novo-trabalho", "Novo", "novo", "novo-trabalho", "Começa um trabalho de torno vazio (salve o atual antes)."),
             CamPaletteItem.File("abrir-dxf", "Abrir DXF", "abrir-dxf", "abrir-dxf", "Abre o perfil da peça (DXF)."),
             CamPaletteItem.File("abrir-trabalho", "Abrir", "abrir", "abrir-trabalho", "Abre um trabalho de torno salvo (.casillas-job)."),
             CamPaletteItem.File("salvar-trabalho", "Salvar", "salvar", "salvar-trabalho", "Salva o trabalho (.casillas-job)."),
