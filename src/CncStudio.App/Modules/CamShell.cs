@@ -39,8 +39,8 @@ public static class CamShell
         for (int k = 0; k < tabs.Length; k++)
         {
             bool on = k == tab;
-            tabs[k].Foreground = Brush.Parse(on ? "#ffb066" : "#9aa7b5");
-            tabs[k].BorderBrush = on ? Brush.Parse("#ff8a1f") : Brushes.Transparent;
+            tabs[k].Foreground = on ? CamColors.AccentTextBrush : CamColors.MutedBrush;
+            tabs[k].BorderBrush = on ? CamColors.AccentBrush : Brushes.Transparent;
             tabs[k].FontWeight = on ? FontWeight.SemiBold : FontWeight.Normal;
         }
     }
@@ -58,7 +58,7 @@ public static class CamShell
         {
             if (!first)
             {
-                palette.Children.Add(new Border { Width = 1, Margin = new Thickness(6, 2), Background = Brush.Parse("#1f2733") });
+                palette.Children.Add(new Border { Width = 1, Margin = new Thickness(6, 2), Background = CamColors.BorderBrush });
             }
 
             first = false;
@@ -66,7 +66,7 @@ public static class CamShell
             foreach (CamPaletteItem item in group.Items)
             {
                 var content = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Center };
-                content.Children.Add(UiKit.Icon2(item.Icon, "#e6edf3", "#ff8a1f", 24));
+                content.Children.Add(UiKit.Icon2(item.Icon, CamColors.Text, CamColors.Accent, 24));
                 content.Children.Add(new TextBlock
                 {
                     Text = item.Name, FontSize = 11, LineHeight = 13, MaxLines = 2, TextWrapping = TextWrapping.Wrap,
@@ -74,7 +74,7 @@ public static class CamShell
                 });
                 if (item.Soon)
                 {
-                    content.Children.Add(new TextBlock { Text = "em breve", FontSize = 10, Foreground = Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+                    content.Children.Add(new TextBlock { Text = "em breve", FontSize = 10, Foreground = CamColors.MutedBrush, HorizontalAlignment = HorizontalAlignment.Center });
                 }
 
                 // 66 px (o torno passa menos: a faixa dele tem 15 botões), ou mais se a palavra mais longa do nome não couber (nunca quebrar no meio da palavra: "Torneamento")
@@ -88,7 +88,7 @@ public static class CamShell
                 {
                     Content = content, Width = Math.Max(minButtonWidth, Math.Ceiling(word) + 10), Height = 76, Padding = new Thickness(2, 4), MinHeight = 0,
                     VerticalContentAlignment = VerticalAlignment.Center, HorizontalContentAlignment = HorizontalAlignment.Center,
-                    Background = Brush.Parse("#18202b"), BorderBrush = Brush.Parse("#243040"),
+                    Background = CamColors.CardBrush, BorderBrush = CamColors.BorderStrongBrush,
                     BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
                     Opacity = item.Soon ? 0.45 : 1,
                 };
@@ -102,7 +102,7 @@ public static class CamShell
 
             var box = new StackPanel { Spacing = 3 };
             box.Children.Add(buttons);
-            box.Children.Add(new TextBlock { Text = group.Title.ToUpperInvariant(), FontSize = 10, Foreground = Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+            box.Children.Add(new TextBlock { Text = group.Title.ToUpperInvariant(), FontSize = 10, Foreground = CamColors.MutedBrush, HorizontalAlignment = HorizontalAlignment.Center });
             palette.Children.Add(box);
         }
 
@@ -171,7 +171,7 @@ public static class CamShell
     }
 
     /// <summary>Cor do tracejado do campo vazio ou inválido (laranja da casca).</summary>
-    public const string MissingStroke = "#ff8a1f";
+    public const string MissingStroke = CamColors.Pending;
 
     /// <summary>
     /// Campo com a marca de vazio ou inválido (regra do CAM-12; tracejado laranja do UX-04e, comum à fresa e ao torno desde o UX-04f).
@@ -202,7 +202,7 @@ public static class CamShell
     {
         var eye = new Button
         {
-            Content = UiKit.Icon(enabled ? "olho" : "olho-fechado", enabled ? "#9aa7b5" : "#5b6675", 15),
+            Content = UiKit.Icon(enabled ? "olho" : "olho-fechado", enabled ? CamColors.Muted : CamColors.Faint, 15),
             Padding = new Thickness(3), MinHeight = 0, MinWidth = 0, Background = Brushes.Transparent, BorderThickness = new Thickness(0),
             VerticalAlignment = VerticalAlignment.Center,
         };

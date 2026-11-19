@@ -669,14 +669,14 @@ public partial class JobView : UserControl
         }
 
         bool clean = incomplete == 0 && stockNote is null && programProblems == 0 && zeroProblems == 0;
-        StatusIncomplete.Foreground = clean ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        StatusIncomplete.Foreground = clean ? CamColors.MutedBrush : UiKit.Status("pending").Fg;
         // UX-04g: o número e o G5x digitados, ou "falta" (Siemens: só o G5x); nada inventado
         StatusProgram.Text = CamJobProgram.StatusText(_job);
         // UX-04f PR 2: selo da Máquina (✓, ✓ com fuso não verificado, aviso de controle diferente ou sem perfil)
         MachineProfile? machine = MachineSource?.Invoke();
         (string kind, string text) = CamJobInfo.MillMachineState(machine, _job.Dialect);
         StatusMachine.Text = machine is null ? "Máquina: sem perfil (3 eixos)" : $"Máquina: {machine.Name} " + (kind != "ok" ? "⚠ " + text : text == "OK" ? "✓" : "✓ " + CamJobInfo.SpindleNotChecked);
-        StatusMachine.Foreground = kind == "ok" ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        StatusMachine.Foreground = kind == "ok" ? CamColors.MutedBrush : UiKit.Status("pending").Fg;
         ToolTip.SetTip(StatusMachine, CamJobInfo.MachineControlWarning(machine, _job.Dialect));
     }
 
@@ -891,10 +891,10 @@ public partial class JobView : UserControl
         Tree.Items.Clear();
         TreeViewItem? select = null;
         TreeViewItem Node(string text, object? tag = null, string? icon = null) =>
-            UiKit.StateItem(TreeRow(text, null, icon is null ? null : UiKit.Icon(icon, "#9aa7b5", 15)), tag);
+            UiKit.StateItem(TreeRow(text, null, icon is null ? null : UiKit.Icon(icon, CamColors.Muted, 15)), tag);
 
         TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon, TreeTag? tag = null) =>
-            UiKit.StateItem(TreeRow(text, st, UiKit.Icon(icon, "#9aa7b5", 15)), tag);
+            UiKit.StateItem(TreeRow(text, st, UiKit.Icon(icon, CamColors.Muted, 15)), tag);
 
         MachineProfile? machine = MachineSource?.Invoke();
         Tree.Items.Add(NodeState(CamJobInfo.MillMachineTitle(machine), CamJobInfo.MillMachineState(machine, _job.Dialect), "ferramenta"));
@@ -984,7 +984,7 @@ public partial class JobView : UserControl
 
         var lead = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6 };
         lead.Children.Add(badge);
-        lead.Children.Add(UiKit.Icon(OpIcon(spec), "#9aa7b5", 15));
+        lead.Children.Add(UiKit.Icon(OpIcon(spec), CamColors.Muted, 15));
         string tip = CamJobInfo.OpTitle(i, spec) + "\n" + (incomplete && st.Kind == "ok" ? "Incompleta: falta preencher campo" : st.Text);
         if (OpOrigin.Describe(spec.Origin) is { } origin)
         {

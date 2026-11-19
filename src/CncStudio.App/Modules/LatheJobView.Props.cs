@@ -521,7 +521,7 @@ public partial class LatheJobView
         };
         var box = new StackPanel { Spacing = 3 };
         box.Children.Add(new Border { Height = 76, Child = _bankSelector });
-        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = CamColors.MutedBrush, HorizontalAlignment = HorizontalAlignment.Center });
         BankSlot.Child = box;
         FillBankSelector();
     }

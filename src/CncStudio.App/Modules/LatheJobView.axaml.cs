@@ -498,7 +498,7 @@ public partial class LatheJobView : UserControl
         StatusIncomplete.Text = incomplete == 0
             ? (_job.Operations.Count == 0 ? "Nenhuma operação" : "Nenhuma operação incompleta")
             : $"⚠ {incomplete} {(incomplete == 1 ? "operação incompleta" : "operações incompletas")}";
-        StatusIncomplete.Foreground = incomplete == 0 ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        StatusIncomplete.Foreground = incomplete == 0 ? CamColors.MutedBrush : UiKit.Status("pending").Fg;
         StatusProgram.Text = LatheJobProgram.StatusText(_job.Dialect, _job.ProgramNumber, _job.WorkOffset);
     }
 
@@ -616,11 +616,11 @@ public partial class LatheJobView : UserControl
         Tree.Items.Clear();
         TreeViewItem? select = null;
         TreeViewItem Node(string text, object? tag = null, string? icon = null) =>
-            UiKit.StateItem(CamShell.TreeRow(text, null, icon is null ? null : UiKit.Icon(icon, "#9aa7b5", 15)), tag);
+            UiKit.StateItem(CamShell.TreeRow(text, null, icon is null ? null : UiKit.Icon(icon, CamColors.Muted, 15)), tag);
 
         TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon, TreeTag? tag = null)
         {
-            TreeViewItem item = UiKit.StateItem(CamShell.TreeRow(text, st, UiKit.Icon(icon, "#9aa7b5", 15)), tag);
+            TreeViewItem item = UiKit.StateItem(CamShell.TreeRow(text, st, UiKit.Icon(icon, CamColors.Muted, 15)), tag);
             if (tag is not null && tag.Kind == selectTag)
             {
                 select = item;
@@ -689,7 +689,7 @@ public partial class LatheJobView : UserControl
         });
         var lead = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6 };
         lead.Children.Add(CamShell.Badge(mark, kind));
-        lead.Children.Add(UiKit.Icon(OpIcon(spec), "#9aa7b5", 15));
+        lead.Children.Add(UiKit.Icon(OpIcon(spec), CamColors.Muted, 15));
         string tip = LatheJobInfo.OpTitle(i, spec) + "\n" + st.Text;
         Grid row = CamShell.TreeRow(LatheJobInfo.OpTitle(i, spec), null, lead, eye, tip);
         row.Opacity = spec.Enabled ? 1 : 0.55;

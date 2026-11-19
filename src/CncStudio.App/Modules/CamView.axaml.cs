@@ -173,6 +173,7 @@ public partial class CamView : UserControl
     public CamView()
     {
         InitializeComponent();
+        CamColors.ApplyControls(Resources);
         HeaderSlot.Content = JobPanel.TabStrip;
         LatheTab.Click += (_, _) => ShowMachine(lathe: true);
         MachineTab.Click += (_, _) => ShowMachine(profile: true);

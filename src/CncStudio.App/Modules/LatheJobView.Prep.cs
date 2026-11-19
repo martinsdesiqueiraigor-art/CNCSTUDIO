@@ -15,8 +15,8 @@ namespace CncStudio.App.Modules;
 /// </summary>
 public partial class LatheJobView
 {
-    private static readonly IBrush Muted = Brush.Parse("#9aa7b5");
-    private static readonly IBrush Accent = Brush.Parse("#ff8a1f");
+    private static readonly IBrush Muted = CamColors.MutedBrush;
+    private static readonly IBrush Accent = CamColors.AccentBrush;
 
     private static TextBlock CardTitle(string text) => new() { Text = text, FontSize = 18, FontWeight = FontWeight.Bold };
 
@@ -30,9 +30,9 @@ public partial class LatheJobView
         var b = new Button
         {
             Content = text, Padding = new Thickness(10, 4), FontSize = 12, MinHeight = 0,
-            Background = selected ? Brush.Parse("#2b1a0a") : Brush.Parse("#0d1117"),
-            BorderBrush = selected ? Accent : Brush.Parse("#2a3442"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
-            Foreground = selected ? Brush.Parse("#ffb066") : Brushes.White,
+            Background = selected ? CamColors.SelectBgBrush : CamColors.BgBrush,
+            BorderBrush = selected ? CamColors.SelectBrush : CamColors.BorderStrongBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+            Foreground = Brushes.White,
             IsEnabled = click is not null || selected,
         };
         if (click is not null)
