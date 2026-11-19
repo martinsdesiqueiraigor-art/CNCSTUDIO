@@ -128,6 +128,27 @@ public static class CamHandoffCode
         return true;
     }
 
+    /// <summary>
+    /// DESK-01: setup para um envio novo do CAM: sem o bruto salvo (o do CAM entra pelo <see cref="FillStock"/>) quando o CAM mandou
+    /// bruto, e sem a fixação salva no torno quando o CAM mandou a fixação do torno (entra pelo <see cref="FillLatheFixture"/>).
+    /// Ferramentas, material e o resto ficam. Devolve uma cópia.
+    /// </summary>
+    public static MachiningSetup FreshFromCam(MachiningSetup setup, CamHandoff p)
+    {
+        MachiningSetup copy = setup.Clone();
+        if (ToSetupStock(p.Stock) is not null)
+        {
+            copy.Stock = null;
+        }
+
+        if (p is { Machine: CamHandoff.Lathe, LatheGrip: not null })
+        {
+            copy.Fixtures.Clear();
+        }
+
+        return copy;
+    }
+
     /// <summary>Bruto do comentário (BRUTO ...) do texto, como o simulador da fresa o lê; null se não há.</summary>
     private static Stock? CommentStock(string programText) => SetupBinding.FromProgramComments(programText, MachineKind.Mill, Bounds3.Empty);
 

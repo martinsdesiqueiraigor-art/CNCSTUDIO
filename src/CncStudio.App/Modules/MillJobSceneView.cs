@@ -278,7 +278,7 @@ public sealed class MillJobSceneView : Grid
             {
                 // fica apagado com a dica do porquê
                 item.IsEnabled = false;
-                item.Header = text + " (falta a altura da peça)";
+                item.Header = text + " (contornos do DXF: em breve)";
                 ToolTip.SetTip(item, disabledTip);
                 ToolTip.SetShowOnDisabled(item, true);
             }

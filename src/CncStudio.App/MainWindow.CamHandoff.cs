@@ -27,6 +27,13 @@ public partial class MainWindow
         if (read.Package is { } p)
         {
             document.Dialect = CamHandoffCode.DialectOf(p);
+            if (package is not null)
+            {
+                // DESK-01: envio novo do CAM ("Enviar ao Code"): o bruto e a fixação do torno do CAM valem por cima do setup salvo com o
+                // mesmo nome (ex.: TORNO.nc de outro trabalho); as ferramentas do setup ficam
+                document.Setup = CamHandoffCode.FreshFromCam(document.Setup, p);
+            }
+
             CamHandoffCode.FillStock(document.Setup, p, document.Text.Text);
             // DESK-01: placa, comprimento preso e contraponto do CAM (torno)
             CamHandoffCode.FillLatheFixture(document.Setup, p);

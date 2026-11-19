@@ -69,4 +69,35 @@ public class Desk01HandoffTests
         setup.Stock.Width = 80;
         Assert.Equal(90, SetupBinding.ProgramFirst(setup, MachineKind.Mill, "(BRUTO 90 X 70 X 26)\n", Bounds3.Empty).Stock!.Width);
     }
+
+    [Fact]
+    public void EnvioNovoDoCamValePorCimaDoSetupSalvoComOMesmoNome()
+    {
+        var p = new CamHandoff("hash", CamDialect.Fanuc)
+        {
+            Machine = CamHandoff.Lathe,
+            Stock = new HandoffStock(HandoffStockKind.Round) { Diameter = 30, Height = 125, Z = -123 },
+            LatheGrip = new HandoffLatheGrip(30, 20, 100, true),
+        };
+        var old = new MachiningSetup { Stock = new SetupStock { Kind = SetupStockKind.Round, Diameter = 60, Height = 80, Z = -80 } };
+        old.Fixtures.Add(new SetupFixture { Kind = SetupFixtureKind.ThreeJawChuck });
+        old.Tools.Add(new SetupTool { Number = 1, Kind = ToolKind.TurnExternal });
+
+        MachiningSetup fresh = CamHandoffCode.FreshFromCam(old, p);
+        Assert.True(CamHandoffCode.FillStock(fresh, p, "(BRUTO D30 X 125)\n"));
+        Assert.True(CamHandoffCode.FillLatheFixture(fresh, p));
+        Assert.Equal(30, fresh.Stock!.Diameter);
+        Assert.True(Assert.Single(fresh.Fixtures).Tailstock);
+        Assert.Single(fresh.Tools);
+        Assert.Equal(60, old.Stock.Diameter); // o setup salvo não muda
+    }
+
+    [Fact]
+    public void BancoDoTornoNaoMostraAFresaDoMesmoT()
+    {
+        var mill = new ToolBank(ToolBankImport.MillBankId, "Ferramentas fresa", ToolBankMachine.Mill) { Tools = [new BankTool(1) { Name = "Topo 20", Diameter = 20 }] };
+        var lathe = new ToolBank(ToolBankImport.LatheBankId, "Ferramentas torno", ToolBankMachine.Lathe) { Tools = [new BankTool(1) { Name = "Desbaste R0,8", CornerRadius = 0.8 }] };
+        Assert.Equal("Desbaste R0,8", ToolBankLookup.ToolsFor(MachineKind.Lathe, [mill, lathe])[1].Name);
+        Assert.Equal("Topo 20", ToolBankLookup.ToolsFor(MachineKind.Mill, [mill, lathe])[1].Name);
+    }
 }

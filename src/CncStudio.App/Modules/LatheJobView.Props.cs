@@ -253,6 +253,11 @@ public partial class LatheJobView
 
             // trocar o tipo guarda as medidas já digitadas; "Não informada" apaga a fixação
             LatheFixation? now = combo.SelectedIndex == 0 ? null : (_job.Fixation ?? new LatheFixation(LatheFixationKind.Jaws)) with { Kind = (LatheFixationKind)(combo.SelectedIndex - 1) };
+            // DESK-01: "Entre pontas (castanhas + contraponto)" já marca o contraponto (dá para desmarcar)
+            if (now is { Kind: LatheFixationKind.Center } && _job.Fixation?.Kind != LatheFixationKind.Center)
+            {
+                now = now with { Tailstock = true };
+            }
             SetFixation(now, rebuild: true);
         };
         PropsPanel.Children.Add(Row("Tipo", combo));

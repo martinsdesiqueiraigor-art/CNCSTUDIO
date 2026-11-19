@@ -836,7 +836,8 @@ public partial class MainWindow : Window
         string? filePath = _active.FilePath;
         string fileName = filePath is null ? "sem título" : Path.GetFileName(filePath);
         MachineSettings machine = _active.Setup.ApplyTo(MachineForProgram(filePath is null ? null : Path.GetDirectoryName(filePath))) with { PartFrame = ActivePartFrame() };
-        Dictionary<int, CncStudio.Core.Cam.BankTool> tools = CncStudio.Core.Cam.ToolBankLookup.Tools(_settings.Banks, _settings.ActiveMillBankId, _settings.ActiveLatheBankId); // UX-04h C2/D1: os bancos ativos da fresa e do torno, como o simulador (sem escolha ou apagado: o principal)
+        // DESK-01: só o banco ativo da máquina do programa (o T1 da fresa não entra na folha do torno)
+        Dictionary<int, CncStudio.Core.Cam.BankTool> tools = CncStudio.Core.Cam.ToolBankLookup.ToolsFor(CurrentAnalysis?.ToolPath.Machine ?? MachineKind.Mill, _settings.Banks, _settings.ActiveMillBankId, _settings.ActiveLatheBankId); // UX-04h C2/D1: os bancos ativos da fresa e do torno, como o simulador (sem escolha ou apagado: o principal)
         string? stock = CurrentStockDescription;
         AnalysisStatus.Text = "Gerando a folha de setup…";
 
@@ -1126,9 +1127,14 @@ public partial class MainWindow : Window
             return $"Do CAM: Ø{N(cam)}";
         }
 
-        if (CncStudio.Core.Cam.ToolBankLookup.Tools(_settings.Banks, _settings.ActiveMillBankId, _settings.ActiveLatheBankId).TryGetValue(tool, out CncStudio.Core.Cam.BankTool? bank))
+        bool latheProgram = CurrentAnalysis?.ToolPath.Machine == MachineKind.Lathe;
+        if (CncStudio.Core.Cam.ToolBankLookup.ToolsFor(latheProgram ? MachineKind.Lathe : MachineKind.Mill, _settings.Banks, _settings.ActiveMillBankId, _settings.ActiveLatheBankId)
+            .TryGetValue(tool, out CncStudio.Core.Cam.BankTool? bank))
         {
-            return $"Do banco: {bank.Name ?? "T" + tool}" + (bank.Diameter is > 0 and var d ? $", Ø{N(d)}" : "");
+            // torno: tipo e raio da ponta (ferramenta de torno não tem Ø)
+            return latheProgram
+                ? $"Do banco do torno: {bank.Name ?? "T" + tool}" + (bank.CornerRadius is > 0 and var r ? $", raio da ponta {N(r)}" : "")
+                : $"Do banco: {bank.Name ?? "T" + tool}" + (bank.Diameter is > 0 and var d ? $", Ø{N(d)}" : "");
         }
 
         var parse = CncStudio.Core.Parsing.GCodeParser.Parse(Editor.Text, CurrentDialect);

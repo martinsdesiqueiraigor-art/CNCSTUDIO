@@ -2,11 +2,11 @@
 
 Ramo `ajuste-DESK-01`, base `dev` em `78f77dc`. Executor: Claude (chat), em sprint, por ordem do Igor (18/11, noite), depois do teste no PC dele (teste automático do PR #194). Lista dos problemas: Projeto, `claude/problemas-teste-2026-11-18.md`.
 
-**Commits:** A (fresa com STEP) · B (bruto e fixação do CAM ao Code) · testes do B · C (janelas do Code desktop).
+**Commits:** A (fresa com STEP) · B (bruto e fixação do CAM ao Code) · testes do B · C (janelas do Code desktop) · D (achados do teste no PC do Igor, 19/11).
 
 **Testes:**
-- Aprovados: `dotnet test tests/CncStudio.Core.Tests` em Release, 2009 (19 novos em `Desk01StepPartTests` e `Desk01HandoffTests`). Build Release do App e da web sem erro.
-- Não rodados: App no Windows (o Igor testa pelo teste automático do PR).
+- Aprovados: `dotnet test tests/CncStudio.Core.Tests` em Release, 2012 (22 novos em `Desk01StepPartTests`, `Desk01HandoffTests` e `MachineExecutorTests`). Build Release do App e da web sem erro.
+- Teste no PC do Igor (teste automático do PR, commit antes do D), pelo Claude: fresa com STEP (altura 26, bruto 104 × 104 × 28 em volta da flange, zero no centro, furação com Z fundo −26, `(BRUTO 104 X 103.995 X 28)`), torno (pendência do bruto, `(BRUTO D30 X 125)`), janelas novas do Code. Os achados viraram o D.
 
 ### Os 8 G-codes de referência e os testes que mudaram (autorizado pelo Igor em 18/11: "os G-codes ganham a linha bruto")
 - **Só a linha `(BRUTO ...)` entra** (nenhum movimento muda): `fresa-3mais2`, `fresa-bloco-siemens`, `fresa-fixacao`, `fresa-texto-cilindro`, `fresa-zero-g55-canto` e os exemplos de torno `canal-de-face` e `sangramento` (Fanuc e Siemens). `fresa-sem-bruto`, `fresa-zero-centro-base` e `torno-eixo` não mudam (sem bruto completo).
@@ -16,6 +16,7 @@ Ramo `ajuste-DESK-01`, base `dev` em `78f77dc`. Executor: Claude (chat), em spri
 - `M3DPartTests` (2): o Z fundo do bolsão e da furação pelo 3D vem preenchido do modelo.
 - `CamPaletteTests`: a faixa Arquivo ganhou "Novo".
 - `CamJobShapeTests.Pendencia_da_peca_cita_a_forma`: o texto cita o STEP.
+- `MachineExecutorTests.G53EG04NaoGeramMovimento`: depois do G53 com Z o movimento em X não é desenhado até o próximo Z (D1).
 
 ### A. Fresa com STEP
 1. **A peça STEP vale sozinha**: a caixa do STEP é a peça para o bruto por sobra, o zero e as pendências; os círculos e contornos que o 3D cria para as operações não mudam mais o bruto (antes virava um cubinho 13 × 13 em volta do furo).
@@ -35,8 +36,15 @@ Ramo `ajuste-DESK-01`, base `dev` em `78f77dc`. Executor: Claude (chat), em spri
 2. **O BRUTO do programa manda também no desktop**, na posição do zero; o mesmo bruto já no setup (o do CAM) fica com a posição exata; "Outro bruto" mostra aviso fixo na barra de status.
 3. **Janela de ferramentas**: lista as ferramentas do programa com a origem da medida (deste programa, CAM, banco, comentário ou "sem medida"); "Medida deste programa" grava tipo, Ø, raio de canto ou da ponta e largura do bedame no setup. O antigo "Diâmetro padrão" ficou embaixo, como "Ø só para desenhar ferramenta sem medida".
 
+### D. Achados do teste no PC (19/11)
+1. **G28/G30/G53 com Z:** o Z vai a uma altura de máquina que o programa não diz. Até o próximo bloco com Z, os movimentos em X/Y não são desenhados (nem contam como rápido no material), e o bloco que devolve o Z também não. Antes a ferramenta ficava em Z0 e o primeiro rápido do CAM (`G91 G28 Z0` → `G0 X Y`) passava por dentro do bruto com sobra em cima. Girar o eixo rotativo no lugar continua desenhado.
+2. **Enviar ao Code vale por cima do setup salvo com o mesmo nome:** o bruto do CAM e, no torno, a placa e o contraponto entram (as ferramentas do setup ficam). Antes, um TORNO.nc antigo segurava o bruto e a placa velhos.
+3. **Torno lê só o banco do torno** na janela de ferramentas e na folha de setup (mostra o raio da ponta, não um Ø). Antes o T1 da fresa (Ø20) aparecia no torno.
+4. "Entre pontas" marca o contraponto (dá para desmarcar). O item "Peça: Sólida" diz que é dos contornos do DXF (a peça STEP já aparece sólida).
+
 ### Ficou para depois
-- Avisos de G28/G30 ("a posição da máquina não é conhecida") continuam: mudar a contagem de avisos mexe em testes da análise.
+- O aviso de G28/G30 continua na lista (a contagem de avisos não mudou).
+- Furação pelo 3D de furo passante vai até a base exata (sem passar a ponta): conferir o Z fundo.
 - Ferramenta encostada na face no começo da simulação do torno.
 - O zero do CAM num canto é o da peça; o comentário BRUTO não leva posição, e a web posiciona pelo zero (no torno, a face em Z0). O desktop usa o pacote do CAM, que tem a posição exata.
 
