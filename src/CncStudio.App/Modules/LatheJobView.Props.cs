@@ -59,6 +59,7 @@ public partial class LatheJobView
             ProgramFields();
         });
         Into(PrepOrigin, ZeroProps);
+        SetupSketch.Show(_job.Stock, _job.Fixation, _job.ZeroFace);
     }
 
     /// <summary>Zero do trabalho (TORNO-T5): X0 no centro e o Z0 escolhido (desenho do perfil, face pronta ou face oposta).</summary>
