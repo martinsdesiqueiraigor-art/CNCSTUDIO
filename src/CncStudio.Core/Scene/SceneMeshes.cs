@@ -50,7 +50,8 @@ public static class SceneMeshes
             (body, tip + cone * 1.2 + quillLength * 2),
             (0, tip + cone * 1.2 + quillLength * 2),
         ], 0, 0, palette.Fixture, null);
-        return mesh;
+        // DESK-01: coordenadas do torno (eixo Z) para a cena (eixo X), como a placa e a barra
+        return mesh.Transformed(LatheToWorld);
     }
 
     public static (SolidMesh Body, SolidMesh Jaws) LatheChuck(TurningStock stock, SetupFixture? chuck, ScenePalette palette)
