@@ -26,12 +26,36 @@
       <Setter Property="Foreground" Value="#E6E8EB" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+    <!-- UI-C3: botões da simulação grandes, como na web; Executar em laranja -->
     <Style Selector="Button.play">
-      <Setter Property="MinWidth" Value="28" />
-      <Setter Property="MinHeight" Value="26" />
-      <Setter Property="Padding" Value="4,2" />
-      <Setter Property="FontSize" Value="13" />
-      <Setter Property="Margin" Value="0,0,1,0" />
+      <Setter Property="MinWidth" Value="40" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="#3A3F47" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button#PlayButton">
+      <Setter Property="MinWidth" Value="54" />
+      <Setter Property="Background" Value="#F08A24" />
+      <Setter Property="Foreground" Value="#16181C" />
+      <Setter Property="BorderBrush" Value="#F08A24" />
+    </Style>
+    <Style Selector="Button#PlayButton:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#F5A55A" />
+      <Setter Property="Foreground" Value="#16181C" />
+    </Style>
+    <Style Selector="Button.speed">
+      <Setter Property="Width" Value="32" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <!-- Ícones da barra de cima do gráfico -->
     <Style Selector="Button.gicon, ToggleButton.gicon">
@@ -125,7 +149,7 @@
     </WrapPanel>
 
     <!-- Faixa de baixo: linha de informações pequena + uma linha com reprodução, progresso e velocidade -->
-    <Border DockPanel.Dock="Bottom" Background="#1A1D22" BorderBrush="#3A3F47" BorderThickness="0,1,0,0" Padding="6,4">
+    <Border DockPanel.Dock="Bottom" Background="#1B1D22" BorderBrush="#2C3037" BorderThickness="0,1,0,0" Padding="8,6">
       <StackPanel Spacing="3">
         <Grid ColumnDefinitions="Auto,*,Auto">
           <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
@@ -140,13 +164,15 @@
           </StackPanel>
 
           <!-- Barra de progresso com as marcas de troca de ferramenta em cima -->
-          <StackPanel Grid.Column="1" Margin="8,0" VerticalAlignment="Center" MinWidth="120">
+          <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center" MinWidth="120">
             <controls:ToolMarksStrip x:Name="ToolMarks" />
             <Slider x:Name="PositionSlider" Minimum="0" Maximum="1" Margin="0,-4,0,0"
                     ToolTip.Tip="Arraste para qualquer ponto do programa" />
           </StackPanel>
 
-          <Button x:Name="SpeedButton" Grid.Column="2" Padding="8,2" MinHeight="26" FontSize="12" VerticalAlignment="Center"
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <Button x:Name="SpeedDownButton" Classes="speed" Content="−" ToolTip.Tip="Mais devagar" />
+          <Button x:Name="SpeedButton" Padding="8,2" Height="34" CornerRadius="8" FontSize="12" VerticalAlignment="Center"
                   ToolTip.Tip="Modo e velocidade da execução">
             <Button.Flyout>
               <Flyout Placement="TopEdgeAlignedRight">
@@ -162,6 +188,8 @@
               </Flyout>
             </Button.Flyout>
           </Button>
+          <Button x:Name="SpeedUpButton" Classes="speed" Content="+" ToolTip.Tip="Mais rápido" />
+          </StackPanel>
         </Grid>
 
         <!-- Informações do ponto atual (a ferramenta, o G, a linha, o passe e as coordenadas) -->

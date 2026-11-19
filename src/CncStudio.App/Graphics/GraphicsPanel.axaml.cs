@@ -113,6 +113,9 @@ public partial class GraphicsPanel : UserControl
                 GoToMove((int)Math.Round(PositionSlider.Value));
             }
         };
+        // UI-C3: − e + da velocidade, como na web (passo de 10 no controle de velocidade)
+        SpeedDownButton.Click += (_, _) => SpeedSlider.Value = Math.Max(SpeedSlider.Minimum, SpeedSlider.Value - 10);
+        SpeedUpButton.Click += (_, _) => SpeedSlider.Value = Math.Min(SpeedSlider.Maximum, SpeedSlider.Value + 10);
         SpeedSlider.PropertyChanged += (_, e) =>
         {
             if (e.Property == Slider.ValueProperty)
