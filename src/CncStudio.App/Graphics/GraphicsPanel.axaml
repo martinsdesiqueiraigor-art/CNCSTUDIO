@@ -83,6 +83,10 @@
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Background" Value="Transparent" />
     </Style>
+    <Style Selector="TextBlock.glabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
     <Style Selector="Border.sepv">
       <Setter Property="Width" Value="1" />
       <Setter Property="Height" Value="18" />
@@ -135,17 +139,17 @@
       </Button>
 
       <StackPanel x:Name="ViewIcons" Orientation="Horizontal" VerticalAlignment="Center">
-        <ToggleButton x:Name="IsoView" Classes="gicon" ToolTip.Tip="Vista isométrica"><PathIcon Data="{StaticResource IconViewIso}" /></ToggleButton>
-        <ToggleButton x:Name="TopView" Classes="gicon" ToolTip.Tip="Vista de topo"><PathIcon Data="{StaticResource IconViewTop}" /></ToggleButton>
-        <ToggleButton x:Name="FrontView" Classes="gicon" ToolTip.Tip="Vista de frente"><PathIcon Data="{StaticResource IconViewFront}" /></ToggleButton>
-        <ToggleButton x:Name="SideView" Classes="gicon" ToolTip.Tip="Vista de lado"><PathIcon Data="{StaticResource IconViewSide}" /></ToggleButton>
+        <ToggleButton x:Name="IsoView" Classes="gicon" ToolTip.Tip="Vista isométrica"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconViewIso}" /><TextBlock Classes="glabel" Text="Iso" /></StackPanel></ToggleButton>
+        <ToggleButton x:Name="TopView" Classes="gicon" ToolTip.Tip="Vista de topo"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconViewTop}" /><TextBlock Classes="glabel" Text="Topo" /></StackPanel></ToggleButton>
+        <ToggleButton x:Name="FrontView" Classes="gicon" ToolTip.Tip="Vista de frente"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconViewFront}" /><TextBlock Classes="glabel" Text="Frente" /></StackPanel></ToggleButton>
+        <ToggleButton x:Name="SideView" Classes="gicon" ToolTip.Tip="Vista de lado"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconViewSide}" /><TextBlock Classes="glabel" Text="Lado" /></StackPanel></ToggleButton>
       </StackPanel>
       <Border Classes="sepv" />
-      <Button x:Name="FitButton" Classes="gicon" ToolTip.Tip="Ajustar: enquadra a peça inteira"><PathIcon Data="{StaticResource IconFit}" /></Button>
+      <Button x:Name="FitButton" Classes="gicon" ToolTip.Tip="Ajustar: enquadra a peça inteira"><StackPanel Orientation="Horizontal" Spacing="4"><PathIcon Data="{StaticResource IconFit}" /><TextBlock Classes="glabel" Text="Ajustar" /></StackPanel></Button>
       <ToggleButton x:Name="MeasureToggle" Classes="gicon"
                     ToolTip.Tip="Medir: clique em dois pontos (encaixa nos pontos da trajetória). Esc sai."><PathIcon Data="{StaticResource IconMeasure}" /></ToggleButton>
-      <Button x:Name="StockButton" Classes="gicon" ToolTip.Tip="Bruto: medidas do material"><PathIcon Data="{StaticResource IconBlock}" /></Button>
-      <Button x:Name="ToolsButton" Classes="gicon" ToolTip.Tip="Ferramentas e zeros"><PathIcon Data="{StaticResource IconCutter}" /></Button>
+      <Button x:Name="StockButton" Classes="gicon" IsVisible="False" ToolTip.Tip="Bruto: medidas do material (também na aba Simular da faixa)"><PathIcon Data="{StaticResource IconBlock}" /></Button>
+      <Button x:Name="ToolsButton" Classes="gicon" IsVisible="False" ToolTip.Tip="Ferramentas e zeros (também na aba Simular da faixa)"><PathIcon Data="{StaticResource IconCutter}" /></Button>
     </WrapPanel>
 
     <!-- Faixa de baixo: linha de informações pequena + uma linha com reprodução, progresso e velocidade -->
