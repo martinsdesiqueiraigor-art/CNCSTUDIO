@@ -203,4 +203,25 @@ public class StepPlanSourceTests
         Assert.Equal(40, x1 - x0, 1);
         Assert.Equal(2, d.Contours.Count);
     }
+
+    [Fact]
+    public void Profundidade_lida_do_STEP_nao_vira_marca_de_digitada_mas_a_mudada_vira()
+    {
+        TriangleMesh m = Block();
+        StepPlanDrawing d = Read(m);
+        var input = new PlanInput(d.Contours, d.Thickness, AssistLibrary.Defaults().Materials[3], []) { Depths = d.Depths };
+        PlanResult plan = AssistPlanner.Plan(input);
+        Assert.True(plan.Ok, string.Join("; ", plan.Notes));
+        var depths = PlanReview.DepthsOf(plan).ToDictionary(x => x.Key, x => x.Presumed);
+        var heights = new PlanHeights(50, 2, 0);
+
+        PlanReviewResult fromModel = PlanReview.Review(plan, input, new HashSet<int> { 3, 4 }, depths, ReleaseStrategy.HeldBySetup, heights, null, null, depths.Keys.ToHashSet());
+        Assert.True(fromModel.Operations is not null, fromModel.Error);
+        CamOperationSpec pocket = Assert.Single(fromModel.Operations!, o => o.Kind == JobOpKind.Pocket);
+        Assert.DoesNotContain("depth", pocket.Origin!.Typed);
+        Assert.Contains("heights", pocket.Origin.Typed);
+
+        PlanReviewResult typed = PlanReview.Review(plan, input, new HashSet<int> { 3, 4 }, depths, ReleaseStrategy.HeldBySetup, heights, null, null, new HashSet<int>());
+        Assert.Contains("depth", Assert.Single(typed.Operations!, o => o.Kind == JobOpKind.Pocket).Origin!.Typed);
+    }
 }

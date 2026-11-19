@@ -21,6 +21,8 @@ public sealed partial class AssistView
     private readonly HashSet<int> _confirmedNewTools = [];
     private readonly StackPanel _planDepthsPanel = new() { Spacing = 4 };
     private readonly Dictionary<int, double> _reviewedDepths = [];
+    /// <summary>Profundidades que vieram do modelo STEP e continuam com o valor lido (não contam como digitadas).</summary>
+    private readonly HashSet<int> _modelDepthKeys = [];
     private ReleaseStrategy _release = ReleaseStrategy.NotReviewed;
     private readonly double?[] _zValues = new double?[3]; // seguro, aproximação, topo da peça
     private readonly Dictionary<int, double> _rpmAdjust = [];
@@ -227,6 +229,7 @@ public sealed partial class AssistView
         _confirmedNewTools.Clear();
         _planToolsPanel.Children.Clear();
         _reviewedDepths.Clear();
+        _modelDepthKeys.Clear();
         _release = ReleaseStrategy.NotReviewed;
         Array.Clear(_zValues);
         _rpmAdjust.Clear();
@@ -242,7 +245,7 @@ public sealed partial class AssistView
 
         (PlanInput? input, string? error) = BuildPlanInput();
         return input is null ? new PlanReviewResult(null, error) : PlanReview.Review(plan, input, _confirmedNewTools, _reviewedDepths, _release,
-            _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null, _rpmAdjust, PlanFixture?.Invoke());
+            _zValues is [{ } safe, { } clearance, { } top] ? new PlanHeights(safe, clearance, top) : null, _rpmAdjust, PlanFixture?.Invoke(), _modelDepthKeys);
     }
 
     private readonly StackPanel _planMissing = new() { Spacing = 3 };
@@ -449,6 +452,7 @@ public sealed partial class AssistView
             if (_useStep)
             {
                 _reviewedDepths[key] = d.Presumed;
+                _modelDepthKeys.Add(key);
                 box.Text = d.Presumed.ToString("0.##", Br);
                 Mark(status, "do modelo STEP", "ok");
             }
@@ -458,11 +462,22 @@ public sealed partial class AssistView
                 if (double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) && v > 0)
                 {
                     _reviewedDepths[key] = v;
-                    Mark(status, "digitado", "ok");
+                    // o evento de texto também chega depois de preencher o valor do STEP: valor igual ao lido continua "do modelo STEP"
+                    if (_useStep && Math.Abs(v - d.Presumed) < 0.0005)
+                    {
+                        _modelDepthKeys.Add(key);
+                        Mark(status, "do modelo STEP", "ok");
+                    }
+                    else
+                    {
+                        _modelDepthKeys.Remove(key);
+                        Mark(status, "digitado", "ok");
+                    }
                 }
                 else
                 {
                     _reviewedDepths.Remove(key);
+                    _modelDepthKeys.Remove(key);
                     if (string.IsNullOrWhiteSpace(box.Text))
                     {
                         Mark(status, "pendente: presumida, digite o valor", "pending");

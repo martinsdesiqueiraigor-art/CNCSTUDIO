@@ -192,7 +192,7 @@ public static class PlanReview
     /// </summary>
     public static PlanReviewResult Review(PlanResult plan, PlanInput current, IReadOnlySet<int>? confirmedNewTools, IReadOnlyDictionary<int, double> depths,
         ReleaseStrategy release = ReleaseStrategy.NotReviewed, PlanHeights? heights = null,
-        IReadOnlyDictionary<int, double>? rpmAdjust = null, JobFixture? fixture = null)
+        IReadOnlyDictionary<int, double>? rpmAdjust = null, JobFixture? fixture = null, IReadOnlySet<int>? modelDepthKeys = null)
     {
         if (PlanValidity.CheckApply(plan, current, confirmedNewTools) is { } stale)
         {
@@ -295,13 +295,20 @@ public static class PlanReview
 
         // Marca de origem (missão 11): o que veio do Assist, se os dados de corte são rascunho e o que você digitou
         var depthOps = DepthsOf(plan).SelectMany(d => d.OperationIndexes).ToHashSet();
+        // profundidade que veio do modelo STEP e não foi mudada não é "digitada" (STEP-CONT-01)
+        var modelOps = DepthsOf(plan).Where(d => modelDepthKeys?.Contains(d.Key) == true).SelectMany(d => d.OperationIndexes).ToHashSet();
         string? cut = current.Material is null ? null : current.Material.Draft ? OpOrigin.Draft : OpOrigin.Reviewed;
         for (int i = 0; i < ops.Count; i++)
         {
             var typed = new List<string>();
             if (depthOps.Contains(i))
             {
-                typed.AddRange(["depth", "heights"]);
+                if (!modelOps.Contains(i))
+                {
+                    typed.Add("depth");
+                }
+
+                typed.Add("heights");
             }
 
             bool rpmTyped = rpmFor.ContainsKey(ops[i].Tool.Number);
