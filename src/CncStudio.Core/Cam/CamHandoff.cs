@@ -203,7 +203,7 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
         Zero = job.Zero is { Point: { } p, Level: { } l } z ? new HandoffZero(p, l, z.AsBefore, CamJobZero.Summary(job)) : null,
         Fixture = job.Fixture,
         Stock = HandoffStock.InProgram(job),
-        Tools = ProgramTools(job).Select(t => FromBank(t, bank)).ToList(),
+        Tools = ProgramTools(job).Select(t => WithVCutter(job, FromBank(t, bank))).ToList(),
         BankName = bank?.Name,
     };
 
@@ -293,6 +293,25 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
             CutLength = b.CuttingLength,
             Holder = HolderText(b.HolderDiameter, b.HolderLength),
         };
+    }
+
+    /// <summary>Tipo do pacote para a fresa em V do Chanfro (OPS-A-02): não existe no banco; a ponta vem do ângulo digitado na operação.</summary>
+    public const string VCutterType = "fresa-v";
+
+    /// <summary>
+    /// OPS-A-02: o T usado só por operações de Chanfro com o mesmo ângulo digitado vira "fresa-v" com esse ângulo (o simulador desenha o cone).
+    /// T usado também por outra operação, ou por chanfros de ângulos diferentes, fica como estava (topo reto genérico). Ângulo vazio não vale.
+    /// </summary>
+    private static HandoffTool WithVCutter(CamJob job, HandoffTool t)
+    {
+        List<CamOperationSpec> same = job.Operations.Where(o => o.Enabled && o.Tool.Number == t.Number && o.Tool.Diameter == t.Diameter).ToList();
+        if (same.Count == 0 || same.Any(o => o.Kind != JobOpKind.Chamfer || o.Chamfer is null || CamJobInfo.Unknown(o, CamJobInfo.TipAngleField)))
+        {
+            return t;
+        }
+
+        double angle = same[0].Chamfer!.TipAngle;
+        return same.All(o => o.Chamfer!.TipAngle == angle) ? t with { Type = VCutterType, TipAngle = angle } : t;
     }
 
     /// <summary>

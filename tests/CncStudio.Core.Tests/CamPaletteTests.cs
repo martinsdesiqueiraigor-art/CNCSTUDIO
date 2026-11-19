@@ -106,7 +106,7 @@ public class CamPaletteTests
     public void Em_breve_aparece_apagado_e_nao_cria_operacao()
     {
         var soon = CamPalette.VisibleGroups.SelectMany(g => g.Items).Where(i => i.Soon).Select(i => i.Id).ToList();
-        Assert.Equal(["nova-fixacao", "zero", "chanfro", "ranhura", "macho", "mandrilhar"], soon);
+        Assert.Equal(["nova-fixacao", "zero", "ranhura", "macho", "mandrilhar"], soon);
         var job = new CamJob();
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         foreach (string id in soon)

@@ -66,7 +66,7 @@ public static class CamPalette
             new("contorno-dentro", "Contorno dentro", "contorno-dentro", JobOpKind.Contour, ContourSide.Inside, "Contorno por dentro: a ferramenta passa do lado de dentro da linha."),
             new("contorno-linha", "Sobre a linha", "contorno-linha", JobOpKind.Contour, ContourSide.OnLine, "Contorno sobre a linha: o centro da ferramenta segue o desenho."),
             new("bolsao", "Bolsão", "bolsao", JobOpKind.Pocket, ContourSide.Outside, "Esvazia a área dentro do contorno (com ilhas, se houver)."),
-            CamPaletteItem.Later("chanfro", "Chanfro", "chanfro", "Chanfro nas arestas do contorno."),
+            new("chanfro", "Chanfro", "chanfro", JobOpKind.Chamfer, ContourSide.Outside, "Chanfro na aresta do contorno com fresa em V (ângulo, largura e profundidade digitados)."),
             CamPaletteItem.Later("ranhura", "Ranhura", "ranhura", "Ranhura com a largura da ferramenta."),
         ]),
         new("furacao", "Furação", true,
@@ -143,7 +143,7 @@ public static class CamPalette
                 : "Abra um DXF, um trabalho com desenho ou desenhe uma forma (item Peça) primeiro.";
         }
 
-        return kind is JobOpKind.Contour or JobOpKind.Pocket && !job.Contours[targetContour].IsClosed
+        return kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Chamfer && !job.Contours[targetContour].IsClosed
             ? $"Contorno {targetContour + 1} aberto: as pontas não se encontram. Feche a cadeia no DXF."
             : null;
     }
