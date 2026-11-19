@@ -57,4 +57,16 @@ public class Desk01HandoffTests
         // não sobrescreve
         Assert.False(CamHandoffCode.FillLatheFixture(setup, back.Package));
     }
+
+    [Fact]
+    public void MesmoBrutoDoCamNoSetupFicaComAPosicaoExata()
+    {
+        // o CAM escreveu (BRUTO 90 X 70 X 26) e mandou o bruto com o canto em (−45, −35, −5): a posição do CAM vale
+        var setup = new MachiningSetup { Stock = new SetupStock { Kind = SetupStockKind.Prism, X = -45, Y = -35, Z = -5, Width = 90, Depth = 70, Height = 26 } };
+        MachiningSetup sim = SetupBinding.ProgramFirst(setup, MachineKind.Mill, "(BRUTO 90 X 70 X 26)\n", Bounds3.Empty);
+        Assert.Equal((-45.0, -35.0, -5.0), (sim.Stock!.X, sim.Stock.Y, sim.Stock.Z));
+        // outras medidas: o comentário manda
+        setup.Stock.Width = 80;
+        Assert.Equal(90, SetupBinding.ProgramFirst(setup, MachineKind.Mill, "(BRUTO 90 X 70 X 26)\n", Bounds3.Empty).Stock!.Width);
+    }
 }

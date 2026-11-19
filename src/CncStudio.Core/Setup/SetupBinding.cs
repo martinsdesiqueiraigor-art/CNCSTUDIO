@@ -148,9 +148,29 @@ public static class SetupBinding
             return copy;
         }
 
+        // DESK-01: o mesmo bruto (forma e medidas) já no setup, como o que veio do CAM com a posição exata, fica como está
+        if (copy.Stock is { } saved && SameShape(saved, fromProgram))
+        {
+            return copy;
+        }
+
         fromProgram.Material = copy.Stock?.Material ?? fromProgram.Material;
         copy.Stock = fromProgram;
         return copy;
+    }
+
+    /// <summary>DESK-01: mesma forma e medidas (a posição não conta), com folga de 0,001 mm.</summary>
+    public static bool SameShape(SetupStock a, SetupStock b)
+    {
+        static bool Eq(double x, double y) => Math.Abs(x - y) < 1e-3;
+        bool axisA = a.IsRound && a.Axis != SetupAxis.Z, axisB = b.IsRound && b.Axis != SetupAxis.Z;
+        return a.Kind == b.Kind && axisA == axisB && Eq(a.Height, b.Height) && a.Kind switch
+        {
+            SetupStockKind.Prism => Eq(a.Width, b.Width) && Eq(a.Depth, b.Depth),
+            SetupStockKind.Hexagon => Eq(a.Width, b.Width),
+            SetupStockKind.Tube => Eq(a.Diameter, b.Diameter) && Eq(a.InnerDiameter, b.InnerDiameter),
+            _ => Eq(a.Diameter, b.Diameter),
+        };
     }
 
     /// <summary>

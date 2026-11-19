@@ -705,7 +705,7 @@ public partial class MainWindow : Window
     {
         _figures = figures;
         Graphics.Stock = EffectiveStock(analysis);
-        Graphics.Setup = _settings.WithToolKinds(_active.Setup);
+        Graphics.Setup = _settings.WithToolKinds(SimSetup(analysis));
 
         // Troca de fresa para torno (ou o contrário): reenquadra (a área gráfica escolhe a vista)
         bool lathe = analysis.ToolPath.Machine == MachineKind.Lathe;
@@ -744,6 +744,12 @@ public partial class MainWindow : Window
             $"tempo estimado {DurationFormat.Format(analysis.Statistics.TotalTime)} · " +
             $"{analysis.ErrorCount} erros · {analysis.WarningCount} avisos{extra} · " +
             $"análise em {analysis.Elapsed.TotalMilliseconds:0} ms";
+
+        // DESK-01: "Outro bruto" com comentário BRUTO no programa: aviso fixo, como no Code web
+        if (SetupBinding.OverrideNote(_active.Setup, analysis.ToolPath.Machine, _active.Text.Text, analysis.ToolPath.CuttingBounds) is { } note)
+        {
+            AnalysisStatus.Text = "⚠ " + note + " · " + AnalysisStatus.Text;
+        }
     }
 
     /// <summary>Lista de avisos/erros conforme o filtro, com a contagem nos botões.</summary>
@@ -879,28 +885,38 @@ public partial class MainWindow : Window
     /// O bruto do setup só vale se servir para o tipo de máquina da análise (bloco × barra).
     /// </summary>
     private Stock? EffectiveStock(ProgramAnalysis analysis) =>
-        SetupBinding.EffectiveStock(_active.Setup, analysis.ToolPath.Machine, _active.Text.Text, analysis.ToolPath.CuttingBounds).Stock;
+        SetupBinding.EffectiveStock(SimSetup(analysis), analysis.ToolPath.Machine, _active.Text.Text, analysis.ToolPath.CuttingBounds).Stock;
+
+    /// <summary>
+    /// DESK-01: o setup que a simulação usa: o bruto do comentário (BRUTO ...) manda, na posição do programa, como no Code web; o mesmo
+    /// bruto já no setup (o do CAM) fica, e "Outro bruto" escolhido de propósito vale. O setup salvo não muda.
+    /// </summary>
+    private MachiningSetup SimSetup(ProgramAnalysis analysis) =>
+        SetupBinding.ProgramFirst(_active.Setup, analysis.ToolPath.Machine, _active.Text.Text, analysis.ToolPath.CuttingBounds);
 
     private async Task OpenStockDialogAsync()
     {
         MachineKind machine = CurrentAnalysis?.ToolPath.Machine ?? MachineKind.Mill;
         Bounds3 cutting = CurrentAnalysis?.ToolPath.CuttingBounds ?? Bounds3.Empty;
-        Stock? current = _active.Setup.Stock?.ToStock(machine);
+        SetupStock? current = _active.Setup.Stock;
 
         // CAM-13: o bruto que veio do CAM aparece com a etiqueta "do CAM"; salvar sem editar não o converte em bloco
         bool fromCam = CncStudio.Core.Cam.CamHandoffCode.StockFromCam(_active.Setup, _active.CamPackage);
         var dialog = new StockDialog(current, machine, cutting, Editor.Text, fromCam, CamNoteFor(CncStudio.Core.Cam.HandoffNoticeKind.StockDiffers, CncStudio.Core.Cam.HandoffNoticeKind.StepStock, CncStudio.Core.Cam.HandoffNoticeKind.NoStock));
         StockChoice? choice = await dialog.ShowDialog<StockChoice?>(this);
-        if (choice is null || (choice.Unchanged && current is not null && choice.Stock is not null))
+        if (choice is null || choice.Unchanged)
         {
             return;
         }
 
-        // O diálogo só edita bloco (fresa) e barra (torno): o resto do setup é preservado
+        // O diálogo só edita o bruto: o resto do setup (ferramentas, fixação) é preservado
         MachiningSetup setup = _active.Setup.Clone();
-        setup.Stock = choice.Stock is { } stock
-            ? SetupBinding.FromStock(stock, setup.Stock?.Material ?? "Aço")
-            : null;
+        if (choice.Stock is { } stock)
+        {
+            stock.Material = setup.Stock?.Material ?? "Aço";
+        }
+
+        setup.Stock = choice.Stock;
         _active.Setup = setup;
         _settings.SetSetup(SetupKey, setup);
         _settings.Save();
@@ -1074,17 +1090,56 @@ public partial class MainWindow : Window
     private async Task OpenMachineSettingsAsync()
     {
         IReadOnlyList<int> toolsInProgram = CurrentAnalysis?.ToolPath.Tools ?? [];
-        var dialog = new MachineSettingsDialog(_settings, toolsInProgram);
+        bool lathe = CurrentAnalysis?.ToolPath.Machine == MachineKind.Lathe;
+        var dialog = new MachineSettingsDialog(_settings, toolsInProgram, _active.Setup, ToolSource, lathe);
         AppSettings? edited = await dialog.ShowDialog<AppSettings?>(this);
         if (edited is null)
         {
             return;
         }
 
+
         edited.EditorFontSize = _settings.EditorFontSize;
         _settings = edited;
+        // DESK-01: medidas próprias deste programa (setup)
+        if (dialog.EditedSetup is { } setup)
+        {
+            _active.Setup = setup;
+            _settings.SetSetup(SetupKey, setup);
+        }
+
         _settings.Save();
         StartAnalysis(); // zeros e números sem ponto mudam a trajetória; a simulação é refeita junto
+    }
+
+    /// <summary>DESK-01: de onde vem a medida da ferramenta, na ordem que o simulador usa (deste programa → CAM → banco → comentário).</summary>
+    private string ToolSource(int tool)
+    {
+        static string N(double v) => v.ToString("0.###", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"));
+        if (_active.Setup.ToolOf(tool) is { } own)
+        {
+            return own.IsLathe ? "Medida deste programa" : $"Medida deste programa: Ø{N(own.Diameter)}";
+        }
+
+        if (CncStudio.Core.Cam.CamHandoffCode.Diameters(_active.CamPackage).TryGetValue(tool, out double cam) && cam > 0)
+        {
+            return $"Do CAM: Ø{N(cam)}";
+        }
+
+        if (CncStudio.Core.Cam.ToolBankLookup.Tools(_settings.Banks, _settings.ActiveMillBankId, _settings.ActiveLatheBankId).TryGetValue(tool, out CncStudio.Core.Cam.BankTool? bank))
+        {
+            return $"Do banco: {bank.Name ?? "T" + tool}" + (bank.Diameter is > 0 and var d ? $", Ø{N(d)}" : "");
+        }
+
+        var parse = CncStudio.Core.Parsing.GCodeParser.Parse(Editor.Text, CurrentDialect);
+        if (CncStudio.Core.Reports.ToolCommentDiameters.Read(Editor.Text, parse, CurrentDialect).TryGetValue(tool, out double c) && c > 0)
+        {
+            return $"Do comentário do programa: Ø{N(c)}";
+        }
+
+        return CurrentAnalysis?.ToolPath.Machine == MachineKind.Lathe
+            ? "Sem medida: desenhada com o inserto padrão"
+            : $"Sem medida: desenhada com Ø{N(_settings.DefaultToolDiameter)} só para ver (não é a real)";
     }
 
     private async Task AskGoToLineAsync()

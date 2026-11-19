@@ -19,12 +19,44 @@ public partial class MachineSettingsDialog : Window
     {
     }
 
-    public MachineSettingsDialog(AppSettings settings, IReadOnlyList<int> toolsInProgram)
+    /// <summary>DESK-01: setup do programa com as medidas próprias editadas (só vale quando o diálogo foi salvo).</summary>
+    public MachiningSetup? EditedSetup { get; }
+
+    private readonly bool _lathe;
+
+    private static readonly (ToolKind Kind, string Name)[] MillKinds =
+    [
+        (ToolKind.FlatEndMill, "Fresa de topo"), (ToolKind.BullNoseEndMill, "Fresa toroidal"), (ToolKind.BallEndMill, "Fresa esférica"),
+        (ToolKind.Drill, "Broca"), (ToolKind.Tap, "Macho"), (ToolKind.FaceMill, "Fresa de facear"),
+    ];
+
+    private static readonly (ToolKind Kind, string Name)[] LatheKinds =
+    [
+        (ToolKind.TurnExternal, "Desbaste externo"), (ToolKind.TurnInternal, "Barra interna"), (ToolKind.PartExternal, "Bedame externo"),
+        (ToolKind.PartInternal, "Bedame interno"), (ToolKind.ThreadExternal, "Rosca externa"), (ToolKind.ThreadInternal, "Rosca interna"),
+    ];
+
+    public MachineSettingsDialog(AppSettings settings, IReadOnlyList<int> toolsInProgram, MachiningSetup? setup = null,
+        Func<int, string>? source = null, bool lathe = false)
     {
         InitializeComponent();
         _settings = settings.Clone();
+        _lathe = lathe;
+        EditedSetup = setup?.Clone();
 
         DefaultDiameterInput.Value = (decimal)_settings.DefaultToolDiameter;
+        if (EditedSetup is { } s)
+        {
+            if (toolsInProgram.Count == 0)
+            {
+                ToolRows.Children.Add(new TextBlock { Text = "O programa não chama ferramenta (T).", Opacity = 0.7 });
+            }
+
+            foreach (int t in toolsInProgram.Distinct().OrderBy(t => t))
+            {
+                ToolRows.Children.Add(ToolRow(s, t, source?.Invoke(t) ?? ""));
+            }
+        }
 
         foreach (WorkOffsetEntry offset in _settings.WorkOffsets)
         {
@@ -45,6 +77,85 @@ public partial class MachineSettingsDialog : Window
 
         OkButton.Click += (_, _) => Close(BuildResult());
         CancelButton.Click += (_, _) => Close(null);
+    }
+
+    /// <summary>
+    /// Linha de uma ferramenta: T, de onde vem a medida e, marcada "Medida deste programa", tipo, Ø e raio (de canto na fresa, da
+    /// ponta no torno) ou largura do bedame, gravados no setup deste programa.
+    /// </summary>
+    private Control ToolRow(MachiningSetup setup, int number, string source)
+    {
+        var panel = new StackPanel { Spacing = 4 };
+        var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        head.Children.Add(new TextBlock { Text = $"T{number}", FontWeight = Avalonia.Media.FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, MinWidth = 40 });
+        head.Children.Add(new TextBlock { Text = source, Opacity = 0.75, VerticalAlignment = VerticalAlignment.Center, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MaxWidth = 460 });
+        panel.Children.Add(head);
+
+        SetupTool? own = setup.ToolOf(number);
+        var check = new CheckBox { Content = "Medida deste programa", IsChecked = own is not null };
+        panel.Children.Add(check);
+        var fields = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new(24, 0, 0, 0) };
+        panel.Children.Add(fields);
+
+        (ToolKind Kind, string Name)[] kinds = _lathe ? LatheKinds : MillKinds;
+        SetupTool tool = own ?? new SetupTool { Number = number, Kind = kinds[0].Kind, Diameter = _lathe ? 0 : 10 };
+        var kind = new ComboBox { ItemsSource = kinds.Select(k => k.Name).ToArray(), SelectedIndex = Math.Max(0, Array.FindIndex(kinds, k => k.Kind == tool.Kind)), MinWidth = 170 };
+        NumericUpDown Num(double v) => new() { Value = (decimal)v, Minimum = 0, Maximum = 1000, Increment = 0.1m, FormatString = "0.###", Width = 110 };
+        var diameter = Num(tool.Diameter);
+        var radius = Num(tool.CornerRadius);
+        var width = Num(tool.InsertWidth);
+        var diameterLabel = new TextBlock { Text = "Ø", VerticalAlignment = VerticalAlignment.Center };
+        var radiusLabel = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+        var widthLabel = new TextBlock { Text = "Largura", VerticalAlignment = VerticalAlignment.Center };
+        fields.Children.Add(kind);
+        fields.Children.Add(diameterLabel);
+        fields.Children.Add(diameter);
+        fields.Children.Add(radiusLabel);
+        fields.Children.Add(radius);
+        fields.Children.Add(widthLabel);
+        fields.Children.Add(width);
+
+        void Show()
+        {
+            bool on = check.IsChecked == true;
+            fields.IsEnabled = on;
+            fields.Opacity = on ? 1 : 0.5;
+            ToolKind k = kinds[Math.Max(0, kind.SelectedIndex)].Kind;
+            bool parting = k is ToolKind.PartExternal or ToolKind.PartInternal;
+            bool corner = k is ToolKind.BullNoseEndMill or ToolKind.TurnExternal or ToolKind.TurnInternal;
+            diameterLabel.IsVisible = diameter.IsVisible = !_lathe;
+            radiusLabel.Text = _lathe ? "Raio da ponta" : "Raio de canto";
+            radiusLabel.IsVisible = radius.IsVisible = corner;
+            widthLabel.IsVisible = width.IsVisible = parting;
+        }
+
+        void Apply()
+        {
+            setup.Tools.RemoveAll(x => x.Number == number);
+            if (check.IsChecked != true)
+            {
+                return;
+            }
+
+            tool.Kind = kinds[Math.Max(0, kind.SelectedIndex)].Kind;
+            tool.Diameter = (double)(diameter.Value ?? 0);
+            tool.CornerRadius = radius.IsVisible ? (double)(radius.Value ?? 0) : 0;
+            tool.InsertWidth = width.IsVisible ? (double)(width.Value ?? (decimal)SetupTool.DefaultInsertWidth) : tool.InsertWidth;
+            if (tool.Kind == ToolKind.BallEndMill)
+            {
+                tool.CornerRadius = tool.Diameter / 2;
+            }
+
+            setup.Tools.Add(tool);
+        }
+
+        check.IsCheckedChanged += (_, _) => { Show(); Apply(); };
+        kind.SelectionChanged += (_, _) => { Show(); Apply(); };
+        diameter.ValueChanged += (_, _) => Apply();
+        radius.ValueChanged += (_, _) => Apply();
+        width.ValueChanged += (_, _) => Apply();
+        Show();
+        return panel;
     }
 
     private void AddOffsetRow(WorkOffsetEntry offset)
