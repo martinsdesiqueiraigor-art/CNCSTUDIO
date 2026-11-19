@@ -147,13 +147,16 @@ public sealed class TriangleMesh
     /// quatro giros iguais voltam à malha original. É uma rotação de verdade (não espelha), então o sentido dos
     /// triângulos, o volume e a área não mudam. Para o topo voltar a Z = 0, aplique <see cref="PlacedTopAtZero"/> depois.
     /// </summary>
-    public TriangleMesh Turned(ModelTurn turn) => turn switch
+    public TriangleMesh Turned(ModelTurn turn) => Map(p => Turn(turn, p));
+
+    /// <summary>Um ponto girado pelo mesmo giro de <see cref="Turned"/> (usado também na caixa do bruto STEP).</summary>
+    public static Point3 Turn(ModelTurn turn, Point3 p) => turn switch
     {
-        ModelTurn.XPlus90 => Map(p => new Point3(p.X, -p.Z, p.Y)),
-        ModelTurn.XMinus90 => Map(p => new Point3(p.X, p.Z, -p.Y)),
-        ModelTurn.YPlus90 => Map(p => new Point3(p.Z, p.Y, -p.X)),
-        ModelTurn.YMinus90 => Map(p => new Point3(-p.Z, p.Y, p.X)),
-        ModelTurn.Flip => Map(p => new Point3(p.X, -p.Y, -p.Z)),
+        ModelTurn.XPlus90 => new Point3(p.X, -p.Z, p.Y),
+        ModelTurn.XMinus90 => new Point3(p.X, p.Z, -p.Y),
+        ModelTurn.YPlus90 => new Point3(p.Z, p.Y, -p.X),
+        ModelTurn.YMinus90 => new Point3(-p.Z, p.Y, p.X),
+        ModelTurn.Flip => new Point3(p.X, -p.Y, -p.Z),
         _ => throw new ArgumentOutOfRangeException(nameof(turn)),
     };
 
