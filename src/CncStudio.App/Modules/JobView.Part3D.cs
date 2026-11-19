@@ -365,8 +365,10 @@ public partial class JobView
         foreach (FaceMenuItem item in menu.Short)
         {
             // STEP-OPS S1: o menu do Core ainda diz "faceamento não sai do 3D" (aba Modelo 3D); no Trabalho sai pela geometria da face
-            bool facing = item.Item.Id == "faceamento" && _partFeatures is not null;
-            string? facingWhy = facing ? CamJobFromGeometry.Unavailable(JobOpKind.Facing, _partFeatures!, [face], [], PartTopZ) : null;
+            // S3: o bolsão com ilhas também sai (as ilhas vão para o motor de ilhas do Trabalho)
+            JobOpKind? geoKind = item.Item.Id switch { "faceamento" => JobOpKind.Facing, "bolsao" => JobOpKind.Pocket, _ => null };
+            bool facing = geoKind is not null && _partFeatures is not null;
+            string? facingWhy = facing ? CamJobFromGeometry.Unavailable(geoKind!.Value, _partFeatures!, [face], [], PartTopZ) : null;
             bool fits = facing ? facingWhy is null : item.Fits;
             string? why = facing ? facingWhy : item.Unavailable;
             var mi = new MenuItem { Header = item.Item.Name, IsEnabled = fits };

@@ -301,4 +301,36 @@ public class StepOpsGeometryTests
         // sem laço de dentro (face do bloco sem furos) não cria nada
         Assert.NotNull(CamJobFromGeometry.Unavailable(JobOpKind.Contour, f, [], [], 8));
     }
+
+    [Fact]
+    public void Bolsao_com_ilha_sai_pela_regra_da_geometria_e_o_Todos_ou_Externo_muda_o_G_code()
+    {
+        TriangleMesh mesh = PocketWithIsland();
+        CamJob job = Job(mesh);
+        MeshFeatures f = MeshFeatures.Analyze(mesh);
+        MeshFace floor = Floor(f);
+        Assert.True(f.BoundaryLoops(floor).Count > 1);
+        Assert.Null(CamJobFromGeometry.Unavailable(JobOpKind.Pocket, f, [floor], [], mesh.Bounds.Max.Z));
+        CamJobFromGeometry.Add(job, JobOpKind.Pocket, f, [floor], [], mesh.Bounds.Max.Z);
+        Fill(job, 0, 5, 4);
+
+        static bool TouchesIsland(JobBuild b) =>
+            b.Operations[0].Moves.Any(m => m.Z < 9 && m.X > 18.5 && m.X < 21.5 && m.Y > 18.5 && m.Y < 21.5);
+
+        JobBuild withIsland = CamJobBuilder.Build(job, null);
+        Assert.True(withIsland.Ok, string.Join("; ", withIsland.Errors));
+        Assert.False(TouchesIsland(withIsland));
+
+        // filtro "só o de fora": a ilha some e a fresa passa por cima dela
+        Assert.Null(CamJobFromGeometry.Update(job, 0, f, [floor], [], LoopFilter.Outer, mesh.Bounds.Max.Z));
+        Assert.False(job.Operations[0].Islands);
+        JobBuild without = CamJobBuilder.Build(job, null);
+        Assert.True(without.Ok, string.Join("; ", without.Errors));
+        Assert.True(TouchesIsland(without));
+
+        // e volta com "Todos"
+        Assert.Null(CamJobFromGeometry.Update(job, 0, f, [floor], [], LoopFilter.All, mesh.Bounds.Max.Z));
+        Assert.True(job.Operations[0].Islands);
+        Assert.False(TouchesIsland(CamJobBuilder.Build(job, null)));
+    }
 }
