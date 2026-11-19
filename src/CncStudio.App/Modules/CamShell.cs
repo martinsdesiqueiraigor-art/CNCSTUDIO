@@ -117,11 +117,12 @@ public static class CamShell
         });
         double word = item.Name.Split(' ').Max(w =>
         {
-            var probe = new TextBlock { Text = w, FontSize = 11 };
+            // mede com a mesma fonte do botão (Inter): medir com a padrão quebrava "Faceamento" no Windows
+            var probe = new TextBlock { Text = w, FontSize = 11, FontFamily = CamColors.UiFont };
             probe.Measure(Size.Infinity);
             return probe.DesiredSize.Width;
         });
-        return PaletteButton(content, Math.Max(minButtonWidth, Math.Ceiling(word) + 10), PaletteButtonHeight);
+        return PaletteButton(content, Math.Max(minButtonWidth, Math.Ceiling(word) + 14), PaletteButtonHeight);
     }
 
     /// <summary>Botão "em breve": estreito, só o ícone apagado; o nome está na dica.</summary>
