@@ -8,7 +8,36 @@ public enum ContourSide { Outside, Inside, OnLine }
 /// </summary>
 public sealed record ContourParams(ContourSide Side, bool Climb = true, bool ControllerComp = false, double Allowance = 0, double LeadRadius = 3);
 
-public sealed record PocketParams(double StepOverPercent = 60, double FinishAllowance = 0, double LeadRadius = 2);
+/// <summary>
+/// Bolsão: passo lateral, sobremetal e raio de entrada do acabamento. OPS-A-01: a entrada em Z e a estratégia são escolha do usuário
+/// (<see cref="PocketEntry"/>, <see cref="PocketStrategy"/>); sem escolha o bolsão sai como antes (arquivo versão ≤ 6, G-code igual).
+/// </summary>
+public sealed record PocketParams(double StepOverPercent = 60, double FinishAllowance = 0, double LeadRadius = 2)
+{
+    /// <summary>Como a ferramenta desce: <see cref="PocketEntry.Default"/> = rampa de uma volta no primeiro anel (como sempre foi).</summary>
+    public PocketEntry Entry { get; init; } = PocketEntry.Default;
+
+    /// <summary>Rampa: ângulo máximo de descida, em graus (digitado). Só vale com <see cref="PocketEntry.Ramp"/>.</summary>
+    public double RampAngle { get; init; }
+
+    /// <summary>Hélice: diâmetro do furo que ela abre, em mm (digitado). Só vale com <see cref="PocketEntry.Helix"/>.</summary>
+    public double HelixDiameter { get; init; }
+
+    /// <summary>Hélice: descida por volta, em mm (digitado). Só vale com <see cref="PocketEntry.Helix"/>.</summary>
+    public double HelixPitch { get; init; }
+
+    /// <summary>Ordem em que a ferramenta limpa a área.</summary>
+    public PocketStrategy Strategy { get; init; } = PocketStrategy.Rings;
+
+    /// <summary>
+    /// Pré-furo: ponto (XY) do furo já feito por uma Furação anterior que cai dentro do bolsão. Preenchido ao gerar o trabalho
+    /// (<see cref="CamJob"/>), nunca vai para o arquivo. Null = nenhum furo achado.
+    /// </summary>
+    public Point2? PreDrillPoint { get; init; }
+
+    /// <summary>Alguma escolha nova (entrada ou estratégia): o arquivo precisa da versão 7.</summary>
+    public bool UsesOptions => Entry != PocketEntry.Default || Strategy != PocketStrategy.Rings;
+}
 
 /// <summary>Operações de fresa 2,5D. Todas devolvem movimentos neutros; o pós-processador escreve o G-code.</summary>
 public static partial class CamOperations
@@ -233,6 +262,17 @@ public static partial class CamOperations
             return Fail("O passo lateral precisa ficar entre 0 e 100% do diâmetro.");
         }
 
+        error = PocketOptionsError(p, tool);
+        if (error is not null)
+        {
+            return Fail(error);
+        }
+
+        if (p.Strategy == PocketStrategy.ZigZag)
+        {
+            return PocketLinesCore(boundary, [], tool, levels, p, "Bolsão");
+        }
+
         double r = tool.Radius;
         double step = tool.Diameter * p.StepOverPercent / 100;
         Contour ccw = boundary.IsCounterClockwise ? boundary : boundary.Reversed();
@@ -265,6 +305,11 @@ public static partial class CamOperations
 
             current = next.Contour;
             rings.Add(current);
+        }
+
+        if (p.UsesOptions)
+        {
+            return PocketWithOptions(ccw, rings, tool, levels, p);
         }
 
         var warnings = new List<string>();
@@ -395,6 +440,11 @@ public static partial class CamOperations
         if (kind is DrillCycleKind.Peck or DrillCycleKind.ChipBreak && peck <= 0)
         {
             return Fail("A bicada (Q) precisa ser maior que zero.");
+        }
+
+        if (kind == DrillCycleKind.Tap && (tool.SpindleRpm <= 0 || tool.FeedZ <= 0))
+        {
+            return Fail("Macho: informe a rotação e o avanço (passo × rotação) da ferramenta.");
         }
 
         if (kind == DrillCycleKind.Dwell && dwellSeconds <= 0)

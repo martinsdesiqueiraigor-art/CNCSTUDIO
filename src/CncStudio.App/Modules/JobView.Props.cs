@@ -133,6 +133,19 @@ public partial class JobView
                 Num(i, "Sobremetal de acabamento", "mm", p.FinishAllowance, (x, v) => x with { PocketParams = x.PocketParams! with { FinishAllowance = v } });
                 Num(i, "Raio de entrada", "mm", p.LeadRadius, (x, v) => x with { PocketParams = x.PocketParams! with { LeadRadius = v } });
                 Check(i, "Contornar ilhas (contornos do desenho dentro deste)", s.Islands, (x, v) => x with { Islands = v });
+                Pick(i, "Entrada", ["Padrão (rampa pelo contorno)", "Rampa com ângulo", "Hélice", "Mergulho reto", "Pré-furo (Furação anterior)"], (int)p.Entry, (x, n) => x with { PocketParams = x.PocketParams! with { Entry = (PocketEntry)n } }, rebuild: true);
+                if (p.Entry == PocketEntry.Ramp)
+                {
+                    Num(i, CamJobInfo.RampAngleField, "°", p.RampAngle, (x, v) => x with { PocketParams = x.PocketParams! with { RampAngle = v } });
+                }
+
+                if (p.Entry == PocketEntry.Helix)
+                {
+                    Num(i, CamJobInfo.HelixDiameterField, "mm", p.HelixDiameter, (x, v) => x with { PocketParams = x.PocketParams! with { HelixDiameter = v } });
+                    Num(i, CamJobInfo.HelixPitchField, "mm", p.HelixPitch, (x, v) => x with { PocketParams = x.PocketParams! with { HelixPitch = v } });
+                }
+
+                Pick(i, "Estratégia", ["Anéis de fora para dentro", "Zigue-zague", "Anéis de dentro para fora", "Espiral"], (int)p.Strategy, (x, n) => x with { PocketParams = x.PocketParams! with { Strategy = (PocketStrategy)n } }, rebuild: true);
                 break;
             case JobOpKind.Facing:
                 Section("Faceamento");
@@ -140,7 +153,7 @@ public partial class JobView
                 break;
             case JobOpKind.Drilling when s.Drill is { } d:
                 Section("Furação");
-                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco"], (int)d.Cycle, (x, n) => x with { Drill = x.Drill! with { Cycle = (DrillCycleKind)n } }, rebuild: true);
+                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco", "G84 macho (Fanuc)", "G85 mandrilhar, sai em avanço (Fanuc)", "G86 mandrilhar, fuso parado (Fanuc)"], (int)d.Cycle, (x, n) => x with { Drill = x.Drill! with { Cycle = (DrillCycleKind)n } }, rebuild: true);
                 Num(i, CamJobInfo.PeckField, "mm", d.Peck, (x, v) => x with { Drill = x.Drill! with { Peck = v } });
                 Num(i, CamJobInfo.DwellField, "s", d.DwellSeconds, (x, v) => x with { Drill = x.Drill! with { DwellSeconds = v } });
                 break;
