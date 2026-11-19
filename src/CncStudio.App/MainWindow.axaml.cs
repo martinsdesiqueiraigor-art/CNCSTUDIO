@@ -142,6 +142,7 @@ public partial class MainWindow : Window
         LicensesButton.Click += async (_, _) => await new ThirdPartyLicensesWindow().ShowDialog(this);
         ApplyTheme(_settings.Theme);
         InitModules();
+        InitRibbon();
         InitToolBanks();
         RecentButton.Click += (_, _) => ShowRecentMenu();
         FanucSampleButton.Click += (_, _) => LoadSample("EXEMPLO.nc");
