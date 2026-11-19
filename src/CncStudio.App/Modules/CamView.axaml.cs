@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
 
@@ -151,23 +152,134 @@ public partial class CamView : UserControl
     /// <summary>Seletor de trabalho salvo (.casillas-job) da tela Trabalho.</summary>
     public Func<Task<(string Name, string Text)?>>? PickJob
     {
-        get => JobPanel.PickJob;
+        get => _pickJob;
         set
         {
-            JobPanel.PickJob = value;
-            LatheJobPanel.PickJob = value;
+            // UI-06: o CAM abre o seletor ele mesmo para saber o caminho (lista de recentes); sem janela, usa o do app
+            _pickJob = value;
+            JobPanel.PickJob = LatheJobPanel.PickJob = PickJobWithPath;
         }
     }
+
+    private Func<Task<(string Name, string Text)?>>? _pickJob;
+
+    private static readonly FilePickerFileType JobFileType = new("Trabalho Casillas CAM") { Patterns = ["*.casillas-job", "*.json"] };
+
+    /// <summary>Seletor do trabalho que guarda o caminho nos recentes (fresa ou torno pelo formato do arquivo).</summary>
+    private async Task<(string Name, string Text)?> PickJobWithPath()
+    {
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { CanOpen: true } storage)
+        {
+            return _pickJob is null ? null : await _pickJob();
+        }
+
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Abrir trabalho do CAM", AllowMultiple = false, FileTypeFilter = [JobFileType],
+        });
+        if (files.Count == 0)
+        {
+            return null;
+        }
+
+        await using Stream stream = await files[0].OpenReadAsync();
+        using var reader = new StreamReader(stream);
+        string text = await reader.ReadToEndAsync();
+        if (files[0].TryGetLocalPath() is { } path)
+        {
+            CamRecent.Add(path, IsLatheJob(text));
+        }
+
+        return (files[0].Name, text);
+    }
+
+    /// <summary>Trabalho de torno pelo formato do arquivo (o mesmo nome de formato que o Core grava).</summary>
+    private static bool IsLatheJob(string text) => text.Contains("\"casillas-job-torno\"", StringComparison.Ordinal);
 
     /// <summary>Salva o trabalho num arquivo escolhido (nome sugerido, texto).</summary>
     public Func<string, string, Task>? SaveJobFile
     {
-        get => JobPanel.SaveJobFile;
+        get => _saveJobFile;
         set
         {
-            JobPanel.SaveJobFile = value;
-            LatheJobPanel.SaveJobFile = value;
+            // UI-06: como no Abrir, o CAM salva pelo próprio seletor para guardar o caminho nos recentes
+            _saveJobFile = value;
+            JobPanel.SaveJobFile = LatheJobPanel.SaveJobFile = SaveJobWithPath;
         }
+    }
+
+    private Func<string, string, Task>? _saveJobFile;
+
+    private async Task SaveJobWithPath(string suggested, string text)
+    {
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { CanSave: true } storage)
+        {
+            if (_saveJobFile is not null)
+            {
+                await _saveJobFile(suggested, text);
+            }
+
+            return;
+        }
+
+        IStorageFile? file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Salvar trabalho do CAM", SuggestedFileName = suggested, DefaultExtension = "casillas-job",
+            FileTypeChoices = [new FilePickerFileType("Trabalho Casillas CAM") { Patterns = ["*.casillas-job"] }],
+        });
+        if (file is null)
+        {
+            return;
+        }
+
+        await using (Stream stream = await file.OpenWriteAsync())
+        {
+            stream.SetLength(0);
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(text);
+        }
+
+        if (file.TryGetLocalPath() is { } path)
+        {
+            CamRecent.Add(path, IsLatheJob(text));
+        }
+    }
+
+    /// <summary>Tela inicial: abre um trabalho (fresa ou torno pelo formato) e mostra a tela dele; null = abriu.</summary>
+    private void OpenJobText(string text, string? path)
+    {
+        bool lathe = IsLatheJob(text);
+        ShowMachine(job: !lathe, latheJob: lathe);
+        string? error = lathe ? LatheJobPanel.OpenText(text) : JobPanel.OpenText(text);
+        if (error is null && path is not null)
+        {
+            CamRecent.Add(path, lathe);
+        }
+    }
+
+    private async Task HomeOpenJob()
+    {
+        if (await PickJobWithPath() is { } file)
+        {
+            // o caminho já foi para os recentes no seletor
+            OpenJobText(file.Text, null);
+        }
+    }
+
+    private void HomeOpenRecent(CamRecentItem item)
+    {
+        string text;
+        try
+        {
+            text = File.ReadAllText(item.Path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            HomePanel.Refresh();
+            return;
+        }
+
+        OpenJobText(text, item.Path);
     }
 
     public CamView()
@@ -175,6 +287,21 @@ public partial class CamView : UserControl
         InitializeComponent();
         CamColors.ApplyControls(Resources);
         HeaderSlot.Content = JobPanel.TabStrip;
+        HomeTab.Click += (_, _) => ShowMachine(home: true);
+        HomePanel.MillJob = () => ShowMachine(job: true);
+        HomePanel.LatheJob = () => ShowMachine(latheJob: true);
+        HomePanel.OpenJob = () => _ = HomeOpenJob();
+        HomePanel.OpenRecent = HomeOpenRecent;
+        HomePanel.OpenDrawing = () =>
+        {
+            ShowMachine(job: true);
+            _ = JobPanel.RunFileAction("abrir-dxf");
+        };
+        HomePanel.OpenProfiles = () => ShowMachine(profile: true);
+        HomePanel.OpenBank = () => ShowMachine(bank: true);
+        HomePanel.ActiveMachine = () => MachinePanel.ActiveSource?.Invoke() ?? "";
+        JobPanel.PickJob = LatheJobPanel.PickJob = PickJobWithPath;
+        JobPanel.SaveJobFile = LatheJobPanel.SaveJobFile = SaveJobWithPath;
         LatheTab.Click += (_, _) => ShowMachine(lathe: true);
         MachineTab.Click += (_, _) => ShowMachine(profile: true);
         JobTab.Click += (_, _) => ShowMachine(job: true);
@@ -195,6 +322,8 @@ public partial class CamView : UserControl
         LatheJobPanel.SetActiveMachine = JobPanel.SetActiveMachine;
         LatheJobPanel.SaveMachines = JobPanel.SaveMachines;
         LatheJobPanel.OpenMachineProfiles = JobPanel.OpenMachineProfiles;
+        // UI-06: o CAM abre na tela inicial
+        ShowMachine(home: true);
     }
 
     /// <summary>Ao abrir o módulo: marca o programa do Trabalho fresa como desatualizado se o perfil da máquina mudou.</summary>
@@ -216,8 +345,15 @@ public partial class CamView : UserControl
     /// <summary>Tela do banco de ferramentas (UX-04h B1).</summary>
     public ToolBankView ToolBanks => ToolBankPanel;
 
-    private void ShowMachine(bool lathe = false, bool profile = false, bool job = false, bool latheJob = false, bool model = false, bool bank = false)
+    private void ShowMachine(bool lathe = false, bool profile = false, bool job = false, bool latheJob = false, bool model = false, bool bank = false, bool home = false)
     {
+        HomeTab.IsChecked = home;
+        HomePanel.IsVisible = home;
+        if (home)
+        {
+            HomePanel.Refresh();
+        }
+
         JobTab.IsChecked = job;
         LatheJobTab.IsChecked = latheJob;
         LathePanel.IsVisible = lathe;
@@ -230,7 +366,7 @@ public partial class CamView : UserControl
         // as abas Preparação/Operações/Código NC são do Trabalho fresa e do Trabalho torno; nas telas do Mais, o nome dela aparece no topo
         HeaderSlot.Content = latheJob ? LatheJobPanel.TabStrip : JobPanel.TabStrip;
         HeaderSlot.IsVisible = job || latheJob;
-        OtherTitle.Text = lathe ? "Torno rápido" : profile ? "Perfil 4/5 eixos" : model ? "Modelo 3D (STL/STEP)" : bank ? "Banco de ferramentas" : "";
+        OtherTitle.Text = home ? "" : lathe ? "Torno rápido" : profile ? "Perfil 4/5 eixos" : model ? "Modelo 3D (STL/STEP)" : bank ? "Banco de ferramentas" : "";
         if (profile)
         {
             MachinePanel.Refresh();

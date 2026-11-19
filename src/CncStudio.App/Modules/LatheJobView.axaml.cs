@@ -207,6 +207,9 @@ public partial class LatheJobView : UserControl
 
     // ---------------------------------------------------------------- faixa
 
+    /// <summary>Ação de arquivo da faixa ("novo-trabalho", "abrir-dxf", "abrir-trabalho", "salvar-trabalho"), para a tela inicial do CAM (UI-06).</summary>
+    public Task RunFileAction(string action) => PaletteClick(CamPaletteItem.File(action, action, "", action, ""));
+
     private async Task PaletteClick(CamPaletteItem item)
     {
         switch (item.Action)

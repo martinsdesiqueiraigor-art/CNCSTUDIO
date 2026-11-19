@@ -89,6 +89,9 @@ public static class CamColors
         r["ButtonBorderBrushPointerOver"] = SelectBrush;
         r["ButtonForeground"] = TextBrush;
         r["ButtonForegroundPointerOver"] = TextBrush;
+        r["ButtonBackgroundDisabled"] = PanelBrush;
+        r["ButtonBorderBrushDisabled"] = BorderBrush;
+        r["ButtonForegroundDisabled"] = Brush.Parse(Faint);
         r["ToggleButtonBackground"] = CardBrush;
         r["ToggleButtonBackgroundPointerOver"] = SelectHoverBrush;
         r["ToggleButtonBorderBrush"] = BorderStrongBrush;
