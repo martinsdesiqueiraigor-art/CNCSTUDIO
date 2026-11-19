@@ -50,6 +50,8 @@
           <SolidColorBrush x:Key="DiffRemovedText" Color="#E05555" />
           <SolidColorBrush x:Key="DiffAddedText" Color="#4CC070" />
           <SolidColorBrush x:Key="RibbonIcon" Color="#7FB8F0" />
+          <!-- UI-07: fundo do editor de G-code no grafite da identidade (antes preto puro) -->
+          <SolidColorBrush x:Key="EditorBackground" Color="#14161A" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Light">
           <SolidColorBrush x:Key="RibbonBackground" Color="#EEF0F3" />
@@ -70,13 +72,20 @@
           <SolidColorBrush x:Key="DiffRemovedText" Color="#C02020" />
           <SolidColorBrush x:Key="DiffAddedText" Color="#1F8A3A" />
           <SolidColorBrush x:Key="RibbonIcon" Color="#1F5FA8" />
+          <SolidColorBrush x:Key="EditorBackground" Color="#FFFFFF" />
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
     </ResourceDictionary>
   </Application.Resources>
 
   <Application.Styles>
-    <FluentTheme />
+    <!-- UI-07: destaque laranja da identidade (botão ligado, caixa marcada, controle deslizante), no escuro e no claro -->
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark" Accent="#F08A24" />
+        <ColorPaletteResources x:Key="Light" Accent="#B85C00" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
     <!-- Estilos do editor de texto (AvaloniaEdit) -->
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
 

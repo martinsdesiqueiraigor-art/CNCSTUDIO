@@ -418,7 +418,8 @@ public partial class MainWindow
         }
         else
         {
-            Editor.ClearValue(Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty);
+            // UI-07: fundo do editor pelo tema (grafite no escuro, branco no claro)
+            Editor.Bind(Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty, Editor.GetResourceObservable("EditorBackground"));
         }
 
         Editor.TextArea.TextView.Redraw();
