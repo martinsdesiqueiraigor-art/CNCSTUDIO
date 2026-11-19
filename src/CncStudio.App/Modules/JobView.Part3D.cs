@@ -346,12 +346,17 @@ public partial class JobView
         flyout.Items.Add(new MenuItem { Header = menu.Header, IsEnabled = false });
         foreach (FaceMenuItem item in menu.Short)
         {
-            var mi = new MenuItem { Header = item.Item.Name, IsEnabled = item.Fits };
-            if (!item.Fits)
+            // STEP-OPS S1: o menu do Core ainda diz "faceamento não sai do 3D" (aba Modelo 3D); no Trabalho sai pela geometria da face
+            bool facing = item.Item.Id == "faceamento" && _partFeatures is not null;
+            string? facingWhy = facing ? CamJobFromGeometry.Unavailable(JobOpKind.Facing, _partFeatures!, [face], [], PartTopZ) : null;
+            bool fits = facing ? facingWhy is null : item.Fits;
+            string? why = facing ? facingWhy : item.Unavailable;
+            var mi = new MenuItem { Header = item.Item.Name, IsEnabled = fits };
+            if (!fits)
             {
-                ToolTip.SetTip(mi, item.Unavailable);
+                ToolTip.SetTip(mi, why);
                 ToolTip.SetShowOnDisabled(mi, true);
-                mi.Header = item.Item.Name + " — " + item.Unavailable;
+                mi.Header = item.Item.Name + " — " + why;
             }
 
             string id = item.Item.Id;
@@ -361,7 +366,7 @@ public partial class JobView
 
         if (menu.Short.Count == 0)
         {
-            flyout.Items.Add(new MenuItem { Header = "Nada sai desta face ainda (Faceamento e contorno pela face vêm depois).", IsEnabled = false });
+            flyout.Items.Add(new MenuItem { Header = "Nada sai desta face ainda (contorno pela aresta vem depois).", IsEnabled = false });
         }
 
         flyout.ShowAt(Scene3D, showAtPointer: true);
@@ -376,7 +381,7 @@ public partial class JobView
         }
 
         Snap();
-        JobOpKind? kind = id switch { "bolsao" => JobOpKind.Pocket, "furacao" => JobOpKind.Drilling, _ => null };
+        JobOpKind? kind = id switch { "bolsao" => JobOpKind.Pocket, "faceamento" => JobOpKind.Facing, "furacao" => JobOpKind.Drilling, _ => null };
         (IReadOnlyList<int> made, string? error) = kind is { } k
             ? CamJobFromGeometry.Add(_job, k, features,
                 k == JobOpKind.Drilling ? [.. _partSelection.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole)] : [face],

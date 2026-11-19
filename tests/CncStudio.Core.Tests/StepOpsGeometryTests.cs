@@ -206,4 +206,47 @@ public class StepOpsGeometryTests
         Assert.NotNull(error);
         Assert.Empty(job.Operations);
     }
+
+    [Fact]
+    public void Faceamento_da_face_de_topo_usa_o_contorno_de_fora_e_gera_o_G_code()
+    {
+        TriangleMesh mesh = PocketWithIsland();
+        CamJob job = Job(mesh);
+        MeshFeatures f = MeshFeatures.Analyze(mesh);
+        MeshFace top = f.Faces.Where(x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99 && Math.Abs(x.Center.Z - 10) < 0.01).OrderByDescending(x => x.Area).First();
+        Assert.Null(CamJobFromGeometry.Unavailable(JobOpKind.Facing, f, [top], [], mesh.Bounds.Max.Z));
+        (IReadOnlyList<int> made, string? error) = CamJobFromGeometry.Add(job, JobOpKind.Facing, f, [top], [], mesh.Bounds.Max.Z);
+        Assert.Null(error);
+        CamOperationSpec op = job.Operations[Assert.Single(made)];
+        Assert.Equal(JobOpKind.Facing, op.Kind);
+        Assert.Single(op.Geometry!.Owned);
+        Assert.Equal(10, op.Levels.BottomZ, 6);
+        (double x0, double y0, double x1, double y1) = job.Contours[op.ContourIndex].BoundsXY();
+        Assert.Equal((0, 0, 40, 40), (Math.Round(x0, 3), Math.Round(y0, 3), Math.Round(x1, 3), Math.Round(y1, 3)));
+
+        Fill(job, 0, 9.5, 20);
+        JobBuild build = CamJobBuilder.Build(job, null);
+        Assert.True(build.Ok, string.Join("; ", build.Errors));
+        Assert.NotEmpty(build.Operations[0].Moves);
+
+        // parede não serve
+        MeshFace wall = f.Faces.First(x => x.Kind == FaceKind.Plane && Math.Abs(x.Normal.Z) < 0.1);
+        Assert.NotNull(CamJobFromGeometry.Unavailable(JobOpKind.Facing, f, [wall], [], mesh.Bounds.Max.Z));
+    }
+
+    [Fact]
+    public void Faceamento_trocar_de_face_mantem_a_ferramenta()
+    {
+        TriangleMesh mesh = PocketWithIsland();
+        CamJob job = Job(mesh);
+        MeshFeatures f = MeshFeatures.Analyze(mesh);
+        MeshFace top = f.Faces.Where(x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99 && Math.Abs(x.Center.Z - 10) < 0.01).OrderByDescending(x => x.Area).First();
+        CamJobFromGeometry.Add(job, JobOpKind.Facing, f, [top], [], mesh.Bounds.Max.Z);
+        Fill(job, 0, 9.5, 20);
+        Assert.Null(CamJobFromGeometry.Update(job, 0, f, [Floor(f)], [], LoopFilter.Outer, mesh.Bounds.Max.Z));
+        Assert.Equal(20, job.Operations[0].Tool.Diameter);
+        Assert.Equal(9.5, job.Operations[0].Levels.BottomZ, 6);
+        Assert.Equal(5, JobGeometry.Of(Floor(f)).Center.Z, 3);
+        Assert.Equal(5, CamJobFromGeometry.ModelBottomZ(JobOpKind.Facing, [Floor(f)]));
+    }
 }

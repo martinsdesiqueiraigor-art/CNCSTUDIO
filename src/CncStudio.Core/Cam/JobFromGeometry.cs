@@ -44,6 +44,21 @@ public static class CamJobFromGeometry
                 }
 
                 return (made, null);
+            case JobOpKind.Facing:
+                if (faces.Count == 0)
+                {
+                    return ([], "Escolha no 3D a face a aplainar.");
+                }
+
+                foreach (MeshFace f in faces)
+                {
+                    if (FacingError(features, f) is { } why)
+                    {
+                        return ([], why);
+                    }
+                }
+
+                return ([.. faces.Select(f => AddFacing(job, features, f, modelTopZ))], null);
             case JobOpKind.Drilling:
                 (int index, string? error) = AddDrilling(job, faces);
                 return (index < 0 ? [] : [index], error);
@@ -67,6 +82,8 @@ public static class CamJobFromGeometry
                 }
 
                 return faces.Select(f => PocketError(features, f, modelTopZ)).FirstOrDefault(w => w is not null);
+            case JobOpKind.Facing:
+                return faces.Count == 0 ? "Selecione no 3D a face a aplainar." : faces.Select(f => FacingError(features, f)).FirstOrDefault(w => w is not null);
             case JobOpKind.Drilling:
                 if (faces.Count == 0)
                 {
@@ -93,6 +110,32 @@ public static class CamJobFromGeometry
         }
 
         return features.BoundaryLoops(face).Count == 0 ? "Não achei o contorno desta face (malha aberta?)." : null;
+    }
+
+    /// <summary>Motivo de a face não servir ao faceamento (null = serve): plana, horizontal, voltada para cima, com contorno.</summary>
+    private static string? FacingError(MeshFeatures features, MeshFace face)
+    {
+        if (face.Kind != FaceKind.Plane || face.Normal.Z < 0.99)
+        {
+            return "Escolha uma face plana horizontal voltada para cima.";
+        }
+
+        return features.BoundaryLoops(face).Count == 0 ? "Não achei o contorno desta face (malha aberta?)." : null;
+    }
+
+    private static int AddFacing(CamJob job, MeshFeatures features, MeshFace face, double modelTopZ)
+    {
+        Contour outer = CamJobPart.Polygon(SplitLoops(features.BoundaryLoops(face)).Outer);
+        List<int> owned = AppendOwned(job, [], [outer]);
+        CamOperationSpec spec = ToolBankPick.EmptyTool(CamJobInfo.NewOperation(JobOpKind.Facing, ContourSide.Outside, owned[0]));
+        spec = spec with
+        {
+            Label = "Faceamento do 3D",
+            Geometry = new GeoSource([JobGeometry.Of(face)], LoopFilter.Outer, owned),
+            Levels = CamJobPart.AboveTop(spec.Levels, modelTopZ) with { BottomZ = Math.Round(face.Center.Z, 3) },
+        };
+        job.Operations.Add(spec);
+        return job.Operations.Count - 1;
     }
 
     /// <summary>Laço de maior área (o contorno de fora); os outros são as ilhas e os furos dentro da face.</summary>
@@ -250,6 +293,24 @@ public static class CamJobFromGeometry
                     Geometry = new GeoSource([JobGeometry.Of(faces[0])], loops, owned),
                 };
                 return null;
+            case JobOpKind.Facing:
+                if (faces.Count != 1)
+                {
+                    return "O faceamento usa uma face. Para outra face, crie outra operação.";
+                }
+
+                if (FacingError(features, faces[0]) is { } fwhy)
+                {
+                    return fwhy;
+                }
+
+                List<int> ownedFace = AppendOwned(job, old.Owned, [CamJobPart.Polygon(SplitLoops(features.BoundaryLoops(faces[0])).Outer)], index);
+                job.Operations[index] = spec with
+                {
+                    ContourIndex = ownedFace[0],
+                    Geometry = new GeoSource([JobGeometry.Of(faces[0])], LoopFilter.Outer, ownedFace),
+                };
+                return null;
             case JobOpKind.Drilling:
                 if (faces.Count == 0 || faces.Any(h => h.Kind != FaceKind.Hole || h.Axis is not { } a || Math.Abs(a.Z) < 0.99))
                 {
@@ -271,7 +332,7 @@ public static class CamJobFromGeometry
     /// <summary>Z do fundo que a seleção mostra (referência para "Pegar do modelo"). Null se não há uma resposta única.</summary>
     public static double? ModelBottomZ(JobOpKind kind, IReadOnlyList<MeshFace> faces) => kind switch
     {
-        JobOpKind.Pocket when faces.Count == 1 => Math.Round(faces[0].Center.Z, 3),
+        JobOpKind.Pocket or JobOpKind.Facing when faces.Count == 1 => Math.Round(faces[0].Center.Z, 3),
         JobOpKind.Drilling when faces.Count > 0 && faces.Max(f => f.Box.Min.Z) - faces.Min(f => f.Box.Min.Z) <= 0.01 => Math.Round(faces.Min(f => f.Box.Min.Z), 3),
         _ => null,
     };
