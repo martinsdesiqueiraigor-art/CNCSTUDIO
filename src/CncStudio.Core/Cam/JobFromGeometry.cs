@@ -52,6 +52,33 @@ public static class CamJobFromGeometry
         }
     }
 
+    /// <summary>
+    /// Por que a operação não pode sair da seleção atual (a dica do botão da faixa): null = serve. Operação que ainda não sai do 3D
+    /// diz isso.
+    /// </summary>
+    public static string? Unavailable(JobOpKind kind, MeshFeatures features, IReadOnlyList<MeshFace> faces, IReadOnlyList<MeshEdge> edges, double modelTopZ)
+    {
+        switch (kind)
+        {
+            case JobOpKind.Pocket:
+                if (faces.Count == 0)
+                {
+                    return "Selecione no 3D a face do fundo do bolsão.";
+                }
+
+                return faces.Select(f => PocketError(features, f, modelTopZ)).FirstOrDefault(w => w is not null);
+            case JobOpKind.Drilling:
+                if (faces.Count == 0)
+                {
+                    return "Selecione no 3D os furos (Ctrl soma).";
+                }
+
+                return faces.Any(h => h.Kind != FaceKind.Hole || h.Axis is not { } a || Math.Abs(a.Z) < 0.99) ? "Só furos verticais saem em furação a partir do 3D." : null;
+            default:
+                return CamPalette.SoonMessage;
+        }
+    }
+
     /// <summary>Motivo de a face não servir de fundo de bolsão (null = serve).</summary>
     private static string? PocketError(MeshFeatures features, MeshFace face, double modelTopZ)
     {

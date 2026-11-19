@@ -508,13 +508,21 @@ public partial class JobView : UserControl
         int target = PaletteTarget();
         foreach ((CamPaletteItem item, Button button) in _paletteButtons)
         {
-            CamShell.SetPaletteState(item, button, CamPalette.Unavailable(item, _job, target, _openChains));
+            string? why = StepReady && item.Kind is JobOpKind.Pocket or JobOpKind.Drilling or JobOpKind.Facing or JobOpKind.Contour && _partSelection.Count > 0
+                ? StepPaletteWhy(item)
+                : CamPalette.Unavailable(item, _job, target, _openChains);
+            CamShell.SetPaletteState(item, button, why);
         }
     }
 
     private void AddOperation(CamPaletteItem item)
     {
         Errors.Text = "";
+        if (AddFromSelection(item))
+        {
+            return;
+        }
+
         int contour = PaletteTarget();
         if (CamPalette.Unavailable(item, _job, contour, _openChains) is { } why)
         {

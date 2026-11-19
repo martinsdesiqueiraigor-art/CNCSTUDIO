@@ -299,7 +299,7 @@ public partial class JobView
     {
         if (_partMesh is { } m && _job.PartStep?.Path == m.Path)
         {
-            int[] chosen = _partFeatures is { } f ? [.. _partSelection.SelectMany(i => f.Faces[i].Triangles)] : [];
+            int[] chosen = _partFeatures is { } f ? [.. _partSelection.SelectMany(i => f.Faces[i].Triangles).Concat(SelectedOpTriangles()).Distinct()] : [];
             Scene3D.SetPart(m.Placed, chosen);
         }
         else
@@ -376,12 +376,13 @@ public partial class JobView
         }
 
         Snap();
-        (int index, string? error) = id switch
-        {
-            "bolsao" => CamJobPart.AddPocket(_job, features, face, m.Placed.Bounds.Max.Z),
-            "furacao" => CamJobPart.AddDrilling(_job, [.. _partSelection.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole)]),
-            _ => (-1, CamPalette.SoonMessage),
-        };
+        JobOpKind? kind = id switch { "bolsao" => JobOpKind.Pocket, "furacao" => JobOpKind.Drilling, _ => null };
+        (IReadOnlyList<int> made, string? error) = kind is { } k
+            ? CamJobFromGeometry.Add(_job, k, features,
+                k == JobOpKind.Drilling ? [.. _partSelection.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole)] : [face],
+                [], m.Placed.Bounds.Max.Z)
+            : ([], CamPalette.SoonMessage);
+        int index = made.Count > 0 ? made[0] : -1;
         if (error is not null)
         {
             Errors.Text = "• " + error;
