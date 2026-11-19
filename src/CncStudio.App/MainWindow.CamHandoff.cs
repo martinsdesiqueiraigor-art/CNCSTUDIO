@@ -120,10 +120,43 @@ public partial class MainWindow
                 row.Children.Add(text);
             }
 
+            else if (n.Kind == HandoffNoticeKind.ToolDiameter)
+            {
+                // BANCO-01: resolver o conflito do Ø com um clique (o banco ativo da fresa passa a ter o Ø do CAM, "a conferir")
+                var update = new Button { Content = "Atualizar o banco", Padding = new Thickness(10, 3), VerticalAlignment = VerticalAlignment.Center };
+                ToolTip.SetTip(update, "O banco ativo da fresa passa a ter o Ø que o CAM usou neste T, marcado \"a conferir\".");
+                update.Click += (_, _) => UpdateBankFromCam();
+                var row = new DockPanel();
+                DockPanel.SetDock(update, Dock.Right);
+                update.Margin = new Thickness(8, 0, 0, 0);
+                TextBlock text = (TextBlock)note.Child!;
+                note.Child = row;
+                row.Children.Add(update);
+                row.Children.Add(text);
+            }
+
             CamNotes.Children.Add(note);
         }
 
         CamNotes.IsVisible = CamNotes.Children.Count > 0;
+    }
+
+    /// <summary>BANCO-01: "Atualizar o banco": grava no banco ativo da fresa o Ø que o CAM usou (só os T que já estão no banco).</summary>
+    private void UpdateBankFromCam()
+    {
+        ToolBank? bank = ToolBankPick.ActiveMillBank(_settings.Banks, _settings.ActiveMillBankId);
+        if (CamHandoffCode.BankWithCamDiameters(bank, _active.CamPackage) is not { } changed)
+        {
+            return;
+        }
+
+        if (Cam.ToolBanks.SaveFromJob(changed) is { } error)
+        {
+            AnalysisStatus.Text = "Não foi possível atualizar o banco: " + error;
+            return;
+        }
+
+        StartAnalysis();
     }
 
     /// <summary>"Usar o do CAM": troca o bruto informado pelo do CAM (só quando o usuário pede).</summary>

@@ -149,6 +149,29 @@ public static class CamHandoffCode
         return copy;
     }
 
+    /// <summary>
+    /// BANCO-01: "Atualizar o banco": as ferramentas do banco com o mesmo T e outro Ø passam a ter o Ø que o CAM usou, marcadas
+    /// "a conferir" (o resto do cadastro fica). T fora do banco não entra (use o banco ou o CAM). Null = nada a mudar.
+    /// </summary>
+    public static ToolBank? BankWithCamDiameters(ToolBank? bank, CamHandoff? p)
+    {
+        if (bank is null)
+        {
+            return null;
+        }
+
+        ToolBank result = bank;
+        foreach ((int t, double d) in Diameters(p))
+        {
+            if (result.Tools.FirstOrDefault(x => x.Number == t) is { } b && (b.Diameter is not { } old || Math.Abs(old - d) > 1e-6))
+            {
+                result = result.With(b with { Diameter = d, ToCheck = true });
+            }
+        }
+
+        return ReferenceEquals(result, bank) ? null : result;
+    }
+
     /// <summary>Bruto do comentário (BRUTO ...) do texto, como o simulador da fresa o lê; null se não há.</summary>
     private static Stock? CommentStock(string programText) => SetupBinding.FromProgramComments(programText, MachineKind.Mill, Bounds3.Empty);
 

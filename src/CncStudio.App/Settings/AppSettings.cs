@@ -300,8 +300,13 @@ public sealed class AppSettings
     }
 
     /// <summary>Diâmetro da ferramenta T no banco (fresa: o banco ativo; ou o padrão, se não cadastrada ou sem Ø).</summary>
+    /// <summary>BANCO-01: Ø por T só do banco ativo da fresa (o T de uma ferramenta de torno não dá Ø a uma fresa).</summary>
+    private Dictionary<int, double> MillDiameters() =>
+        ToolBankLookup.ToolsFor(Core.Execution.MachineKind.Mill, Banks, ActiveMillBankId, ActiveLatheBankId)
+            .Where(p => p.Value.Diameter is not null).ToDictionary(p => p.Key, p => p.Value.Diameter!.Value);
+
     public double DiameterOf(int tool) =>
-        ToolBankLookup.Diameters(Banks, ActiveMillBankId, ActiveLatheBankId).TryGetValue(tool, out double d) ? d : DefaultToolDiameter;
+        MillDiameters().TryGetValue(tool, out double d) ? d : DefaultToolDiameter;
 
     /// <summary>
     /// Configuração usada pelo executor do Core. "programFolder" é a pasta do programa aberto,
@@ -310,7 +315,7 @@ public sealed class AppSettings
     public MachineSettings ToMachineSettings(string? programFolder)
     {
         // Cópia dos diâmetros do banco (fresa: o banco ativo, UX-04h C): a análise roda em outra thread e não deve ver edições no meio
-        Dictionary<int, double> diameters = ToolBankLookup.Diameters(Banks, ActiveMillBankId, ActiveLatheBankId);
+        Dictionary<int, double> diameters = MillDiameters();
         double defaultDiameter = DefaultToolDiameter;
 
         return new MachineSettings
