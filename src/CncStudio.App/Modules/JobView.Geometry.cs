@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using CncStudio.Core.Assist;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Cam3D;
+using CncStudio.Core.Geometry;
 
 namespace CncStudio.App.Modules;
 
@@ -61,6 +62,18 @@ public partial class JobView
         }
 
         Refresh(op: first);
+    }
+
+    /// <summary>Pontos das arestas a acender: as escolhidas no 3D e as da operação escolhida na árvore.</summary>
+    private IReadOnlyList<IReadOnlyList<Point3>> HighlightedEdges()
+    {
+        var chains = new List<IReadOnlyList<Point3>>(SelectedEdges().Select(e => e.Points));
+        if (_partFeatures is { } features && SelectedOp() is { } i && i < _job.Operations.Count && _job.Operations[i].Geometry is { } geo)
+        {
+            chains.AddRange(JobGeometry.Resolve(features, geo).Edges.Select(e => e.Points));
+        }
+
+        return chains;
     }
 
     private IReadOnlyList<MeshEdge> SelectedEdges() =>

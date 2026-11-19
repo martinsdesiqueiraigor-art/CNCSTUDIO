@@ -21,7 +21,6 @@ public class StepPlanSourceTests
     private static TriangleMesh Block()
     {
         var t = new List<(Point3, Point3, Point3)>();
-        const int n = 32;
         Point3[] o = [P(0, 0, 10), P(60, 0, 10), P(60, 40, 10), P(0, 40, 10)];
         Point3[] i = [P(15, 10, 10), P(45, 10, 10), P(45, 30, 10), P(15, 30, 10)];
         Point3[] f = [P(15, 10, 4), P(45, 10, 4), P(45, 30, 4), P(15, 30, 4)];

@@ -176,13 +176,26 @@ public sealed class MillJobSceneView : Grid
 
     private TriangleMesh? _part;
     private int[] _selected = [];
+    private float[] _edgeLines = [];
 
     /// <summary>
     /// Peça STEP do Trabalho já na posição (M3D-1) e os triângulos das faces escolhidas (laranja). Null = sem peça 3D (só os contornos).
     /// Só mostra: não verifica colisão nem simula.
     /// </summary>
-    public void SetPart(TriangleMesh? part, IReadOnlyCollection<int> selectedTriangles)
+    public void SetPart(TriangleMesh? part, IReadOnlyCollection<int> selectedTriangles, IReadOnlyList<IReadOnlyList<Point3>>? edges = null)
     {
+        _edgeLines = [];
+        foreach (IReadOnlyList<Point3> chain in edges ?? [])
+        {
+            var segs = new List<float>();
+            for (int k = 0; k + 1 < chain.Count; k++)
+            {
+                segs.AddRange([(float)chain[k].X, (float)chain[k].Y, (float)chain[k].Z, (float)chain[k + 1].X, (float)chain[k + 1].Y, (float)chain[k + 1].Z]);
+            }
+
+            _edgeLines = [.. _edgeLines, .. segs];
+        }
+
         bool newPart = part is not null && !ReferenceEquals(part, _part);
         _part = part;
         _selected = [.. selectedTriangles];
@@ -218,6 +231,10 @@ public sealed class MillJobSceneView : Grid
 
             Bounds3 b = scene.Bounds.Include(part.Bounds.Min).Include(part.Bounds.Max);
             scene = scene with { Objects = objects, Bounds = b };
+            if (_edgeLines.Length > 0)
+            {
+                scene = scene with { Lines = [.. scene.Lines, new SceneLinesState(SceneRole.Highlight, _edgeLines, 0xFF9F1C)] };
+            }
         }
 
         _partVersion++;

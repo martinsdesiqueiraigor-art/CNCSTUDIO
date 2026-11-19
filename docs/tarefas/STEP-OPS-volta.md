@@ -26,10 +26,15 @@ Ramo `ajuste-STEP-OPS`, base `dev`. Executor: Claude (chat), em sprint, por orde
 - **3D como tela principal:** trabalho com peça STEP (importado, aberto de arquivo ou pelo botão "mostrar no 3D") lê o STEP em segundo plano e abre no 3D com a peça enquadrada. Se o arquivo sumiu, não abre o 3D (o aviso de arquivo continua).
 - **Reselecionar:** `CamJobFromGeometry.Reconcile` roda depois de ler o STEP: operação cuja face/aresta não é achada fica Incompleta ("Falta Geometria"), não gera, **salva normalmente** (o estado vai no arquivo) e sai do estado ao Trocar seleção ou quando o STEP certo volta. O contorno guardado não muda. Teste novo; suíte do Core 2033 verdes.
 
-### Não foi feito (fica para outra ficha)
-- **Tela do Assist** "Peça STEP do Trabalho": falta imagem aprovada (ficha), então só Core + testes. O item 4 do "Pronto quando" não é testável ainda.
-- **Aba Modelo 3D "esvaziada"** (só varredura e desbaste): não mexi porque `FaceMenuTests` (Core) testa as mensagens atuais do menu dela e a ficha não autoriza mudar teste.
-- Aresta escolhida não muda de cor no 3D (a cena só pinta triângulos); a contagem aparece no aviso.
+### Fechado na 3ª rodada (19/11, após aprovação do quadro `Assist-STEP`)
+- **Tela do Assist:** seletor "Desenho (DXF)" / "Peça STEP do Trabalho" (o STEP só liga com a peça lida no Trabalho fresa). Com STEP: espessura vem do modelo (campo travado), os avisos do que ficou de fora aparecem no texto da fonte, as profundidades vêm preenchidas do modelo e continuam editáveis, e Aplicar põe no Trabalho os contornos lidos mais as operações (índices dos contornos ajustados; teste no Core). Trocar a fonte descarta o plano sugerido.
+- **Aba Modelo 3D:** mensagens do menu (faceamento, contorno, bolsão com ilhas) agora mandam fazer no Trabalho fresa. **Teste existente mudado, autorizado pelo Igor (19/11, 09:24):** `FaceMenuTests`, as 5 mensagens esperadas (texto novo); nada mais.
+- **Aresta no 3D:** as arestas escolhidas (e as da operação escolhida na árvore) acendem em laranja, linha fina por cima da peça (papel novo `SceneRole.Highlight`).
+- Suíte do Core: 2034 verdes; build sem aviso.
+
+### Ressalvas
+- Profundidades do STEP entram no Assist como valores já "revisados" (preenchidos); a marca de origem da operação diz "profundidade digitada" mesmo quando você não mudou o número.
+- Fora do plano do Assist (como no DXF): furo inclinado, curvas, faces para baixo e degraus na borda (aviso na tela).
 - Arcos da malha viram trechos retos (G1 curtos), como já era no M3D.
 
 ### O que o Igor testa no .exe
@@ -37,6 +42,7 @@ Ramo `ajuste-STEP-OPS`, base `dev`. Executor: Claude (chat), em sprint, por orde
 2. Topo plano → Faceamento; digitar T, Ø, rotação; gerar G-code.
 3. Duas ou mais arestas vizinhas (Ctrl) → Contorno; conferir fora/dentro e o aviso de aresta aberta.
 4. Fundo de rebaixo com pino ou furo → Bolsão com ilhas; simular.
+4b. Assist → Plano 2D → Fonte "Peça STEP do Trabalho" (com o STEP aberto no Trabalho fresa): material, Sugerir, conferir profundidades do modelo, fixação e alturas, Aplicar.
 5. Abrir um trabalho DXF antigo e um STEP do M3D: mesmo programa de antes.
 
 ### Riscos
