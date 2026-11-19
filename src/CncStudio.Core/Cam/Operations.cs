@@ -442,6 +442,11 @@ public static partial class CamOperations
             return Fail("A bicada (Q) precisa ser maior que zero.");
         }
 
+        if (kind == DrillCycleKind.Tap && (tool.SpindleRpm <= 0 || tool.FeedZ <= 0))
+        {
+            return Fail("Macho: informe a rotação e o avanço (passo × rotação) da ferramenta.");
+        }
+
         if (kind == DrillCycleKind.Dwell && dwellSeconds <= 0)
         {
             return Fail("O tempo de permanência precisa ser maior que zero.");

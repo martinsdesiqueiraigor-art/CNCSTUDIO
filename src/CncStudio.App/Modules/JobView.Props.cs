@@ -153,7 +153,7 @@ public partial class JobView
                 break;
             case JobOpKind.Drilling when s.Drill is { } d:
                 Section("Furação");
-                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco"], (int)d.Cycle, (x, n) => x with { Drill = x.Drill! with { Cycle = (DrillCycleKind)n } }, rebuild: true);
+                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco", "G84 macho (Fanuc)", "G85 mandrilhar, sai em avanço (Fanuc)", "G86 mandrilhar, fuso parado (Fanuc)"], (int)d.Cycle, (x, n) => x with { Drill = x.Drill! with { Cycle = (DrillCycleKind)n } }, rebuild: true);
                 Num(i, CamJobInfo.PeckField, "mm", d.Peck, (x, v) => x with { Drill = x.Drill! with { Peck = v } });
                 Num(i, CamJobInfo.DwellField, "s", d.DwellSeconds, (x, v) => x with { Drill = x.Drill! with { DwellSeconds = v } });
                 break;

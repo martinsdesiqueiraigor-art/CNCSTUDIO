@@ -255,6 +255,9 @@ public sealed class CamJob
                 case JobOpKind.Drilling when s.Drill is null:
                     errors.Add(at + "faltam os dados da furação.");
                     break;
+                case JobOpKind.Drilling when s.Drill!.Cycle is DrillCycleKind.Tap or DrillCycleKind.BoreFeed or DrillCycleKind.BoreStop && Dialect != CamDialect.Fanuc:
+                    errors.Add(at + "macho e mandrilhar só saem em Fanuc (G84, G85, G86); no Siemens use outro ciclo.");
+                    break;
                 case JobOpKind.WrapText when s.Wrap is null:
                     errors.Add(at + "faltam os dados do texto no cilindro.");
                     break;
