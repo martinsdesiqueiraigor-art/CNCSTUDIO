@@ -867,7 +867,7 @@ public partial class JobView
     {
         StockSolid? solid = CamJobStock.Check(_job).Solid;
         return solid is { Kind: StockSolidKind.Step } && _job.StockShape is { } shape && _stepMesh is { } m && m.Path == shape.StepPath
-            ? solid with { Mesh = CamJobStock.PlaceStepMesh(shape, m.Mesh) }
+            ? solid with { Mesh = CamJobStock.PlaceStepMesh(shape, m.Mesh, _job.PartStep) }
             : solid;
     }
 }
