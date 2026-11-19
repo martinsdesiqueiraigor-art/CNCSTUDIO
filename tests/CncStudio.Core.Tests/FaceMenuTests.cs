@@ -25,7 +25,7 @@ public class FaceMenuTests
         FaceMenu m = FaceMenuRules.For(Face(FaceKind.Plane, Up, 12), 1, Top);
         Assert.Equal("Face plana · Z = 12,0 mm", m.Header);
         Assert.Equal(["bolsao"], Fits(m));
-        Assert.Contains("Faceamento ainda não existe a partir do 3D", Why(m, "faceamento"));
+        Assert.Contains("Faceamento pela face sai no Trabalho fresa", Why(m, "faceamento"));
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class FaceMenuTests
     {
         FaceMenu m = FaceMenuRules.For(Face(FaceKind.Plane, Up, 12), 2, Top);
         Assert.Empty(m.Fits);
-        Assert.Equal("Bolsão com ilhas ainda não sai do 3D.", Why(m, "bolsao"));
+        Assert.Equal("Bolsão com ilhas sai no Trabalho fresa: abra o STEP lá e clique no fundo do rebaixo.", Why(m, "bolsao"));
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class FaceMenuTests
         Assert.Equal("Face plana de topo · Z = 30,0 mm", m.Header);
         Assert.Empty(m.Fits);
         Assert.Contains("topo do modelo", Why(m, "bolsao"));
-        Assert.StartsWith("Faceamento ainda não existe a partir do 3D", Why(m, "faceamento"));
+        Assert.StartsWith("Faceamento pela face sai no Trabalho fresa", Why(m, "faceamento"));
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public class FaceMenuTests
         FaceMenu m = FaceMenuRules.For(Face(FaceKind.Plane, Up, Top), 1, Top);
         Assert.Equal(["faceamento", "bolsao"], Short(m));
         Assert.All(m.Short, i => Assert.False(i.Fits));
-        Assert.Equal("Faceamento ainda não existe a partir do 3D: use o Faceamento do Trabalho fresa.", Why(m, "faceamento"));
+        Assert.Equal("Faceamento pela face sai no Trabalho fresa: abra o STEP lá e clique na face.", Why(m, "faceamento"));
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public class FaceMenuTests
     {
         FaceMenu m = FaceMenuRules.For(Face(FaceKind.Plane, Up, 12), 3, Top);
         Assert.Equal(["faceamento", "bolsao"], Short(m));
-        Assert.Equal("Bolsão com ilhas ainda não sai do 3D.", m.Short.Single(i => i.Item.Id == "bolsao").Unavailable);
+        Assert.Equal("Bolsão com ilhas sai no Trabalho fresa: abra o STEP lá e clique no fundo do rebaixo.", m.Short.Single(i => i.Item.Id == "bolsao").Unavailable);
     }
 
     [Fact]
