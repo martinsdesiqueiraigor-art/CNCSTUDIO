@@ -22,11 +22,15 @@ Ramo `ajuste-STEP-OPS`, base `dev`. Executor: Claude (chat), em sprint, por orde
 - O menu da face do Trabalho passa a usar a regra da geometria para Faceamento e Bolsão com ilhas. O menu do Core (aba Modelo 3D) não mudou, porque `FaceMenuTests` testa as mensagens antigas.
 - Aresta escolhida não muda de cor no 3D (a cena só pinta triângulos); a contagem aparece no aviso.
 
+### Fechado depois (19/11, 2ª rodada)
+- **3D como tela principal:** trabalho com peça STEP (importado, aberto de arquivo ou pelo botão "mostrar no 3D") lê o STEP em segundo plano e abre no 3D com a peça enquadrada. Se o arquivo sumiu, não abre o 3D (o aviso de arquivo continua).
+- **Reselecionar:** `CamJobFromGeometry.Reconcile` roda depois de ler o STEP: operação cuja face/aresta não é achada fica Incompleta ("Falta Geometria"), não gera, **salva normalmente** (o estado vai no arquivo) e sai do estado ao Trocar seleção ou quando o STEP certo volta. O contorno guardado não muda. Teste novo; suíte do Core 2033 verdes.
+
 ### Não foi feito (fica para outra ficha)
-- **3D como tela principal do Trabalho** ao abrir STEP, e esvaziar a aba Modelo 3D (S0 do quadro).
-- **"Reselecionar" como estado da operação:** hoje, se o STEP mudou e a face não é achada, a seção Geometria avisa e o contorno guardado continua; a operação **não** vira Incompleta.
-- **Tela do Assist** "Peça STEP do Trabalho": não há imagem aprovada, então só Core + testes (como a ficha manda). O item 4 do "Pronto quando" não é testável ainda.
-- Raio/arco: arcos da malha viram trechos retos (G1 curtos), como já era no M3D.
+- **Tela do Assist** "Peça STEP do Trabalho": falta imagem aprovada (ficha), então só Core + testes. O item 4 do "Pronto quando" não é testável ainda.
+- **Aba Modelo 3D "esvaziada"** (só varredura e desbaste): não mexi porque `FaceMenuTests` (Core) testa as mensagens atuais do menu dela e a ficha não autoriza mudar teste.
+- Aresta escolhida não muda de cor no 3D (a cena só pinta triângulos); a contagem aparece no aviso.
+- Arcos da malha viram trechos retos (G1 curtos), como já era no M3D.
 
 ### O que o Igor testa no .exe
 1. Trabalho novo → `Bolted_Flange.step`: clicar duas faces (Ctrl) → Bolsão; clicar a operação na árvore (faces acendem); Geometria → tirar/adicionar face; salvar, fechar, abrir.

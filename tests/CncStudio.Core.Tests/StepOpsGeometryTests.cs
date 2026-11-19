@@ -333,4 +333,33 @@ public class StepOpsGeometryTests
         Assert.True(job.Operations[0].Islands);
         Assert.False(TouchesIsland(CamJobBuilder.Build(job, null)));
     }
+
+    [Fact]
+    public void Face_nao_achada_deixa_a_operacao_incompleta_e_reselecionar_limpa()
+    {
+        TriangleMesh mesh = PocketWithIsland();
+        CamJob job = Job(mesh);
+        MeshFeatures f = MeshFeatures.Analyze(mesh);
+        CamJobFromGeometry.Add(job, JobOpKind.Pocket, f, [Floor(f)], [], mesh.Bounds.Max.Z);
+        Fill(job, 0, 5, 4);
+        Assert.Equal(0, CamJobFromGeometry.Reconcile(job, f));
+        Assert.Null(CamJobInfo.MissingError(job.Operations[0]));
+
+        // STEP novo: outra peça, a face do fundo não existe mais
+        MeshFeatures other = MeshFeatures.Analyze(Washer());
+        Assert.Equal(1, CamJobFromGeometry.Reconcile(job, other));
+        Assert.Contains("Geometria", CamJobInfo.MissingError(job.Operations[0]));
+        Assert.False(CamJobBuilder.Build(job, null).Ok); // não gera
+        Assert.Empty(CamJobInfo.SaveBlockers(job)); // salvar continua livre
+        JobLoadResult back = CamJobJson.FromJson(CamJobJson.ToJson(job));
+        Assert.Contains("Geometria", back.Job!.Operations[0].MissingFields); // o estado vai no arquivo
+
+        // reselecionar (aqui: a mesma face da peça original de volta) limpa
+        Assert.Null(CamJobFromGeometry.Update(job, 0, f, [Floor(f)], [], LoopFilter.All, mesh.Bounds.Max.Z));
+        Assert.Null(CamJobInfo.MissingError(job.Operations[0]));
+        // e o STEP original de volta também limpa por Reconcile
+        CamJobFromGeometry.Reconcile(job, other);
+        Assert.Equal(0, CamJobFromGeometry.Reconcile(job, f));
+        Assert.Null(CamJobInfo.MissingError(job.Operations[0]));
+    }
 }

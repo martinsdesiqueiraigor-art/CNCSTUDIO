@@ -477,6 +477,17 @@ public static class CamJobFromGeometry
     /// </summary>
     public static string? Update(CamJob job, int index, MeshFeatures features, IReadOnlyList<MeshFace> faces, IReadOnlyList<MeshEdge> edges, LoopFilter loops, double modelTopZ)
     {
+        string? error = UpdateCore(job, index, features, faces, edges, loops, modelTopZ);
+        if (error is null)
+        {
+            job.Operations[index] = CamJobInfo.SetMissing(job.Operations[index], ReselectField, false); // geometria nova: não há mais o que reselecionar
+        }
+
+        return error;
+    }
+
+    private static string? UpdateCore(CamJob job, int index, MeshFeatures features, IReadOnlyList<MeshFace> faces, IReadOnlyList<MeshEdge> edges, LoopFilter loops, double modelTopZ)
+    {
         CamOperationSpec spec = job.Operations[index];
         GeoSource old = spec.Geometry ?? new GeoSource([], LoopFilter.All, []);
         switch (spec.Kind)
@@ -566,6 +577,29 @@ public static class CamJobFromGeometry
             default:
                 return CamPalette.SoonMessage;
         }
+    }
+
+    /// <summary>
+    /// Confere as operações do 3D com o STEP lido (depois de ler a peça ou de ela mudar): a operação cuja face ou aresta não é achada fica
+    /// Incompleta ("Falta Geometria": não gera até Reselecionar; salvar continua livre); a que volta a ser achada sai desse estado.
+    /// O contorno guardado não muda. Devolve quantas operações estão a reselecionar.
+    /// </summary>
+    public static int Reconcile(CamJob job, MeshFeatures features)
+    {
+        int pending = 0;
+        for (int i = 0; i < job.Operations.Count; i++)
+        {
+            if (job.Operations[i].Geometry is not { } geo)
+            {
+                continue;
+            }
+
+            bool lost = JobGeometry.Resolve(features, geo).Lost.Count > 0;
+            job.Operations[i] = CamJobInfo.SetMissing(job.Operations[i], ReselectField, lost);
+            pending += lost ? 1 : 0;
+        }
+
+        return pending;
     }
 
     /// <summary>Z do fundo que a seleção mostra (referência para "Pegar do modelo"). Null se não há uma resposta única.</summary>

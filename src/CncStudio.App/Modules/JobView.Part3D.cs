@@ -126,7 +126,7 @@ public partial class JobView
         {
             var show = new Button { Content = _partReading ? "Lendo o STEP…" : "Mostrar a peça no 3D (lê o STEP)", Padding = new Thickness(10, 4), FontSize = 12, IsEnabled = !_partReading };
             ToolTip.SetTip(show, "A leitura não trava a tela. Depois de ler, clique nas faces no 3D (botão 3D) para criar operações.");
-            show.Click += async (_, _) => await LoadPartMesh();
+            show.Click += async (_, _) => await LoadPartMesh(open3D: true);
             card.Children.Add(show);
         }
         else if (_partMesh is not null)
@@ -243,7 +243,7 @@ public partial class JobView
     }
 
     /// <summary>Lê o STEP já escolhido só para o 3D. Se mudou desde que foi aberto (caixa diferente), não usa.</summary>
-    private async Task LoadPartMesh()
+    private async Task LoadPartMesh(bool open3D = false)
     {
         if (_partReading || _job.PartStep is not { } part)
         {
@@ -271,6 +271,12 @@ public partial class JobView
             }
 
             message = $"• STEP da peça lido em {seconds.ToString("0.0", Br)} s.";
+            if (open3D)
+            {
+                // STEP-OPS: com peça STEP o 3D é a tela principal do Trabalho (a peça enquadrada, faces para clicar)
+                View3DButton.IsChecked = true;
+                message += " Clique nas faces ou arestas no 3D para criar operações.";
+            }
         }
 
         Refresh(keep: true);
@@ -295,7 +301,13 @@ public partial class JobView
         }
 
         _partFeatures = features;
+        // STEP-OPS: operação cuja face não é achada neste STEP fica Incompleta até Reselecionar (salvar continua livre)
+        int pending = CamJobFromGeometry.Reconcile(_job, features);
         Refresh(keep: true);
+        if (pending > 0)
+        {
+            Errors.Text = $"• {pending} operação(ões) do 3D não acharam a face neste STEP e ficaram Incompletas: selecione a face no 3D e use Trocar seleção em Geometria (Reselecionar).";
+        }
     }
 
     /// <summary>Peça e seleção no 3D do Trabalho.</summary>
