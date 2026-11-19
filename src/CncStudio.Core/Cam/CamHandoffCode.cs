@@ -230,6 +230,12 @@ public static class CamHandoffCode
     /// </summary>
     public static ToolProfile? ProfileOf(HandoffTool tool, double diameter)
     {
+        if (diameter > 0 && tool.Type == CamHandoff.VCutterType)
+        {
+            // OPS-A-02: fresa em V do Chanfro (ponta afiada, ângulo digitado na operação)
+            return tool.TipAngle is { } v && v > 0 && v < 180 ? new ToolProfile(ToolTipShape.Cone, diameter / 2, TipAngle: v) : null;
+        }
+
         if (!(diameter > 0) || tool.Type is not { } code || BankToolTypes.FromCode(code) is not { } type)
         {
             return null;

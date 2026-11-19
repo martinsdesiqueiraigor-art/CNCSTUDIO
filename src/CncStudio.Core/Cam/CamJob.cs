@@ -3,7 +3,7 @@ using CncStudio.Core.Generators;
 namespace CncStudio.Core.Cam;
 
 /// <summary>Tipo da operação de fresa guardada no Job.</summary>
-public enum JobOpKind { Contour, Pocket, Facing, Drilling, WrapText }
+public enum JobOpKind { Contour, Pocket, Facing, Drilling, WrapText, Chamfer }
 
 /// <summary>
 /// Face girada no 4º eixo (mesa): letra do eixo (A ou B), ângulo e distância do centro do eixo até a face virada para cima.
@@ -93,6 +93,9 @@ public sealed record CamOperationSpec(JobOpKind Kind, CamTool Tool, CamLevels Le
     public GeoSource? Geometry { get; init; }
 
     public ContourParams? ContourParams { get; init; }
+
+    /// <summary>OPS-A-02: dados do Chanfro (ferramenta em V). Só vale com <see cref="JobOpKind.Chamfer"/>. Campo opcional do arquivo (versão 7).</summary>
+    public ChamferParams? Chamfer { get; init; }
 
     public PocketParams? PocketParams { get; init; }
 
@@ -246,6 +249,12 @@ public sealed class CamJob
                 case JobOpKind.Contour when s.ContourParams is null:
                     errors.Add(at + "faltam os dados do contorno.");
                     break;
+                case JobOpKind.Chamfer when s.Chamfer is null:
+                    errors.Add(at + "faltam os dados do chanfro.");
+                    break;
+                case JobOpKind.Chamfer when s.Chamfer is { Side: ContourSide.OnLine }:
+                    errors.Add(at + "o chanfro é por fora ou por dentro do contorno.");
+                    break;
                 case JobOpKind.Pocket when s.PocketParams is null:
                     errors.Add(at + "faltam os dados do bolsão.");
                     break;
@@ -263,7 +272,7 @@ public sealed class CamJob
                     break;
             }
 
-            bool needsContour = s.Kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Facing;
+            bool needsContour = s.Kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Facing or JobOpKind.Chamfer;
             if (needsContour && (s.ContourIndex < 0 || s.ContourIndex >= Contours.Count))
             {
                 errors.Add(at + "escolha um contorno do desenho.");
@@ -451,10 +460,12 @@ public static class CamJobBuilder
                 return s.Islands
                     ? CamOperations.PocketWithIslands(part!, CamOperations.FindIslands(part!, job.Contours), s.Tool, s.Levels, pocket)
                     : CamOperations.Pocket(part!, s.Tool, s.Levels, pocket);
+            case JobOpKind.Chamfer:
+                return CamOperations.Chamfer(part!, s.Tool, s.Levels, s.Chamfer!);
             case JobOpKind.Facing:
                 (double x0, double y0, double x1, double y1) = part!.BoundsXY();
                 return CamOperations.Facing(s.Tool, s.Levels, x0, y0, x1 - x0, y1 - y0, s.FacingStepOverPercent);
-            default:
+            case JobOpKind.Drilling:
                 // M3D-2: furos escolhidos no 3D (lista de contornos); senão, como antes
                 IEnumerable<Contour> source = s.ContourIndices is { Count: > 0 } chosen ? chosen.Select(c => job.Contours[c])
                     : part is null ? job.Contours : [part];
@@ -466,6 +477,8 @@ public static class CamJobBuilder
 
                 DrillSpec d = s.Drill!;
                 return CamOperations.Drilling(s.Tool, s.Levels.SafeZ, holes.Select(h => h.Center), d.Cycle, s.Levels.TopZ, s.Levels.BottomZ, s.Levels.ClearanceZ, d.Peck, d.DwellSeconds);
+            default:
+                return new OperationResult(null, "Tipo de operação sem gerador: " + s.Kind + ".");
         }
     }
 

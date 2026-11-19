@@ -9,6 +9,13 @@ public enum ContourSide { Outside, Inside, OnLine }
 public sealed record ContourParams(ContourSide Side, bool Climb = true, bool ControllerComp = false, double Allowance = 0, double LeadRadius = 3);
 
 /// <summary>
+/// OPS-A-02, Chanfro com fresa em V de ponta afiada. <see cref="Side"/>: por fora ou por dentro do contorno (sobre a linha não vale).
+/// <see cref="TipAngle"/>: ângulo incluído da ponta, em graus. <see cref="Width"/>: largura horizontal do chanfro no topo.
+/// <see cref="Depth"/>: quanto a ponta desce abaixo do topo. <see cref="LeadRadius"/>: raio do arco de entrada e saída. Percurso concordante.
+/// </summary>
+public sealed record ChamferParams(ContourSide Side, double TipAngle, double Width, double Depth, double LeadRadius);
+
+/// <summary>
 /// Bolsão: passo lateral, sobremetal e raio de entrada do acabamento. OPS-A-01: a entrada em Z e a estratégia são escolha do usuário
 /// (<see cref="PocketEntry"/>, <see cref="PocketStrategy"/>); sem escolha o bolsão sai como antes (arquivo versão ≤ 6, G-code igual).
 /// </summary>
@@ -144,6 +151,93 @@ public static partial class CamOperations
         ToolMove end = moves[^1];
         moves.Add(Rapid(end.XY, levels.SafeZ));
         return new OperationResult(new CamOperation("Contorno", tool, moves, null, warnings), null);
+    }
+
+    /// <summary>
+    /// Distância do eixo da ferramenta V até a aresta (o <c>o</c> do chanfro): <c>Depth·tan(α/2) − Width</c>. Null e o motivo em
+    /// <paramref name="error"/> se os números não fecham (ponta afiada; ponta plana deixaria o chanfro menor).
+    /// </summary>
+    public static double? ChamferOffset(CamTool tool, ChamferParams p, out string? error)
+    {
+        error = null;
+        if (p.Side == ContourSide.OnLine)
+        {
+            error = "O chanfro é por fora ou por dentro do contorno.";
+        }
+        else if (!(p.TipAngle > 0 && p.TipAngle < 180))
+        {
+            error = "O ângulo da ponta precisa ficar entre 0 e 180 graus.";
+        }
+        else if (!(p.Width > 0) || !(p.Depth > 0))
+        {
+            error = "A largura e a profundidade do chanfro precisam ser maiores que zero.";
+        }
+        else if (!(p.LeadRadius > 0))
+        {
+            error = "O raio de entrada e saída precisa ser maior que zero.";
+        }
+
+        if (error is not null)
+        {
+            return null;
+        }
+
+        double tan = Math.Tan(p.TipAngle * Math.PI / 360);
+        double radiusAtTop = p.Depth * tan;
+        if (radiusAtTop > tool.Radius + 1e-9)
+        {
+            error = $"A ferramenta V não alcança: nessa profundidade o cone pede Ø {2 * radiusAtTop:0.###} e a ferramenta tem Ø {tool.Diameter:0.###}.";
+            return null;
+        }
+
+        double offset = radiusAtTop - p.Width;
+        if (offset < -1e-9)
+        {
+            error = $"A profundidade é pequena para essa largura: com ponta de {p.TipAngle:0.###}° o chanfro de {p.Width:0.###} pede profundidade de pelo menos {p.Width / tan:0.###}.";
+            return null;
+        }
+
+        return Math.Max(0, offset);
+    }
+
+    /// <summary>
+    /// Chanfro da aresta do contorno com fresa em V (OPS-A-02): um passe só, com a ponta em Z topo − profundidade e o eixo a
+    /// <see cref="ChamferOffset"/> da aresta. Reaproveita o gerador do contorno (arco de entrada e saída, sentido concordante).
+    /// </summary>
+    public static OperationResult Chamfer(Contour part, CamTool tool, CamLevels levels, ChamferParams p)
+    {
+        string? error = tool.Validate();
+        if (error is not null)
+        {
+            return Fail(error);
+        }
+
+        if (!(levels.SafeZ > levels.ClearanceZ && levels.ClearanceZ >= levels.TopZ))
+        {
+            return Fail("Os Z precisam seguir: seguro > aproximação ≥ topo da peça.");
+        }
+
+        if (ChamferOffset(tool, p, out error) is not { } offset)
+        {
+            return Fail(error!);
+        }
+
+        // o gerador do contorno desloca pelo raio da ferramenta: aqui o "raio" é a distância do eixo à aresta
+        CamTool shifted = tool with { Diameter = offset * 2 };
+        ContourSide side = offset <= 1e-9 ? ContourSide.OnLine : p.Side;
+        var warnings = new List<string>();
+        var moves = new List<ToolMove>();
+        double bottom = levels.TopZ - p.Depth;
+        error = AppendContour(moves, warnings, part, shifted, levels, new ContourParams(side, true, false, 0, p.LeadRadius), [bottom], moveToSafe: true);
+        if (error is not null)
+        {
+            return Fail(error);
+        }
+
+        warnings.Add("Chanfro: considera ponta afiada. Ponta plana deixa o chanfro menor que o digitado. Meça a primeira peça.");
+        ToolMove end = moves[^1];
+        moves.Add(Rapid(end.XY, levels.SafeZ));
+        return new OperationResult(new CamOperation("Chanfro", tool, moves, null, warnings), null);
     }
 
     /// <summary>Gera os passes de contorno nas profundidades dadas. Devolve o erro, se houver.</summary>

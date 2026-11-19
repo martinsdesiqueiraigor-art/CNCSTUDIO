@@ -343,6 +343,12 @@ public static class CamJobJson
             o["contourParams"] = new JsonObject { ["side"] = c.Side.ToString(), ["climb"] = c.Climb, ["comp"] = c.ControllerComp, ["allowance"] = c.Allowance, ["lead"] = c.LeadRadius };
         }
 
+        if (s.Chamfer is { } ch)
+        {
+            // OPS-A-02 (versão 7): só existe em operação de Chanfro
+            o["chamfer"] = new JsonObject { ["side"] = ch.Side.ToString(), ["tipAngle"] = ch.TipAngle, ["width"] = ch.Width, ["depth"] = ch.Depth, ["lead"] = ch.LeadRadius };
+        }
+
         if (s.PocketParams is { } p)
         {
             var pocketNode = new JsonObject { ["stepOver"] = p.StepOverPercent, ["finish"] = p.FinishAllowance, ["lead"] = p.LeadRadius };
@@ -700,6 +706,11 @@ public static class CamJobJson
         if (o["contourParams"] is JsonObject c)
         {
             spec = spec with { ContourParams = new ContourParams(Enum<ContourSide>(Str(c, "side"), "lado do contorno"), Bool(c, "climb"), Bool(c, "comp"), Num(c, "allowance"), Num(c, "lead")) };
+        }
+
+        if (o["chamfer"] is JsonObject chamfer)
+        {
+            spec = spec with { Chamfer = new ChamferParams(Enum<ContourSide>(Str(chamfer, "side"), "lado do chanfro"), Num(chamfer, "tipAngle"), Num(chamfer, "width"), Num(chamfer, "depth"), Num(chamfer, "lead")) };
         }
 
         if (o["pocketParams"] is JsonObject p)

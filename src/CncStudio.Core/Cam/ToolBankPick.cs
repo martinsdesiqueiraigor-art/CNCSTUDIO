@@ -149,6 +149,15 @@ public static class ToolBankPick
             s = CamJobInfo.SetFieldState(s, f, true, false);
         }
 
+        if (s.Kind == JobOpKind.Chamfer)
+        {
+            // OPS-A-02: nada suposto, os quatro campos do chanfro também nascem vazios
+            foreach (string f in new[] { CamJobInfo.TipAngleField, CamJobInfo.ChamferWidthField, CamJobInfo.ChamferDepthField, CamJobInfo.ChamferLeadField })
+            {
+                s = CamJobInfo.SetFieldState(s, f, true, false);
+            }
+        }
+
         return s with { Tool = s.Tool with { Name = "" } };
     }
 
