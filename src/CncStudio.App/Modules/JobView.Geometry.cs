@@ -19,6 +19,11 @@ public partial class JobView
     private IReadOnlyList<MeshFace> SelectedFaces() =>
         _partFeatures is { } f ? [.. _partSelection.Where(i => i >= 0 && i < f.Faces.Count).Select(i => f.Faces[i])] : [];
 
+    private IReadOnlyList<MeshEdge> SelectedEdges() =>
+        _partFeatures is { } f ? [.. _partEdges.Where(i => i >= 0 && i < f.Edges.Count).Select(i => f.Edges[i])] : [];
+
+    private bool HasSelection => _partSelection.Count + _partEdges.Count > 0;
+
     private double PartTopZ => _partMesh?.Placed.Bounds.Max.Z ?? 0;
 
     /// <summary>Faixa com peça STEP lida: o botão serve à seleção do 3D (null = serve, texto = por que não). Sem peça STEP: null = regra de sempre.</summary>
@@ -34,7 +39,7 @@ public partial class JobView
             return null;
         }
 
-        return CamJobFromGeometry.Unavailable(kind, _partFeatures!, SelectedFaces(), [], PartTopZ);
+        return CamJobFromGeometry.Unavailable(kind, _partFeatures!, SelectedFaces(), SelectedEdges(), PartTopZ, item.Side);
     }
 
     /// <summary>Botão da faixa com seleção no 3D: cria a operação da seleção (uma por fundo de bolsão; uma furação com todos os furos).</summary>
@@ -45,13 +50,13 @@ public partial class JobView
             return false;
         }
 
-        if (_partSelection.Count == 0 && _job.Contours.Count > 0 && kind is JobOpKind.Contour or JobOpKind.Facing)
+        if (!HasSelection && _job.Contours.Count > 0 && kind is JobOpKind.Contour or JobOpKind.Facing)
         {
             return false; // contornos já no trabalho: a regra de sempre
         }
 
         Snap();
-        (IReadOnlyList<int> made, string? error) = CamJobFromGeometry.Add(_job, kind, _partFeatures!, SelectedFaces(), [], PartTopZ);
+        (IReadOnlyList<int> made, string? error) = CamJobFromGeometry.Add(_job, kind, _partFeatures!, SelectedFaces(), SelectedEdges(), PartTopZ, item.Side);
         if (error is not null)
         {
             Errors.Text = "• " + error;
@@ -59,6 +64,7 @@ public partial class JobView
         }
 
         _partSelection.Clear();
+        _partEdges.Clear();
         Refresh(op: made[0]);
         ShowPartInScene();
         Errors.Text = "• Operação criada da seleção. Digite T, Ø, rotação, avanços e confira o Z do fundo. " + CamJobPart.MeshContourNote;
@@ -113,10 +119,10 @@ public partial class JobView
         }
 
         var buttons = new List<Control>();
-        bool hasSelection = _partSelection.Count > 0;
-        buttons.Add(Choice("Trocar seleção", false, hasSelection ? () => ChangeGeometry(i, [.. SelectedFaces().Select(JobGeometry.Of)], geo.Loops) : null,
+        bool hasSelection = HasSelection;
+        buttons.Add(Choice("Trocar seleção", false, hasSelection ? () => ChangeGeometry(i, SelectedRefs(), geo.Loops) : null,
             "Troca as faces da operação pelas que estão selecionadas no 3D (T, avanços e alturas digitados ficam)."));
-        buttons.Add(Choice("+ Adicionar", false, hasSelection ? () => ChangeGeometry(i, [.. geo.Refs, .. SelectedFaces().Select(JobGeometry.Of).Where(r => !geo.Refs.Contains(r))], geo.Loops) : null,
+        buttons.Add(Choice("+ Adicionar", false, hasSelection ? () => ChangeGeometry(i, [.. geo.Refs, .. SelectedRefs().Where(r => !geo.Refs.Contains(r))], geo.Loops) : null,
             "Soma ao que a operação já usa as faces selecionadas no 3D."));
         PropsPanel.Children.Add(Choices([.. buttons]));
         if (!hasSelection)
@@ -124,12 +130,21 @@ public partial class JobView
             PropsPanel.Children.Add(Note("Para trocar ou somar, selecione faces no 3D (Ctrl soma)."));
         }
 
-        if (s.Kind == JobOpKind.Pocket)
+        if (s.Kind is JobOpKind.Pocket or JobOpKind.Contour && geo.Refs.Any(r => r.Kind == GeoKind.Face))
         {
             PropsPanel.Children.Add(Caps("LAÇOS"));
-            PropsPanel.Children.Add(Choices(
-                Choice("Todos", geo.Loops == LoopFilter.All, () => ChangeGeometry(i, geo.Refs, LoopFilter.All), "Contorno de fora e as ilhas (e furos) dentro da face."),
-                Choice("Só o de fora", geo.Loops == LoopFilter.Outer, () => ChangeGeometry(i, geo.Refs, LoopFilter.Outer), "Esvazia tudo, sem deixar ilhas.")));
+            if (s.Kind == JobOpKind.Pocket)
+            {
+                PropsPanel.Children.Add(Choices(
+                    Choice("Todos", geo.Loops == LoopFilter.All, () => ChangeGeometry(i, geo.Refs, LoopFilter.All), "Contorno de fora e as ilhas (e furos) dentro da face."),
+                    Choice("Só o de fora", geo.Loops == LoopFilter.Outer, () => ChangeGeometry(i, geo.Refs, LoopFilter.Outer), "Esvazia tudo, sem deixar ilhas.")));
+            }
+            else
+            {
+                PropsPanel.Children.Add(Choices(
+                    Choice("Externo", geo.Loops != LoopFilter.Inner, () => ChangeGeometry(i, geo.Refs, LoopFilter.Outer), "O laço de fora da face."),
+                    Choice("Interno", geo.Loops == LoopFilter.Inner, () => ChangeGeometry(i, geo.Refs, LoopFilter.Inner), "O laço de dentro da face (um furo ou ilha só).")));
+            }
         }
 
         double? model = CamJobFromGeometry.ModelBottomZ(s.Kind, faces);
@@ -139,8 +154,9 @@ public partial class JobView
             PropsPanel.Children.Add(Choices(take));
         }
 
-        _ = edges;
     }
+
+    private IReadOnlyList<GeoRef> SelectedRefs() => [.. SelectedFaces().Select(JobGeometry.Of), .. SelectedEdges().Select(JobGeometry.Of)];
 
     private void SetBottomFromModel(int i, double z)
     {
@@ -159,28 +175,34 @@ public partial class JobView
         }
 
         var faces = new List<MeshFace>();
+        var edges = new List<MeshEdge>();
         foreach (GeoRef r in refs)
         {
             if (r.Kind == GeoKind.Face && JobGeometry.Find(features, r) is { } f)
             {
                 faces.Add(f);
             }
+            else if (r.Kind == GeoKind.Edge && JobGeometry.FindEdge(features, r) is { } e)
+            {
+                edges.Add(e);
+            }
         }
 
-        if (faces.Count != refs.Count)
+        if (faces.Count + edges.Count != refs.Count)
         {
-            Errors.Text = "• Há faces que não foram achadas no STEP: selecione de novo no 3D e use Trocar seleção.";
+            Errors.Text = "• Há faces ou arestas que não foram achadas no STEP: selecione de novo no 3D e use Trocar seleção.";
             return;
         }
 
         Snap();
-        if (CamJobFromGeometry.Update(_job, i, features, faces, [], loops, PartTopZ) is { } error)
+        if (CamJobFromGeometry.Update(_job, i, features, faces, edges, loops, PartTopZ) is { } error)
         {
             Errors.Text = "• " + error;
             return;
         }
 
         _partSelection.Clear();
+        _partEdges.Clear();
         Refresh(op: i);
         ShowPartInScene();
         Errors.Text = "• Geometria da operação trocada. " + CamJobPart.MeshContourNote;

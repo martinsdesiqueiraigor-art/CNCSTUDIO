@@ -30,6 +30,9 @@ public partial class JobView
     /// <summary>Faces escolhidas no 3D (ids de <see cref="MeshFeatures.Faces"/>).</summary>
     private readonly HashSet<int> _partSelection = [];
 
+    /// <summary>STEP-OPS S2: arestas escolhidas no 3D (contorno pela aresta). Não são desenhadas em cor: a contagem aparece no aviso.</summary>
+    private readonly HashSet<int> _partEdges = [];
+
     private int _partAnalysis;
 
     private static readonly (string Label, ModelTurn Turn)[] PartTurns =
@@ -282,6 +285,7 @@ public partial class JobView
         _partMesh = (path, raw, placed);
         _partFeatures = null;
         _partSelection.Clear();
+        _partEdges.Clear();
         int mine = ++_partAnalysis;
         ShowPartInScene();
         MeshFeatures features = await Task.Run(() => MeshFeatures.Analyze(placed));
@@ -316,20 +320,34 @@ public partial class JobView
             return;
         }
 
-        (MeshFace? face, _) = features.Pick(e.Origin, e.Direction, e.Tolerance);
+        (MeshFace? face, MeshEdge? edge) = features.Pick(e.Origin, e.Direction, e.Tolerance);
         if (!e.Additive)
         {
-            bool same = face is not null && _partSelection.Count == 1 && _partSelection.Contains(face.Id);
+            bool same = (face is not null && _partSelection.Count == 1 && _partEdges.Count == 0 && _partSelection.Contains(face.Id))
+                || (edge is not null && _partEdges.Count == 1 && _partSelection.Count == 0 && _partEdges.Contains(edge.Id));
             _partSelection.Clear();
+            _partEdges.Clear();
             if (same)
             {
                 face = null;
+                edge = null;
             }
         }
 
         if (face is not null && !_partSelection.Remove(face.Id))
         {
             _partSelection.Add(face.Id);
+        }
+
+        if (edge is not null && !_partEdges.Remove(edge.Id))
+        {
+            _partEdges.Add(edge.Id);
+        }
+
+        if (edge is not null)
+        {
+            Errors.Text = $"• {_partEdges.Count} aresta(s) escolhida(s) no 3D (Ctrl soma): use Contorno na faixa. Arestas vizinhas viram um laço só.";
+            UpdatePalette();
         }
 
         ShowPartInScene();

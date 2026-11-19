@@ -249,4 +249,56 @@ public class StepOpsGeometryTests
         Assert.Equal(5, JobGeometry.Of(Floor(f)).Center.Z, 3);
         Assert.Equal(5, CamJobFromGeometry.ModelBottomZ(JobOpKind.Facing, [Floor(f)]));
     }
+
+    [Fact]
+    public void Contorno_pela_aresta_fecha_gera_o_G_code_e_a_geometria_guarda_a_aresta()
+    {
+        TriangleMesh mesh = PocketWithIsland();
+        CamJob job = Job(mesh);
+        MeshFeatures f = MeshFeatures.Analyze(mesh);
+        // as 4 arestas retas de 40 mm do alto do bloco (Ctrl soma): juntam-se num laço fechado
+        MeshEdge[] outer = [.. f.Edges.Where(e => e.Points.All(p => Math.Abs(p.Z - 10) < 0.01) && Math.Abs(e.Length - 40) < 0.01 && e.Points.All(p => p.X is 0 or 40 || p.Y is 0 or 40))];
+        Assert.Equal(4, outer.Length);
+        // uma só, aberta: por fora não serve; sobre a linha serve
+        Assert.NotNull(CamJobFromGeometry.Unavailable(JobOpKind.Contour, f, [], [outer[0]], 10, ContourSide.Outside));
+        Assert.Null(CamJobFromGeometry.Unavailable(JobOpKind.Contour, f, [], [outer[0]], 10, ContourSide.OnLine));
+        Assert.Null(CamJobFromGeometry.Unavailable(JobOpKind.Contour, f, [], outer, 10, ContourSide.Outside));
+        (IReadOnlyList<int> made, string? error) = CamJobFromGeometry.Add(job, JobOpKind.Contour, f, [], outer, 10, ContourSide.Outside);
+        Assert.Null(error);
+        CamOperationSpec op = job.Operations[Assert.Single(made)];
+        Assert.Equal(4, op.Geometry!.Refs.Count);
+        Assert.All(op.Geometry.Refs, r => Assert.Equal(GeoKind.Edge, r.Kind));
+        Assert.True(job.Contours[op.ContourIndex].IsClosed);
+        Assert.Equal(ContourSide.Outside, op.ContourParams!.Side);
+        Assert.Contains(CamJobPart.BottomField, op.MissingFields); // Z fundo: quem digita é o usuário
+
+        Fill(job, 0, -1, 10);
+        JobBuild build = CamJobBuilder.Build(job, null);
+        Assert.True(build.Ok, string.Join("; ", build.Errors));
+        // a fresa Ø10 por fora fica a 5 mm da linha: nenhum ponto de corte dentro do bloco
+        Assert.DoesNotContain(build.Operations[0].Moves, m => m.Z < 0 && m.X > 0.5 && m.X < 39.5 && m.Y > 0.5 && m.Y < 39.5);
+
+        // salvar e reabrir guarda a aresta (versão 6)
+        JobLoadResult back = CamJobJson.FromJson(CamJobJson.ToJson(job));
+        Assert.True(back.Ok);
+        Assert.Equal(GeoKind.Edge, back.Job!.Operations[0].Geometry!.Refs[0].Kind);
+    }
+
+    [Fact]
+    public void Contorno_pela_face_leva_so_o_laco_de_fora_ou_so_os_de_dentro()
+    {
+        TriangleMesh mesh = Washer();
+        CamJob job = Job(mesh);
+        MeshFeatures f = MeshFeatures.Analyze(mesh);
+        MeshFace top = f.Faces.First(x => x.Kind == FaceKind.Plane && x.Normal.Z > 0.99);
+        (IReadOnlyList<int> outer, string? e1) = CamJobFromGeometry.Add(job, JobOpKind.Contour, f, [top], [], 8, ContourSide.Outside, LoopFilter.Outer);
+        Assert.Null(e1);
+        Assert.Single(outer);
+        (IReadOnlyList<int> inner, string? e2) = CamJobFromGeometry.Add(job, JobOpKind.Contour, f, [top], [], 8, ContourSide.Inside, LoopFilter.Inner);
+        Assert.Null(e2);
+        Assert.Single(inner); // o furo central
+        Assert.NotEqual(job.Operations[0].ContourIndex, job.Operations[1].ContourIndex);
+        // sem laço de dentro (face do bloco sem furos) não cria nada
+        Assert.NotNull(CamJobFromGeometry.Unavailable(JobOpKind.Contour, f, [], [], 8));
+    }
 }

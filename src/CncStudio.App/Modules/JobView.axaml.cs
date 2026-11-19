@@ -508,7 +508,7 @@ public partial class JobView : UserControl
         int target = PaletteTarget();
         foreach ((CamPaletteItem item, Button button) in _paletteButtons)
         {
-            string? why = StepReady && item.Kind is JobOpKind.Pocket or JobOpKind.Drilling or JobOpKind.Facing or JobOpKind.Contour && _partSelection.Count > 0
+            string? why = StepReady && item.Kind is JobOpKind.Pocket or JobOpKind.Drilling or JobOpKind.Facing or JobOpKind.Contour && HasSelection
                 ? StepPaletteWhy(item)
                 : CamPalette.Unavailable(item, _job, target, _openChains);
             CamShell.SetPaletteState(item, button, why);
