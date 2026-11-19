@@ -145,4 +145,24 @@ public class StepPlanSourceTests
         Assert.Equal(10, hole.Tool.Diameter, 2);
         Assert.Equal(-8, hole.Levels.BottomZ, 3);
     }
+
+    [Fact]
+    public void Aplicar_o_plano_do_STEP_com_contornos_ja_no_trabalho_ajusta_os_indices_e_gera()
+    {
+        TriangleMesh m = Block();
+        StepPlanDrawing d = Read(m);
+        PlanResult plan = AssistPlanner.Plan(new PlanInput(d.Contours, d.Thickness, AssistLibrary.Defaults().Materials[3], []) { Depths = d.Depths });
+        var job = new CamJob { Name = "STEP", ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy };
+        job.Contours.Add(Contour.Rectangle(500, 500, 10, 10)); // contorno que já estava no trabalho
+        int offset = job.Contours.Count;
+        job.Contours.AddRange(d.Contours);
+        foreach (CamOperationSpec o in plan.Operations)
+        {
+            job.Operations.Add(o.ContourIndex >= 0 ? o with { ContourIndex = o.ContourIndex + offset } : o);
+        }
+
+        JobBuild build = CamJobBuilder.Build(job, null);
+        Assert.True(build.Ok, string.Join("; ", build.Errors));
+        Assert.All(job.Operations, o => Assert.True(o.ContourIndex >= offset));
+    }
 }

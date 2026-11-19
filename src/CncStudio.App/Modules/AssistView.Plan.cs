@@ -28,6 +28,18 @@ public sealed partial class AssistView
     /// <summary>Contornos do desenho do Trabalho de fresa e a espessura do bruto, se já definida.</summary>
     public Func<(IReadOnlyList<Contour> Contours, double? Thickness)>? PlanDrawing { get; set; }
 
+    /// <summary>STEP-OPS S4: a peça STEP do Trabalho fresa lida como desenho (contornos, profundidades reais, avisos); null = sem peça STEP lida.</summary>
+    public Func<StepPlanDrawing?>? PlanStepDrawing { get; set; }
+
+    /// <summary>Põe no Trabalho fresa os contornos lidos do STEP e as operações sugeridas (os índices dos contornos acompanham).</summary>
+    public Action<IReadOnlyList<Contour>, IReadOnlyList<CamOperationSpec>>? ApplyStepPlan { get; set; }
+
+    /// <summary>Fonte do plano: false = desenho (DXF) do Trabalho; true = peça STEP do Trabalho.</summary>
+    private bool _useStep;
+
+    private readonly RadioButton _srcDrawing = new() { Content = "Desenho (DXF)", GroupName = "planSource", IsChecked = true };
+    private readonly RadioButton _srcStep = new() { Content = "Peça STEP do Trabalho", GroupName = "planSource" };
+
     public Func<IReadOnlyList<PlanTool>>? PlanTools { get; set; }
 
     /// <summary>Rotação máxima do fuso do perfil de máquina ativo (rpm); null = não informada.</summary>
@@ -61,6 +73,13 @@ public sealed partial class AssistView
             TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.8,
         });
         _secPrepare.Children.Add(new TextBlock { Text = "1 · Preparar: desenho, material e espessura", FontWeight = FontWeight.SemiBold });
+        var source = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        source.Children.Add(new TextBlock { Text = "Fonte", VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
+        source.Children.Add(_srcDrawing);
+        source.Children.Add(_srcStep);
+        _srcDrawing.IsCheckedChanged += (_, _) => OnSourceChanged();
+        _srcStep.IsCheckedChanged += (_, _) => OnSourceChanged();
+        _secPrepare.Children.Add(source);
         _secPrepare.Children.Add(_planDrawing);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         row.Children.Add(new TextBlock { Text = "Material", VerticalAlignment = VerticalAlignment.Center, FontSize = 12 });
@@ -88,7 +107,7 @@ public sealed partial class AssistView
         suggest.Click += (_, _) => SuggestPlan();
         _planApply.Click += (_, _) =>
         {
-            if (_plan is { Ok: true } plan && ApplyPlan is not null)
+            if (_plan is { Ok: true } plan && (_useStep ? ApplyStepPlan is not null : ApplyPlan is not null))
             {
                 // Confere de novo na hora de aplicar: o desenho, a espessura, o material ou as ferramentas podem ter mudado
                 if (CheckPlanStillValid() is { } stale)
@@ -106,7 +125,15 @@ public sealed partial class AssistView
                     return;
                 }
 
-                ApplyPlan(review.Operations!);
+                if (_useStep && PlanStepDrawing?.Invoke() is { } stepDrawing)
+                {
+                    ApplyStepPlan!(stepDrawing.Contours, review.Operations!);
+                }
+                else
+                {
+                    ApplyPlan!(review.Operations!);
+                }
+
                 _planResult.Text += "\n(operações adicionadas ao Trabalho fresa)" + string.Concat(review.Notes.Select(n => "\n• " + n));
                 _planApply.IsEnabled = false;
                 _plan = null;
@@ -408,7 +435,9 @@ public sealed partial class AssistView
 
         _planDepthsPanel.Children.Add(new TextBlock
         {
-            Text = "Profundidades presumidas: o desenho 2D não diz a profundidade. Digite o valor de cada operação (mm, positivo) para poder aplicar. O número cinza dentro do campo é só a suposição do plano.",
+            Text = _useStep
+                ? "Profundidades lidas do modelo STEP (faces da peça): já preenchidas, confira e mude se precisar (mm, positivo)."
+                : "Profundidades presumidas: o desenho 2D não diz a profundidade. Digite o valor de cada operação (mm, positivo) para poder aplicar. O número cinza dentro do campo é só a suposição do plano.",
             TextWrapping = TextWrapping.Wrap, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0),
         });
         foreach (PlanDepth d in depths)
@@ -417,6 +446,13 @@ public sealed partial class AssistView
             Mark(status, "pendente: presumida, digite o valor", "pending");
             var box = new TextBox { Width = 90, Watermark = d.Presumed.ToString("0.##", Br) };
             int key = d.Key;
+            if (_useStep)
+            {
+                _reviewedDepths[key] = d.Presumed;
+                box.Text = d.Presumed.ToString("0.##", Br);
+                Mark(status, "do modelo STEP", "ok");
+            }
+
             box.TextChanged += (_, _) =>
             {
                 if (double.TryParse((box.Text ?? "").Trim().Replace('.', ','), NumberStyles.Float, Br, out double v) && double.IsFinite(v) && v > 0)
@@ -499,7 +535,13 @@ public sealed partial class AssistView
     /// <summary>Monta os dados do plano com o que está na tela agora (desenho do Trabalho, espessura, material e ferramentas).</summary>
     private (PlanInput? Input, string? Error) BuildPlanInput()
     {
-        (IReadOnlyList<Contour> contours, double? thickness)? d = PlanDrawing?.Invoke();
+        StepPlanDrawing? step = _useStep ? PlanStepDrawing?.Invoke() : null;
+        if (_useStep && step is not { Ok: true })
+        {
+            return (null, "A peça STEP do Trabalho fresa não está lida. Abra o STEP no Trabalho fresa (o 3D abre) e sugira de novo.");
+        }
+
+        (IReadOnlyList<Contour> contours, double? thickness)? d = step is not null ? (step.Contours, step.Thickness) : PlanDrawing?.Invoke();
         if (d is not { } drawing || drawing.contours.Count == 0)
         {
             return (null, "O desenho do Trabalho fresa não está mais aberto. Abra um DXF em CAM › Trabalho fresa e sugira de novo.");
@@ -511,7 +553,7 @@ public sealed partial class AssistView
         }
 
         MaterialEntry? material = _planMaterial.SelectedIndex >= 0 && _planMaterial.SelectedIndex < _lib.Materials.Count ? _lib.Materials[_planMaterial.SelectedIndex] : null;
-        return (new PlanInput(drawing.contours, thick, material, PlanTools?.Invoke() ?? [], MaxSpindleRpm: PlanMaxRpm?.Invoke()), null);
+        return (new PlanInput(drawing.contours, thick, material, PlanTools?.Invoke() ?? [], MaxSpindleRpm: PlanMaxRpm?.Invoke()) { Depths = step?.Depths }, null);
     }
 
     private void LoadPlan()
@@ -551,11 +593,64 @@ public sealed partial class AssistView
     /// <summary>Relê só o texto do desenho do Trabalho fresa (não mexe no plano, nos campos nem no Aplicar).</summary>
     private void RefreshDrawingText()
     {
-        int n = PlanDrawing?.Invoke().Contours.Count ?? 0;
-        _planDrawing.Text = n > 0
-            ? $"Desenho do Trabalho fresa: {n} contorno(s)."
-            : "Nenhum desenho no Trabalho fresa. Abra um DXF em CAM › Trabalho fresa e volte aqui.";
+        StepPlanDrawing? step = PlanStepDrawing?.Invoke();
+        _srcStep.IsEnabled = step is { Ok: true };
+        ToolTip.SetTip(_srcStep, _srcStep.IsEnabled ? null : "Abra um STEP no Trabalho fresa (o 3D lê a peça) para usar esta fonte.");
+        if (_useStep && !_srcStep.IsEnabled)
+        {
+            _srcDrawing.IsChecked = true; // a peça STEP saiu do Trabalho: volta ao desenho
+            return;
+        }
+
+        if (_useStep && step is { Ok: true })
+        {
+            _planDrawing.Text = $"Peça STEP do Trabalho fresa: {step.Contours.Count} contorno(s), espessura {step.Thickness.ToString("0.###", Br)} mm lida do modelo."
+                + string.Concat(step.Notes.Select(n => "\n• " + n));
+        }
+        else
+        {
+            int n = PlanDrawing?.Invoke().Contours.Count ?? 0;
+            _planDrawing.Text = n > 0
+                ? $"Desenho do Trabalho fresa: {n} contorno(s)."
+                : "Nenhum desenho no Trabalho fresa. Abra um DXF em CAM › Trabalho fresa e volte aqui.";
+        }
+
         RefreshFixtureText(); // a fixação também vem do Trabalho e pode ter mudado
+    }
+
+    /// <summary>Troca a fonte do plano: o plano sugerido deixa de valer e a espessura passa a vir do modelo (ou volta ao do desenho).</summary>
+    private void OnSourceChanged()
+    {
+        bool step = _srcStep.IsChecked == true;
+        if (step == _useStep)
+        {
+            return;
+        }
+
+        _useStep = step;
+        if (_plan is not null)
+        {
+            _plan = null;
+            _planApply.IsEnabled = false;
+            ClearPlanTools();
+            _planResult.Text = "⚠ A fonte do plano mudou: sugira de novo.";
+            RefreshPlanApply();
+        }
+
+        _planThickness.IsReadOnly = step;
+        if (step && PlanStepDrawing?.Invoke() is { Ok: true } sd)
+        {
+            _loadingPlan = true;
+            _planThickness.Text = sd.Thickness.ToString("0.###", Br);
+            _thicknessFromJob = false;
+            _loadingPlan = false;
+        }
+        else if (!step)
+        {
+            SyncThickness(fill: true);
+        }
+
+        RefreshDrawingText();
     }
 
     private void SuggestPlan()

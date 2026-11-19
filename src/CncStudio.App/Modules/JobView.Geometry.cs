@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using CncStudio.Core.Assist;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Cam3D;
 
@@ -18,6 +19,49 @@ public partial class JobView
 
     private IReadOnlyList<MeshFace> SelectedFaces() =>
         _partFeatures is { } f ? [.. _partSelection.Where(i => i >= 0 && i < f.Faces.Count).Select(i => f.Faces[i])] : [];
+
+    private MeshFeatures? _stepPlanFor;
+    private StepPlanDrawing? _stepPlan;
+
+    /// <summary>A peça STEP lida como desenho para o Assist (guardada enquanto a análise da malha for a mesma).</summary>
+    public StepPlanDrawing? StepPlan
+    {
+        get
+        {
+            if (_partFeatures is not { } f || _partMesh is not { } m || _job.PartStep is null)
+            {
+                return null;
+            }
+
+            if (!ReferenceEquals(_stepPlanFor, f))
+            {
+                _stepPlan = StepPlanSource.FromMesh(f, m.Placed.Bounds);
+                _stepPlanFor = f;
+            }
+
+            return _stepPlan;
+        }
+    }
+
+    /// <summary>Plano do Assist sobre o STEP: junta os contornos lidos ao trabalho e as operações, com os índices dos contornos ajustados.</summary>
+    public void AddStepPlan(IReadOnlyList<Contour> contours, IReadOnlyList<CamOperationSpec> operations)
+    {
+        if (operations.Count == 0)
+        {
+            return;
+        }
+
+        Snap();
+        int offset = _job.Contours.Count;
+        _job.Contours.AddRange(contours);
+        int first = _job.Operations.Count;
+        foreach (CamOperationSpec o in operations)
+        {
+            _job.Operations.Add(o.ContourIndex >= 0 ? o with { ContourIndex = o.ContourIndex + offset } : o);
+        }
+
+        Refresh(op: first);
+    }
 
     private IReadOnlyList<MeshEdge> SelectedEdges() =>
         _partFeatures is { } f ? [.. _partEdges.Where(i => i >= 0 && i < f.Edges.Count).Select(i => f.Edges[i])] : [];
