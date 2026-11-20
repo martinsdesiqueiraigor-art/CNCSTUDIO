@@ -104,7 +104,7 @@ internal sealed class OpTabs
             bool on = key == Selected;
             b.BorderBrush = on ? CamColors.AccentBrush : Brushes.Transparent;
             b.Foreground = on ? CamColors.TextBrush : CamColors.MutedBrush;
-            b.FontWeight = on ? FontWeight.SemiBold : FontWeight.Normal;
+            b.FontWeight = FontWeight.Normal;
             _panels[key].IsVisible = on;
         }
     }
