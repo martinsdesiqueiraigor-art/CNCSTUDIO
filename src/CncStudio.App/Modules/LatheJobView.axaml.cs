@@ -29,7 +29,7 @@ public partial class LatheJobView : UserControl
     {
         InitializeComponent();
         TabStrip = CamShell.BuildTabs(_tabs, SetTab);
-        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick, minButtonWidth: 58));
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick, minButtonWidth: 58, opsMenu: true));
         BuildBankSelector();
         _panes = new CamPanes(Panes, TreeSplitter, PropsSplitter, () => _tab == 1);
         PointsBox.Text = "0 16\n-2 20\n-25 20\n-25 28\n-35 28\n-45 28";

@@ -491,7 +491,7 @@ public partial class JobView : UserControl
     private void BuildPalette()
     {
         _paletteButtons.Clear();
-        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.VisibleGroups, PaletteClick));
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.VisibleGroups, PaletteClick, opsMenu: true));
         BuildBankSelector();
         UpdatePalette();
     }
