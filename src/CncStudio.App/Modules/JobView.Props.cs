@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Setup;
@@ -22,9 +23,17 @@ public partial class JobView
         return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) && double.IsFinite(v) ? v : double.NaN;
     }
 
+    // UI-PRO-P1a: abas do painel da operação; a escolha vale ao trocar de operação (se a nova tiver a aba)
+    private OpTabs? _opTabs;
+    private string _opTab = "ferramenta";
+    private string _curTab = "ferramenta";
+    private readonly Dictionary<string, (string Tab, TextBox Box)> _fieldBoxes = [];
+
     private void BuildProps()
     {
         PropsPanel.Children.Clear();
+        _opTabs = null;
+        _fieldBoxes.Clear();
         _fixtureKind = null;
         if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "part" })
         {
@@ -61,6 +70,23 @@ public partial class JobView
         }
 
         Text(i, "Nome", s.Label, "padrão", (x, v) => x with { Label = v.Trim() });
+
+        List<(string, string)> tabList = [("ferramenta", "Ferramenta"), ("corte", "Corte")];
+        if (s.Kind != JobOpKind.WrapText)
+        {
+            tabList.Add(("alturas", "Alturas"));
+        }
+
+        tabList.Add(("estrategia", "Estratégia"));
+        _opTabs = new OpTabs(tabList, _opTab, k => _opTab = k);
+        PropsPanel.Children.Add(_opTabs.Root);
+        void In(string key)
+        {
+            _curTab = key;
+            _propsTarget = _opTabs.Panel(key);
+        }
+
+        In("estrategia");
         GeometrySection(i, s);
 
         if (s.Kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Facing or JobOpKind.Drilling or JobOpKind.Chamfer)
@@ -91,12 +117,12 @@ public partial class JobView
             PropsPanel.Children.Add(combo);
         }
 
-        Section("Ferramenta");
+        In("ferramenta");
         BankPicker(i);
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Fresa topo Z4", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
         Num(i, CamJobInfo.ToolNumberField, "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } }, check: CamJobInfo.ToolNumberError);
         Num(i, CamJobInfo.DiameterField, "mm", s.Tool.Diameter, (x, v) => x with { Tool = x.Tool with { Diameter = v } });
-        Section("Condição de corte");
+        In("corte");
         Num(i, "Rotação", "rpm", s.Tool.SpindleRpm, (x, v) => x with { Tool = x.Tool with { SpindleRpm = v } }, rebuild: true);
         if (CamJobInfo.SpindleWarning(s.Tool.SpindleRpm, MachineSource?.Invoke()?.MaxSpindleRpm) is { } spindle)
         {
@@ -109,7 +135,7 @@ public partial class JobView
 
         if (s.Kind != JobOpKind.WrapText)
         {
-            Section("Alturas (Z)");
+            In("alturas");
             Num(i, "Z seguro (rápido)", "mm", s.Levels.SafeZ, (x, v) => x with { Levels = x.Levels with { SafeZ = v } });
             Num(i, "Z de aproximação", "mm", s.Levels.ClearanceZ, (x, v) => x with { Levels = x.Levels with { ClearanceZ = v } });
             Num(i, "Z topo da peça", "mm", s.Levels.TopZ, (x, v) => x with { Levels = x.Levels with { TopZ = v } });
@@ -121,6 +147,7 @@ public partial class JobView
             }
         }
 
+        In("estrategia");
         switch (s.Kind)
         {
             case JobOpKind.Contour when s.ContourParams is { } c:
@@ -220,11 +247,64 @@ public partial class JobView
                 PropsPanel.Children.Add(new TextBlock { Text = "Desenhe a face de cima (Z 0 na face). Rode primeiro no ar e confira o sentido de A/B.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
             }
         }
+
+        _propsTarget = null;
+        RefreshTabMarks(i);
     }
 
     // ---------------------------------------------------------------- campos
 
     private void Section(string title) => CamShell.AddSection(PropsPanel, title);
+
+    private static readonly string[] TabOrder = ["ferramenta", "corte", "alturas", "estrategia"];
+
+    /// <summary>"Ir ao campo": abre a aba do primeiro campo vazio ou inválido da operação (na ordem das abas) e põe o cursor nele.</summary>
+    private void FocusMissingField(int op)
+    {
+        if (_opTabs is null || op >= _job.Operations.Count)
+        {
+            return;
+        }
+
+        CamOperationSpec spec = _job.Operations[op];
+        KeyValuePair<string, (string Tab, TextBox Box)> hit = _fieldBoxes
+            .Where(f => (spec.MissingFields.Contains(f.Key) || spec.InvalidFields.Contains(f.Key)) && CamJobInfo.Counts(spec, f.Key))
+            .OrderBy(f => Array.IndexOf(TabOrder, f.Value.Tab))
+            .FirstOrDefault();
+        if (hit.Value.Box is not null)
+        {
+            FocusField(hit.Value.Tab, hit.Value.Box);
+        }
+    }
+
+    /// <summary>Abre a aba do campo e põe o cursor nele depois que a tela terminar de montar.</summary>
+    private void FocusField(string tab, TextBox box)
+    {
+        _opTabs?.Select(tab);
+        Dispatcher.UIThread.Post(() =>
+        {
+            box.BringIntoView();
+            box.Focus(NavigationMethod.Tab);
+        });
+    }
+
+    /// <summary>Marca a aba que tem campo vazio ou inválido que a operação usa agora (o motivo vai na dica da aba).</summary>
+    private void RefreshTabMarks(int i)
+    {
+        if (_opTabs is null || i >= _job.Operations.Count)
+        {
+            return;
+        }
+
+        CamOperationSpec spec = _job.Operations[i];
+        foreach (string tab in _fieldBoxes.Values.Select(v => v.Tab).Distinct())
+        {
+            List<string> bad = [.. _fieldBoxes.Where(f => f.Value.Tab == tab
+                && (spec.MissingFields.Contains(f.Key) || spec.InvalidFields.Contains(f.Key))
+                && CamJobInfo.Counts(spec, f.Key)).Select(f => f.Key)];
+            _opTabs.Mark(tab, bad.Count == 0 ? null : "falta: " + string.Join(", ", bad));
+        }
+    }
 
     private static Grid Row(string label, Control field, string unit = "")
     {
@@ -280,6 +360,11 @@ public partial class JobView
         var box = new TextBox { Text = missing || invalid ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
         // UX-04f: o mesmo tracejado laranja do torno (CamShell), no lugar do vermelho
         (Grid field, Action<string?> Mark) = CamShell.DashedField(box);
+        if (_opTabs is not null)
+        {
+            _fieldBoxes[label] = (_curTab, box);
+        }
+
 
         // só fica marcado o campo que a operação usa agora (ex.: Bicada vazia em G81 não conta)
         bool Counts() => i < _job.Operations.Count && CamJobInfo.Counts(_job.Operations[i], label);
@@ -318,6 +403,7 @@ public partial class JobView
                     Mark(null);
                 }
 
+                RefreshTabMarks(i);
                 return;
             }
 
@@ -328,6 +414,8 @@ public partial class JobView
                 value = v;
                 Edit(i, x => CamJobInfo.SetFieldState(apply(x, v), label, false, false), rebuild);
             }
+
+            RefreshTabMarks(i);
         }
 
         box.LostFocus += (_, _) => Commit();

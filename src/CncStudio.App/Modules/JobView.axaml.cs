@@ -836,6 +836,7 @@ public partial class JobView : UserControl
                 {
                     SetTab(1);
                     GoToTree(t => t.Kind == "op" && t.Index == index);
+                    FocusMissingField(index);
                 }));
             }
         }
@@ -846,6 +847,10 @@ public partial class JobView : UserControl
             {
                 SetTab(1);
                 GoToTree(t => t.Kind == "op" && t.Index == index);
+                if (_fieldBoxes.TryGetValue("Rotação", out (string Tab, TextBox Box) rpm))
+                {
+                    FocusField(rpm.Tab, rpm.Box);
+                }
             }));
         }
 
