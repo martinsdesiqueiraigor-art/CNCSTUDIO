@@ -619,14 +619,15 @@ public partial class JobView : UserControl
         }
     }
 
+    /// <summary>Mensagens de andamento e de erro: vão para o console de avisos (UI-PRO-P2), com a escrita de antes.</summary>
+    private AvisosConsole.MessageChannel Errors => AvisosBox.Messages;
+
     // Avisos do programa e de T em conflito com o banco ativo (UX-04h B2: só avisa; o trabalho usa a cópia dele)
     private void ShowWarnings()
     {
         ToolBank? bank = ActiveBank;
         IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.Conflict(o, bank)).OfType<string>();
-        IEnumerable<string> lines = _build.Warnings.Concat(conflicts);
-        Warnings.Text = string.Join("\n", lines.Distinct().Select(w => "• " + w));
-        Warnings.Foreground = UiKit.Status("pending").Fg;
+        AvisosBox.SetWarnings(_build.Warnings, conflicts);
     }
 
     private void Refresh(int? op = null, bool keep = false, bool props = true)

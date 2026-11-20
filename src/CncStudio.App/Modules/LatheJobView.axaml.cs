@@ -624,13 +624,15 @@ public partial class LatheJobView : UserControl
         }
     }
 
+    /// <summary>Mensagens de andamento e de erro: vão para o console de avisos (UI-PRO-P2), com a escrita de antes.</summary>
+    private AvisosConsole.MessageChannel Errors => AvisosBox.Messages;
+
     /// <summary>Avisos do programa e de T fora do banco ativo (TORNO-T0: só avisa; o trabalho usa a cópia dele, como na fresa).</summary>
     private void ShowWarnings()
     {
         ToolBank? bank = ActiveBank;
         IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.LatheConflict(o, bank)).OfType<string>();
-        Warnings.Text = string.Join("\n", _build.Warnings.Concat(conflicts).Distinct().Select(w => "⚠ " + w));
-        Warnings.Foreground = UiKit.Status("pending").Fg;
+        AvisosBox.SetWarnings(_build.Warnings, conflicts);
     }
 
     /// <summary>Alterna 2D/3D e, no 3D, simula o programa atual (o 3D de antes, sem chips).</summary>
