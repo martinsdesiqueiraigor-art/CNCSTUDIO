@@ -28,8 +28,9 @@ public partial class LatheJobView : UserControl
     public LatheJobView()
     {
         InitializeComponent();
+        Cube.Pick = view => Scene3D.Fit(view); // cubo de vistas: usa as vistas que a cena já tem
         TabStrip = CamShell.BuildTabs(_tabs, SetTab);
-        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick, minButtonWidth: 58));
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick, minButtonWidth: 58, opsMenu: true));
         BuildBankSelector();
         _panes = new CamPanes(Panes, TreeSplitter, PropsSplitter, () => _tab == 1);
         PointsBox.Text = "0 16\n-2 20\n-25 20\n-25 28\n-35 28\n-45 28";
@@ -640,6 +641,7 @@ public partial class LatheJobView : UserControl
     {
         bool on = View3DButton.IsChecked == true;
         Scene3D.IsVisible = on;
+        Cube.IsVisible = on;
         Preview.IsVisible = !on;
         if (on)
         {
@@ -682,7 +684,7 @@ public partial class LatheJobView : UserControl
         TreeViewItem Soon(string text, string icon, string tip)
         {
             TreeViewItem item = Node(text, null, icon);
-            item.Opacity = 0.5;
+            item.Opacity = 0.6;
             ToolTip.SetTip(item, tip);
             return item;
         }
@@ -716,11 +718,24 @@ public partial class LatheJobView : UserControl
 
         Tree.Items.Add(setup);
         Tree.Items.Add(Soon("Fixação 2 · em breve", "fixacao", "Em breve: segunda fixação (ex.: virar a peça) com zero próprio."));
+        Library.Update(ToolLibraryRows());
         if (select is not null)
         {
             Tree.SelectedItem = select;
         }
     }
+
+    /// <summary>Ferramentas de torno que as operações usam, uma vez cada T; o torno não tem Ø de ferramenta no trabalho ("—").</summary>
+    private IReadOnlyList<ToolLibraryRow> ToolLibraryRows() =>
+        [.. _job.Operations
+            .Select(o => (
+                Unknown: o.MissingFields.Contains(LatheJobInfo.ToolNumberField),
+                Number: o.Tool.Number,
+                Name: o.Tool.Name ?? ""))
+            .GroupBy(x => x.Unknown ? -1 : x.Number)
+            .Select(g => g.First())
+            .OrderBy(x => x.Unknown ? int.MaxValue : x.Number)
+            .Select(x => new ToolLibraryRow(x.Unknown ? "T?" : "T" + x.Number.ToString(System.Globalization.CultureInfo.InvariantCulture), "—", x.Name))];
 
     /// <summary>Linha da operação: selo ✓ (pronta) ou ! (incompleta), ícone, título e olho (o mesmo Enabled de antes).</summary>
     private TreeViewItem OpNode(int i, MachineProfile? machine)

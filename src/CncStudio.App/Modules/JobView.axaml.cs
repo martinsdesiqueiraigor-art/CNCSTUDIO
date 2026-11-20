@@ -30,6 +30,7 @@ public partial class JobView : UserControl
     public JobView()
     {
         InitializeComponent();
+        Cube.Pick = view => Scene3D.Fit(view); // cubo de vistas: usa as vistas que a cena já tem
         // chips do 3D: cada mudança vai para o config do app
         Scene3D.OptionsChanged += (_, o) => SaveViewOptions?.Invoke(o.ToText());
         // M3D-2: clique numa face da peça STEP no 3D
@@ -87,6 +88,13 @@ public partial class JobView : UserControl
         Tree.SelectionChanged += (_, _) =>
         {
             ShowTimes();
+            // linha de Geometria (só leitura): a seleção volta para a operação dona
+            if (!_busy && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "geo" } geoTag)
+            {
+                Tree.SelectedItem = AllItems(Tree).FirstOrDefault(x => x.Tag is TreeTag { Kind: "op" } t && t.Index == geoTag.Index);
+                return;
+            }
+
             if (!_busy)
             {
                 // Zero da fixação: o lugar dele é o cartão Zero da Preparação
@@ -491,7 +499,7 @@ public partial class JobView : UserControl
     private void BuildPalette()
     {
         _paletteButtons.Clear();
-        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.VisibleGroups, PaletteClick));
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.VisibleGroups, PaletteClick, opsMenu: true));
         BuildBankSelector();
         UpdatePalette();
     }
@@ -880,6 +888,7 @@ public partial class JobView : UserControl
     {
         bool on = View3DButton.IsChecked == true;
         Scene3D.IsVisible = on;
+        Cube.IsVisible = on;
         Preview.IsVisible = !on;
         if (on)
         {
@@ -940,6 +949,7 @@ public partial class JobView : UserControl
     private void BuildTree(int? selectOp, int? selectContour)
     {
         _timeLabels.Clear();
+        _hoverGeometry = null; // as linhas antigas somem: o mouse não está mais sobre nenhuma
         Tree.Items.Clear();
         TreeViewItem? select = null;
         TreeViewItem Node(string text, object? tag = null, string? icon = null) =>
@@ -952,7 +962,7 @@ public partial class JobView : UserControl
         Tree.Items.Add(NodeState(CamJobInfo.MillMachineTitle(machine), CamJobInfo.MillMachineState(machine, _job.Dialect), "ferramenta"));
         // material ainda não existe no CAM: aparece apagado, sem valor suposto
         TreeViewItem material = Node("Material: não definido", null, "material");
-        material.Opacity = 0.5;
+        material.Opacity = 0.6;
         ToolTip.SetTip(material, "Em breve: o material entra numa próxima etapa.");
         Tree.Items.Add(material);
         // UX-04f: um item só para a peça pronta e o bruto, com selo e motivo; os contornos continuam dentro dele
@@ -1008,11 +1018,25 @@ public partial class JobView : UserControl
         }
 
         Tree.Items.Add(setup);
+        Library.Update(ToolLibraryRows());
         if (select is not null)
         {
             Tree.SelectedItem = select;
         }
     }
+
+    /// <summary>Ferramentas que as operações usam (a mesma T com o mesmo Ø aparece uma vez); "?" onde o campo está vazio ou inválido.</summary>
+    private IReadOnlyList<ToolLibraryRow> ToolLibraryRows() =>
+        [.. _job.Operations
+            .Select(o => (
+                Order: CamJobInfo.Unknown(o, CamJobInfo.ToolNumberField) ? int.MaxValue : o.Tool.Number,
+                T: CamJobInfo.Unknown(o, CamJobInfo.ToolNumberField) ? "T?" : "T" + o.Tool.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                D: CamJobInfo.Unknown(o, CamJobInfo.DiameterField) ? "Ø?" : "Ø" + o.Tool.Diameter.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+                Name: o.Tool.Name ?? ""))
+            .GroupBy(x => (x.T, x.D))
+            .Select(g => g.First())
+            .OrderBy(x => x.Order)
+            .Select(x => new ToolLibraryRow(x.T, x.D, x.Name))];
 
     /// <summary>
     /// Linha da operação: selo ✓ (pronta) ou ! (incompleta: campo vazio ou inválido, ou erro ao gerar), ícone, título e olho
@@ -1046,7 +1070,13 @@ public partial class JobView : UserControl
         Grid row = TreeRow(CamJobInfo.OpTitle(i, spec), ("neutral", " "), lead, eye, tip);
         KeepTimeLabel(i, row);
         row.Opacity = spec.Enabled ? 1 : 0.55;
-        return UiKit.StateItem(row, new TreeTag("op", i));
+        TreeViewItem opItem = UiKit.StateItem(row, new TreeTag("op", i));
+        if (GeometryNode(i, spec) is { } geometry)
+        {
+            opItem.Items.Add(geometry);
+        }
+
+        return opItem;
     }
 
     /// <summary>Linha da árvore em 240 px (comum com o torno: <see cref="CamShell.TreeRow"/>).</summary>

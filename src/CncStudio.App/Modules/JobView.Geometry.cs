@@ -64,6 +64,57 @@ public partial class JobView
         Refresh(op: first);
     }
 
+    // UI-PRO-P3a-2: geometria da operação na árvore (só leitura). Passar o mouse numa linha acende no 3D só aquela parte.
+    private GeoSource? _hoverGeometry;
+    private readonly HashSet<int> _geoExpanded = [];
+
+    /// <summary>Nó "Geometria" da operação feita no 3D, com uma linha por face ou aresta (só leitura; o mouse acende no 3D).</summary>
+    private TreeViewItem? GeometryNode(int opIndex, CamOperationSpec spec)
+    {
+        if (spec.Geometry is not { } geo || _partFeatures is not { } features)
+        {
+            return null;
+        }
+
+        (_, _, IReadOnlyList<GeoRef> lost) = JobGeometry.Resolve(features, geo);
+        TreeViewItem Line(string text, GeoSource? hover, bool bad = false)
+        {
+            Grid row = TreeRow(text, bad ? ("pending", "não achada no STEP") : null, null, null, hover is null ? "Todas as faces e arestas desta operação" : "Passe o mouse para acender no 3D");
+            row.PointerEntered += (_, _) => HoverGeometry(hover ?? geo);
+            row.PointerExited += (_, _) => HoverGeometry(null);
+            return UiKit.StateItem(row, new TreeTag("geo", opIndex));
+        }
+
+        TreeViewItem node = Line($"Geometria ({geo.Refs.Count})", null);
+        foreach (GeoRef r in geo.Refs)
+        {
+            node.Items.Add(Line(JobGeometry.Describe(r), geo with { Refs = [r] }, lost.Contains(r)));
+        }
+
+        node.IsExpanded = _geoExpanded.Contains(opIndex);
+        node.Expanded += (_, _) => _geoExpanded.Add(opIndex);
+        node.Collapsed += (_, _) => _geoExpanded.Remove(opIndex);
+        return node;
+    }
+
+    private void HoverGeometry(GeoSource? geo)
+    {
+        _hoverGeometry = geo;
+        ShowPartInScene();
+    }
+
+    /// <summary>Faces e arestas da linha de geometria sob o mouse na árvore.</summary>
+    private (IEnumerable<int> Triangles, IEnumerable<IReadOnlyList<Point3>> Edges) HoverParts()
+    {
+        if (_hoverGeometry is not { } geo || _partFeatures is not { } features)
+        {
+            return ([], []);
+        }
+
+        (IReadOnlyList<MeshFace> faces, IReadOnlyList<MeshEdge> edges, _) = JobGeometry.Resolve(features, geo);
+        return (faces.SelectMany(f => f.Triangles), edges.Select(e => e.Points));
+    }
+
     /// <summary>Pontos das arestas a acender: as escolhidas no 3D e as da operação escolhida na árvore.</summary>
     private IReadOnlyList<IReadOnlyList<Point3>> HighlightedEdges()
     {
@@ -73,6 +124,7 @@ public partial class JobView
             chains.AddRange(JobGeometry.Resolve(features, geo).Edges.Select(e => e.Points));
         }
 
+        chains.AddRange(HoverParts().Edges);
         return chains;
     }
 

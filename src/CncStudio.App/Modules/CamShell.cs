@@ -53,13 +53,33 @@ public static class CamShell
     /// rolar: o grupo só de arquivo (Novo, Abrir…) vira uma grade compacta 2 × 2; o botão "em breve" fica estreito, só com o ícone
     /// apagado (o nome e o "em breve" vão para a dica). Devolve cada botão com o seu item, para a tela apagar o que não serve.
     /// </summary>
-    public static List<(CamPaletteItem Item, Button Button)> BuildPalette(Panel palette, IEnumerable<CamPaletteGroup> groups, Func<CamPaletteItem, Task> click, double minButtonWidth = 60)
+    public static List<(CamPaletteItem Item, Button Button)> BuildPalette(Panel palette, IEnumerable<CamPaletteGroup> groups, Func<CamPaletteItem, Task> click, double minButtonWidth = 60, bool opsMenu = false)
     {
         palette.Children.Clear();
         var list = new List<(CamPaletteItem, Button)>();
         bool first = true;
+        StackPanel? menuPanel = null; // UI-PRO-P3a: com opsMenu, os grupos de operação viram um menu "Operações" (mesmos botões, mesma lista)
         foreach (CamPaletteGroup group in groups)
         {
+            bool inMenu = opsMenu && group.Id is not ("arquivo" or "fixacao") && group.Items.Any(i => i.Action is null);
+            if (inMenu)
+            {
+                if (menuPanel is null)
+                {
+                    if (!first)
+                    {
+                        palette.Children.Add(new Border { Width = 1, Margin = new Thickness(6, 4, 6, 16), Background = CamColors.BorderBrush });
+                    }
+
+                    first = false;
+                    menuPanel = new StackPanel { Spacing = 1, MinWidth = 210 };
+                    palette.Children.Add(OperationsMenuBox(menuPanel));
+                }
+
+                AddMenuGroup(menuPanel, group, click, list);
+                continue;
+            }
+
             if (!first)
             {
                 palette.Children.Add(new Border { Width = 1, Margin = new Thickness(6, 4, 6, 16), Background = CamColors.BorderBrush });
@@ -105,6 +125,68 @@ public static class CamShell
         Background = CamColors.CardBrush, BorderBrush = CamColors.BorderBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
     };
 
+    /// <summary>Botão "Operações ▾" da faixa (UI-PRO-P3a): abre o menu com todas as operações, por grupo. Criar operação = dois cliques.</summary>
+    private static StackPanel OperationsMenuBox(StackPanel menu)
+    {
+        var content = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Center };
+        content.Children.Add(UiKit.Icon2("faceamento", CamColors.Text, CamColors.Accent, 22));
+        content.Children.Add(new TextBlock { Text = "Operações ▾", FontSize = 11, LineHeight = 13, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Center });
+        Button button = PaletteButton(content, 92, PaletteButtonHeight);
+        button.BorderBrush = CamColors.AccentBrush;
+        var scroll = new ScrollViewer { Content = menu, MaxHeight = 520, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        var flyout = new Flyout { Content = scroll, Placement = PlacementMode.BottomEdgeAlignedLeft, ShowMode = FlyoutShowMode.Standard };
+        button.Flyout = flyout;
+        ToolTip.SetTip(button, "Adicionar uma operação ao trabalho");
+        Avalonia.Automation.AutomationProperties.SetName(button, "Operações");
+        var box = new StackPanel { Spacing = 2 };
+        box.Children.Add(button);
+        box.Children.Add(new TextBlock { Text = "ADICIONAR", FontSize = 10, Foreground = CamColors.MutedBrush, HorizontalAlignment = HorizontalAlignment.Center });
+        MenuFlyouts.AddOrUpdate(menu, flyout);
+        return box;
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<StackPanel, Flyout> MenuFlyouts = new();
+
+    /// <summary>Um grupo do menu: título pequeno e uma linha por operação (ícone e nome). "Em breve" fica apagado.</summary>
+    private static void AddMenuGroup(StackPanel menu, CamPaletteGroup group, Func<CamPaletteItem, Task> click, List<(CamPaletteItem, Button)> list)
+    {
+        menu.Children.Add(new TextBlock
+        {
+            Text = group.Title.ToUpperInvariant(), FontSize = 10, FontWeight = FontWeight.SemiBold, LetterSpacing = 0.4,
+            Foreground = CamColors.MutedBrush, Margin = new Thickness(6, menu.Children.Count == 0 ? 2 : 8, 0, 2),
+        });
+        foreach (CamPaletteItem item in group.Items)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Left };
+            row.Children.Add(UiKit.Icon2(item.Icon, item.Soon ? CamColors.Muted : CamColors.Text, item.Soon ? CamColors.Muted : CamColors.Accent, 18));
+            row.Children.Add(new TextBlock { Text = item.Soon ? item.Name + " · em breve" : item.Name, FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+            var button = new Button
+            {
+                Content = row, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left,
+                Background = Brushes.Transparent, BorderThickness = new Thickness(0), CornerRadius = new CornerRadius(5), Padding = new Thickness(8, 5), MinHeight = 0,
+            };
+            if (item.Soon)
+            {
+                button.Opacity = 0.6;
+            }
+
+            ToolTip.SetShowOnDisabled(button, true);
+            Avalonia.Automation.AutomationProperties.SetName(button, item.Soon ? item.Name + " (em breve)" : "Adicionar " + item.Name);
+            CamPaletteItem picked = item;
+            button.Click += async (_, _) =>
+            {
+                if (MenuFlyouts.TryGetValue(menu, out Flyout? f))
+                {
+                    f.Hide();
+                }
+
+                await click(picked);
+            };
+            menu.Children.Add(button);
+            list.Add((item, button));
+        }
+    }
+
     /// <summary>Botão de operação: ícone de 2 cores e nome (até 2 linhas, nunca quebrando no meio da palavra).</summary>
     private static Button OpButton(CamPaletteItem item, double minButtonWidth)
     {
@@ -129,7 +211,7 @@ public static class CamShell
     private static Button SoonButton(CamPaletteItem item)
     {
         Button b = PaletteButton(UiKit.Icon2(item.Icon, CamColors.Muted, CamColors.Muted, 20), 38, PaletteButtonHeight);
-        b.Opacity = 0.45;
+        b.Opacity = 0.6;
         return b;
     }
 
