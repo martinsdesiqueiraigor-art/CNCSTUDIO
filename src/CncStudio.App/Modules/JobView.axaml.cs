@@ -30,6 +30,7 @@ public partial class JobView : UserControl
     public JobView()
     {
         InitializeComponent();
+        Cube.Pick = view => Scene3D.Fit(view); // cubo de vistas: usa as vistas que a cena já tem
         // chips do 3D: cada mudança vai para o config do app
         Scene3D.OptionsChanged += (_, o) => SaveViewOptions?.Invoke(o.ToText());
         // M3D-2: clique numa face da peça STEP no 3D
@@ -887,6 +888,7 @@ public partial class JobView : UserControl
     {
         bool on = View3DButton.IsChecked == true;
         Scene3D.IsVisible = on;
+        Cube.IsVisible = on;
         Preview.IsVisible = !on;
         if (on)
         {

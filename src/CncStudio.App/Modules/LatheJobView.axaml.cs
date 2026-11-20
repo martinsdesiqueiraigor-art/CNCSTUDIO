@@ -28,6 +28,7 @@ public partial class LatheJobView : UserControl
     public LatheJobView()
     {
         InitializeComponent();
+        Cube.Pick = view => Scene3D.Fit(view); // cubo de vistas: usa as vistas que a cena já tem
         TabStrip = CamShell.BuildTabs(_tabs, SetTab);
         _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick, minButtonWidth: 58, opsMenu: true));
         BuildBankSelector();
@@ -640,6 +641,7 @@ public partial class LatheJobView : UserControl
     {
         bool on = View3DButton.IsChecked == true;
         Scene3D.IsVisible = on;
+        Cube.IsVisible = on;
         Preview.IsVisible = !on;
         if (on)
         {
