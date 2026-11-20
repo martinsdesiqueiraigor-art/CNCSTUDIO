@@ -87,6 +87,13 @@ public partial class JobView : UserControl
         Tree.SelectionChanged += (_, _) =>
         {
             ShowTimes();
+            // linha de Geometria (só leitura): a seleção volta para a operação dona
+            if (!_busy && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "geo" } geoTag)
+            {
+                Tree.SelectedItem = AllItems(Tree).FirstOrDefault(x => x.Tag is TreeTag { Kind: "op" } t && t.Index == geoTag.Index);
+                return;
+            }
+
             if (!_busy)
             {
                 // Zero da fixação: o lugar dele é o cartão Zero da Preparação
@@ -940,6 +947,7 @@ public partial class JobView : UserControl
     private void BuildTree(int? selectOp, int? selectContour)
     {
         _timeLabels.Clear();
+        _hoverGeometry = null; // as linhas antigas somem: o mouse não está mais sobre nenhuma
         Tree.Items.Clear();
         TreeViewItem? select = null;
         TreeViewItem Node(string text, object? tag = null, string? icon = null) =>
@@ -1046,7 +1054,13 @@ public partial class JobView : UserControl
         Grid row = TreeRow(CamJobInfo.OpTitle(i, spec), ("neutral", " "), lead, eye, tip);
         KeepTimeLabel(i, row);
         row.Opacity = spec.Enabled ? 1 : 0.55;
-        return UiKit.StateItem(row, new TreeTag("op", i));
+        TreeViewItem opItem = UiKit.StateItem(row, new TreeTag("op", i));
+        if (GeometryNode(i, spec) is { } geometry)
+        {
+            opItem.Items.Add(geometry);
+        }
+
+        return opItem;
     }
 
     /// <summary>Linha da árvore em 240 px (comum com o torno: <see cref="CamShell.TreeRow"/>).</summary>
