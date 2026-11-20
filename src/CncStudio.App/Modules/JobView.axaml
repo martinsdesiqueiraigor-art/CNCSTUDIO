@@ -92,10 +92,10 @@
             <StackPanel Grid.Column="0">
               <Border Classes="camcard"><StackPanel x:Name="PrepMachine" Spacing="4" /></Border>
               <Border Classes="camcard"><StackPanel x:Name="PrepPart" Spacing="4" /></Border>
-              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve. Hoje a ferramenta vem da tabela do Code, nas propriedades de cada operação.">
+              <Border Classes="camcard" Opacity="0.6" ToolTip.Tip="Em breve. Hoje a ferramenta vem da tabela do Code, nas propriedades de cada operação.">
                 <TextBlock Text="Banco de ferramentas · em breve" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
               </Border>
-              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
+              <Border Classes="camcard" Opacity="0.6" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
                 <TextBlock Text="Material: não definido · em breve" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
               </Border>
             </StackPanel>

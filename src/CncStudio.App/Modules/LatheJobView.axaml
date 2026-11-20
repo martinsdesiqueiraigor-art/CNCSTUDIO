@@ -123,7 +123,7 @@
                 </StackPanel>
               </Border>
               <Border x:Name="PrepStockCard" Classes="camcard"><StackPanel x:Name="PrepStock" Spacing="6" /></Border>
-              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
+              <Border Classes="camcard" Opacity="0.6" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
                 <StackPanel Spacing="4">
                   <TextBlock Text="Material" FontSize="18" FontWeight="Bold" />
                   <TextBlock Text="Não definido · em breve" Foreground="{x:Static modules:CamColors.MutedBrush}" FontSize="12" />
@@ -140,7 +140,7 @@
               </Border>
               <Border x:Name="PrepFixationCard" Classes="camcard"><StackPanel x:Name="PrepFixation" Spacing="6" /></Border>
               <Border x:Name="PrepOriginCard" Classes="camcard"><StackPanel x:Name="PrepOrigin" Spacing="6" /></Border>
-              <Border Classes="camcard" Opacity="0.5" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
+              <Border Classes="camcard" Opacity="0.6" ToolTip.Tip="Em breve: ainda não existe no Casillas CAM.">
                 <StackPanel Spacing="4">
                   <TextBlock Text="Banco de ferramentas" FontSize="18" FontWeight="Bold" />
                   <TextBlock Text="Em breve. Hoje a ferramenta vem da tabela do Code, nas propriedades de cada operação." Foreground="{x:Static modules:CamColors.MutedBrush}" FontSize="12" TextWrapping="Wrap" />

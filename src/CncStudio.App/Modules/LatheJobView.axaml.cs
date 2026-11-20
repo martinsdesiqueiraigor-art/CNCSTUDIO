@@ -684,7 +684,7 @@ public partial class LatheJobView : UserControl
         TreeViewItem Soon(string text, string icon, string tip)
         {
             TreeViewItem item = Node(text, null, icon);
-            item.Opacity = 0.5;
+            item.Opacity = 0.6;
             ToolTip.SetTip(item, tip);
             return item;
         }

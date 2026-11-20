@@ -27,7 +27,7 @@ public static class CamColors
     // texto
     public const string Text = "#E6E8EB";
     public const string Muted = "#9AA3AE";
-    public const string Faint = "#6B737D";
+    public const string Faint = "#8A929C";
 
     // ação e item ativo (laranja)
     public const string Accent = "#F08A24";

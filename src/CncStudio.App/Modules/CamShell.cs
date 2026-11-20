@@ -167,7 +167,7 @@ public static class CamShell
             };
             if (item.Soon)
             {
-                button.Opacity = 0.5;
+                button.Opacity = 0.6;
             }
 
             ToolTip.SetShowOnDisabled(button, true);
@@ -211,7 +211,7 @@ public static class CamShell
     private static Button SoonButton(CamPaletteItem item)
     {
         Button b = PaletteButton(UiKit.Icon2(item.Icon, CamColors.Muted, CamColors.Muted, 20), 38, PaletteButtonHeight);
-        b.Opacity = 0.45;
+        b.Opacity = 0.6;
         return b;
     }
 

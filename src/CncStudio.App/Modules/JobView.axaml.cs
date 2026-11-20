@@ -962,7 +962,7 @@ public partial class JobView : UserControl
         Tree.Items.Add(NodeState(CamJobInfo.MillMachineTitle(machine), CamJobInfo.MillMachineState(machine, _job.Dialect), "ferramenta"));
         // material ainda não existe no CAM: aparece apagado, sem valor suposto
         TreeViewItem material = Node("Material: não definido", null, "material");
-        material.Opacity = 0.5;
+        material.Opacity = 0.6;
         ToolTip.SetTip(material, "Em breve: o material entra numa próxima etapa.");
         Tree.Items.Add(material);
         // UX-04f: um item só para a peça pronta e o bruto, com selo e motivo; os contornos continuam dentro dele
