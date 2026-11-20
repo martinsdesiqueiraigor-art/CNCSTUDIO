@@ -1018,11 +1018,25 @@ public partial class JobView : UserControl
         }
 
         Tree.Items.Add(setup);
+        Library.Update(ToolLibraryRows());
         if (select is not null)
         {
             Tree.SelectedItem = select;
         }
     }
+
+    /// <summary>Ferramentas que as operações usam (a mesma T com o mesmo Ø aparece uma vez); "?" onde o campo está vazio ou inválido.</summary>
+    private IReadOnlyList<ToolLibraryRow> ToolLibraryRows() =>
+        [.. _job.Operations
+            .Select(o => (
+                Order: CamJobInfo.Unknown(o, CamJobInfo.ToolNumberField) ? int.MaxValue : o.Tool.Number,
+                T: CamJobInfo.Unknown(o, CamJobInfo.ToolNumberField) ? "T?" : "T" + o.Tool.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                D: CamJobInfo.Unknown(o, CamJobInfo.DiameterField) ? "Ø?" : "Ø" + o.Tool.Diameter.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+                Name: o.Tool.Name ?? ""))
+            .GroupBy(x => (x.T, x.D))
+            .Select(g => g.First())
+            .OrderBy(x => x.Order)
+            .Select(x => new ToolLibraryRow(x.T, x.D, x.Name))];
 
     /// <summary>
     /// Linha da operação: selo ✓ (pronta) ou ! (incompleta: campo vazio ou inválido, ou erro ao gerar), ícone, título e olho

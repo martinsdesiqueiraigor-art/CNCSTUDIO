@@ -718,11 +718,24 @@ public partial class LatheJobView : UserControl
 
         Tree.Items.Add(setup);
         Tree.Items.Add(Soon("Fixação 2 · em breve", "fixacao", "Em breve: segunda fixação (ex.: virar a peça) com zero próprio."));
+        Library.Update(ToolLibraryRows());
         if (select is not null)
         {
             Tree.SelectedItem = select;
         }
     }
+
+    /// <summary>Ferramentas de torno que as operações usam, uma vez cada T; o torno não tem Ø de ferramenta no trabalho ("—").</summary>
+    private IReadOnlyList<ToolLibraryRow> ToolLibraryRows() =>
+        [.. _job.Operations
+            .Select(o => (
+                Unknown: o.MissingFields.Contains(LatheJobInfo.ToolNumberField),
+                Number: o.Tool.Number,
+                Name: o.Tool.Name ?? ""))
+            .GroupBy(x => x.Unknown ? -1 : x.Number)
+            .Select(g => g.First())
+            .OrderBy(x => x.Unknown ? int.MaxValue : x.Number)
+            .Select(x => new ToolLibraryRow(x.Unknown ? "T?" : "T" + x.Number.ToString(System.Globalization.CultureInfo.InvariantCulture), "—", x.Name))];
 
     /// <summary>Linha da operação: selo ✓ (pronta) ou ! (incompleta), ícone, título e olho (o mesmo Enabled de antes).</summary>
     private TreeViewItem OpNode(int i, MachineProfile? machine)

@@ -94,12 +94,15 @@
       <Grid>
         <!-- Aba Operações: perfil 2D e o 3D de antes (sem chips) -->
         <Border x:Name="OpsCenter" Margin="10,10,10,6" CornerRadius="8" ClipToBounds="True" Background="{x:Static modules:CamColors.ViewportBrush}" BorderBrush="{x:Static modules:CamColors.BorderBrush}" BorderThickness="1">
+          <Grid ColumnDefinitions="*,Auto">
           <Grid>
             <modules:CamPreview x:Name="Preview" />
             <modules:JobSceneView x:Name="Scene3D" IsVisible="False" />
             <ToggleButton x:Name="View3DButton" Content="3D" Padding="12,4" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" />
             <modules:ViewCube x:Name="Cube" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,48,8,0" IsVisible="False" />
             <TextBlock x:Name="PreviewHint" Text="Informe o perfil da peça (faixa Arquivo › Abrir DXF, ou os pontos na Preparação) para começar." HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.7" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center" />
+          </Grid>
+          <modules:ToolLibrary x:Name="Library" Grid.Column="1" />
           </Grid>
         </Border>
         <!-- Aba Preparação: cartões com os editores que já existiam (perfil, fixação) e o bruto e o zero como texto -->
