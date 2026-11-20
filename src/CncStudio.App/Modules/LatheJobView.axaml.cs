@@ -28,8 +28,9 @@ public partial class LatheJobView : UserControl
     public LatheJobView()
     {
         InitializeComponent();
+        Cube.Pick = view => Scene3D.Fit(view); // cubo de vistas: usa as vistas que a cena já tem
         TabStrip = CamShell.BuildTabs(_tabs, SetTab);
-        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick, minButtonWidth: 58));
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.LatheVisibleGroups, PaletteClick, minButtonWidth: 58, opsMenu: true));
         BuildBankSelector();
         _panes = new CamPanes(Panes, TreeSplitter, PropsSplitter, () => _tab == 1);
         PointsBox.Text = "0 16\n-2 20\n-25 20\n-25 28\n-35 28\n-45 28";
@@ -83,6 +84,7 @@ public partial class LatheJobView : UserControl
         };
         Tree.SelectionChanged += (_, _) =>
         {
+            ShowTimes();
             if (_busy)
             {
                 return;
@@ -197,6 +199,7 @@ public partial class LatheJobView : UserControl
         OpsCenter.IsVisible = tab == 1;
         CodeCenter.IsVisible = tab == 2;
         PaletteBar.IsVisible = tab == 1;
+        Timeline.IsVisible = tab == 1;
         RightColumn.IsVisible = tab == 1;
         _panes.Fit();
         if (tab == 0)
@@ -207,12 +210,18 @@ public partial class LatheJobView : UserControl
 
     // ---------------------------------------------------------------- faixa
 
+    /// <summary>Ação de arquivo da faixa ("novo-trabalho", "abrir-dxf", "abrir-trabalho", "salvar-trabalho"), para a tela inicial do CAM (UI-06).</summary>
+    public Task RunFileAction(string action) => PaletteClick(CamPaletteItem.File(action, action, "", action, ""));
+
     private async Task PaletteClick(CamPaletteItem item)
     {
         switch (item.Action)
         {
             case "abrir-dxf":
                 await OpenDxf();
+                return;
+            case "novo-trabalho":
+                NewJob();
                 return;
             case "abrir-trabalho":
                 await OpenJob();
@@ -321,14 +330,49 @@ public partial class LatheJobView : UserControl
             return;
         }
 
-        LatheLoadResult loaded = LatheJobJson.FromJson(file.Text);
+        OpenText(file.Text);
+    }
+
+    /// <summary>
+    /// Abre um trabalho a partir do texto do arquivo (usado pelo Abrir da faixa e pela tela inicial do CAM, UI-06). Devolve o erro
+    /// do arquivo (null = abriu); os avisos do arquivo vão para a lista de erros da árvore, como antes.
+    /// </summary>
+    public string? OpenText(string text)
+    {
+        LatheLoadResult loaded = LatheJobJson.FromJson(text);
         if (!loaded.Ok)
         {
             Errors.Text = "• " + loaded.Error;
+            return loaded.Error;
+        }
+
+        LoadJob(loaded.Job!);
+        // avisos do arquivo (ex.: fixação inválida, que abre como "não informada")
+        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
+        return null;
+    }
+
+    private DateTime _newArmedUntil;
+
+    /// <summary>DESK-01: trabalho de torno novo; com perfil ou operações, o primeiro clique só avisa e o segundo (até 6 s) descarta.</summary>
+    private void NewJob()
+    {
+        bool hasWork = _job.Operations.Count > 0 || _job.Profile is not null;
+        if (hasWork && DateTime.UtcNow > _newArmedUntil)
+        {
+            _newArmedUntil = DateTime.UtcNow.AddSeconds(6);
+            Errors.Text = "• Novo descarta o trabalho aberto sem salvar. Clique em Novo de novo para confirmar (ou Salvar antes).";
             return;
         }
 
-        LatheJob j = loaded.Job!;
+        _newArmedUntil = default;
+        LoadJob(LatheJob.Blank("TORNO"));
+        Errors.Text = "• Trabalho de torno novo. Abra o DXF do perfil ou digite os pontos na Preparação.";
+    }
+
+    /// <summary>Troca o trabalho da tela pelo dado (abrir ou novo).</summary>
+    private void LoadJob(LatheJob j)
+    {
         _job.Name = j.Name;
         _job.Dialect = j.Dialect;
         _job.ProgramNumber = j.ProgramNumber;
@@ -337,14 +381,14 @@ public partial class LatheJobView : UserControl
         _job.Stock = j.Stock;
         _programTypedError = null;
         _job.Profile = j.Profile;
+        // DESK-01: a face do zero também vem do arquivo (antes ficava a do trabalho anterior)
+        _job.ZeroFace = j.ZeroFace;
         _job.Fixation = j.Fixation;
         _job.Operations.Clear();
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
         UndoButton.IsEnabled = false;
         Refresh();
-        // avisos do arquivo (ex.: fixação inválida, que abre como "não informada")
-        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
     }
 
     /// <summary>Salva o trabalho. Nunca trava por campo vazio (TORNO-T1): o arquivo guarda quais campos estão vazios, sem valor antigo.</summary>
@@ -447,6 +491,7 @@ public partial class LatheJobView : UserControl
         Errors.Text = ""; // os erros de geração ficam no rodapé (clicáveis); aqui só os avisos ao abrir arquivo
         ShowWarnings();
         Output.Text = _build.Ok ? _build.Program : "";
+        StartTimes();
         bool gcode = _build.Ok && _build.Program.Length > 0;
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
         CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
@@ -470,7 +515,7 @@ public partial class LatheJobView : UserControl
         StatusIncomplete.Text = incomplete == 0
             ? (_job.Operations.Count == 0 ? "Nenhuma operação" : "Nenhuma operação incompleta")
             : $"⚠ {incomplete} {(incomplete == 1 ? "operação incompleta" : "operações incompletas")}";
-        StatusIncomplete.Foreground = incomplete == 0 ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        StatusIncomplete.Foreground = incomplete == 0 ? CamColors.MutedBrush : UiKit.Status("pending").Fg;
         StatusProgram.Text = LatheJobProgram.StatusText(_job.Dialect, _job.ProgramNumber, _job.WorkOffset);
     }
 
@@ -506,6 +551,17 @@ public partial class LatheJobView : UserControl
             }));
         }
 
+        // Bruto incompleto (DESK-01) e zero (TORNO-T5): o Core lista esses dois antes das operações; sem alvo aqui a lista
+        // de atalhos ficava mais curta que a de textos e nenhum item da barra levava a lugar nenhum (UI-PRO-P1b)
+        if (LatheJobInfo.StockProblem(_job.Stock) is not null)
+        {
+            targets.Add(("pending", () =>
+            {
+                SetTab(0);
+                PrepStock.BringIntoView();
+            }));
+        }
+
         // Programa nº, G5x e refrigeração vazios (TORNO-T1): levam ao cartão da Fixação, na Preparação
         foreach (string _ in LatheJobProgram.Problems(_job))
         {
@@ -516,18 +572,38 @@ public partial class LatheJobView : UserControl
             }));
         }
 
+        foreach (string _ in LatheZero.Problems(_job))
+        {
+            targets.Add(("pending", () =>
+            {
+                SetTab(0);
+                PrepOrigin.BringIntoView();
+            }));
+        }
+
         for (int i = 0; i < _build.Items.Count; i++)
         {
             int index = i;
             if (!_build.Items[i].Ok)
             {
-                targets.Add(("bad", () => GoToOp(index)));
+                targets.Add(("bad", () =>
+                {
+                    GoToOp(index);
+                    FocusMissingField(index);
+                }));
             }
         }
 
         foreach (int index in LatheJobInfo.OverSpindle(_job, maxRpm))
         {
-            targets.Add(("pending", () => GoToOp(index)));
+            targets.Add(("pending", () =>
+            {
+                GoToOp(index);
+                if (_fieldBoxes.TryGetValue("Rotação máxima", out (string Tab, TextBox Box) rpm))
+                {
+                    FocusField(rpm.Tab, rpm.Box);
+                }
+            }));
         }
 
         // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho)
@@ -549,13 +625,15 @@ public partial class LatheJobView : UserControl
         }
     }
 
+    /// <summary>Mensagens de andamento e de erro: vão para o console de avisos (UI-PRO-P2), com a escrita de antes.</summary>
+    private AvisosConsole.MessageChannel Errors => AvisosBox.Messages;
+
     /// <summary>Avisos do programa e de T fora do banco ativo (TORNO-T0: só avisa; o trabalho usa a cópia dele, como na fresa).</summary>
     private void ShowWarnings()
     {
         ToolBank? bank = ActiveBank;
         IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.LatheConflict(o, bank)).OfType<string>();
-        Warnings.Text = string.Join("\n", _build.Warnings.Concat(conflicts).Distinct().Select(w => "⚠ " + w));
-        Warnings.Foreground = UiKit.Status("pending").Fg;
+        AvisosBox.SetWarnings(_build.Warnings, conflicts);
     }
 
     /// <summary>Alterna 2D/3D e, no 3D, simula o programa atual (o 3D de antes, sem chips).</summary>
@@ -563,6 +641,7 @@ public partial class LatheJobView : UserControl
     {
         bool on = View3DButton.IsChecked == true;
         Scene3D.IsVisible = on;
+        Cube.IsVisible = on;
         Preview.IsVisible = !on;
         if (on)
         {
@@ -585,14 +664,15 @@ public partial class LatheJobView : UserControl
 
     private void BuildTree(int? selectOp, string? selectTag = null)
     {
+        _timeLabels.Clear();
         Tree.Items.Clear();
         TreeViewItem? select = null;
         TreeViewItem Node(string text, object? tag = null, string? icon = null) =>
-            UiKit.StateItem(CamShell.TreeRow(text, null, icon is null ? null : UiKit.Icon(icon, "#9aa7b5", 15)), tag);
+            UiKit.StateItem(CamShell.TreeRow(text, null, icon is null ? null : UiKit.Icon(icon, CamColors.Muted, 15)), tag);
 
         TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon, TreeTag? tag = null)
         {
-            TreeViewItem item = UiKit.StateItem(CamShell.TreeRow(text, st, UiKit.Icon(icon, "#9aa7b5", 15)), tag);
+            TreeViewItem item = UiKit.StateItem(CamShell.TreeRow(text, st, UiKit.Icon(icon, CamColors.Muted, 15)), tag);
             if (tag is not null && tag.Kind == selectTag)
             {
                 select = item;
@@ -604,7 +684,7 @@ public partial class LatheJobView : UserControl
         TreeViewItem Soon(string text, string icon, string tip)
         {
             TreeViewItem item = Node(text, null, icon);
-            item.Opacity = 0.5;
+            item.Opacity = 0.6;
             ToolTip.SetTip(item, tip);
             return item;
         }
@@ -638,11 +718,24 @@ public partial class LatheJobView : UserControl
 
         Tree.Items.Add(setup);
         Tree.Items.Add(Soon("Fixação 2 · em breve", "fixacao", "Em breve: segunda fixação (ex.: virar a peça) com zero próprio."));
+        Library.Update(ToolLibraryRows());
         if (select is not null)
         {
             Tree.SelectedItem = select;
         }
     }
+
+    /// <summary>Ferramentas de torno que as operações usam, uma vez cada T; o torno não tem Ø de ferramenta no trabalho ("—").</summary>
+    private IReadOnlyList<ToolLibraryRow> ToolLibraryRows() =>
+        [.. _job.Operations
+            .Select(o => (
+                Unknown: o.MissingFields.Contains(LatheJobInfo.ToolNumberField),
+                Number: o.Tool.Number,
+                Name: o.Tool.Name ?? ""))
+            .GroupBy(x => x.Unknown ? -1 : x.Number)
+            .Select(g => g.First())
+            .OrderBy(x => x.Unknown ? int.MaxValue : x.Number)
+            .Select(x => new ToolLibraryRow(x.Unknown ? "T?" : "T" + x.Number.ToString(System.Globalization.CultureInfo.InvariantCulture), "—", x.Name))];
 
     /// <summary>Linha da operação: selo ✓ (pronta) ou ! (incompleta), ícone, título e olho (o mesmo Enabled de antes).</summary>
     private TreeViewItem OpNode(int i, MachineProfile? machine)
@@ -661,9 +754,10 @@ public partial class LatheJobView : UserControl
         });
         var lead = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6 };
         lead.Children.Add(CamShell.Badge(mark, kind));
-        lead.Children.Add(UiKit.Icon(OpIcon(spec), "#9aa7b5", 15));
+        lead.Children.Add(UiKit.Icon(OpIcon(spec), CamColors.Muted, 15));
         string tip = LatheJobInfo.OpTitle(i, spec) + "\n" + st.Text;
-        Grid row = CamShell.TreeRow(LatheJobInfo.OpTitle(i, spec), null, lead, eye, tip);
+        Grid row = CamShell.TreeRow(LatheJobInfo.OpTitle(i, spec), ("neutral", " "), lead, eye, tip);
+        KeepTimeLabel(i, row);
         row.Opacity = spec.Enabled ? 1 : 0.55;
         return UiKit.StateItem(row, new TreeTag("op", i));
     }
@@ -702,5 +796,75 @@ public partial class LatheJobView : UserControl
 
         Preview.Set(contours, 0, lines);
         PreviewHint.IsVisible = _job.Profile is null && View3DButton.IsChecked != true;
+    }
+
+    // ---------------------------------------------------------------- linha do tempo (UI-05)
+
+    private Dictionary<int, TimeSpan?> _opTimes = [];
+    private readonly Dictionary<int, TextBlock> _timeLabels = [];
+    private int _timesVersion;
+
+    /// <summary>Calcula, fora da tela, o tempo estimado de cada operação pelo G-code gerado e depois mostra na árvore e na linha do tempo.</summary>
+    private async void StartTimes()
+    {
+        int version = ++_timesVersion;
+        string program = _build.Ok ? _build.Program : "";
+        var ops = _build.Items.Where(x => !x.Skipped && x.Result?.Operation is not null).Select(x => (x.Index, x.Result!.Operation!.Name)).ToList();
+        bool siemens = _job.Dialect == CamDialect.Siemens;
+        _opTimes = [];
+        ShowTimes();
+        try
+        {
+            Dictionary<int, TimeSpan?> times = await Task.Run(() => CamOpTimes.Estimate(program, ops, siemens, true));
+            if (version == _timesVersion)
+            {
+                _opTimes = times;
+                ShowTimes();
+            }
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // sem estimativa: a linha do tempo fica "sem tempo"; o programa e a tela continuam iguais
+            if (version == _timesVersion)
+            {
+                _opTimes = [];
+                ShowTimes();
+            }
+        }
+    }
+
+    /// <summary>Tempo na segunda linha de cada operação da árvore e as faixas da linha do tempo (operações ligadas).</summary>
+    private void ShowTimes()
+    {
+        var items = new List<CamTimelineItem>();
+        for (int i = 0; i < _job.Operations.Count; i++)
+        {
+            bool known = _opTimes.TryGetValue(i, out TimeSpan? t);
+            if (_timeLabels.TryGetValue(i, out TextBlock? label))
+            {
+                label.Text = !_job.Operations[i].Enabled ? "desligada" : known ? CamOpTimes.Text(t) + (t is null ? "" : " estimado") : "";
+            }
+
+            if (!_job.Operations[i].Enabled)
+            {
+                continue;
+            }
+
+            string? error = i < _build.Items.Count ? _build.Items[i].Error : null;
+            string kind = error is not null ? "bad" : OpIncomplete(i) || i >= _build.Items.Count || !_build.Items[i].Ok ? "pending" : "ok";
+            items.Add(new CamTimelineItem(i, LatheJobInfo.OpTitle(i, _job.Operations[i]), kind, known ? t : null));
+        }
+
+        Timeline.Show(items, SelectedOp());
+    }
+
+    /// <summary>Segunda linha (pequena) da operação na árvore, onde vai o tempo estimado.</summary>
+    private void KeepTimeLabel(int index, Grid row)
+    {
+        if (row.Children.OfType<TextBlock>().FirstOrDefault(t => Grid.GetRow(t) == 1) is { } label)
+        {
+            label.Foreground = CamColors.MutedBrush;
+            _timeLabels[index] = label;
+        }
     }
 }

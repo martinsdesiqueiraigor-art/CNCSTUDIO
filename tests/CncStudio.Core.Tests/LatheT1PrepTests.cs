@@ -34,7 +34,8 @@ public class LatheT1PrepTests
         Assert.Equal(["Falta o Programa nº", "Falta o G5x", "Falta a refrigeração"], build.Errors);
         // a operação segue calculada (a árvore mostra Pronta) e as três pendências aparecem na barra
         Assert.True(build.Items[0].Ok);
-        Assert.Equal(["Falta o Programa nº", "Falta o G5x", "Falta a refrigeração"], LatheJobInfo.Pending(job, build));
+        // DESK-01: o bruto vazio também é pendência
+        Assert.Equal(["Bruto incompleto: falta Ø do bruto, comprimento, Z da face", "Falta o Programa nº", "Falta o G5x", "Falta a refrigeração"], LatheJobInfo.Pending(job, build));
         Assert.Equal("Programa nº: falta · G5x: falta", LatheJobProgram.StatusText(job.Dialect, job.ProgramNumber, job.WorkOffset));
         Assert.Equal("Origem G5x (falta): X0 no centro da peça, Z0 do perfil", LatheJobInfo.OriginTitle(job));
     }
@@ -210,7 +211,10 @@ public class LatheT1PrepTests
         job.Operations.Add(LatheJobInfo.NewOperation(LatheOpKind.Facing, false));
         string before = LatheJobBuilder.Build(job).Program;
         job.Stock = new LatheJobStock(60, 200, 3);
-        Assert.Equal(before, LatheJobBuilder.Build(job).Program);
+        // DESK-01: o bruto entra só como a linha de comentário (BRUTO D60 X 200)
+        string after = LatheJobBuilder.Build(job).Program;
+        Assert.Contains("(BRUTO D60 X 200)", after);
+        Assert.Equal(StockLine.Without(before), StockLine.Without(after));
         Assert.Equal(40, job.Operations[0].Facing!.StockDiameter);
     }
 

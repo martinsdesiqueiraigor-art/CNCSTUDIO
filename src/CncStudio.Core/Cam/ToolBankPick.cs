@@ -149,6 +149,15 @@ public static class ToolBankPick
             s = CamJobInfo.SetFieldState(s, f, true, false);
         }
 
+        if (s.Kind == JobOpKind.Chamfer)
+        {
+            // OPS-A-02: nada suposto, os quatro campos do chanfro também nascem vazios
+            foreach (string f in new[] { CamJobInfo.TipAngleField, CamJobInfo.ChamferWidthField, CamJobInfo.ChamferDepthField, CamJobInfo.ChamferLeadField })
+            {
+                s = CamJobInfo.SetFieldState(s, f, true, false);
+            }
+        }
+
         return s with { Tool = s.Tool with { Name = "" } };
     }
 
@@ -243,6 +252,27 @@ public static class ToolBankPick
     /// já gerada (sem campo vazio). Usada pelo pacote do CAM (UX-04h C). Inativa no banco não conta como conflito.
     /// </summary>
     public static bool SameTool(CamTool job, BankTool b) => b.Number == job.Number && SameDiameter(job, b) && SameName(job, b);
+
+    /// <summary>
+    /// BANCO-01: "Atualizar o banco com esta": a ferramenta do mesmo T no banco passa a ter o Ø e o nome do trabalho (só os campos com
+    /// valor; tipo, arestas e o resto do cadastro ficam), marcada "a conferir". Null = T vazio ou fora do banco (use Adicionar).
+    /// </summary>
+    public static ToolBank? UpdateBank(ToolBank bank, CamOperationSpec s)
+    {
+        if (CamJobInfo.Unknown(s, CamJobInfo.ToolNumberField) || bank.Tools.FirstOrDefault(t => t.Number == s.Tool.Number) is not { } b)
+        {
+            return null;
+        }
+
+        string name = s.Tool.Name.Trim();
+        BankTool updated = b with
+        {
+            Diameter = CamJobInfo.Unknown(s, CamJobInfo.DiameterField) ? b.Diameter : s.Tool.Diameter,
+            Name = name.Length == 0 ? b.Name : name[..Math.Min(name.Length, ToolBank.MaxNameLength)],
+            ToCheck = true,
+        };
+        return bank.With(updated);
+    }
 
     /// <summary>
     /// "Adicionar ao banco" a ferramenta digitada na operação: cria no banco com a marca "a conferir" e copia só os campos com valor

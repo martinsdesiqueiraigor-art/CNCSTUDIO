@@ -35,8 +35,8 @@ public static class CamJobPart
     /// <summary>Campo do fundo na tela (o mesmo do painel da operação).</summary>
     public const string BottomField = "Z fundo";
 
-    /// <summary>Aviso fixo das operações que vêm do 3D: o contorno é lido da malha.</summary>
-    public const string MeshContourNote = "Contorno lido da malha do 3D: arcos viram trechos retos (G1 curtos). Confira as medidas no desenho.";
+    /// <summary>Aviso fixo das operações que vêm do 3D: o contorno e o fundo são lidos da malha.</summary>
+    public const string MeshContourNote = "Contorno e Z fundo lidos da malha do 3D: arcos viram trechos retos (G1 curtos). Confira as medidas no desenho.";
 
     /// <summary>Modelo do arquivo na posição da peça: giros na ordem e, se escolhido, topo em Z 0.</summary>
     public static TriangleMesh Place(TriangleMesh raw, IReadOnlyList<ModelTurn> turns, bool topAtZero)
@@ -117,8 +117,9 @@ public static class CamJobPart
         job.Contours.Add(Polygon(loops[0]));
         int contour = job.Contours.Count - 1;
         CamOperationSpec spec = ToolBankPick.EmptyTool(CamJobInfo.NewOperation(JobOpKind.Pocket, ContourSide.Outside, contour));
-        spec = spec with { Label = PocketLabel, Levels = AboveTop(spec.Levels, modelTopZ) };
-        job.Operations.Add(CamJobInfo.SetMissing(spec, BottomField, true));
+        // DESK-01 (ordem do Igor, 18/11): o fundo vem do modelo (Z da face), preenchido para conferir
+        spec = spec with { Label = PocketLabel, Levels = AboveTop(spec.Levels, modelTopZ) with { BottomZ = Math.Round(face.Center.Z, 3) } };
+        job.Operations.Add(spec);
         return (job.Operations.Count - 1, null);
     }
 
@@ -148,7 +149,12 @@ public static class CamJobPart
         double top = holes.Max(h => h.Box.Max.Z);
         CamOperationSpec spec = ToolBankPick.EmptyTool(CamJobInfo.NewOperation(JobOpKind.Drilling, ContourSide.Outside, -1));
         spec = spec with { Label = DrillLabel, ContourIndices = indices, Levels = AboveTop(spec.Levels, top) };
-        job.Operations.Add(CamJobInfo.SetMissing(spec, BottomField, true));
+        // DESK-01 (ordem do Igor, 18/11): o fundo vem do modelo quando todos os furos têm o mesmo fundo; fundos diferentes ficam vazios
+        double low = holes.Min(h => h.Box.Min.Z), high = holes.Max(h => h.Box.Min.Z);
+        spec = high - low <= 0.01
+            ? spec with { Levels = spec.Levels with { BottomZ = Math.Round(low, 3) } }
+            : CamJobInfo.SetMissing(spec, BottomField, true);
+        job.Operations.Add(spec);
         return (job.Operations.Count - 1, null);
     }
 
@@ -156,7 +162,7 @@ public static class CamJobPart
     /// Alturas da operação nova medidas a partir do topo lido (as mesmas folgas da operação nova da faixa, que contam a partir de Z 0):
     /// Z seguro e de aproximação ficam acima do topo; o fundo fica vazio (marcado à parte).
     /// </summary>
-    private static CamLevels AboveTop(CamLevels l, double top) =>
+    internal static CamLevels AboveTop(CamLevels l, double top) =>
         l with { TopZ = top, SafeZ = top + (l.SafeZ - l.TopZ), ClearanceZ = top + (l.ClearanceZ - l.TopZ), BottomZ = 0 };
 
     /// <summary>Contorno fechado de trechos retos pelos pontos do laço (em XY).</summary>

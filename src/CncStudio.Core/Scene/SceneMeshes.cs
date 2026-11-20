@@ -30,6 +30,30 @@ public static class SceneMeshes
     /// O corpo tem chapa traseira, chanfro, rebaixo central e os 3 furos da chave; cada castanha é
     /// de dois níveis (base que corre no rasgo e ressalto de contato).
     /// </summary>
+    /// <summary>
+    /// DESK-01: contraponto (ponta rotativa) na ponta da barra do lado da face (MaxZ): cone com a ponta no centro da face, mangote e
+    /// corpo para trás (+Z). Só mostra: não verifica colisão.
+    /// </summary>
+    public static SolidMesh Tailstock(TurningStock stock, ScenePalette palette)
+    {
+        double r = Math.Max(stock.Radius, 5);
+        double tip = stock.MaxZ, cone = Math.Clamp(r * 0.5, 6, 25), quill = Math.Clamp(r * 0.45, 8, 30);
+        double quillLength = Math.Clamp(r * 1.5, 30, 120), body = quill * 1.9;
+        var mesh = SolidMesh.Create(RevolutionSegments * 6);
+        Revolve(mesh,
+        [
+            (0, tip),
+            (cone, tip + cone * 1.2),
+            (quill, tip + cone * 1.2),
+            (quill, tip + cone * 1.2 + quillLength),
+            (body, tip + cone * 1.2 + quillLength),
+            (body, tip + cone * 1.2 + quillLength * 2),
+            (0, tip + cone * 1.2 + quillLength * 2),
+        ], 0, 0, palette.Fixture, null);
+        // DESK-01: coordenadas do torno (eixo Z) para a cena (eixo X), como a placa e a barra
+        return mesh.Transformed(LatheToWorld);
+    }
+
     public static (SolidMesh Body, SolidMesh Jaws) LatheChuck(TurningStock stock, SetupFixture? chuck, ScenePalette palette)
     {
         double r = stock.Radius;
@@ -38,6 +62,11 @@ public static class SceneMeshes
         double jawThickness = chuck?.JawThickness ?? Math.Max(10, r * 0.4);
         double grip = Math.Clamp(stock.MaxZ - stock.MinZ, 1, 1e9) * 0.18;
         grip = Math.Clamp(grip, 5, 25);
+        if (chuck?.GripLength is > 0 and { } held)
+        {
+            // DESK-01: comprimento preso informado no CAM (o resto da barra é o balanço)
+            grip = Math.Min(held, Math.Max(1, stock.MaxZ - stock.MinZ));
+        }
         double z0 = stock.MinZ;
 
         // Contorno do corpo da face (z0) para trás (z0 − bodyLength): chapa traseira menor, corpo principal,

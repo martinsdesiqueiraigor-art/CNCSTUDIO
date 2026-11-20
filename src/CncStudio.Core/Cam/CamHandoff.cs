@@ -83,6 +83,23 @@ public sealed record HandoffStock(HandoffStockKind Kind)
         };
     }
 
+    /// <summary>
+    /// DESK-01: o bruto como comentário do programa, na escrita que o Code lê ("BRUTO 100 X 80 X 20", "BRUTO D50 X 30",
+    /// "BRUTO D50 X D30 X 30"; o último número é a altura na fresa e o comprimento no torno). Null quando o comentário não descreve
+    /// o bruto: STEP e cilindro ou tubo deitados (eixo X ou Y) ficam só no pacote do Code.
+    /// </summary>
+    public string? CommentText()
+    {
+        static string N(double v) => Math.Round(v, 3).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        return Kind switch
+        {
+            HandoffStockKind.Prism => $"BRUTO {N(Width)} X {N(Depth)} X {N(Height)}",
+            HandoffStockKind.Round when Axis == StockAxis.Z => $"BRUTO D{N(Diameter)} X {N(Height)}",
+            HandoffStockKind.Tube when Axis == StockAxis.Z => $"BRUTO D{N(Diameter)} X D{N(InnerDiameter)} X {N(Height)}",
+            _ => null,
+        };
+    }
+
     /// <summary>Caixa que envolve o bruto no referencial do programa (STEP: null, não é convertido).</summary>
     public Bounds3? Extent()
     {
@@ -158,6 +175,9 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
     /// <summary>Fixação em texto (tipo e descrição); não é desenhada.</summary>
     public JobFixture? Fixture { get; init; }
 
+    /// <summary>DESK-01: fixação do torno com medidas (o Code desenha a placa com o comprimento preso e o contraponto). Null na fresa.</summary>
+    public HandoffLatheGrip? LatheGrip { get; init; }
+
     public HandoffStock? Stock { get; init; }
 
     public IReadOnlyList<HandoffTool> Tools { get; init; } = [];
@@ -183,7 +203,7 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
         Zero = job.Zero is { Point: { } p, Level: { } l } z ? new HandoffZero(p, l, z.AsBefore, CamJobZero.Summary(job)) : null,
         Fixture = job.Fixture,
         Stock = HandoffStock.InProgram(job),
-        Tools = ProgramTools(job).Select(t => FromBank(t, bank)).ToList(),
+        Tools = ProgramTools(job).Select(t => WithVCutter(job, FromBank(t, bank))).ToList(),
         BankName = bank?.Name,
     };
 
@@ -200,6 +220,7 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
         ProgramNumber = job.ProgramNumber,
         WorkOffset = job.WorkOffset,
         Fixture = LatheFixture(job.Fixation),
+        LatheGrip = job.Fixation is { } fx ? new HandoffLatheGrip(fx.GripDiameter, fx.GripLength, fx.StickOut, fx.Tailstock) : null,
         Stock = LatheStockInProgram(job),
         Tools = job.Operations.Where(o => o.Enabled).Select(o => o.Tool).GroupBy(t => t.Number).Select(g => g.First()).OrderBy(t => t.Number)
             .Select(t => FromLatheBank(t, bank)).ToList(),
@@ -274,6 +295,25 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
         };
     }
 
+    /// <summary>Tipo do pacote para a fresa em V do Chanfro (OPS-A-02): não existe no banco; a ponta vem do ângulo digitado na operação.</summary>
+    public const string VCutterType = "fresa-v";
+
+    /// <summary>
+    /// OPS-A-02: o T usado só por operações de Chanfro com o mesmo ângulo digitado vira "fresa-v" com esse ângulo (o simulador desenha o cone).
+    /// T usado também por outra operação, ou por chanfros de ângulos diferentes, fica como estava (topo reto genérico). Ângulo vazio não vale.
+    /// </summary>
+    private static HandoffTool WithVCutter(CamJob job, HandoffTool t)
+    {
+        List<CamOperationSpec> same = job.Operations.Where(o => o.Enabled && o.Tool.Number == t.Number && o.Tool.Diameter == t.Diameter).ToList();
+        if (same.Count == 0 || same.Any(o => o.Kind != JobOpKind.Chamfer || o.Chamfer is null || CamJobInfo.Unknown(o, CamJobInfo.TipAngleField)))
+        {
+            return t;
+        }
+
+        double angle = same[0].Chamfer!.TipAngle;
+        return same.All(o => o.Chamfer!.TipAngle == angle) ? t with { Type = VCutterType, TipAngle = angle } : t;
+    }
+
     /// <summary>
     /// Suporte em texto (o campo do pacote é texto e o banco guarda Ø e comprimento): "Ø 35 × 45 mm", "Ø 35 mm" ou "comprimento 45 mm";
     /// null se o banco não tem nenhum dos dois.
@@ -307,3 +347,6 @@ public sealed record CamHandoff(string ProgramHash, CamDialect Controller)
     /// <summary>O programa é o que gerou este pacote?</summary>
     public bool Matches(string program) => Hash(program) == ProgramHash;
 }
+
+/// <summary>DESK-01: fixação do torno no pacote: Ø e comprimento preso, balanço e contraponto (vazios ficam null; nada suposto).</summary>
+public sealed record HandoffLatheGrip(double? GripDiameter, double? GripLength, double? StickOut, bool Tailstock);

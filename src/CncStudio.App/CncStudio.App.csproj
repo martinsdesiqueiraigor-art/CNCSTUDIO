@@ -10,7 +10,7 @@
     <!-- Cópia direta de pixels para o WriteableBitmap da simulação -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\casillas-code.ico</ApplicationIcon>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Product>Casillas Code</Product>
     <AssemblyTitle>Casillas Code</AssemblyTitle>
     <Company>Casillas</Company>
@@ -27,6 +27,8 @@
     <PackageReference Include="Avalonia" Version="11.3.22" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <!-- UI-01: fonte Inter da interface do CAM (OFL 1.1) -->
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.22" />
     <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
   </ItemGroup>
 

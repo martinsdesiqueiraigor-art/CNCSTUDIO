@@ -13,7 +13,7 @@ public enum PartDisplay { Solid, Wireframe, Hidden }
 public sealed record CamViewOptions
 {
     /// <summary>Dica do chip "Peça sólida" enquanto o Trabalho só tem contornos 2D.</summary>
-    public const string MissingPartHeight = "Falta a altura da peça: o Trabalho só tem os contornos 2D.";
+    public const string MissingPartHeight = "A peça sólida dos contornos do DXF ainda não existe. A peça em STEP já aparece sólida no 3D (DESK-01).";
 
     /// <summary>Padrões aprovados pelo Igor (UX-04d).</summary>
     public static CamViewOptions Default { get; } = new();

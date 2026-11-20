@@ -37,6 +37,23 @@ public static class ToolBankLookup
         return tools;
     }
 
+    /// <summary>
+    /// DESK-01: ferramentas do banco ativo só da máquina do programa (torno: o banco do torno; fresa: o da fresa). Para mostrar e para a
+    /// folha: o T1 da fresa não aparece num programa de torno.
+    /// </summary>
+    public static Dictionary<int, BankTool> ToolsFor(Execution.MachineKind machine, IEnumerable<ToolBank> banks, string? activeMillId = null, string? activeLatheId = null)
+    {
+        var list = banks.ToList();
+        ToolBank? bank = machine == Execution.MachineKind.Lathe ? ToolBankPick.ActiveLatheBank(list, activeLatheId) : ToolBankPick.ActiveMillBank(list, activeMillId);
+        var tools = new Dictionary<int, BankTool>();
+        foreach (BankTool t in bank?.Tools ?? [])
+        {
+            tools[t.Number] = t;
+        }
+
+        return tools;
+    }
+
     /// <summary>Ø por T (só os informados), como a tabela antiga dava ao executor.</summary>
     public static Dictionary<int, double> Diameters(IEnumerable<ToolBank> banks, string? activeMillId = null, string? activeLatheId = null) =>
         Tools(banks, activeMillId, activeLatheId).Where(p => p.Value.Diameter is not null).ToDictionary(p => p.Key, p => p.Value.Diameter!.Value);

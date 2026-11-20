@@ -18,7 +18,7 @@ public partial class JobView
     private void ZeroProps()
     {
         var head = new DockPanel();
-        var g5x = new TextBlock { Text = "G5x da fixação: " + CamJobInfo.WorkOffsetName(_job), FontSize = 11, Foreground = Brush.Parse("#9aa7b5"), VerticalAlignment = VerticalAlignment.Center };
+        var g5x = new TextBlock { Text = "G5x da fixação: " + CamJobInfo.WorkOffsetName(_job), FontSize = 11, Foreground = CamColors.MutedBrush, VerticalAlignment = VerticalAlignment.Center };
         DockPanel.SetDock(g5x, Dock.Right);
         head.Children.Add(g5x);
         head.Children.Add(new TextBlock { Text = "Zero da fixação 1", FontSize = 18, FontWeight = FontWeight.Bold });
@@ -73,7 +73,7 @@ public partial class JobView
         {
             PropsPanel.Children.Add(new Border
             {
-                BorderBrush = Brush.Parse("#2a3442"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+                BorderBrush = CamColors.BorderStrongBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(10, 6), Margin = new Thickness(0, 8, 0, 0),
                 Child = new TextBlock { Text = CamJobZero.Summary(_job), FontSize = 12, TextWrapping = TextWrapping.Wrap },
             });
@@ -108,7 +108,7 @@ public partial class JobView
 
         var box = new Border
         {
-            BorderBrush = Brush.Parse("#2a3442"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+            BorderBrush = CamColors.BorderStrongBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
             Padding = new Thickness(4), Child = cells, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0),
         };
         (Grid boxField, Action<string?> boxMark) = CamShell.DashedField(box);

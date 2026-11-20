@@ -30,6 +30,7 @@ public partial class JobView : UserControl
     public JobView()
     {
         InitializeComponent();
+        Cube.Pick = view => Scene3D.Fit(view); // cubo de vistas: usa as vistas que a cena já tem
         // chips do 3D: cada mudança vai para o config do app
         Scene3D.OptionsChanged += (_, o) => SaveViewOptions?.Invoke(o.ToText());
         // M3D-2: clique numa face da peça STEP no 3D
@@ -86,6 +87,14 @@ public partial class JobView : UserControl
         ActualThemeVariantChanged += (_, _) => Refresh(keep: true, props: false);
         Tree.SelectionChanged += (_, _) =>
         {
+            ShowTimes();
+            // linha de Geometria (só leitura): a seleção volta para a operação dona
+            if (!_busy && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "geo" } geoTag)
+            {
+                Tree.SelectedItem = AllItems(Tree).FirstOrDefault(x => x.Tag is TreeTag { Kind: "op" } t && t.Index == geoTag.Index);
+                return;
+            }
+
             if (!_busy)
             {
                 // Zero da fixação: o lugar dele é o cartão Zero da Preparação
@@ -196,6 +205,7 @@ public partial class JobView : UserControl
         OpsCenter.IsVisible = tab == 1;
         CodeCenter.IsVisible = tab == 2;
         PaletteBar.IsVisible = tab == 1;
+        Timeline.IsVisible = tab == 1;
         RightColumn.IsVisible = tab == 1;
         _panes.Fit();
         if (tab == 0)
@@ -247,6 +257,22 @@ public partial class JobView : UserControl
 
     /// <summary>Contornos e bruto do Trabalho aberto (o Assist lê para sugerir um plano).</summary>
     public IReadOnlyList<Contour> Contours => _job.Contours;
+
+    /// <summary>
+    /// Índices (no trabalho) dos contornos que são desenho de verdade: sem os que as operações criadas pelo 3D guardam como seus
+    /// (STEP-CONT-01). O Assist por desenho lê só estes, para não planejar de novo o que o 3D já fez.
+    /// </summary>
+    public IReadOnlyList<int> PlanContourMap
+    {
+        get
+        {
+            HashSet<int> owned = [.. _job.Operations.SelectMany(o => o.Geometry?.Owned ?? [])];
+            return [.. Enumerable.Range(0, _job.Contours.Count).Where(i => !owned.Contains(i))];
+        }
+    }
+
+    /// <summary>Contornos para o Assist por desenho, na ordem de <see cref="PlanContourMap"/>.</summary>
+    public IReadOnlyList<Contour> PlanContours => [.. PlanContourMap.Select(i => _job.Contours[i])];
 
     /// <summary>Caixa do bruto para o Assist (espessura): bloco absoluto ou bloco por sobra completo; cilindro e tubo, null.</summary>
     public JobStock? Stock => CamJobStock.BlockBox(_job);
@@ -355,14 +381,53 @@ public partial class JobView : UserControl
             return;
         }
 
-        JobLoadResult loaded = CamJobJson.FromJson(file.Text);
+        OpenText(file.Text);
+    }
+
+    /// <summary>
+    /// Abre um trabalho a partir do texto do arquivo (usado pelo Abrir da faixa e pela tela inicial do CAM, UI-06). Devolve o erro
+    /// do arquivo (null = abriu); os avisos do arquivo vão para a lista de erros da árvore, como antes.
+    /// </summary>
+    public string? OpenText(string text)
+    {
+        JobLoadResult loaded = CamJobJson.FromJson(text);
         if (!loaded.Ok)
         {
             Errors.Text = "• " + loaded.Error;
+            return loaded.Error;
+        }
+
+        LoadJob(loaded.Job!);
+        // avisos do arquivo (ex.: fixação inválida, que abre como "não definida")
+        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
+        return null;
+    }
+
+    private DateTime _newArmedUntil;
+
+    /// <summary>
+    /// DESK-01: trabalho novo (vazio, como ao abrir o app). Com peça, operações ou contornos, o primeiro clique só avisa; o segundo,
+    /// em até 6 s, descarta o trabalho atual (não salva sozinho).
+    /// </summary>
+    private void NewJob()
+    {
+        bool hasWork = _job.Operations.Count > 0 || CamJobInfo.HasPart(_job);
+        if (hasWork && DateTime.UtcNow > _newArmedUntil)
+        {
+            _newArmedUntil = DateTime.UtcNow.AddSeconds(6);
+            Errors.Text = "• Novo descarta o trabalho aberto sem salvar. Clique em Novo de novo para confirmar (ou Salvar antes).";
             return;
         }
 
-        CamJob j = loaded.Job!;
+        _newArmedUntil = default;
+        LoadJob(new CamJob());
+        View3DButton.IsChecked = false;
+        Errors.Text = "• Trabalho novo. Abra um DXF, escolha o STEP da peça (Preparação) ou desenhe uma forma.";
+    }
+
+    /// <summary>Troca o trabalho da tela pelo dado (abrir ou novo).</summary>
+    private void LoadJob(CamJob j)
+    {
         _job.Name = j.Name;
         _job.Dialect = j.Dialect;
         _job.ProgramNumber = j.ProgramNumber;
@@ -377,7 +442,7 @@ public partial class JobView : UserControl
         _absoluteMode = false;
         ForgetStockMemory();
         _job.PartHeight = j.PartHeight;
-        // M3D-1: peça STEP só confere se o arquivo está no lugar (nunca lê ao abrir)
+        // M3D-1: peça STEP confere se o arquivo está no lugar; a leitura vem logo depois do Refresh (STEP-OPS, em segundo plano)
         _job.PartStep = j.PartStep;
         ForgetPartMesh();
         CamJobPart.VerifyFile(_job, File.Exists);
@@ -389,8 +454,11 @@ public partial class JobView : UserControl
         _job.Operations.AddRange(j.Operations);
         _undo.Clear();
         Refresh();
-        // avisos do arquivo (ex.: fixação inválida, que abre como "não definida")
-        Errors.Text = string.Join("\n", loaded.Warnings.Select(w => "• " + w));
+        // STEP-OPS: trabalho com peça STEP abre no 3D (lê o arquivo em segundo plano; some o 3D se o arquivo não está no lugar)
+        if (_job.PartStep is { FileProblem: null })
+        {
+            _ = LoadPartMesh(open3D: true);
+        }
     }
 
     /// <summary>Fixação do Trabalho aberto: o Assist lê daqui (fonte única).</summary>
@@ -431,15 +499,21 @@ public partial class JobView : UserControl
     private void BuildPalette()
     {
         _paletteButtons.Clear();
-        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.VisibleGroups, PaletteClick));
+        _paletteButtons.AddRange(CamShell.BuildPalette(Palette, CamPalette.VisibleGroups, PaletteClick, opsMenu: true));
         BuildBankSelector();
         UpdatePalette();
     }
+
+    /// <summary>Ação de arquivo da faixa ("novo-trabalho", "abrir-dxf", "abrir-trabalho", "salvar-trabalho"), para a tela inicial do CAM (UI-06).</summary>
+    public Task RunFileAction(string action) => PaletteClick(CamPaletteItem.File(action, action, "", action, ""));
 
     private async Task PaletteClick(CamPaletteItem item)
     {
         switch (item.Action)
         {
+            case "novo-trabalho":
+                NewJob();
+                return;
             case "abrir-dxf":
                 await OpenDxf();
                 return;
@@ -463,13 +537,21 @@ public partial class JobView : UserControl
         int target = PaletteTarget();
         foreach ((CamPaletteItem item, Button button) in _paletteButtons)
         {
-            CamShell.SetPaletteState(item, button, CamPalette.Unavailable(item, _job, target, _openChains));
+            string? why = StepReady && item.Kind is JobOpKind.Pocket or JobOpKind.Drilling or JobOpKind.Facing or JobOpKind.Contour && HasSelection
+                ? StepPaletteWhy(item)
+                : CamPalette.Unavailable(item, _job, target, _openChains);
+            CamShell.SetPaletteState(item, button, why);
         }
     }
 
     private void AddOperation(CamPaletteItem item)
     {
         Errors.Text = "";
+        if (AddFromSelection(item))
+        {
+            return;
+        }
+
         int contour = PaletteTarget();
         if (CamPalette.Unavailable(item, _job, contour, _openChains) is { } why)
         {
@@ -545,14 +627,15 @@ public partial class JobView : UserControl
         }
     }
 
+    /// <summary>Mensagens de andamento e de erro: vão para o console de avisos (UI-PRO-P2), com a escrita de antes.</summary>
+    private AvisosConsole.MessageChannel Errors => AvisosBox.Messages;
+
     // Avisos do programa e de T em conflito com o banco ativo (UX-04h B2: só avisa; o trabalho usa a cópia dele)
     private void ShowWarnings()
     {
         ToolBank? bank = ActiveBank;
         IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.Conflict(o, bank)).OfType<string>();
-        IEnumerable<string> lines = _build.Warnings.Concat(conflicts);
-        Warnings.Text = string.Join("\n", lines.Distinct().Select(w => "• " + w));
-        Warnings.Foreground = UiKit.Status("pending").Fg;
+        AvisosBox.SetWarnings(_build.Warnings, conflicts);
     }
 
     private void Refresh(int? op = null, bool keep = false, bool props = true)
@@ -589,6 +672,7 @@ public partial class JobView : UserControl
         Errors.Text = ""; // os erros de geração ficam na barra inferior (clicáveis); aqui só os avisos ao abrir arquivo
         ShowWarnings();
         Output.Text = _build.Ok ? _build.Program : "";
+        StartTimes();
         bool gcode = _build.Ok && _build.Program.Length > 0;
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
         CodeTitle.ClearValue(Avalonia.Controls.TextBlock.ForegroundProperty);
@@ -639,14 +723,14 @@ public partial class JobView : UserControl
         }
 
         bool clean = incomplete == 0 && stockNote is null && programProblems == 0 && zeroProblems == 0;
-        StatusIncomplete.Foreground = clean ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        StatusIncomplete.Foreground = clean ? CamColors.MutedBrush : UiKit.Status("pending").Fg;
         // UX-04g: o número e o G5x digitados, ou "falta" (Siemens: só o G5x); nada inventado
         StatusProgram.Text = CamJobProgram.StatusText(_job);
         // UX-04f PR 2: selo da Máquina (✓, ✓ com fuso não verificado, aviso de controle diferente ou sem perfil)
         MachineProfile? machine = MachineSource?.Invoke();
         (string kind, string text) = CamJobInfo.MillMachineState(machine, _job.Dialect);
         StatusMachine.Text = machine is null ? "Máquina: sem perfil (3 eixos)" : $"Máquina: {machine.Name} " + (kind != "ok" ? "⚠ " + text : text == "OK" ? "✓" : "✓ " + CamJobInfo.SpindleNotChecked);
-        StatusMachine.Foreground = kind == "ok" ? Avalonia.Media.Brush.Parse("#9aa7b5") : UiKit.Status("pending").Fg;
+        StatusMachine.Foreground = kind == "ok" ? CamColors.MutedBrush : UiKit.Status("pending").Fg;
         ToolTip.SetTip(StatusMachine, CamJobInfo.MachineControlWarning(machine, _job.Dialect));
     }
 
@@ -761,6 +845,7 @@ public partial class JobView : UserControl
                 {
                     SetTab(1);
                     GoToTree(t => t.Kind == "op" && t.Index == index);
+                    FocusMissingField(index);
                 }));
             }
         }
@@ -771,6 +856,10 @@ public partial class JobView : UserControl
             {
                 SetTab(1);
                 GoToTree(t => t.Kind == "op" && t.Index == index);
+                if (_fieldBoxes.TryGetValue("Rotação", out (string Tab, TextBox Box) rpm))
+                {
+                    FocusField(rpm.Tab, rpm.Box);
+                }
             }));
         }
 
@@ -799,6 +888,7 @@ public partial class JobView : UserControl
     {
         bool on = View3DButton.IsChecked == true;
         Scene3D.IsVisible = on;
+        Cube.IsVisible = on;
         Preview.IsVisible = !on;
         if (on)
         {
@@ -839,9 +929,9 @@ public partial class JobView : UserControl
     /// </summary>
     private (string Kind, string Text) PartStockState()
     {
-        if (_job.Contours.Count == 0)
+        if (!CamJobInfo.HasPart(_job))
         {
-            return ("pending", "falta o desenho da peça");
+            return ("pending", "falta a peça (DXF, STEP ou forma)");
         }
 
         (string kind, string text) = CamJobStock.State(_job);
@@ -858,19 +948,21 @@ public partial class JobView : UserControl
 
     private void BuildTree(int? selectOp, int? selectContour)
     {
+        _timeLabels.Clear();
+        _hoverGeometry = null; // as linhas antigas somem: o mouse não está mais sobre nenhuma
         Tree.Items.Clear();
         TreeViewItem? select = null;
         TreeViewItem Node(string text, object? tag = null, string? icon = null) =>
-            UiKit.StateItem(TreeRow(text, null, icon is null ? null : UiKit.Icon(icon, "#9aa7b5", 15)), tag);
+            UiKit.StateItem(TreeRow(text, null, icon is null ? null : UiKit.Icon(icon, CamColors.Muted, 15)), tag);
 
         TreeViewItem NodeState(string text, (string Kind, string Text) st, string icon, TreeTag? tag = null) =>
-            UiKit.StateItem(TreeRow(text, st, UiKit.Icon(icon, "#9aa7b5", 15)), tag);
+            UiKit.StateItem(TreeRow(text, st, UiKit.Icon(icon, CamColors.Muted, 15)), tag);
 
         MachineProfile? machine = MachineSource?.Invoke();
         Tree.Items.Add(NodeState(CamJobInfo.MillMachineTitle(machine), CamJobInfo.MillMachineState(machine, _job.Dialect), "ferramenta"));
         // material ainda não existe no CAM: aparece apagado, sem valor suposto
         TreeViewItem material = Node("Material: não definido", null, "material");
-        material.Opacity = 0.5;
+        material.Opacity = 0.6;
         ToolTip.SetTip(material, "Em breve: o material entra numa próxima etapa.");
         Tree.Items.Add(material);
         // UX-04f: um item só para a peça pronta e o bruto, com selo e motivo; os contornos continuam dentro dele
@@ -926,11 +1018,25 @@ public partial class JobView : UserControl
         }
 
         Tree.Items.Add(setup);
+        Library.Update(ToolLibraryRows());
         if (select is not null)
         {
             Tree.SelectedItem = select;
         }
     }
+
+    /// <summary>Ferramentas que as operações usam (a mesma T com o mesmo Ø aparece uma vez); "?" onde o campo está vazio ou inválido.</summary>
+    private IReadOnlyList<ToolLibraryRow> ToolLibraryRows() =>
+        [.. _job.Operations
+            .Select(o => (
+                Order: CamJobInfo.Unknown(o, CamJobInfo.ToolNumberField) ? int.MaxValue : o.Tool.Number,
+                T: CamJobInfo.Unknown(o, CamJobInfo.ToolNumberField) ? "T?" : "T" + o.Tool.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                D: CamJobInfo.Unknown(o, CamJobInfo.DiameterField) ? "Ø?" : "Ø" + o.Tool.Diameter.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+                Name: o.Tool.Name ?? ""))
+            .GroupBy(x => (x.T, x.D))
+            .Select(g => g.First())
+            .OrderBy(x => x.Order)
+            .Select(x => new ToolLibraryRow(x.T, x.D, x.Name))];
 
     /// <summary>
     /// Linha da operação: selo ✓ (pronta) ou ! (incompleta: campo vazio ou inválido, ou erro ao gerar), ícone, título e olho
@@ -954,16 +1060,23 @@ public partial class JobView : UserControl
 
         var lead = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 6 };
         lead.Children.Add(badge);
-        lead.Children.Add(UiKit.Icon(OpIcon(spec), "#9aa7b5", 15));
+        lead.Children.Add(UiKit.Icon(OpIcon(spec), CamColors.Muted, 15));
         string tip = CamJobInfo.OpTitle(i, spec) + "\n" + (incomplete && st.Kind == "ok" ? "Incompleta: falta preencher campo" : st.Text);
         if (OpOrigin.Describe(spec.Origin) is { } origin)
         {
             tip += "\n" + origin.Text;
         }
 
-        Grid row = TreeRow(CamJobInfo.OpTitle(i, spec), null, lead, eye, tip);
+        Grid row = TreeRow(CamJobInfo.OpTitle(i, spec), ("neutral", " "), lead, eye, tip);
+        KeepTimeLabel(i, row);
         row.Opacity = spec.Enabled ? 1 : 0.55;
-        return UiKit.StateItem(row, new TreeTag("op", i));
+        TreeViewItem opItem = UiKit.StateItem(row, new TreeTag("op", i));
+        if (GeometryNode(i, spec) is { } geometry)
+        {
+            opItem.Items.Add(geometry);
+        }
+
+        return opItem;
     }
 
     /// <summary>Linha da árvore em 240 px (comum com o torno: <see cref="CamShell.TreeRow"/>).</summary>
@@ -991,6 +1104,76 @@ public partial class JobView : UserControl
 
         int selected = SelectedContour() ?? (SelectedOp() is { } o && o < _job.Operations.Count ? _job.Operations[o].ContourIndex : -1);
         Preview.Set(_job.Contours, selected, path);
-        PreviewHint.IsVisible = _job.Contours.Count == 0;
+        PreviewHint.IsVisible = !CamJobInfo.HasPart(_job);
+    }
+
+    // ---------------------------------------------------------------- linha do tempo (UI-05)
+
+    private Dictionary<int, TimeSpan?> _opTimes = [];
+    private readonly Dictionary<int, TextBlock> _timeLabels = [];
+    private int _timesVersion;
+
+    /// <summary>Calcula, fora da tela, o tempo estimado de cada operação pelo G-code gerado e depois mostra na árvore e na linha do tempo.</summary>
+    private async void StartTimes()
+    {
+        int version = ++_timesVersion;
+        string program = _build.Ok ? _build.Program : "";
+        var ops = _build.Items.Where(x => !x.Skipped && x.Result?.Operation is not null).Select(x => (x.Index, x.Result!.Operation!.Name)).ToList();
+        bool siemens = _job.Dialect == CamDialect.Siemens;
+        _opTimes = [];
+        ShowTimes();
+        try
+        {
+            Dictionary<int, TimeSpan?> times = await Task.Run(() => CamOpTimes.Estimate(program, ops, siemens, false));
+            if (version == _timesVersion)
+            {
+                _opTimes = times;
+                ShowTimes();
+            }
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // sem estimativa: a linha do tempo fica "sem tempo"; o programa e a tela continuam iguais
+            if (version == _timesVersion)
+            {
+                _opTimes = [];
+                ShowTimes();
+            }
+        }
+    }
+
+    /// <summary>Tempo na segunda linha de cada operação da árvore e as faixas da linha do tempo (operações ligadas).</summary>
+    private void ShowTimes()
+    {
+        var items = new List<CamTimelineItem>();
+        for (int i = 0; i < _job.Operations.Count; i++)
+        {
+            bool known = _opTimes.TryGetValue(i, out TimeSpan? t);
+            if (_timeLabels.TryGetValue(i, out TextBlock? label))
+            {
+                label.Text = !_job.Operations[i].Enabled ? "desligada" : known ? CamOpTimes.Text(t) + (t is null ? "" : " estimado") : "";
+            }
+
+            if (!_job.Operations[i].Enabled)
+            {
+                continue;
+            }
+
+            string? error = i < _build.Items.Count ? _build.Items[i].Error : null;
+            string kind = error is not null ? "bad" : OpIncomplete(i) || i >= _build.Items.Count || !_build.Items[i].Ok ? "pending" : "ok";
+            items.Add(new CamTimelineItem(i, CamJobInfo.OpTitle(i, _job.Operations[i]), kind, known ? t : null));
+        }
+
+        Timeline.Show(items, SelectedOp());
+    }
+
+    /// <summary>Segunda linha (pequena) da operação na árvore, onde vai o tempo estimado.</summary>
+    private void KeepTimeLabel(int index, Grid row)
+    {
+        if (row.Children.OfType<TextBlock>().FirstOrDefault(t => Grid.GetRow(t) == 1) is { } label)
+        {
+            label.Foreground = CamColors.MutedBrush;
+            _timeLabels[index] = label;
+        }
     }
 }

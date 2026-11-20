@@ -106,7 +106,7 @@ public class CamPaletteTests
     public void Em_breve_aparece_apagado_e_nao_cria_operacao()
     {
         var soon = CamPalette.VisibleGroups.SelectMany(g => g.Items).Where(i => i.Soon).Select(i => i.Id).ToList();
-        Assert.Equal(["nova-fixacao", "zero", "chanfro", "ranhura", "macho", "mandrilhar"], soon);
+        Assert.Equal(["nova-fixacao", "zero", "ranhura", "macho", "mandrilhar"], soon);
         var job = new CamJob();
         job.Contours.Add(Contour.Rectangle(0, 0, 60, 40));
         foreach (string id in soon)
@@ -125,7 +125,7 @@ public class CamPaletteTests
     public void Arquivo_tem_acoes_sempre_ligadas_sem_operacao()
     {
         CamPaletteGroup file = CamPalette.Groups.Single(g => g.Id == "arquivo");
-        Assert.Equal(["abrir-dxf", "abrir-trabalho", "salvar-trabalho"], file.Items.Select(i => i.Action));
+        Assert.Equal(["novo-trabalho", "abrir-dxf", "abrir-trabalho", "salvar-trabalho"], file.Items.Select(i => i.Action));
         Assert.Empty(CamPalette.OperationItems(file));
         Assert.All(file.Items, i => Assert.Null(CamPalette.Unavailable(i, new CamJob(), -1)));
         Assert.All(file.Items, i => Assert.Null(CamPalette.NewOperation(i, 0)));

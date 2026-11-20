@@ -14,6 +14,9 @@ public sealed record PostOptions(CamDialect Dialect, string ProgramName = "CASIL
 {
     /// <summary>Linha de comentário do zero da peça no cabeçalho (UX-04g PR B); null = nenhuma linha (como antes).</summary>
     public string? ZeroNote { get; init; }
+
+    /// <summary>DESK-01: comentário do bruto ("BRUTO 100 X 80 X 20"), logo depois do zero; null = sem a linha.</summary>
+    public string? StockNote { get; init; }
 }
 
 /// <summary>
@@ -148,6 +151,11 @@ public static class CamPost
             if (o.ZeroNote is { } zero)
             {
                 Comment(Clean(zero));
+            }
+
+            if (o.StockNote is { } stock)
+            {
+                Comment(Clean(stock));
             }
 
             Line($"G{o.WorkOffset}");
@@ -403,8 +411,17 @@ public static class CamPost
                     DrillCycleKind.Drill => "G81",
                     DrillCycleKind.Dwell => $"G82 P{(int)Math.Round(d.DwellSeconds * 1000)}",
                     DrillCycleKind.Peck => $"G83 Q{N(d.Peck)}",
+                    DrillCycleKind.Tap => "G84",
+                    DrillCycleKind.BoreFeed => d.DwellSeconds > 0 ? $"G89 P{(int)Math.Round(d.DwellSeconds * 1000)}" : "G85",
+                    DrillCycleKind.BoreStop => "G86",
                     _ => $"G73 Q{N(d.Peck)}",
                 };
+                if (d.Kind == DrillCycleKind.Tap)
+                {
+                    // Macho rígido: M29 liga o modo antes do ciclo; o avanço é o digitado (passo × rotação)
+                    Line($"M29 S{N(tool.SpindleRpm)}");
+                }
+
                 Line($"G98 {cycle} X{N(first.X)} Y{N(first.Y)} Z{N(d.BottomZ)} R{N(d.RetractZ)} F{N(d.Feed)}");
                 foreach (Point2 p in d.Points.Skip(1))
                 {

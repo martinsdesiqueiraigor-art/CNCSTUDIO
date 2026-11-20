@@ -216,10 +216,10 @@ public class CamJobStockShapeTests
     [Fact]
     public void Leitor_recusa_versao_maior_que_a_atual()
     {
-        string json = CamJobJson.ToJson(Job()).Replace("\"version\": 1", "\"version\": 5");
+        string json = CamJobJson.ToJson(Job()).Replace("\"version\": 1", "\"version\": 8");
         JobLoadResult r = CamJobJson.FromJson(json);
         Assert.False(r.Ok);
-        Assert.Contains("versão mais nova (5)", r.Error);
+        Assert.Contains("versão mais nova (8)", r.Error);
     }
 
     [Fact]
@@ -247,10 +247,11 @@ public class CamJobStockShapeTests
         ];
         foreach (CamJob v in variants)
         {
-            Assert.Equal(program, CamJobBuilder.Build(v, null).Program);
+            // DESK-01: só a linha do bruto pode mudar
+            Assert.Equal(StockLine.Without(program), StockLine.Without(CamJobBuilder.Build(v, null).Program));
             JobLoadResult again = CamJobJson.FromJson(CamJobJson.ToJson(v));
             Assert.True(again.Ok, again.Error);
-            Assert.Equal(program, CamJobBuilder.Build(again.Job!, null).Program);
+            Assert.Equal(StockLine.Without(program), StockLine.Without(CamJobBuilder.Build(again.Job!, null).Program));
         }
 
         static CamJob WithShape(JobStockShape shape, double? height)

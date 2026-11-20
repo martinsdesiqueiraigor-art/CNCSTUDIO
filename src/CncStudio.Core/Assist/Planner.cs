@@ -10,7 +10,14 @@ public sealed record PlanTool(int Number, double Diameter, bool IsDrill, string 
 /// Dados do plano automático 2D. <see cref="Thickness"/>: espessura do bruto (topo da peça em Z0).
 /// <see cref="MaxSpindleRpm"/>: limite do fuso do perfil da máquina ativa; null = não informado (rotação "não verificada").
 /// </summary>
-public sealed record PlanInput(IReadOnlyList<Contour> Contours, double Thickness, MaterialEntry? Material, IReadOnlyList<PlanTool> Tools, double MaxHoleDrillDiameter = 20, double? MaxSpindleRpm = null);
+public sealed record PlanInput(IReadOnlyList<Contour> Contours, double Thickness, MaterialEntry? Material, IReadOnlyList<PlanTool> Tools, double MaxHoleDrillDiameter = 20, double? MaxSpindleRpm = null)
+{
+    /// <summary>
+    /// Profundidade real por contorno (índice em <see cref="Contours"/> → mm abaixo do topo), vinda de um STEP (<see cref="StepPlanSource"/>).
+    /// Null (desenho DXF) = o plano supõe: furo até a espessura, bolsão até a metade.
+    /// </summary>
+    public IReadOnlyDictionary<int, double>? Depths { get; init; }
+}
 
 /// <summary>Sugestão de plano: operações para o Trabalho e avisos. É só uma sugestão: o usinador revisa, simula e roda no ar.</summary>
 public sealed record PlanResult(IReadOnlyList<CamOperationSpec> Operations, IReadOnlyList<string> Notes)
@@ -146,8 +153,8 @@ public static class AssistPlanner
             return new CamLevels(50, 2, 0, -depth, Math.Min(Math.Max(step, 0.1), depth));
         }
 
-        double depthHole = input.Thickness;
-        double depthPocket = Math.Round(input.Thickness / 2, 2);
+        List<Contour> all = input.Contours.ToList();
+        double DepthOf(Contour c, double fallback) => input.Depths is { } d && d.TryGetValue(all.IndexOf(c), out double v) && v > 0 ? v : fallback;
 
         // 1. Furos (mesma broca para o mesmo Ø; furos de Ø diferentes viram uma operação cada)
         foreach (IGrouping<double, Contour> g in holes.GroupBy(c => Math.Round(c.Segments[0].Radius * 2, 2)).OrderBy(g => g.Key))
@@ -155,6 +162,7 @@ public static class AssistPlanner
             CamTool drill = Pick("d" + N(g.Key), g.Key, true, "Broca Ø" + N(g.Key));
             foreach (Contour c in g)
             {
+                double depthHole = DepthOf(c, input.Thickness);
                 CamOperationSpec spec = new(JobOpKind.Drilling, drill, new CamLevels(50, 2, 0, -depthHole, 5)) { Drill = new DrillSpec(DrillCycleKind.Peck, depthHole > 3 * g.Key ? Math.Round(g.Key, 1) : 0, 0), ContourIndex = input.Contours.ToList().IndexOf(c), Label = $"Furo Ø{N(g.Key)}" };
                 if (spec.Drill!.Peck == 0)
                 {
@@ -170,6 +178,7 @@ public static class AssistPlanner
         foreach (Contour c in pockets)
         {
             pocketNo++;
+            double depthPocket = DepthOf(c, Math.Round(input.Thickness / 2, 2));
             IReadOnlyList<Contour> islands = CamOperations.FindIslands(c, inside);
             (double x0, double y0, double x1, double y1) = c.BoundsXY();
             double limit = Math.Min(Math.Min(x1 - x0, y1 - y0) / 2, 20);
@@ -222,7 +231,9 @@ public static class AssistPlanner
         }
 
         notes.Add($"Peça de {N(ox1 - ox0)} × {N(oy1 - oy0)} mm, espessura {N(input.Thickness)} mm (suposta: topo em Z0).");
-        notes.Add("Profundidades supostas: furos e contorno até a espessura, bolsões até a metade. Ajuste no Trabalho. Para passar do fundo, use calço ou mesa de sacrifício.");
+        notes.Add(input.Depths is { Count: > 0 }
+            ? "Profundidades de furos e bolsões lidas do modelo STEP (o contorno vai até a espessura). Confira no Trabalho. Para passar do fundo, use calço ou mesa de sacrifício."
+            : "Profundidades supostas: furos e contorno até a espessura, bolsões até a metade. Ajuste no Trabalho. Para passar do fundo, use calço ou mesa de sacrifício.");
         notes.Add("Contorno da peça por último, sem pontes: a peça solta no fim. Prenda bem e simule antes. Primeira execução no ar.");
         if (input.Material is { Draft: true } mat)
         {

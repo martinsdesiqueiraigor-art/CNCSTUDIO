@@ -7,7 +7,7 @@ namespace CncStudio.Core.Cam;
 /// </summary>
 public sealed record CamPaletteItem(string Id, string Name, string Icon, JobOpKind? Kind, ContourSide Side, string Hint)
 {
-    /// <summary>Ação de arquivo do botão ("abrir-dxf", "abrir-trabalho", "salvar-trabalho"); null = não é ação.</summary>
+    /// <summary>Ação de arquivo do botão ("novo-trabalho", "abrir-dxf", "abrir-trabalho", "salvar-trabalho"); null = não é ação.</summary>
     public string? Action { get; init; }
 
     /// <summary>Ainda não existe: o botão aparece apagado com o selo "em breve" e não faz nada.</summary>
@@ -48,6 +48,7 @@ public static class CamPalette
     [
         new("arquivo", "Arquivo", true,
         [
+            CamPaletteItem.File("novo-trabalho", "Novo", "novo", "novo-trabalho", "Começa um trabalho de fresa vazio (salve o atual antes)."),
             CamPaletteItem.File("abrir-dxf", "Abrir DXF", "abrir-dxf", "abrir-dxf", "Abre o desenho (DXF) da peça."),
             CamPaletteItem.File("abrir-trabalho", "Abrir", "abrir", "abrir-trabalho", "Abre um trabalho salvo (.casillas-job)."),
             CamPaletteItem.File("salvar-trabalho", "Salvar", "salvar", "salvar-trabalho", "Salva o trabalho (.casillas-job)."),
@@ -65,7 +66,7 @@ public static class CamPalette
             new("contorno-dentro", "Contorno dentro", "contorno-dentro", JobOpKind.Contour, ContourSide.Inside, "Contorno por dentro: a ferramenta passa do lado de dentro da linha."),
             new("contorno-linha", "Sobre a linha", "contorno-linha", JobOpKind.Contour, ContourSide.OnLine, "Contorno sobre a linha: o centro da ferramenta segue o desenho."),
             new("bolsao", "Bolsão", "bolsao", JobOpKind.Pocket, ContourSide.Outside, "Esvazia a área dentro do contorno (com ilhas, se houver)."),
-            CamPaletteItem.Later("chanfro", "Chanfro", "chanfro", "Chanfro nas arestas do contorno."),
+            new("chanfro", "Chanfro", "chanfro", JobOpKind.Chamfer, ContourSide.Outside, "Chanfro na aresta do contorno com fresa em V (ângulo, largura e profundidade digitados)."),
             CamPaletteItem.Later("ranhura", "Ranhura", "ranhura", "Ranhura com a largura da ferramenta."),
         ]),
         new("furacao", "Furação", true,
@@ -142,7 +143,7 @@ public static class CamPalette
                 : "Abra um DXF, um trabalho com desenho ou desenhe uma forma (item Peça) primeiro.";
         }
 
-        return kind is JobOpKind.Contour or JobOpKind.Pocket && !job.Contours[targetContour].IsClosed
+        return kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Chamfer && !job.Contours[targetContour].IsClosed
             ? $"Contorno {targetContour + 1} aberto: as pontas não se encontram. Feche a cadeia no DXF."
             : null;
     }
@@ -157,6 +158,7 @@ public static class CamPalette
     [
         new("arquivo", "Arquivo", true,
         [
+            CamPaletteItem.File("novo-trabalho", "Novo", "novo", "novo-trabalho", "Começa um trabalho de torno vazio (salve o atual antes)."),
             CamPaletteItem.File("abrir-dxf", "Abrir DXF", "abrir-dxf", "abrir-dxf", "Abre o perfil da peça (DXF)."),
             CamPaletteItem.File("abrir-trabalho", "Abrir", "abrir", "abrir-trabalho", "Abre um trabalho de torno salvo (.casillas-job)."),
             CamPaletteItem.File("salvar-trabalho", "Salvar", "salvar", "salvar-trabalho", "Salva o trabalho (.casillas-job)."),

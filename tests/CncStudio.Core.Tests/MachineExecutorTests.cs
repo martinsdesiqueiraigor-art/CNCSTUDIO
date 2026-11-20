@@ -99,12 +99,26 @@ public class MachineExecutorTests
     }
 
     [Fact]
+    public void G28ComZDeixaOZDesconhecidoAteOProximoZ()
+    {
+        // programa do CAM: Z à referência, depois X Y em rápido e só então o Z de aproximação
+        ToolPath path = Fanuc("G90 G54\nG91 G28 Z0\nG90\nG0 X17.5 Y-30\nG43 H1 Z34.\nG1 Z-5 F100");
+
+        Move m = Assert.Single(path.Moves);
+        AssertPoint(new Point3(17.5, -30, 34), m.Start);
+        AssertPoint(new Point3(17.5, -30, -5), m.End);
+    }
+
+    [Fact]
     public void G53EG04NaoGeramMovimento()
     {
-        ToolPath path = Fanuc("G00 X10\nG53 G00 Z-110\nG04 X2.\nG01 X20 F100");
+        ToolPath path = Fanuc("G00 X10\nG53 G00 Z-110\nG04 X2.\nG01 X20 F100\nG01 Z-5\nG01 X30");
 
+        // DESK-01: depois do G53 com Z, o Z é de máquina (desconhecido): o X20 não é desenhado; o Z-5 devolve o Z conhecido
         Assert.Equal(2, path.Moves.Count);
-        AssertPoint(new Point3(20, 0, 0), path.Moves[1].End);
+        AssertPoint(new Point3(10, 0, 0), path.Moves[0].End);
+        AssertPoint(new Point3(30, 0, -5), path.Moves[1].End);
+        AssertPoint(new Point3(20, 0, -5), path.Moves[1].Start);
     }
 
     [Fact]

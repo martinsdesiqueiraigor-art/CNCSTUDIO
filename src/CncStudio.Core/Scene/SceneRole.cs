@@ -38,4 +38,7 @@ public enum SceneRole
 
     /// <summary>Seta de eixo do zero (X vermelho, Y verde, Z azul); a cor vem na própria linha.</summary>
     Axis,
+
+    /// <summary>Arestas da peça escolhidas para uma operação (Trabalho fresa com peça STEP): linha laranja por cima de tudo.</summary>
+    Highlight,
 }

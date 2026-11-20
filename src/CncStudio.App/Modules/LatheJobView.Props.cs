@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Setup;
@@ -59,6 +60,7 @@ public partial class LatheJobView
             ProgramFields();
         });
         Into(PrepOrigin, ZeroProps);
+        SetupSketch.Show(_job.Stock, _job.Fixation, _job.ZeroFace);
     }
 
     /// <summary>Zero do trabalho (TORNO-T5): X0 no centro e o Z0 escolhido (desenho do perfil, face pronta ou face oposta).</summary>
@@ -97,9 +99,17 @@ public partial class LatheJobView
         PropsPanel.Children.Add(UiKit.StatusNote("Origem " + CamJobInfo.OriginState().Text + ": confira na máquina.", "pending"));
     }
 
+    // UI-PRO-P1b: abas do painel da operação (mesmo controle da fresa); a escolha vale ao trocar de operação
+    private OpTabs? _opTabs;
+    private string _opTab = "ferramenta";
+    private string _curTab = "ferramenta";
+    private readonly Dictionary<string, (string Tab, TextBox Box)> _fieldBoxes = [];
+
     private void BuildProps()
     {
         PropsPanel.Children.Clear();
+        _opTabs = null;
+        _fieldBoxes.Clear();
         PropsPanel.Children.Add(new TextBlock { Text = "Propriedades", FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold });
         if (SelectedOp() is not { } i || i >= _job.Operations.Count)
         {
@@ -114,7 +124,16 @@ public partial class LatheJobView
         PropsPanel.Children.Add(new TextBlock { Text = LatheJobInfo.OpTitle(i, s), Opacity = 0.75, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
         Text(i, "Nome", s.Label, "padrão", (x, v) => x with { Label = v.Trim() });
 
-        Section("Ferramenta");
+        // UI-PRO-P1b: as mesmas abas da fresa; no torno a terceira se chama Segurança
+        _opTabs = new OpTabs([("ferramenta", "Ferramenta"), ("corte", "Corte"), ("seguranca", "Segurança"), ("estrategia", "Estratégia")], _opTab, k => _opTab = k);
+        PropsPanel.Children.Add(_opTabs.Root);
+        void In(string key)
+        {
+            _curTab = key;
+            _propsTarget = _opTabs.Panel(key);
+        }
+
+        In("ferramenta");
         BankPicker(i);
         if (ToolBankPick.LatheConflict(s, ActiveBank) is { } conflict)
         {
@@ -123,7 +142,7 @@ public partial class LatheJobView
 
         Num(i, "Ferramenta (T)", "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } });
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Desbaste CNMG", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
-        Section("Condição de corte");
+        In("corte");
         Num(i, "Velocidade de corte (G96)", "m/min", s.Tool.SurfaceSpeed, (x, v) => x with { Tool = x.Tool with { SurfaceSpeed = v } });
         Num(i, "Rotação máxima", "rpm", s.Tool.MaxRpm, (x, v) => x with { Tool = x.Tool with { MaxRpm = v } });
         Num(i, "Rotação fixa (0 = G96)", "rpm", s.Tool.Rpm, (x, v) => x with { Tool = x.Tool with { Rpm = v } });
@@ -133,11 +152,42 @@ public partial class LatheJobView
             PropsPanel.Children.Add(UiKit.StatusNote(spindle, "pending"));
         }
 
-        Section("Segurança");
+        switch (s.Kind)
+        {
+            case LatheOpKind.Turning when s.Turning is { } t:
+                Num(i, "Avanço do desbaste", "mm/rot", t.RoughFeed, (x, v) => x with { Turning = x.Turning! with { RoughFeed = v } });
+                Num(i, "Avanço do acabamento", "mm/rot", t.FinishFeed, (x, v) => x with { Turning = x.Turning! with { FinishFeed = v } });
+                break;
+            case LatheOpKind.Facing when s.Facing is { } f:
+                Num(i, "Avanço", "mm/rot", f.Feed, (x, v) => x with { Facing = x.Facing! with { Feed = v } });
+                break;
+            case LatheOpKind.Drilling when s.Drill is { } d:
+                Num(i, "Avanço", "mm/rot", d.Feed, (x, v) => x with { Drill = x.Drill! with { Feed = v } });
+                break;
+            case LatheOpKind.Threading when s.Thread is { } th:
+                Num(i, "Rotação (fixa)", "rpm", th.Rpm, (x, v) => x with { Thread = x.Thread! with { Rpm = v } });
+                break;
+            case LatheOpKind.Grooving when s.Groove is { } g:
+                Num(i, "Avanço", "mm/rot", g.Feed, (x, v) => x with { Groove = x.Groove! with { Feed = v } });
+                break;
+            case LatheOpKind.FaceGrooving when s.FaceGroove is { } fg:
+                Num(i, "Avanço", "mm/rot", fg.Feed, (x, v) => x with { FaceGroove = x.FaceGroove! with { Feed = v } });
+                Num(i, LatheJobInfo.ReducedFeedField, "mm/rot", fg.ReducedFeed, (x, v) => x with { FaceGroove = x.FaceGroove! with { ReducedFeed = v } });
+                Num(i, LatheJobInfo.ReducedFromField, "mm", fg.ReducedFromDiameter, (x, v) => x with { FaceGroove = x.FaceGroove! with { ReducedFromDiameter = v } });
+                break;
+            case LatheOpKind.Parting when s.Parting is { } pt:
+                Num(i, "Avanço", "mm/rot", pt.Feed, (x, v) => x with { Parting = x.Parting! with { Feed = v } });
+                Num(i, LatheJobInfo.ReducedFeedField, "mm/rot", pt.ReducedFeed, (x, v) => x with { Parting = x.Parting! with { ReducedFeed = v } });
+                Num(i, LatheJobInfo.ReducedFromField, "mm", pt.ReducedFromDiameter, (x, v) => x with { Parting = x.Parting! with { ReducedFromDiameter = v } });
+                break;
+        }
+
+        In("seguranca");
         Num(i, "Z seguro", "mm", s.SafeZ, (x, v) => x with { SafeZ = v });
         Num(i, "Ø seguro (troca)", "mm", s.SafeDiameter, (x, v) => x with { SafeDiameter = v });
         Num(i, "Folga de aproximação", "mm", s.Clearance, (x, v) => x with { Clearance = v });
 
+        In("estrategia");
         switch (s.Kind)
         {
             case LatheOpKind.Turning when s.Turning is { } t:
@@ -149,8 +199,6 @@ public partial class LatheJobView
                 Num(i, "Recuo", "mm", t.Retract, (x, v) => x with { Turning = x.Turning! with { Retract = v } });
                 Num(i, "Sobremetal radial", "mm", t.AllowanceR, (x, v) => x with { Turning = x.Turning! with { AllowanceR = v } });
                 Num(i, "Sobremetal em Z", "mm", t.AllowanceZ, (x, v) => x with { Turning = x.Turning! with { AllowanceZ = v } });
-                Num(i, "Avanço do desbaste", "mm/rot", t.RoughFeed, (x, v) => x with { Turning = x.Turning! with { RoughFeed = v } });
-                Num(i, "Avanço do acabamento", "mm/rot", t.FinishFeed, (x, v) => x with { Turning = x.Turning! with { FinishFeed = v } });
                 break;
             case LatheOpKind.Facing when s.Facing is { } f:
                 Section("Faceamento");
@@ -159,14 +207,12 @@ public partial class LatheJobView
                 Num(i, "Z da face do bruto", "mm", f.StockFaceZ, (x, v) => x with { Facing = x.Facing! with { StockFaceZ = v } });
                 Num(i, "Z da face pronta", "mm", f.FinalFaceZ, (x, v) => x with { Facing = x.Facing! with { FinalFaceZ = v } });
                 Num(i, "Passe em Z", "mm", f.DepthOfCut, (x, v) => x with { Facing = x.Facing! with { DepthOfCut = v } });
-                Num(i, "Avanço", "mm/rot", f.Feed, (x, v) => x with { Facing = x.Facing! with { Feed = v } });
                 break;
             case LatheOpKind.Drilling when s.Drill is { } d:
                 Section("Furação axial");
                 Num(i, "Z da face", "mm", d.TopZ, (x, v) => x with { Drill = x.Drill! with { TopZ = v } });
                 Num(i, "Z do fundo", "mm", d.BottomZ, (x, v) => x with { Drill = x.Drill! with { BottomZ = v } });
                 Num(i, "Bicada", "mm", d.Peck, (x, v) => x with { Drill = x.Drill! with { Peck = v } });
-                Num(i, "Avanço", "mm/rot", d.Feed, (x, v) => x with { Drill = x.Drill! with { Feed = v } });
                 break;
             case LatheOpKind.Threading when s.Thread is { } th:
                 Section(s.IsInternal ? "Rosca interna" : "Rosca externa");
@@ -174,7 +220,6 @@ public partial class LatheJobView
                 Num(i, "Passo", "mm", th.Pitch, (x, v) => x with { Thread = x.Thread! with { Pitch = v } });
                 Num(i, "Z do início", "mm", th.StartZ, (x, v) => x with { Thread = x.Thread! with { StartZ = v } });
                 Num(i, "Z do fim", "mm", th.EndZ, (x, v) => x with { Thread = x.Thread! with { EndZ = v } });
-                Num(i, "Rotação (fixa)", "rpm", th.Rpm, (x, v) => x with { Thread = x.Thread! with { Rpm = v } });
                 Num(i, "Altura do filete (0 = ISO)", "mm", th.Height, (x, v) => x with { Thread = x.Thread! with { Height = v } });
                 Num(i, "Passes de acabamento", "", th.FinishPasses, (x, v) => x with { Thread = x.Thread! with { FinishPasses = (int)Math.Round(v) } });
                 Num(i, "Sobremetal de acabamento", "mm", th.Allowance, (x, v) => x with { Thread = x.Thread! with { Allowance = v } });
@@ -188,7 +233,6 @@ public partial class LatheJobView
                 Num(i, "Largura da ferramenta", "mm", g.ToolWidth, (x, v) => x with { Groove = x.Groove! with { ToolWidth = v } });
                 Num(i, "Mergulho por passe", "mm", g.Peck, (x, v) => x with { Groove = x.Groove! with { Peck = v } });
                 Num(i, "Sobremetal de acabamento (0 = sem)", "mm", g.Finish ? g.Allowance : 0, (x, v) => x with { Groove = x.Groove! with { Allowance = v, Finish = v > 0 } });
-                Num(i, "Avanço", "mm/rot", g.Feed, (x, v) => x with { Groove = x.Groove! with { Feed = v } });
                 break;
             case LatheOpKind.FaceGrooving when s.FaceGroove is { } fg:
                 Section("Canal de face");
@@ -200,9 +244,6 @@ public partial class LatheJobView
                 Num(i, LatheJobInfo.ToolWidthField, "mm", fg.ToolWidth, (x, v) => x with { FaceGroove = x.FaceGroove! with { ToolWidth = v } });
                 Num(i, "Mergulho por passe", "mm", fg.Peck, (x, v) => x with { FaceGroove = x.FaceGroove! with { Peck = v } });
                 Num(i, "Recuo (quebra-cavaco)", "mm", fg.Retract, (x, v) => x with { FaceGroove = x.FaceGroove! with { Retract = v } });
-                Num(i, "Avanço", "mm/rot", fg.Feed, (x, v) => x with { FaceGroove = x.FaceGroove! with { Feed = v } });
-                Num(i, LatheJobInfo.ReducedFeedField, "mm/rot", fg.ReducedFeed, (x, v) => x with { FaceGroove = x.FaceGroove! with { ReducedFeed = v } });
-                Num(i, LatheJobInfo.ReducedFromField, "mm", fg.ReducedFromDiameter, (x, v) => x with { FaceGroove = x.FaceGroove! with { ReducedFromDiameter = v } });
                 Num(i, "Sobremetal de acabamento (0 = sem)", "mm", fg.Allowance, (x, v) => x with { FaceGroove = x.FaceGroove! with { Allowance = v } });
                 Section("Bedame de face (faixa de Ø)");
                 Num(i, LatheJobInfo.FaceToolMinField, "mm", fg.ToolMinDiameter, (x, v) => x with { FaceGroove = x.FaceGroove! with { ToolMinDiameter = v } });
@@ -222,13 +263,61 @@ public partial class LatheJobView
                 Num(i, "Ø de início", "mm", pt.StartDiameter, (x, v) => x with { Parting = x.Parting! with { StartDiameter = v } });
                 Num(i, LatheJobInfo.PartingFinalField, "mm", pt.FinalDiameter, (x, v) => x with { Parting = x.Parting! with { FinalDiameter = v } }, rebuild: true);
                 Num(i, LatheJobInfo.ToolWidthField, "mm", pt.ToolWidth, (x, v) => x with { Parting = x.Parting! with { ToolWidth = v } });
-                Num(i, "Avanço", "mm/rot", pt.Feed, (x, v) => x with { Parting = x.Parting! with { Feed = v } });
-                Num(i, LatheJobInfo.ReducedFeedField, "mm/rot", pt.ReducedFeed, (x, v) => x with { Parting = x.Parting! with { ReducedFeed = v } });
-                Num(i, LatheJobInfo.ReducedFromField, "mm", pt.ReducedFromDiameter, (x, v) => x with { Parting = x.Parting! with { ReducedFromDiameter = v } });
                 Num(i, "Mergulho por passe", "mm", pt.Peck, (x, v) => x with { Parting = x.Parting! with { Peck = v } });
                 Num(i, "Recuo (quebra-cavaco)", "mm", pt.Retract, (x, v) => x with { Parting = x.Parting! with { Retract = v } });
                 break;
         }
+
+        _propsTarget = null;
+        RefreshTabMarks(i);
+    }
+
+    private static readonly string[] TabOrder = ["ferramenta", "corte", "seguranca", "estrategia"];
+
+    /// <summary>Marca a aba que tem campo vazio da operação (o motivo vai na dica da aba).</summary>
+    private void RefreshTabMarks(int i)
+    {
+        if (_opTabs is null || i >= _job.Operations.Count)
+        {
+            return;
+        }
+
+        LatheOperationSpec spec = _job.Operations[i];
+        foreach (string tab in TabOrder)
+        {
+            List<string> missing = [.. _fieldBoxes.Where(f => f.Value.Tab == tab && spec.MissingFields.Contains(f.Key)).Select(f => f.Key)];
+            _opTabs.Mark(tab, missing.Count == 0 ? null : "falta: " + string.Join(", ", missing));
+        }
+    }
+
+    /// <summary>"Ir ao campo": abre a aba do primeiro campo vazio da operação (na ordem das abas) e põe o cursor nele.</summary>
+    private void FocusMissingField(int op)
+    {
+        if (_opTabs is null || op >= _job.Operations.Count)
+        {
+            return;
+        }
+
+        LatheOperationSpec spec = _job.Operations[op];
+        KeyValuePair<string, (string Tab, TextBox Box)> hit = _fieldBoxes
+            .Where(f => spec.MissingFields.Contains(f.Key))
+            .OrderBy(f => Array.IndexOf(TabOrder, f.Value.Tab))
+            .FirstOrDefault();
+        if (hit.Value.Box is not null)
+        {
+            FocusField(hit.Value.Tab, hit.Value.Box);
+        }
+    }
+
+    /// <summary>Abre a aba do campo e põe o cursor nele depois que a tela terminar de montar.</summary>
+    private void FocusField(string tab, TextBox box)
+    {
+        _opTabs?.Select(tab);
+        Dispatcher.UIThread.Post(() =>
+        {
+            box.BringIntoView();
+            box.Focus(NavigationMethod.Tab);
+        });
     }
 
     /// <summary>Fixação: tipo e medidas opcionais. Só informativa; o aviso "não verificada" fica sempre visível.</summary>
@@ -253,6 +342,11 @@ public partial class LatheJobView
 
             // trocar o tipo guarda as medidas já digitadas; "Não informada" apaga a fixação
             LatheFixation? now = combo.SelectedIndex == 0 ? null : (_job.Fixation ?? new LatheFixation(LatheFixationKind.Jaws)) with { Kind = (LatheFixationKind)(combo.SelectedIndex - 1) };
+            // DESK-01: "Entre pontas (castanhas + contraponto)" já marca o contraponto (dá para desmarcar)
+            if (now is { Kind: LatheFixationKind.Center } && _job.Fixation?.Kind != LatheFixationKind.Center)
+            {
+                now = now with { Tailstock = true };
+            }
             SetFixation(now, rebuild: true);
         };
         PropsPanel.Children.Add(Row("Tipo", combo));
@@ -341,8 +435,7 @@ public partial class LatheJobView
 
     // ---------------------------------------------------------------- campos
 
-    private void Section(string title) =>
-        PropsPanel.Children.Add(new TextBlock { Text = title, FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
+    private void Section(string title) => CamShell.AddSection(PropsPanel, title);
 
     private static Grid Row(string label, Control field, string unit = "")
     {
@@ -386,6 +479,10 @@ public partial class LatheJobView
         bool missing = i < _job.Operations.Count && _job.Operations[i].MissingFields.Contains(label);
         var box = new TextBox { Text = missing ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
         (Grid field, Action<string?> Mark) = CamShell.DashedField(box);
+        if (_opTabs is not null)
+        {
+            _fieldBoxes[label] = (_curTab, box);
+        }
 
         if (missing)
         {
@@ -408,6 +505,7 @@ public partial class LatheJobView
                     Edit(i, x => LatheJobInfo.SetMissing(apply(x, 0), label, true), rebuild);
                 }
 
+                RefreshTabMarks(i);
                 return;
             }
 
@@ -418,6 +516,8 @@ public partial class LatheJobView
                 value = v;
                 Edit(i, x => LatheJobInfo.SetMissing(apply(x, v), label, false), rebuild);
             }
+
+            RefreshTabMarks(i);
         }
 
         box.LostFocus += (_, _) => Commit();
@@ -499,7 +599,7 @@ public partial class LatheJobView
     /// <summary>Seletor do banco ativo do torno no fim da faixa (UX-04h D1, como na fresa). A escolha fica no App, nunca no trabalho.</summary>
     private void BuildBankSelector()
     {
-        _bankSelector = new ComboBox { Width = 150, PlaceholderText = "Nenhum banco de torno", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        _bankSelector = new ComboBox { Width = 140, PlaceholderText = "Nenhum banco de torno", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(_bankSelector, "Banco de onde a operação escolhe a ferramenta e de onde o Code lê as ferramentas do torno. Fica guardado no Casillas, não no arquivo do trabalho.");
         Avalonia.Automation.AutomationProperties.SetName(_bankSelector, "Banco ativo");
         _bankSelector.SelectionChanged += (_, _) =>
@@ -515,8 +615,8 @@ public partial class LatheJobView
             }
         };
         var box = new StackPanel { Spacing = 3 };
-        box.Children.Add(new Border { Height = 76, Child = _bankSelector });
-        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+        box.Children.Add(new Border { Height = CamShell.PaletteButtonHeight, Child = _bankSelector });
+        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = CamColors.MutedBrush, HorizontalAlignment = HorizontalAlignment.Center });
         BankSlot.Child = box;
         FillBankSelector();
     }

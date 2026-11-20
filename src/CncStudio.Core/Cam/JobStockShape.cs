@@ -44,6 +44,33 @@ public sealed record StepStockSummary(double MinX, double MinY, double MinZ, dou
     public static StepStockSummary From(Cam3D.TriangleMesh mesh) =>
         new(mesh.Bounds.Min.X, mesh.Bounds.Min.Y, mesh.Bounds.Min.Z, mesh.Bounds.Max.X, mesh.Bounds.Max.Y, mesh.Bounds.Max.Z, mesh.Volume);
 
+    /// <summary>
+    /// A mesma caixa depois da colocação da peça STEP (giros e, se pedido, canto mínimo em X e Y na origem e topo em Z0):
+    /// o que <see cref="CamJobPart.Place"/> faz com a malha, feito só na caixa (giro de 90° exato mantém a caixa alinhada). O volume não muda.
+    /// </summary>
+    public StepStockSummary Placed(IReadOnlyList<Cam3D.ModelTurn> turns, bool topAtZero)
+    {
+        double[] min = [MinX, MinY, MinZ];
+        double[] max = [MaxX, MaxY, MaxZ];
+        var lo = new double[] { double.MaxValue, double.MaxValue, double.MaxValue };
+        var hi = new double[] { double.MinValue, double.MinValue, double.MinValue };
+        for (int i = 0; i < 8; i++)
+        {
+            var p = new Geometry.Point3(i % 2 == 0 ? min[0] : max[0], (i / 2) % 2 == 0 ? min[1] : max[1], i / 4 == 0 ? min[2] : max[2]);
+            foreach (Cam3D.ModelTurn t in turns)
+            {
+                p = Cam3D.TriangleMesh.Turn(t, p);
+            }
+
+            lo[0] = Math.Min(lo[0], p.X); hi[0] = Math.Max(hi[0], p.X);
+            lo[1] = Math.Min(lo[1], p.Y); hi[1] = Math.Max(hi[1], p.Y);
+            lo[2] = Math.Min(lo[2], p.Z); hi[2] = Math.Max(hi[2], p.Z);
+        }
+
+        (double dx, double dy, double dz) = topAtZero ? (-lo[0], -lo[1], -hi[2]) : (0, 0, 0);
+        return new StepStockSummary(lo[0] + dx, lo[1] + dy, lo[2] + dz, hi[0] + dx, hi[1] + dy, hi[2] + dz, Volume);
+    }
+
     /// <summary>Caixa com medidas maiores que zero e números finitos (arquivo estragado fica fora).</summary>
     public bool Valid =>
         new[] { MinX, MinY, MinZ, MaxX, MaxY, MaxZ, Volume }.All(double.IsFinite) && SizeX > 0 && SizeY > 0 && SizeZ > 0 && Volume > 0;
@@ -271,11 +298,11 @@ public static class CamJobStock
 
         if (shape.Kind == StockShapeKind.Step)
         {
-            return CheckStep(shape);
+            return CheckStep(shape, job.PartStep);
         }
 
         var missing = new List<string>();
-        (double X, double Y, double Width, double Length)? box = CamJobInfo.DrawingBox(job.Contours);
+        (double X, double Y, double Width, double Length)? box = CamJobInfo.PartBox(job);
         if (box is null)
         {
             missing.Add("o desenho da peça");
@@ -328,7 +355,7 @@ public static class CamJobStock
     /// do desenho nem da altura da peça (o STEP não compartilha sistema de coordenadas garantido com o DXF: a tela mostra a caixa
     /// para o usuário conferir; nada é alinhado sozinho). Sem arquivo, sem resumo ou arquivo que sumiu: incompleto.
     /// </summary>
-    private static StockCheck CheckStep(JobStockShape shape)
+    private static StockCheck CheckStep(JobStockShape shape, JobPartStep? part)
     {
         var missing = new List<string>();
         var invalid = new List<string>();
@@ -365,12 +392,29 @@ public static class CamJobStock
 
         (double dx, double dy, double dz) = StepOffset(shape);
         StepStockSummary b = shape.StepSummary!;
+        if (SameFileAsPart(shape, part))
+        {
+            b = b.Placed(part!.Turns, part.TopAtZero);
+        }
+
         return new StockCheck(new StockSolid(StockSolidKind.Step, b.MinX + dx, b.MaxX + dx, b.MinY + dy, b.MaxY + dy, b.MinZ + dz, b.MaxZ + dz) { Volume = b.Volume }, [], []);
     }
 
     /// <summary>Deslocamento do bruto STEP: zero "como está no arquivo"; o digitado no outro modo (vazio conta como incompleto antes).</summary>
     private static (double X, double Y, double Z) StepOffset(JobStockShape s) =>
         s.Placement == StepPlacement.Typed ? (s.OffsetX ?? 0, s.OffsetY ?? 0, s.OffsetZ ?? 0) : (0, 0, 0);
+
+    /// <summary>
+    /// STEP-BRUTO-01: o bruto "como está no arquivo" que é o mesmo arquivo da peça STEP do trabalho segue a colocação da peça
+    /// (giros e topo em Z0), para os dois aparecerem sobrepostos. Outro arquivo, deslocamento digitado ou sem peça: nada é alinhado sozinho.
+    /// </summary>
+    public static bool SameFileAsPart(JobStockShape shape, JobPartStep? part) =>
+        part is not null && shape.Placement == StepPlacement.AsInFile && !string.IsNullOrWhiteSpace(shape.StepPath)
+        && string.Equals(shape.StepPath, part.Path, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A malha lida do STEP do bruto na posição do referencial interno, seguindo a peça quando é o mesmo arquivo (<see cref="SameFileAsPart"/>).</summary>
+    public static Cam3D.TriangleMesh PlaceStepMesh(JobStockShape shape, Cam3D.TriangleMesh mesh, JobPartStep? part) =>
+        SameFileAsPart(shape, part) ? CamJobPart.Place(mesh, part!.Turns, part.TopAtZero) : PlaceStepMesh(shape, mesh);
 
     /// <summary>A malha lida do STEP colocada no referencial interno (mesmo deslocamento da caixa).</summary>
     public static Cam3D.TriangleMesh PlaceStepMesh(JobStockShape shape, Cam3D.TriangleMesh mesh)
@@ -421,6 +465,36 @@ public static class CamJobStock
     public static string VolumeText(double mm3) => (mm3 / 1000).ToString("0.##", Br) + " cm³";
 
     /// <summary>Altura da peça digitada: precisa ser maior que zero (null = vale).</summary>
+    /// <summary>
+    /// DESK-01: o bruto precisa envolver a peça (caixa XY da peça e Z de −altura a 0, folga de 0,01 mm) e, em STEP, não pode ser o
+    /// próprio arquivo da peça (bruto sem sobremetal). Null = ok ou sem dados para conferir (peça ou altura ausentes).
+    /// </summary>
+    public static string? PartFit(CamJob job, StockCheck stock)
+    {
+        if (job.StockShape is { Kind: StockShapeKind.Step, StepPath: { } stockPath } && job.PartStep?.Path is { } partPath
+            && string.Equals(stockPath.Trim().Replace('\\', '/'), partPath.Trim().Replace('\\', '/'), StringComparison.OrdinalIgnoreCase))
+        {
+            return "Bruto é o próprio STEP da peça (sem sobremetal): escolha o bruto (bloco, cilindro, tubo ou outro STEP)";
+        }
+
+        if (stock.Solid is not { } s || CamJobInfo.PartBox(job) is not { } p || job.PartHeight is not { } h || PartHeightError(h) is not null)
+        {
+            return null;
+        }
+
+        const double tol = 0.01;
+        bool inside = s.MinX <= p.X + tol && s.MaxX >= p.X + p.Width - tol && s.MinY <= p.Y + tol && s.MaxY >= p.Y + p.Length - tol
+            && s.MinZ <= -h + tol && s.MaxZ >= -tol;
+        if (inside)
+        {
+            return null;
+        }
+
+        static string N(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
+        return $"Bruto não envolve a peça: peça X {N(p.X)} a {N(p.X + p.Width)}, Y {N(p.Y)} a {N(p.Y + p.Length)}, Z {N(-h)} a 0; "
+            + $"bruto X {N(s.MinX)} a {N(s.MaxX)}, Y {N(s.MinY)} a {N(s.MaxY)}, Z {N(s.MinZ)} a {N(s.MaxZ)}";
+    }
+
     public static string? PartHeightError(double h) => double.IsFinite(h) && h > 0 ? null : "A altura Z da peça precisa ser maior que zero.";
 
     /// <summary>Motivo do bruto incompleto ("Falta Ø externo, Comprimento" / "Ø interno precisa ser menor…"); null se completo ou não definido.</summary>
@@ -486,7 +560,13 @@ public static class CamJobStock
             return ("pending", "bruto não definido");
         }
 
-        return c.Complete ? ("ok", "OK") : ("pending", "incompleto: " + IncompleteReason(c));
+        if (!c.Complete)
+        {
+            return ("pending", "incompleto: " + IncompleteReason(c));
+        }
+
+        // DESK-01: bruto que não envolve a peça (ou é o próprio STEP dela) também fica pendente na árvore
+        return PartFit(job, c) is { } fit ? ("pending", fit) : ("ok", "OK");
     }
 
     /// <summary>

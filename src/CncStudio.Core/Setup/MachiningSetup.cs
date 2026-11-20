@@ -311,6 +311,14 @@ public sealed class SetupFixture
     /// <summary>Rotação em torno de Z, em graus.</summary>
     public double Rotation { get; set; }
 
+    /// <summary>DESK-01, torno: comprimento da barra preso nas castanhas, mm (ausente = o desenho estima). Não é gravado quando ausente.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? GripLength { get; set; }
+
+    /// <summary>DESK-01, torno: contraponto na ponta da barra (entre pontas). Não é gravado quando ausente.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Tailstock { get; set; }
+
     public string? Validate()
     {
         if (!Enum.IsDefined(Kind))

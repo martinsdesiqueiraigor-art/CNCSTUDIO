@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Setup;
@@ -22,9 +23,17 @@ public partial class JobView
         return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) && double.IsFinite(v) ? v : double.NaN;
     }
 
+    // UI-PRO-P1a: abas do painel da operação; a escolha vale ao trocar de operação (se a nova tiver a aba)
+    private OpTabs? _opTabs;
+    private string _opTab = "ferramenta";
+    private string _curTab = "ferramenta";
+    private readonly Dictionary<string, (string Tab, TextBox Box)> _fieldBoxes = [];
+
     private void BuildProps()
     {
         PropsPanel.Children.Clear();
+        _opTabs = null;
+        _fieldBoxes.Clear();
         _fixtureKind = null;
         if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "part" })
         {
@@ -62,7 +71,25 @@ public partial class JobView
 
         Text(i, "Nome", s.Label, "padrão", (x, v) => x with { Label = v.Trim() });
 
-        if (s.Kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Facing or JobOpKind.Drilling)
+        List<(string, string)> tabList = [("ferramenta", "Ferramenta"), ("corte", "Corte")];
+        if (s.Kind != JobOpKind.WrapText)
+        {
+            tabList.Add(("alturas", "Alturas"));
+        }
+
+        tabList.Add(("estrategia", "Estratégia"));
+        _opTabs = new OpTabs(tabList, _opTab, k => _opTab = k);
+        PropsPanel.Children.Add(_opTabs.Root);
+        void In(string key)
+        {
+            _curTab = key;
+            _propsTarget = _opTabs.Panel(key);
+        }
+
+        In("estrategia");
+        GeometrySection(i, s);
+
+        if (s.Kind is JobOpKind.Contour or JobOpKind.Pocket or JobOpKind.Facing or JobOpKind.Drilling or JobOpKind.Chamfer)
         {
             var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
             bool drill = s.Kind == JobOpKind.Drilling;
@@ -90,12 +117,12 @@ public partial class JobView
             PropsPanel.Children.Add(combo);
         }
 
-        Section("Ferramenta");
+        In("ferramenta");
         BankPicker(i);
         Text(i, "Nome da ferramenta", s.Tool.Name, "ex.: Fresa topo Z4", (x, v) => x with { Tool = x.Tool with { Name = v.Trim() } });
         Num(i, CamJobInfo.ToolNumberField, "", s.Tool.Number, (x, v) => x with { Tool = x.Tool with { Number = (int)Math.Round(v) } }, check: CamJobInfo.ToolNumberError);
         Num(i, CamJobInfo.DiameterField, "mm", s.Tool.Diameter, (x, v) => x with { Tool = x.Tool with { Diameter = v } });
-        Section("Condição de corte");
+        In("corte");
         Num(i, "Rotação", "rpm", s.Tool.SpindleRpm, (x, v) => x with { Tool = x.Tool with { SpindleRpm = v } }, rebuild: true);
         if (CamJobInfo.SpindleWarning(s.Tool.SpindleRpm, MachineSource?.Invoke()?.MaxSpindleRpm) is { } spindle)
         {
@@ -108,14 +135,19 @@ public partial class JobView
 
         if (s.Kind != JobOpKind.WrapText)
         {
-            Section("Alturas (Z)");
+            In("alturas");
             Num(i, "Z seguro (rápido)", "mm", s.Levels.SafeZ, (x, v) => x with { Levels = x.Levels with { SafeZ = v } });
             Num(i, "Z de aproximação", "mm", s.Levels.ClearanceZ, (x, v) => x with { Levels = x.Levels with { ClearanceZ = v } });
             Num(i, "Z topo da peça", "mm", s.Levels.TopZ, (x, v) => x with { Levels = x.Levels with { TopZ = v } });
-            Num(i, "Z fundo", "mm", s.Levels.BottomZ, (x, v) => x with { Levels = x.Levels with { BottomZ = v } });
-            Num(i, "Passe em Z", "mm", s.Levels.StepDown, (x, v) => x with { Levels = x.Levels with { StepDown = v } });
+            if (s.Kind != JobOpKind.Chamfer)
+            {
+                // o chanfro tem um passe só: o fundo é o topo menos a profundidade do chanfro
+                Num(i, "Z fundo", "mm", s.Levels.BottomZ, (x, v) => x with { Levels = x.Levels with { BottomZ = v } });
+                Num(i, "Passe em Z", "mm", s.Levels.StepDown, (x, v) => x with { Levels = x.Levels with { StepDown = v } });
+            }
         }
 
+        In("estrategia");
         switch (s.Kind)
         {
             case JobOpKind.Contour when s.ContourParams is { } c:
@@ -126,12 +158,34 @@ public partial class JobView
                 Num(i, "Sobremetal", "mm", c.Allowance, (x, v) => x with { ContourParams = x.ContourParams! with { Allowance = v } });
                 Num(i, "Raio de entrada", "mm", c.LeadRadius, (x, v) => x with { ContourParams = x.ContourParams! with { LeadRadius = v } });
                 break;
+            case JobOpKind.Chamfer when s.Chamfer is { } ch:
+                Section("Chanfro (fresa em V)");
+                Pick(i, "Lado", ["Por fora do contorno", "Por dentro do contorno"], ch.Side == ContourSide.Inside ? 1 : 0, (x, n) => x with { Chamfer = x.Chamfer! with { Side = n == 1 ? ContourSide.Inside : ContourSide.Outside } });
+                Num(i, CamJobInfo.TipAngleField, "°", ch.TipAngle, (x, v) => x with { Chamfer = x.Chamfer! with { TipAngle = v } });
+                Num(i, CamJobInfo.ChamferWidthField, "mm", ch.Width, (x, v) => x with { Chamfer = x.Chamfer! with { Width = v } });
+                Num(i, CamJobInfo.ChamferDepthField, "mm", ch.Depth, (x, v) => x with { Chamfer = x.Chamfer! with { Depth = v } });
+                Num(i, CamJobInfo.ChamferLeadField, "mm", ch.LeadRadius, (x, v) => x with { Chamfer = x.Chamfer! with { LeadRadius = v } });
+                PropsPanel.Children.Add(new TextBlock { Text = "O Ø da ferramenta é o Ø da fresa em V. A profundidade é da ponta, abaixo do topo. Considera ponta afiada: ponta plana deixa o chanfro menor que o digitado.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                break;
             case JobOpKind.Pocket when s.PocketParams is { } p:
                 Section("Bolsão");
                 Num(i, "Passo lateral", "% Ø", p.StepOverPercent, (x, v) => x with { PocketParams = x.PocketParams! with { StepOverPercent = v } });
                 Num(i, "Sobremetal de acabamento", "mm", p.FinishAllowance, (x, v) => x with { PocketParams = x.PocketParams! with { FinishAllowance = v } });
                 Num(i, "Raio de entrada", "mm", p.LeadRadius, (x, v) => x with { PocketParams = x.PocketParams! with { LeadRadius = v } });
                 Check(i, "Contornar ilhas (contornos do desenho dentro deste)", s.Islands, (x, v) => x with { Islands = v });
+                Pick(i, "Entrada", ["Padrão (rampa pelo contorno)", "Rampa com ângulo", "Hélice", "Mergulho reto", "Pré-furo (Furação anterior)"], (int)p.Entry, (x, n) => x with { PocketParams = x.PocketParams! with { Entry = (PocketEntry)n } }, rebuild: true);
+                if (p.Entry == PocketEntry.Ramp)
+                {
+                    Num(i, CamJobInfo.RampAngleField, "°", p.RampAngle, (x, v) => x with { PocketParams = x.PocketParams! with { RampAngle = v } });
+                }
+
+                if (p.Entry == PocketEntry.Helix)
+                {
+                    Num(i, CamJobInfo.HelixDiameterField, "mm", p.HelixDiameter, (x, v) => x with { PocketParams = x.PocketParams! with { HelixDiameter = v } });
+                    Num(i, CamJobInfo.HelixPitchField, "mm", p.HelixPitch, (x, v) => x with { PocketParams = x.PocketParams! with { HelixPitch = v } });
+                }
+
+                Pick(i, "Estratégia", ["Anéis de fora para dentro", "Zigue-zague", "Anéis de dentro para fora", "Espiral"], (int)p.Strategy, (x, n) => x with { PocketParams = x.PocketParams! with { Strategy = (PocketStrategy)n } }, rebuild: true);
                 break;
             case JobOpKind.Facing:
                 Section("Faceamento");
@@ -139,7 +193,7 @@ public partial class JobView
                 break;
             case JobOpKind.Drilling when s.Drill is { } d:
                 Section("Furação");
-                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco"], (int)d.Cycle, (x, n) => x with { Drill = x.Drill! with { Cycle = (DrillCycleKind)n } }, rebuild: true);
+                Pick(i, "Ciclo", ["G81 furar", "G82 com pausa", "G83 bicando", "G73 quebra-cavaco", "G84 macho (Fanuc)", "G85 mandrilhar, sai em avanço (Fanuc)", "G86 mandrilhar, fuso parado (Fanuc)"], (int)d.Cycle, (x, n) => x with { Drill = x.Drill! with { Cycle = (DrillCycleKind)n } }, rebuild: true);
                 Num(i, CamJobInfo.PeckField, "mm", d.Peck, (x, v) => x with { Drill = x.Drill! with { Peck = v } });
                 Num(i, CamJobInfo.DwellField, "s", d.DwellSeconds, (x, v) => x with { Drill = x.Drill! with { DwellSeconds = v } });
                 break;
@@ -193,12 +247,64 @@ public partial class JobView
                 PropsPanel.Children.Add(new TextBlock { Text = "Desenhe a face de cima (Z 0 na face). Rode primeiro no ar e confira o sentido de A/B.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
             }
         }
+
+        _propsTarget = null;
+        RefreshTabMarks(i);
     }
 
     // ---------------------------------------------------------------- campos
 
-    private void Section(string title) =>
-        PropsPanel.Children.Add(new TextBlock { Text = title, FontWeight = Avalonia.Media.FontWeight.Bold, Margin = new Avalonia.Thickness(0, 8, 0, 0) });
+    private void Section(string title) => CamShell.AddSection(PropsPanel, title);
+
+    private static readonly string[] TabOrder = ["ferramenta", "corte", "alturas", "estrategia"];
+
+    /// <summary>"Ir ao campo": abre a aba do primeiro campo vazio ou inválido da operação (na ordem das abas) e põe o cursor nele.</summary>
+    private void FocusMissingField(int op)
+    {
+        if (_opTabs is null || op >= _job.Operations.Count)
+        {
+            return;
+        }
+
+        CamOperationSpec spec = _job.Operations[op];
+        KeyValuePair<string, (string Tab, TextBox Box)> hit = _fieldBoxes
+            .Where(f => (spec.MissingFields.Contains(f.Key) || spec.InvalidFields.Contains(f.Key)) && CamJobInfo.Counts(spec, f.Key))
+            .OrderBy(f => Array.IndexOf(TabOrder, f.Value.Tab))
+            .FirstOrDefault();
+        if (hit.Value.Box is not null)
+        {
+            FocusField(hit.Value.Tab, hit.Value.Box);
+        }
+    }
+
+    /// <summary>Abre a aba do campo e põe o cursor nele depois que a tela terminar de montar.</summary>
+    private void FocusField(string tab, TextBox box)
+    {
+        _opTabs?.Select(tab);
+        Dispatcher.UIThread.Post(() =>
+        {
+            box.BringIntoView();
+            box.Focus(NavigationMethod.Tab);
+        });
+    }
+
+    /// <summary>Marca a aba que tem campo vazio ou inválido que a operação usa agora (o motivo vai na dica da aba).</summary>
+    private void RefreshTabMarks(int i)
+    {
+        if (_opTabs is null || i >= _job.Operations.Count)
+        {
+            return;
+        }
+
+        CamOperationSpec spec = _job.Operations[i];
+        foreach (string tab in _fieldBoxes.Values.Select(v => v.Tab).Distinct())
+        {
+            List<string> bad = [.. _fieldBoxes.Where(f => f.Value.Tab == tab
+                && (spec.MissingFields.Contains(f.Key) || spec.InvalidFields.Contains(f.Key))
+                && CamJobInfo.Counts(spec, f.Key)).Select(f => f.Key)];
+            _opTabs.Mark(tab, bad.Count == 0 ? null : "falta: " + string.Join(", ", bad));
+        }
+    }
 
     private static Grid Row(string label, Control field, string unit = "")
     {
@@ -254,6 +360,11 @@ public partial class JobView
         var box = new TextBox { Text = missing || invalid ? "" : Fmt(value), MinHeight = 26, Watermark = "sem valor" };
         // UX-04f: o mesmo tracejado laranja do torno (CamShell), no lugar do vermelho
         (Grid field, Action<string?> Mark) = CamShell.DashedField(box);
+        if (_opTabs is not null)
+        {
+            _fieldBoxes[label] = (_curTab, box);
+        }
+
 
         // só fica marcado o campo que a operação usa agora (ex.: Bicada vazia em G81 não conta)
         bool Counts() => i < _job.Operations.Count && CamJobInfo.Counts(_job.Operations[i], label);
@@ -292,6 +403,7 @@ public partial class JobView
                     Mark(null);
                 }
 
+                RefreshTabMarks(i);
                 return;
             }
 
@@ -302,6 +414,8 @@ public partial class JobView
                 value = v;
                 Edit(i, x => CamJobInfo.SetFieldState(apply(x, v), label, false, false), rebuild);
             }
+
+            RefreshTabMarks(i);
         }
 
         box.LostFocus += (_, _) => Commit();
@@ -344,7 +458,8 @@ public partial class JobView
         var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         foreach (string o in options)
         {
-            combo.Items.Add(new ComboBoxItem { Content = o });
+            // OPS-A-02 C2: o texto quebra de linha em vez de ser cortado
+            combo.Items.Add(new ComboBoxItem { Content = new TextBlock { Text = o, TextWrapping = Avalonia.Media.TextWrapping.Wrap } });
         }
 
         combo.SelectedIndex = Math.Clamp(selected, 0, options.Length - 1);
@@ -357,7 +472,11 @@ public partial class JobView
                 Edit(i, x => apply(x, current), rebuild);
             }
         };
-        PropsPanel.Children.Add(Row(label, combo));
+        // rótulo em cima e a lista na largura toda do painel (antes ficava numa coluna estreita e cortava o texto)
+        var stack = new StackPanel { Spacing = 2 };
+        stack.Children.Add(new TextBlock { Text = label, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 });
+        stack.Children.Add(combo);
+        PropsPanel.Children.Add(stack);
     }
 
     private void Check(int i, string label, bool value, Func<CamOperationSpec, bool, CamOperationSpec> apply, bool rebuild = false)
@@ -648,7 +767,7 @@ public partial class JobView
     /// <summary>Seletor do banco ativo no fim da faixa de operações. A escolha fica no App (config.json), nunca no trabalho.</summary>
     private void BuildBankSelector()
     {
-        _bankSelector = new ComboBox { Width = 150, PlaceholderText = "Nenhum banco de fresa", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        _bankSelector = new ComboBox { Width = 140, PlaceholderText = "Nenhum banco de fresa", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         ToolTip.SetTip(_bankSelector, "Banco de onde a operação escolhe a ferramenta. Fica guardado no Casillas, não no arquivo do trabalho.");
         Avalonia.Automation.AutomationProperties.SetName(_bankSelector, "Banco ativo");
         _bankSelector.SelectionChanged += (_, _) =>
@@ -665,8 +784,8 @@ public partial class JobView
             }
         };
         var box = new StackPanel { Spacing = 3 };
-        box.Children.Add(new Border { Height = 76, Child = _bankSelector });
-        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = Avalonia.Media.Brush.Parse("#9aa7b5"), HorizontalAlignment = HorizontalAlignment.Center });
+        box.Children.Add(new Border { Height = CamShell.PaletteButtonHeight, Child = _bankSelector });
+        box.Children.Add(new TextBlock { Text = "BANCO ATIVO", FontSize = 10, Foreground = CamColors.MutedBrush, HorizontalAlignment = HorizontalAlignment.Center });
         BankSlot.Child = box;
         FillBankSelector();
     }
@@ -751,9 +870,39 @@ public partial class JobView
             PropsPanel.Children.Add(UiKit.StatusNote(conflict, "pending"));
         }
 
-        // ferramenta digitada à mão (T fora do banco ou diferente dele); T vazio ou igual ao do banco não tem o que adicionar
-        if (knownT && conflict is not null)
+        // BANCO-01: T no banco com Ø ou nome diferente: resolver com um clique (usar a do banco ou atualizar o banco)
+        if (knownT && conflict is not null && bank.Tools.FirstOrDefault(t => t.Number == s.Tool.Number) is { } same)
         {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Avalonia.Thickness(0, 4, 0, 0) };
+            var useBank = new Button { Content = "Usar a do banco", Padding = new Avalonia.Thickness(10, 4), FontSize = 12 };
+            ToolTip.SetTip(useBank, "A operação passa a usar T, Ø, nome, rotação e avanços da ferramenta do banco (os que o banco tem).");
+            useBank.Click += (_, _) => Edit(i, x => ToolBankPick.Apply(x, same), rebuild: true);
+            var update = new Button { Content = "Atualizar o banco com esta", Padding = new Avalonia.Thickness(10, 4), FontSize = 12 };
+            ToolTip.SetTip(update, "O banco ativo passa a ter o Ø e o nome desta operação neste T, marcado \"a conferir\". O resto do cadastro fica.");
+            var message = new ContentControl();
+            update.Click += (_, _) =>
+            {
+                if (ToolBankPick.UpdateBank(bank, _job.Operations[i]) is not { } changed)
+                {
+                    return;
+                }
+
+                if (SaveBank?.Invoke(changed) is { } error)
+                {
+                    message.Content = UiKit.StatusNote("✕ " + error, "bad");
+                    return;
+                }
+
+                BuildProps();
+            };
+            row.Children.Add(useBank);
+            row.Children.Add(update);
+            PropsPanel.Children.Add(row);
+            PropsPanel.Children.Add(message);
+        }
+        else if (knownT && conflict is not null)
+        {
+            // ferramenta digitada à mão e T fora do banco: adicionar
             AddToBankButton(i, bank);
         }
     }

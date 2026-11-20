@@ -102,6 +102,14 @@ public static partial class CamOperations
             return Pocket(boundary, tool, levels, p);
         }
 
+        return PocketLinesCore(boundary, islands, tool, levels, p, "Bolsão com ilhas");
+    }
+
+    /// <summary>
+    /// Parede, ilhas (se houver) e passes retos em X que desviam delas. Serve ao bolsão com ilhas e, sem ilhas, à estratégia zigue-zague.
+    /// </summary>
+    private static OperationResult PocketLinesCore(Contour boundary, IReadOnlyList<Contour> islands, CamTool tool, CamLevels levels, PocketParams p, string name)
+    {
         string? error = tool.Validate() ?? levels.Validate();
         if (error is not null)
         {
@@ -116,6 +124,18 @@ public static partial class CamOperations
         if (p.StepOverPercent is <= 0 or > 100)
         {
             return Fail("O passo lateral precisa ficar entre 0 e 100% do diâmetro.");
+        }
+
+        error = PocketOptionsError(p, tool);
+        if (error is not null)
+        {
+            return Fail(error);
+        }
+
+        var notes = new List<string>();
+        if (islands.Count > 0 && p.Strategy is PocketStrategy.Parallel or PocketStrategy.Spiral)
+        {
+            notes.Add("A estratégia escolhida não vale no bolsão com ilhas: a limpeza é por passes retos em X entre as ilhas.");
         }
 
         double r = tool.Radius;
@@ -188,7 +208,7 @@ public static partial class CamOperations
             forward = !forward;
         }
 
-        var warnings = new List<string>();
+        var warnings = new List<string>(notes);
         var moves = new List<ToolMove> { Rapid(rings[0].Segments[0].Start, levels.SafeZ) };
         double previousZ = levels.TopZ;
         foreach (double z in levels.Depths())
@@ -196,20 +216,27 @@ public static partial class CamOperations
             double dz = previousZ - z;
             foreach (Contour ring in rings)
             {
-                Point2 start = ring.Segments[0].Start;
-                moves.Add(Rapid(start, levels.ClearanceZ));
-                moves.Add(Feed(start, previousZ, tool.FeedZ));
-                double perimeter = ring.Perimeter;
-                if (dz > perimeter * 0.176 && !warnings.Any(w => w.StartsWith("Rampa", StringComparison.Ordinal)))
+                if (p.Entry != PocketEntry.Default)
                 {
-                    warnings.Add("Rampa muito inclinada (contorno pequeno para o passe em Z): reduza o passe em Z.");
+                    EntryDescent(moves, warnings, rings[0], ring, previousZ, z, tool, levels, p, islandsPresent: islands.Count > 0, outerRing: ReferenceEquals(ring, rings[0]));
                 }
-
-                double travelled = 0;
-                foreach (Segment2 s in ring.Segments)
+                else
                 {
-                    travelled += s.Length;
-                    moves.Add(Along(s, previousZ - (dz * travelled / perimeter), tool.FeedXY));
+                    Point2 start = ring.Segments[0].Start;
+                    moves.Add(Rapid(start, levels.ClearanceZ));
+                    moves.Add(Feed(start, previousZ, tool.FeedZ));
+                    double perimeter = ring.Perimeter;
+                    if (dz > perimeter * 0.176 && !warnings.Any(w => w.StartsWith("Rampa", StringComparison.Ordinal)))
+                    {
+                        warnings.Add("Rampa muito inclinada (contorno pequeno para o passe em Z): reduza o passe em Z.");
+                    }
+
+                    double travelled = 0;
+                    foreach (Segment2 s in ring.Segments)
+                    {
+                        travelled += s.Length;
+                        moves.Add(Along(s, previousZ - (dz * travelled / perimeter), tool.FeedXY));
+                    }
                 }
 
                 foreach (Segment2 s in ring.Segments)
@@ -223,7 +250,16 @@ public static partial class CamOperations
                 moves.Add(Rapid(from, levels.ClearanceZ));
                 moves.Add(Feed(from, previousZ, tool.FeedZ));
                 double length = from.DistanceTo(to);
-                int legs = Math.Clamp((int)Math.Ceiling(dz / (length * 0.176)), 1, 40);
+                if (p.Entry is PocketEntry.Plunge or PocketEntry.PreDrill or PocketEntry.Helix)
+                {
+                    // o começo do passe fica sobre o caminho da parede, que já foi cortado neste nível: mergulho reto sem cortar material novo
+                    moves.Add(Feed(from, z, tool.FeedZ));
+                    moves.Add(Feed(to, z, tool.FeedXY));
+                    continue;
+                }
+
+                double slope = p.Entry == PocketEntry.Ramp ? Math.Tan(p.RampAngle * Math.PI / 180) : 0.176;
+                int legs = Math.Clamp((int)Math.Ceiling(dz / (length * slope)), 1, 40);
                 if (legs > 1 && !warnings.Any(w => w.StartsWith("Rampa em zigue-zague", StringComparison.Ordinal)))
                 {
                     warnings.Add("Rampa em zigue-zague nos passes curtos: reduza o passe em Z se preferir descer mais suave.");
@@ -268,7 +304,7 @@ public static partial class CamOperations
         }
 
         moves.Add(Rapid(moves[^1].XY, levels.SafeZ));
-        warnings.Add("Bolsão com ilhas: confira na simulação antes de cortar.");
-        return new OperationResult(new CamOperation("Bolsão com ilhas", tool, moves, null, warnings), null);
+        warnings.Add(islands.Count > 0 ? "Bolsão com ilhas: confira na simulação antes de cortar." : "Bolsão em zigue-zague: confira na simulação antes de cortar.");
+        return new OperationResult(new CamOperation(name, tool, moves, null, warnings), null);
     }
 }

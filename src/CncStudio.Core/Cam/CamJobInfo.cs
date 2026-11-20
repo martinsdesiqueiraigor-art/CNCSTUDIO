@@ -19,6 +19,7 @@ public static class CamJobInfo
         ("Faceamento", JobOpKind.Facing, ContourSide.Outside),
         ("Furação (círculos do desenho)", JobOpKind.Drilling, ContourSide.Outside),
         ("Texto no cilindro (4º eixo)", JobOpKind.WrapText, ContourSide.Outside),
+        ("Chanfro (fresa em V)", JobOpKind.Chamfer, ContourSide.Outside),
     ];
 
     /// <summary>Nome padrão da operação, sem o nome personalizado.</summary>
@@ -33,7 +34,9 @@ public static class CamJobInfo
         JobOpKind.Pocket => "Bolsão",
         JobOpKind.Facing => "Faceamento",
         JobOpKind.Drilling => "Furação",
-        _ => "Texto no cilindro",
+        JobOpKind.Chamfer => "Chanfro",
+        JobOpKind.WrapText => "Texto no cilindro",
+        _ => s.Kind.ToString(),
     };
 
     /// <summary>
@@ -71,9 +74,9 @@ public static class CamJobInfo
     public static IReadOnlyList<string> Pending(CamJob job, JobBuild build, double? maxRpm = null)
     {
         var list = new List<string>();
-        if (job.Contours.Count == 0)
+        if (!HasPart(job))
         {
-            list.Add("Falta a peça (abra um DXF ou desenhe uma forma)");
+            list.Add("Falta a peça (abra um DXF, um STEP ou desenhe uma forma)");
         }
 
         // sem bruto nenhum ou bruto incompleto (formato novo) travam Gerar e Enviar (decisão do Igor, adendo 2 do UX-04f, 08/11)
@@ -85,6 +88,10 @@ public static class CamJobInfo
         else if (CamJobStock.IncompleteReason(stock) is { } why)
         {
             list.Add(CamJobStock.IncompletePrefix + ": " + why);
+        }
+        else if (CamJobStock.PartFit(job, stock) is { } fit)
+        {
+            list.Add(fit);
         }
 
         if (job.Fixture is null)
@@ -153,6 +160,16 @@ public static class CamJobInfo
     public const string PeckField = "Bicada (Q)";
     public const string DwellField = "Pausa";
     public const string SpindleField = "Rotação";
+    public const string RampAngleField = "Ângulo da rampa";
+    public const string HelixDiameterField = "Ø da hélice";
+    public const string HelixPitchField = "Passo da hélice";
+    public const string TipAngleField = "Ângulo da ponta";
+    public const string ChamferWidthField = "Largura do chanfro";
+    public const string ChamferDepthField = "Profundidade do chanfro";
+    public const string ChamferLeadField = "Raio de entrada do chanfro";
+
+    /// <summary>OPS-A-01: arquivo versão 7 quando alguma operação usa escolha ou operação nova; sem elas o arquivo sai como antes.</summary>
+    public static bool NeedsVersion7(CamJob job) => job.Operations.Any(o => o.PocketParams is { UsesOptions: true } || o.Drill?.Cycle is DrillCycleKind.Tap or DrillCycleKind.BoreFeed or DrillCycleKind.BoreStop || o.Kind == JobOpKind.Chamfer);
 
     /// <summary>
     /// Nomes dos campos da face girada na tela, na ordem: ângulo, (segundo ângulo no 3+2), distância do centro do eixo até a face.
@@ -184,8 +201,10 @@ public static class CamJobInfo
     /// </summary>
     public static bool Counts(CamOperationSpec s, string field) => field switch
     {
+        RampAngleField => s.PocketParams?.Entry == PocketEntry.Ramp,
+        HelixDiameterField or HelixPitchField => s.PocketParams?.Entry == PocketEntry.Helix,
         PeckField when s.Kind == JobOpKind.Drilling => s.Drill?.Cycle is DrillCycleKind.Peck or DrillCycleKind.ChipBreak,
-        DwellField when s.Kind == JobOpKind.Drilling => s.Drill?.Cycle == DrillCycleKind.Dwell,
+        DwellField when s.Kind == JobOpKind.Drilling => s.Drill?.Cycle == DrillCycleKind.Dwell, // no mandrilhar a pausa é opcional (0 = G85)
         _ when IsFaceField(field) => FaceFields(s.Face).Contains(field),
         _ => true,
     };
@@ -264,7 +283,9 @@ public static class CamJobInfo
         for (int i = 0; i < job.Operations.Count; i++)
         {
             CamOperationSpec s = job.Operations[i];
-            if (MissingError(s) is { } why)
+            // BANCO-01: campo vazio não trava mais o Salvar (o arquivo guarda quais estão vazios, versão 5); valor inválido continua travando
+            string? why = InvalidFields(s).Count > 0 ? string.Join("; ", InvalidFields(s).Select(InvalidMessage)) : null;
+            if (why is not null)
             {
                 string name = s.Label.Length > 0 ? s.Label : KindName(s);
                 list.Add($"Operação {i + 1} ({name}): " + (why.StartsWith("Falta ", StringComparison.Ordinal) ? "f" + why[1..] : why));
@@ -353,6 +374,16 @@ public static class CamJobInfo
     }
 
     /// <summary>Retângulo que envolve todos os contornos do desenho (canto e medidas em X e Y), para preencher o bruto; null sem desenho.</summary>
+    /// <summary>
+    /// DESK-01: caixa XY da peça do trabalho. Com peça STEP, a caixa do STEP (já girada; os contornos que o 3D cria para as operações
+    /// ficam dentro dela e não mudam a peça); sem STEP, a caixa do desenho (DXF ou forma).
+    /// </summary>
+    public static (double X, double Y, double Width, double Length)? PartBox(CamJob job) =>
+        job.PartStep is { Summary: { Valid: true } s } ? (s.MinX, s.MinY, s.SizeX, s.SizeY) : DrawingBox(job.Contours);
+
+    /// <summary>A peça existe: desenho (DXF ou forma) ou peça STEP.</summary>
+    public static bool HasPart(CamJob job) => job.Contours.Count > 0 || job.PartStep is { Summary.Valid: true };
+
     public static (double X, double Y, double Width, double Length)? DrawingBox(IReadOnlyList<Contour> contours)
     {
         if (contours.Count == 0)
@@ -501,7 +532,10 @@ public static class CamJobInfo
             JobOpKind.Pocket => new CamOperationSpec(kind, t, levels) { ContourIndex = contourIndex, PocketParams = new PocketParams(60, 0, 2) },
             JobOpKind.Facing => new CamOperationSpec(kind, t, levels) { ContourIndex = contourIndex, FacingStepOverPercent = 60 },
             JobOpKind.Drilling => new CamOperationSpec(kind, t, levels) { Drill = new DrillSpec(DrillCycleKind.Drill, 0, 0) },
-            _ => new CamOperationSpec(JobOpKind.WrapText, t, levels) { Wrap = new WrapSpec("CASILLAS", 6, "A", new WrapSetup(40, 0, 0, 0.3, 0.15, 3, 200, 60)) },
+            // valores de partida só para a conta fechar; a operação nasce Incompleta (ToolBankPick.EmptyTool marca os quatro campos)
+            JobOpKind.Chamfer => new CamOperationSpec(kind, t, levels) { ContourIndex = contourIndex, Chamfer = new ChamferParams(side == ContourSide.Inside ? ContourSide.Inside : ContourSide.Outside, 90, 1, 1, 3) },
+            JobOpKind.WrapText => new CamOperationSpec(JobOpKind.WrapText, t, levels) { Wrap = new WrapSpec("CASILLAS", 6, "A", new WrapSetup(40, 0, 0, 0.3, 0.15, 3, 200, 60)) },
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Tipo de operação sem valores padrão."),
         };
     }
 }

@@ -262,9 +262,9 @@ public class CamJobZeroTests
     [Fact]
     public void Linha_do_zero_no_cabecalho_so_quando_escolhido()
     {
-        string fanuc = CamJobBuilder.Build(Job(new JobZero(ZeroPoint.Center, ZeroLevel.Top)), null).Program;
+        string fanuc = StockLine.Without(CamJobBuilder.Build(Job(new JobZero(ZeroPoint.Center, ZeroLevel.Top)), null).Program);
         Assert.Contains("\n(GERADO PELO CASILLAS CAM - SIMULE ANTES DE RODAR NA MAQUINA)\nG21 G17 G40 G49 G80 G90 G94\n(ZERO G54: CENTRO DA PECA, Z0 NO TOPO)\nG54\n", fanuc);
-        string siemens = CamJobBuilder.Build(Job(new JobZero(ZeroPoint.XMinYMin, ZeroLevel.Bottom), dialect: CamDialect.Siemens), null).Program;
+        string siemens = StockLine.Without(CamJobBuilder.Build(Job(new JobZero(ZeroPoint.XMinYMin, ZeroLevel.Bottom), dialect: CamDialect.Siemens), null).Program);
         Assert.Contains("\n; ZERO G54: CANTO INFERIOR ESQUERDO DA PECA, Z0 NA BASE\nG54\n", siemens);
         Assert.DoesNotContain("ZERO", CamJobBuilder.Build(Job(JobZero.Legacy), null).Program);
         Assert.DoesNotContain("ZERO", Read("fresa-sem-bruto.nc"));
@@ -339,7 +339,7 @@ public class CamJobZeroTests
     public void Leitor_recusa_versao_maior_e_abre_v3_com_e_sem_zero()
     {
         string json = CamJobJson.ToJson(Job(new JobZero(ZeroPoint.Center, ZeroLevel.Top)));
-        Assert.False(CamJobJson.FromJson(json.Replace("\"version\": 3", "\"version\": 5")).Ok);
+        Assert.False(CamJobJson.FromJson(json.Replace("\"version\": 3", "\"version\": 8")).Ok);
         Assert.Equal(new JobZero(ZeroPoint.Center, ZeroLevel.Top), CamJobJson.FromJson(json).Job!.Zero);
         string noZero = CamJobJson.ToJson(Job(null));
         JobLoadResult empty = CamJobJson.FromJson(noZero);

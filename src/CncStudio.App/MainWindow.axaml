@@ -30,6 +30,46 @@
     <Style Selector="ToggleButton.tool:checked /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource TabActiveBackground}" />
     </Style>
+    <!-- UI-C1: abas e grupos da faixa -->
+    <Style Selector="Button.rtab">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0,0,0,2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="6,6,0,0" />
+      <Setter Property="Padding" Value="16,5" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="#9AA3AE" />
+    </Style>
+    <Style Selector="Button.rtab.on">
+      <Setter Property="Background" Value="{DynamicResource RibbonBackground}" />
+      <Setter Property="BorderBrush" Value="#F08A24" />
+      <Setter Property="Foreground" Value="#F5A55A" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="StackPanel.rgroup">
+      <Setter Property="Margin" Value="0,3,6,0" />
+      <Setter Property="Spacing" Value="1" />
+    </Style>
+    <Style Selector="TextBlock.rgroupTitle">
+      <Setter Property="FontSize" Value="9.5" />
+      <Setter Property="Opacity" Value="0.6" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ToggleButton.ribbon">
+      <Setter Property="Padding" Value="8,4,8,3" />
+      <Setter Property="MinWidth" Value="58" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.ribbon TextBlock, Button.ribbon TextBlock">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.ribbon TextBlock.big, ToggleButton.ribbon TextBlock.big">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="Foreground" Value="{DynamicResource RibbonIcon}" />
+    </Style>
     <Style Selector="Border.sep">
       <Setter Property="Width" Value="1" />
       <Setter Property="Height" Value="20" />
@@ -50,11 +90,11 @@
 
   <!-- Barra lateral de módulos + conteúdo. O Code continua sendo a grade logo abaixo; o Início fica por cima dela. -->
   <Grid ColumnDefinitions="Auto,*">
-    <Border Grid.Column="0" Background="{DynamicResource RibbonBackground}" Width="76"
+    <Border Grid.Column="0" Background="{DynamicResource RibbonBackground}" Width="64"
             BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="0,0,1,0">
       <DockPanel LastChildFill="False">
-        <StackPanel x:Name="ModuleRail" DockPanel.Dock="Top" Spacing="4" Margin="6,8" />
-        <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="6,8">
+        <StackPanel x:Name="ModuleRail" DockPanel.Dock="Top" Spacing="2" Margin="4,6" />
+        <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="4,8">
           <ToggleButton x:Name="CmykButton" Classes="tool" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                         ToolTip.Tip="Tema CMYK (ciano, magenta, amarelo)">
             <TextBlock Text="CMYK" FontSize="11" FontWeight="Bold" />
@@ -71,98 +111,149 @@
     <modules:OptimizerView x:Name="Optimizer" ZIndex="10" IsVisible="False" Background="{DynamicResource PanelBackground}" />
   <Grid x:Name="CodeRoot" RowDefinitions="Auto,*,Auto">
 
-    <!-- Barra fina: só ícones (o nome aparece ao passar o mouse); Máquina e Dialeto pequenos à direita -->
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Background="{DynamicResource RibbonBackground}" Height="38">
-      <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
-        <StackPanel Orientation="Horizontal" Spacing="2" Margin="6,0" VerticalAlignment="Center">
-          <Image Source="/Assets/simbolo.png" Height="20" Margin="0,0,6,0" ToolTip.Tip="Casillas Code" />
-          <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" FontWeight="Bold" FontSize="14">
-            <Run Text="Casillas" /><Run Text=" Code" Foreground="#58A6FF" />
+    <!-- UI-C1: faixa com abas (Arquivo, Editar, Simular, Saída) e botões com nome em grupos; máquina, dialeto e tema à direita -->
+    <StackPanel Grid.Row="0" Background="{DynamicResource RibbonBackground}">
+      <Grid ColumnDefinitions="Auto,*,Auto" Height="32" Background="{DynamicResource StatusBackground}">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,16,0">
+          <Image Source="/Assets/simbolo.png" Height="18" Margin="0,0,6,0" ToolTip.Tip="Casillas Code" />
+          <TextBlock VerticalAlignment="Center" FontWeight="Bold" FontSize="13">
+            <Run Text="Casillas" /><Run Text=" Code" Foreground="#F08A24" />
           </TextBlock>
-
-          <Button x:Name="NewButton" Classes="tool" ToolTip.Tip="Novo: programa novo em outra aba (Ctrl+N)"><PathIcon Data="{StaticResource IconNew}" /></Button>
-          <Button x:Name="OpenButton" Classes="tool" ToolTip.Tip="Abrir programa (Ctrl+O)"><PathIcon Data="{StaticResource IconOpen}" /></Button>
-          <Button x:Name="RecentButton" Classes="tool" ToolTip.Tip="Arquivos abertos recentemente"><PathIcon Data="{StaticResource IconRecent}" /></Button>
-          <Button x:Name="SaveButton" Classes="tool" ToolTip.Tip="Salvar (Ctrl+S)"><PathIcon Data="{StaticResource IconSave}" /></Button>
-          <Button x:Name="SaveAsButton" Classes="tool" ToolTip.Tip="Salvar como… (Ctrl+Shift+S)"><PathIcon Data="{StaticResource IconSaveAs}" /></Button>
-          <Border Classes="sep" />
-
-          <Button x:Name="ExamplesButton" Classes="tool" ToolTip.Tip="Exemplos">
-            <StackPanel Orientation="Horizontal" Spacing="2"><PathIcon Data="{StaticResource IconProgram}" /><TextBlock Text="▾" FontSize="10" VerticalAlignment="Center" /></StackPanel>
-            <Button.Flyout>
-              <MenuFlyout Placement="BottomEdgeAlignedLeft">
-                <MenuItem x:Name="FanucSampleButton" Header="Fresa Fanuc (EXEMPLO.nc)" />
-                <MenuItem x:Name="SiemensSampleButton" Header="Fresa Siemens (EXEMPLO.mpf)" />
-                <MenuItem x:Name="LatheFanucSampleButton" Header="Torno Fanuc (G71, G70, G76)" />
-                <MenuItem x:Name="LatheSiemensSampleButton" Header="Torno Siemens (CYCLE95, CYCLE97)" />
-                <Separator />
-                <MenuItem x:Name="MoreSamplesButton" Header="Outros… (pasta de exemplos: furação, macros)" />
-              </MenuFlyout>
-            </Button.Flyout>
+        </StackPanel>
+        <StackPanel x:Name="RibbonTabs" Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Bottom">
+          <Button x:Name="TabFileButton" Classes="rtab" Content="Arquivo" />
+          <Button x:Name="TabEditButton" Classes="rtab" Content="Editar" />
+          <Button x:Name="TabSimButton" Classes="rtab" Content="Simular" />
+          <Button x:Name="TabOutButton" Classes="rtab" Content="Saída" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="6,0" VerticalAlignment="Center">
+          <TextBlock Text="Máquina" FontSize="11" Opacity="0.65" VerticalAlignment="Center" />
+          <ComboBox x:Name="MachineCombo" Width="112" FontSize="12" MinHeight="24" Padding="8,1" SelectedIndex="0"
+                    ToolTip.Tip="Máquina. Automático: descobre pelo programa (G71, U/W, CYCLE95... = torno)">
+            <ComboBoxItem Content="Automático" />
+            <ComboBoxItem Content="Fresa" />
+            <ComboBoxItem Content="Torno" />
+          </ComboBox>
+          <TextBlock Text="Controle" FontSize="11" Opacity="0.65" VerticalAlignment="Center" Margin="4,0,0,0" />
+          <ComboBox x:Name="DialectCombo" Width="92" FontSize="12" MinHeight="24" Padding="8,1" SelectedIndex="0" ToolTip.Tip="Dialeto">
+            <ComboBoxItem Content="Fanuc" />
+            <ComboBoxItem Content="Siemens" />
+          </ComboBox>
+          <Button x:Name="ThemeButton" Classes="tool" Content="☀" ToolTip.Tip="Tema claro / escuro" />
+          <Button x:Name="LicensesButton" Classes="tool" ToolTip.Tip="Licenças de terceiros">
+            <PathIcon Data="F0 M12,2 A10,10 0 1 1 11.99,2 Z M12,4 A8,8 0 1 0 12.01,4 Z M11,10 H13 V17 H11 Z M11,7 H13 V9 H11 Z" />
           </Button>
-          <Button x:Name="SetupSheetButton" Classes="tool" ToolTip.Tip="Folha de setup: informações, ferramentas e tempos; abre no navegador para imprimir ou salvar em PDF"><PathIcon Data="{StaticResource IconSheet}" /></Button>
-          <Button x:Name="CompareButton" Classes="tool" ToolTip.Tip="Comparar o programa do editor com outro arquivo, lado a lado"><PathIcon Data="{StaticResource IconCompare}" /></Button>
-          <Border Classes="sep" />
-
-          <Button x:Name="UndoButton" Classes="tool" ToolTip.Tip="Desfazer (Ctrl+Z)"><PathIcon Data="{StaticResource IconUndo}" /></Button>
-          <Button x:Name="RedoButton" Classes="tool" ToolTip.Tip="Refazer (Ctrl+Y)"><PathIcon Data="{StaticResource IconRedo}" /></Button>
-          <Button x:Name="FindButton" Classes="tool" ToolTip.Tip="Procurar (Ctrl+F; F3 = próximo)"><PathIcon Data="{StaticResource IconFind}" /></Button>
-          <Button x:Name="ReplaceButton" Classes="tool" ToolTip.Tip="Substituir (Ctrl+H)"><PathIcon Data="{StaticResource IconReplace}" /></Button>
-          <Button x:Name="GoToLineButton" Classes="tool" ToolTip.Tip="Ir para a linha (Ctrl+G)"><PathIcon Data="{StaticResource IconGoTo}" /></Button>
-          <Border Classes="sep" />
-
-          <Button x:Name="FontSmallerButton" Classes="tool" Content="A−" ToolTip.Tip="Diminuir a fonte (Ctrl + −)" />
-          <TextBlock x:Name="FontSizeText" VerticalAlignment="Center" FontSize="11" Opacity="0.7" MinWidth="34" TextAlignment="Center" />
-          <Button x:Name="FontLargerButton" Classes="tool" Content="A+" ToolTip.Tip="Aumentar a fonte (Ctrl + +, ou Ctrl + roda do mouse)" />
-          <ToggleButton x:Name="CodeHelpCheck" Classes="tool" Content="?" FontWeight="Bold"
-                        ToolTip.Tip="Explicar o código ao parar o mouse: mostra o que é G71, CYCLE83, #3000... e os parâmetros" />
-          <Border Classes="sep" />
-
-          <Button x:Name="NcFunctionsButton" Classes="tool" ToolTip.Tip="Funções NC: renumerar, maiúsculas, espaços e comentários">
-            <StackPanel Orientation="Horizontal" Spacing="2"><PathIcon Data="{StaticResource IconRenumber}" /><TextBlock Text="▾" FontSize="10" VerticalAlignment="Center" /></StackPanel>
-            <Button.Flyout>
-              <MenuFlyout Placement="BottomEdgeAlignedLeft">
-                <MenuItem x:Name="RenumberButton" Header="Renumerar blocos…" />
-                <MenuItem x:Name="UppercaseButton" Header="Maiúsculas (exceto comentários)" />
-                <MenuItem x:Name="RemoveBlockNumbersButton" Header="Remover números de bloco (N)" />
-                <Separator />
-                <MenuItem x:Name="RemoveSpacesButton" Header="Remover espaços (N10G01X10)" />
-                <MenuItem x:Name="InsertSpacesButton" Header="Inserir espaços (N10 G01 X10)" />
-                <MenuItem x:Name="RemoveCommentsButton" Header="Remover comentários" />
-              </MenuFlyout>
-            </Button.Flyout>
-          </Button>
-          <!-- Ferramentas de simulação: só aparecem com o gráfico aberto -->
-          <StackPanel x:Name="SimulationTools" Orientation="Horizontal" Spacing="2">
-            <Border Classes="sep" />
-            <Button x:Name="MachineSettingsButton" Classes="tool" ToolTip.Tip="Ferramentas e zeros: diâmetros, G54–G59 e números sem ponto no Fanuc"><PathIcon Data="{StaticResource IconTool}" /></Button>
-            <Button x:Name="StockSettingsButton" Classes="tool" ToolTip.Tip="Bruto: medidas deste programa (bloco na fresa, barra no torno)"><PathIcon Data="{StaticResource IconStock}" /></Button>
+        </StackPanel>
+      </Grid>
+      <Panel Height="70" Margin="6,0">
+        <StackPanel x:Name="RibbonFile" Orientation="Horizontal">
+          <StackPanel Classes="rgroup">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="NewButton" Classes="ribbon" ToolTip.Tip="Novo: programa novo em outra aba (Ctrl+N)"><StackPanel><PathIcon Data="{StaticResource IconNew}" /><TextBlock Text="Novo" /></StackPanel></Button>
+            <Button x:Name="OpenButton" Classes="ribbon" ToolTip.Tip="Abrir programa (Ctrl+O)"><StackPanel><PathIcon Data="{StaticResource IconOpen}" /><TextBlock Text="Abrir" /></StackPanel></Button>
+            <Button x:Name="RecentButton" Classes="ribbon" ToolTip.Tip="Arquivos abertos recentemente"><StackPanel><PathIcon Data="{StaticResource IconRecent}" /><TextBlock Text="Recentes" /></StackPanel></Button>
+            <Button x:Name="SaveButton" Classes="ribbon" ToolTip.Tip="Salvar (Ctrl+S)"><StackPanel><PathIcon Data="{StaticResource IconSave}" /><TextBlock Text="Salvar" /></StackPanel></Button>
+            <Button x:Name="SaveAsButton" Classes="ribbon" ToolTip.Tip="Salvar como… (Ctrl+Shift+S)"><StackPanel><PathIcon Data="{StaticResource IconSaveAs}" /><TextBlock Text="Salvar como" /></StackPanel></Button>
+            </StackPanel>
+            <TextBlock Classes="rgroupTitle" Text="ARQUIVO" />
+          </StackPanel>
+          <StackPanel Classes="rgroup">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="ExamplesButton" Classes="ribbon" ToolTip.Tip="Exemplos"><StackPanel><PathIcon Data="{StaticResource IconProgram}" /><TextBlock Text="Exemplos ▾" /></StackPanel>
+              <Button.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                  <MenuItem x:Name="FanucSampleButton" Header="Fresa Fanuc (EXEMPLO.nc)" />
+                  <MenuItem x:Name="SiemensSampleButton" Header="Fresa Siemens (EXEMPLO.mpf)" />
+                  <MenuItem x:Name="LatheFanucSampleButton" Header="Torno Fanuc (G71, G70, G76)" />
+                  <MenuItem x:Name="LatheSiemensSampleButton" Header="Torno Siemens (CYCLE95, CYCLE97)" />
+                  <Separator />
+                  <MenuItem x:Name="MoreSamplesButton" Header="Outros… (pasta de exemplos: furação, macros)" />
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
+            </StackPanel>
+            <TextBlock Classes="rgroupTitle" Text="EXEMPLOS" />
           </StackPanel>
         </StackPanel>
-      </ScrollViewer>
-
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="6,0" VerticalAlignment="Center">
-        <ComboBox x:Name="MachineCombo" Width="112" FontSize="12" MinHeight="26" Padding="8,2" SelectedIndex="0"
-                  ToolTip.Tip="Máquina. Automático: descobre pelo programa (G71, U/W, CYCLE95... = torno)">
-          <ComboBoxItem Content="Automático" />
-          <ComboBoxItem Content="Fresa" />
-          <ComboBoxItem Content="Torno" />
-        </ComboBox>
-        <ComboBox x:Name="DialectCombo" Width="92" FontSize="12" MinHeight="26" Padding="8,2" SelectedIndex="0" ToolTip.Tip="Dialeto">
-          <ComboBoxItem Content="Fanuc" />
-          <ComboBoxItem Content="Siemens" />
-        </ComboBox>
-        <Button x:Name="ThemeButton" Classes="tool" Content="☀" ToolTip.Tip="Tema claro / escuro" />
-        <Button x:Name="LicensesButton" Classes="tool" ToolTip.Tip="Licenças de terceiros">
-          <PathIcon Data="F0 M12,2 A10,10 0 1 1 11.99,2 Z M12,4 A8,8 0 1 0 12.01,4 Z M11,10 H13 V17 H11 Z M11,7 H13 V9 H11 Z" />
-        </Button>
-      </StackPanel>
-    </Grid>
+        <StackPanel x:Name="RibbonEdit" Orientation="Horizontal" IsVisible="False">
+          <StackPanel Classes="rgroup">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="UndoButton" Classes="ribbon" ToolTip.Tip="Desfazer (Ctrl+Z)"><StackPanel><PathIcon Data="{StaticResource IconUndo}" /><TextBlock Text="Desfazer" /></StackPanel></Button>
+            <Button x:Name="RedoButton" Classes="ribbon" ToolTip.Tip="Refazer (Ctrl+Y)"><StackPanel><PathIcon Data="{StaticResource IconRedo}" /><TextBlock Text="Refazer" /></StackPanel></Button>
+            </StackPanel>
+            <TextBlock Classes="rgroupTitle" Text="HISTÓRICO" />
+          </StackPanel>
+          <StackPanel Classes="rgroup">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="FindButton" Classes="ribbon" ToolTip.Tip="Procurar (Ctrl+F; F3 = próximo)"><StackPanel><PathIcon Data="{StaticResource IconFind}" /><TextBlock Text="Procurar" /></StackPanel></Button>
+            <Button x:Name="ReplaceButton" Classes="ribbon" ToolTip.Tip="Substituir (Ctrl+H)"><StackPanel><PathIcon Data="{StaticResource IconReplace}" /><TextBlock Text="Substituir" /></StackPanel></Button>
+            <Button x:Name="GoToLineButton" Classes="ribbon" ToolTip.Tip="Ir para a linha (Ctrl+G)"><StackPanel><PathIcon Data="{StaticResource IconGoTo}" /><TextBlock Text="Ir para linha" /></StackPanel></Button>
+            </StackPanel>
+            <TextBlock Classes="rgroupTitle" Text="PROCURAR" />
+          </StackPanel>
+          <StackPanel Classes="rgroup">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="NcFunctionsButton" Classes="ribbon" ToolTip.Tip="Funções NC: renumerar, maiúsculas, espaços e comentários"><StackPanel><PathIcon Data="{StaticResource IconRenumber}" /><TextBlock Text="Funções NC ▾" /></StackPanel>
+              <Button.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                  <MenuItem x:Name="RenumberButton" Header="Renumerar blocos…" />
+                  <MenuItem x:Name="UppercaseButton" Header="Maiúsculas (exceto comentários)" />
+                  <MenuItem x:Name="RemoveBlockNumbersButton" Header="Remover números de bloco (N)" />
+                  <Separator />
+                  <MenuItem x:Name="RemoveSpacesButton" Header="Remover espaços (N10G01X10)" />
+                  <MenuItem x:Name="InsertSpacesButton" Header="Inserir espaços (N10 G01 X10)" />
+                  <MenuItem x:Name="RemoveCommentsButton" Header="Remover comentários" />
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
+            </StackPanel>
+            <TextBlock Classes="rgroupTitle" Text="FUNÇÕES NC" />
+          </StackPanel>
+          <StackPanel Classes="rgroup">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="FontSmallerButton" Classes="ribbon" ToolTip.Tip="Diminuir a fonte (Ctrl + −)"><StackPanel><TextBlock Classes="big" Text="A−" /><TextBlock Text="Menor" /></StackPanel></Button>
+            <StackPanel VerticalAlignment="Center" MinWidth="40"><TextBlock x:Name="FontSizeText" FontSize="12" HorizontalAlignment="Center" /><TextBlock Text="fonte" FontSize="10" Opacity="0.6" HorizontalAlignment="Center" /></StackPanel>
+            <Button x:Name="FontLargerButton" Classes="ribbon" ToolTip.Tip="Aumentar a fonte (Ctrl + +, ou Ctrl + roda do mouse)"><StackPanel><TextBlock Classes="big" Text="A+" /><TextBlock Text="Maior" /></StackPanel></Button>
+            <ToggleButton x:Name="CodeHelpCheck" Classes="ribbon" ToolTip.Tip="Explicar o código ao parar o mouse: mostra o que é G71, CYCLE83, #3000... e os parâmetros"><StackPanel><TextBlock Classes="big" Text="?" FontWeight="Bold" /><TextBlock Text="Explicar" /></StackPanel></ToggleButton>
+            </StackPanel>
+            <TextBlock Classes="rgroupTitle" Text="TEXTO" />
+          </StackPanel>
+        </StackPanel>
+        <StackPanel x:Name="RibbonSim" Orientation="Horizontal" IsVisible="False">
+          <StackPanel Classes="rgroup">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+            <StackPanel x:Name="SimulationTools" Orientation="Horizontal" Spacing="2">
+              <Button x:Name="MachineSettingsButton" Classes="ribbon" ToolTip.Tip="Ferramentas e zeros: diâmetros, G54–G59 e números sem ponto no Fanuc"><StackPanel><PathIcon Data="{StaticResource IconTool}" /><TextBlock Text="Ferramentas" /></StackPanel></Button>
+              <Button x:Name="StockSettingsButton" Classes="ribbon" ToolTip.Tip="Bruto: medidas deste programa (bloco na fresa, barra no torno)"><StackPanel><PathIcon Data="{StaticResource IconStock}" /><TextBlock Text="Bruto" /></StackPanel></Button>
+            </StackPanel>
+            </StackPanel>
+            <TextBlock Classes="rgroupTitle" Text="SETUP DO PROGRAMA" />
+          </StackPanel>
+          <StackPanel Classes="rgroup">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="StatsTabButton" Classes="ribbon" ToolTip.Tip="Estatísticas do programa (tempos, ferramentas, percursos); clique de novo volta ao gráfico"><StackPanel><PathIcon Data="{StaticResource IconSheet}" /><TextBlock Text="Estatísticas" /></StackPanel></Button>
+            <Button x:Name="CollapseEditorRibbonButton" Classes="ribbon" ToolTip.Tip="Recolher o editor e deixar o gráfico com a tela toda (F4)"><StackPanel><PathIcon Data="{StaticResource IconCompare}" /><TextBlock Text="Só o gráfico" /></StackPanel></Button>
+            </StackPanel>
+            <TextBlock Classes="rgroupTitle" Text="ANÁLISE" />
+          </StackPanel>
+        </StackPanel>
+        <StackPanel x:Name="RibbonOut" Orientation="Horizontal" IsVisible="False">
+          <StackPanel Classes="rgroup">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="SetupSheetButton" Classes="ribbon" ToolTip.Tip="Folha de setup: informações, ferramentas e tempos; abre no navegador para imprimir ou salvar em PDF"><StackPanel><PathIcon Data="{StaticResource IconSheet}" /><TextBlock Text="Folha de setup" /></StackPanel></Button>
+            <Button x:Name="CompareButton" Classes="ribbon" ToolTip.Tip="Comparar o programa do editor com outro arquivo, lado a lado"><StackPanel><PathIcon Data="{StaticResource IconCompare}" /><TextBlock Text="Comparar" /></StackPanel></Button>
+            </StackPanel>
+            <TextBlock Classes="rgroupTitle" Text="DOCUMENTOS" />
+          </StackPanel>
+        </StackPanel>
+      </Panel>
+      <Border Height="1" Background="{DynamicResource SubtleBorder}" />
+    </StackPanel>
 
     <!-- Área principal: editor à esquerda, painéis gráficos à direita -->
     <Grid x:Name="MainArea" Grid.Row="1" ColumnDefinitions="2*,4,3*">
 
-      <Grid x:Name="EditorPane" Grid.Column="0" RowDefinitions="Auto,Auto,*,4,140">
+      <Grid x:Name="EditorPane" Grid.Column="0" RowDefinitions="Auto,Auto,*,0,Auto">
         <!-- Abas dos programas abertos (Ctrl+Tab troca, Ctrl+W fecha, botão do meio fecha) -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
           <ScrollViewer x:Name="TabScroll" Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
@@ -175,12 +266,13 @@
         <controls:SearchBar x:Name="Search" Grid.Row="1" />
         <ae:TextEditor x:Name="Editor"
                        Grid.Row="2"
+                       Background="{DynamicResource EditorBackground}"
                        ShowLineNumbers="True"
                        FontFamily="Cascadia Mono, Consolas, Menlo, monospace"
                        FontSize="14"
                        HorizontalScrollBarVisibility="Auto"
                        VerticalScrollBarVisibility="Auto" />
-        <GridSplitter Grid.Row="3" ResizeDirection="Rows" />
+        <GridSplitter x:Name="DiagnosticsSplitter" Grid.Row="3" ResizeDirection="Rows" IsVisible="False" />
         <!-- Painel de diagnósticos: filtro por tipo e contagem; clique para ir à linha -->
         <DockPanel Grid.Row="4">
           <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,2">
@@ -189,8 +281,11 @@
             <ToggleButton x:Name="ShowWarningsToggle" IsChecked="True" FontSize="12" Padding="8,2"
                           ToolTip.Tip="Mostrar/esconder avisos" />
             <TextBlock x:Name="DiagnosticsHint" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="6,0,0,0" />
+            <!-- UI-C4: a lista abre ao clicar; fechada, só a linha com as contagens -->
+            <ToggleButton x:Name="DiagnosticsExpand" Classes="tool" Content="▸ abrir" FontSize="11" Margin="6,0,0,0"
+                          ToolTip.Tip="Abrir ou fechar a lista de erros e avisos" />
           </StackPanel>
-          <ListBox x:Name="DiagnosticsList" FontSize="12" Background="{DynamicResource PanelBackground}" />
+          <ListBox x:Name="DiagnosticsList" FontSize="12" Background="{DynamicResource PanelBackground}" IsVisible="False" />
         </DockPanel>
       </Grid>
 

@@ -87,9 +87,6 @@ public sealed class MillJobSceneView : Grid
         _bar.Children.Add(_pathChip);
         _bar.Children.Add(_rapidsChip);
         _bar.Children.Add(_axesChip);
-        _bar.Children.Add(ViewButton("Iso", SceneView.Isometric, "Vista isométrica"));
-        _bar.Children.Add(ViewButton("Topo", SceneView.Top, "Vista de topo"));
-        _bar.Children.Add(ViewButton("Frente", SceneView.Front, "Vista de frente"));
 
         _stockChip.Flyout = Menu(
             ("Sólido", () => Set(_options with { Stock = StockDisplay.Solid }), () => _options.Stock == StockDisplay.Solid, null),
@@ -176,16 +173,35 @@ public sealed class MillJobSceneView : Grid
 
     private TriangleMesh? _part;
     private int[] _selected = [];
+    private float[] _edgeLines = [];
 
     /// <summary>
     /// Peça STEP do Trabalho já na posição (M3D-1) e os triângulos das faces escolhidas (laranja). Null = sem peça 3D (só os contornos).
     /// Só mostra: não verifica colisão nem simula.
     /// </summary>
-    public void SetPart(TriangleMesh? part, IReadOnlyCollection<int> selectedTriangles)
+    public void SetPart(TriangleMesh? part, IReadOnlyCollection<int> selectedTriangles, IReadOnlyList<IReadOnlyList<Point3>>? edges = null)
     {
+        _edgeLines = [];
+        foreach (IReadOnlyList<Point3> chain in edges ?? [])
+        {
+            var segs = new List<float>();
+            for (int k = 0; k + 1 < chain.Count; k++)
+            {
+                segs.AddRange([(float)chain[k].X, (float)chain[k].Y, (float)chain[k].Z, (float)chain[k + 1].X, (float)chain[k + 1].Y, (float)chain[k + 1].Z]);
+            }
+
+            _edgeLines = [.. _edgeLines, .. segs];
+        }
+
+        bool newPart = part is not null && !ReferenceEquals(part, _part);
         _part = part;
         _selected = [.. selectedTriangles];
         Rebuild();
+        if (newPart)
+        {
+            // DESK-01: peça nova enquadrada (antes o 3D abria no tamanho do bruto ou dos contornos e cortava a peça)
+            Dispatcher.UIThread.Post(() => _gl.Fit(SceneView.Isometric), DispatcherPriority.Background);
+        }
     }
 
     private void Rebuild()
@@ -212,6 +228,10 @@ public sealed class MillJobSceneView : Grid
 
             Bounds3 b = scene.Bounds.Include(part.Bounds.Min).Include(part.Bounds.Max);
             scene = scene with { Objects = objects, Bounds = b };
+            if (_edgeLines.Length > 0)
+            {
+                scene = scene with { Lines = [.. scene.Lines, new SceneLinesState(SceneRole.Highlight, _edgeLines, 0xFF9F1C)] };
+            }
         }
 
         _partVersion++;
@@ -272,7 +292,7 @@ public sealed class MillJobSceneView : Grid
             {
                 // fica apagado com a dica do porquê
                 item.IsEnabled = false;
-                item.Header = text + " (falta a altura da peça)";
+                item.Header = text + " (contornos do DXF: em breve)";
                 ToolTip.SetTip(item, disabledTip);
                 ToolTip.SetShowOnDisabled(item, true);
             }
@@ -290,15 +310,6 @@ public sealed class MillJobSceneView : Grid
             }
         };
         return flyout;
-    }
-
-    private Button ViewButton(string text, SceneView view, string tip)
-    {
-        Button b = Chip();
-        b.Content = text;
-        ToolTip.SetTip(b, tip);
-        b.Click += (_, _) => _gl.Fit(view);
-        return b;
     }
 
     private static Button Chip() => new()

@@ -17,8 +17,8 @@ namespace CncStudio.App.Modules;
 /// </summary>
 public partial class JobView
 {
-    private static readonly IBrush Muted = Brush.Parse("#9aa7b5");
-    private static readonly IBrush Accent = Brush.Parse("#ff8a1f");
+    private static readonly IBrush Muted = CamColors.MutedBrush;
+    private static readonly IBrush Accent = CamColors.AccentBrush;
 
     /// <summary>Remarcações dos campos do bruto e da altura (rodam depois de cada mudança, sem refazer os cartões).</summary>
     private readonly List<Action> _prepMarks = [];
@@ -60,9 +60,9 @@ public partial class JobView
         var b = new Button
         {
             Content = text, Padding = new Thickness(10, 4), FontSize = 12, MinHeight = 0,
-            Background = selected ? Brush.Parse("#2b1a0a") : Brush.Parse("#0d1117"),
-            BorderBrush = selected ? Accent : Brush.Parse("#2a3442"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
-            Foreground = selected ? Brush.Parse("#ffb066") : Brushes.White,
+            Background = selected ? CamColors.SelectBgBrush : CamColors.BgBrush,
+            BorderBrush = selected ? CamColors.SelectBrush : CamColors.BorderStrongBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+            Foreground = Brushes.White,
             IsEnabled = click is not null || selected,
         };
         if (click is not null)
@@ -418,7 +418,7 @@ public partial class JobView
         }
         else
         {
-            (double X, double Y, double Width, double Length)? box = CamJobInfo.DrawingBox(_job.Contours);
+            (double X, double Y, double Width, double Length)? box = CamJobInfo.PartBox(_job);
             card.Children.Add(Note(box is { } b
                 ? $"Largura X e profundidade Y vêm do desenho: {Fmt(b.Width)} × {Fmt(b.Length)} mm."
                 : "Sem desenho: abra um DXF (faixa Arquivo) ou desenhe uma forma (item Peça pronta + bruto, aba Operações)."));
@@ -584,8 +584,8 @@ public partial class JobView
     private Control TopView(StockSolid s)
     {
         const double w = 120, h = 64, pad = 5;
-        var canvas = new Canvas { Width = w, Height = h, Background = Brush.Parse("#0d1117") };
-        (double X, double Y, double Width, double Length)? part = CamJobInfo.DrawingBox(_job.Contours);
+        var canvas = new Canvas { Width = w, Height = h, Background = CamColors.BgBrush };
+        (double X, double Y, double Width, double Length)? part = CamJobInfo.PartBox(_job);
         double x0 = Math.Min(s.MinX, part?.X ?? s.MinX), x1 = Math.Max(s.MaxX, part is { } p1 ? p1.X + p1.Width : s.MaxX);
         double y0 = Math.Min(s.MinY, part?.Y ?? s.MinY), y1 = Math.Max(s.MaxY, part is { } p2 ? p2.Y + p2.Length : s.MaxY);
         double k = Math.Min((w - 2 * pad) / Math.Max(x1 - x0, 1e-6), (h - 2 * pad) / Math.Max(y1 - y0, 1e-6));
@@ -620,7 +620,7 @@ public partial class JobView
     private void AbsoluteBlock(StackPanel card)
     {
         JobStock? st = _job.Stock;
-        (double X, double Y, double Width, double Length)? box = st is { } s0 ? (s0.X, s0.Y, s0.Width, s0.Length) : CamJobInfo.DrawingBox(_job.Contours);
+        (double X, double Y, double Width, double Length)? box = st is { } s0 ? (s0.X, s0.Y, s0.Width, s0.Length) : CamJobInfo.PartBox(_job);
         if (st is null)
         {
             card.Children.Add(UiKit.StatusNote(box is null
@@ -867,7 +867,7 @@ public partial class JobView
     {
         StockSolid? solid = CamJobStock.Check(_job).Solid;
         return solid is { Kind: StockSolidKind.Step } && _job.StockShape is { } shape && _stepMesh is { } m && m.Path == shape.StepPath
-            ? solid with { Mesh = CamJobStock.PlaceStepMesh(shape, m.Mesh) }
+            ? solid with { Mesh = CamJobStock.PlaceStepMesh(shape, m.Mesh, _job.PartStep) }
             : solid;
     }
 }

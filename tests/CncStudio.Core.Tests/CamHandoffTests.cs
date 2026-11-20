@@ -270,7 +270,8 @@ public class CamHandoffTests
         string before = CamJobBuilder.Build(job, null).Program;
         job.SetStock(null, Margins());
         _ = CamHandoffJson.ToJson(CamHandoff.Create(job, before, null));
-        Assert.Equal(before, CamJobBuilder.Build(job, null).Program);
+        // DESK-01: o bruto entra como a linha de comentário; o resto não muda
+        Assert.Equal(StockLine.Without(before), StockLine.Without(CamJobBuilder.Build(job, null).Program));
     }
 
     [Theory]

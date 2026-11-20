@@ -279,7 +279,7 @@ public static class LatheJobBuilder
         // TORNO-T5: Z0 na face escolhida desloca só o programa (o que foi digitado fica no desenho do perfil)
         double dz = LatheZero.Shift(job);
         ops = ops.Select(o => LatheZero.Apply(o, dz)).ToList();
-        string program = LathePost.Generate(ops, new LathePostOptions(job.Dialect, job.Name, job.ProgramNumber ?? 0, job.WorkOffset!.Value, job.Coolant!.Value) { ZeroNote = LatheZero.ProgramNote(job) });
+        string program = LathePost.Generate(ops, new LathePostOptions(job.Dialect, job.Name, job.ProgramNumber ?? 0, job.WorkOffset!.Value, job.Coolant!.Value) { ZeroNote = LatheZero.ProgramNote(job), StockNote = CamHandoff.LatheStockInProgram(job)?.CommentText() });
         return new LatheBuild(program, ops, items, errors, warnings);
     }
 
@@ -353,6 +353,12 @@ public static class LatheJobInfo
             list.Add("Nenhuma operação");
         }
 
+        // DESK-01: bruto do torno incompleto trava Gerar e Enviar (antes o Code simulava um bruto automático sem avisar no CAM)
+        if (StockProblem(job.Stock) is { } stockProblem)
+        {
+            list.Add(stockProblem);
+        }
+
         list.AddRange(LatheJobProgram.Problems(job));
         list.AddRange(LatheZero.Problems(job));
         for (int i = 0; i < build.Items.Count; i++)
@@ -370,6 +376,33 @@ public static class LatheJobInfo
         }
 
         return list;
+    }
+
+    /// <summary>DESK-01: pendência do bruto da barra (Ø, comprimento e Z da face são obrigatórios para gerar); null = completo e válido.</summary>
+    public static string? StockProblem(LatheJobStock? stock)
+    {
+        if (stock?.Validate() is { } bad)
+        {
+            return "Bruto inválido: " + bad;
+        }
+
+        var missing = new List<string>();
+        if (stock?.Diameter is null)
+        {
+            missing.Add("Ø do bruto");
+        }
+
+        if (stock?.Length is null)
+        {
+            missing.Add("comprimento");
+        }
+
+        if (stock?.FaceZ is null)
+        {
+            missing.Add("Z da face");
+        }
+
+        return missing.Count == 0 ? null : "Bruto incompleto: falta " + string.Join(", ", missing);
     }
 
     /// <summary>
