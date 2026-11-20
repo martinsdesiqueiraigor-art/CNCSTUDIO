@@ -550,6 +550,17 @@ public partial class LatheJobView : UserControl
             }));
         }
 
+        // Bruto incompleto (DESK-01) e zero (TORNO-T5): o Core lista esses dois antes das operações; sem alvo aqui a lista
+        // de atalhos ficava mais curta que a de textos e nenhum item da barra levava a lugar nenhum (UI-PRO-P1b)
+        if (LatheJobInfo.StockProblem(_job.Stock) is not null)
+        {
+            targets.Add(("pending", () =>
+            {
+                SetTab(0);
+                PrepStock.BringIntoView();
+            }));
+        }
+
         // Programa nº, G5x e refrigeração vazios (TORNO-T1): levam ao cartão da Fixação, na Preparação
         foreach (string _ in LatheJobProgram.Problems(_job))
         {
@@ -560,18 +571,38 @@ public partial class LatheJobView : UserControl
             }));
         }
 
+        foreach (string _ in LatheZero.Problems(_job))
+        {
+            targets.Add(("pending", () =>
+            {
+                SetTab(0);
+                PrepOrigin.BringIntoView();
+            }));
+        }
+
         for (int i = 0; i < _build.Items.Count; i++)
         {
             int index = i;
             if (!_build.Items[i].Ok)
             {
-                targets.Add(("bad", () => GoToOp(index)));
+                targets.Add(("bad", () =>
+                {
+                    GoToOp(index);
+                    FocusMissingField(index);
+                }));
             }
         }
 
         foreach (int index in LatheJobInfo.OverSpindle(_job, maxRpm))
         {
-            targets.Add(("pending", () => GoToOp(index)));
+            targets.Add(("pending", () =>
+            {
+                GoToOp(index);
+                if (_fieldBoxes.TryGetValue("Rotação máxima", out (string Tab, TextBox Box) rpm))
+                {
+                    FocusField(rpm.Tab, rpm.Box);
+                }
+            }));
         }
 
         // Se um dia o Core mudar a lista sem a tela acompanhar, os itens continuam aparecendo (sem atalho)
