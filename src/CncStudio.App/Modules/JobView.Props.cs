@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using CncStudio.App.Settings;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Setup;
@@ -254,6 +255,38 @@ public partial class JobView
     // ---------------------------------------------------------------- campos
 
     private void Section(string title) => CamShell.AddSection(PropsPanel, title);
+
+    private static readonly string[] TabOrder = ["ferramenta", "corte", "alturas", "estrategia"];
+
+    /// <summary>"Ir ao campo": abre a aba do primeiro campo vazio ou inválido da operação (na ordem das abas) e põe o cursor nele.</summary>
+    private void FocusMissingField(int op)
+    {
+        if (_opTabs is null || op >= _job.Operations.Count)
+        {
+            return;
+        }
+
+        CamOperationSpec spec = _job.Operations[op];
+        KeyValuePair<string, (string Tab, TextBox Box)> hit = _fieldBoxes
+            .Where(f => (spec.MissingFields.Contains(f.Key) || spec.InvalidFields.Contains(f.Key)) && CamJobInfo.Counts(spec, f.Key))
+            .OrderBy(f => Array.IndexOf(TabOrder, f.Value.Tab))
+            .FirstOrDefault();
+        if (hit.Value.Box is not null)
+        {
+            FocusField(hit.Value.Tab, hit.Value.Box);
+        }
+    }
+
+    /// <summary>Abre a aba do campo e põe o cursor nele depois que a tela terminar de montar.</summary>
+    private void FocusField(string tab, TextBox box)
+    {
+        _opTabs?.Select(tab);
+        Dispatcher.UIThread.Post(() =>
+        {
+            box.BringIntoView();
+            box.Focus(NavigationMethod.Tab);
+        });
+    }
 
     /// <summary>Marca a aba que tem campo vazio ou inválido que a operação usa agora (o motivo vai na dica da aba).</summary>
     private void RefreshTabMarks(int i)

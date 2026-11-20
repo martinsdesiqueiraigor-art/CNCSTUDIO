@@ -38,15 +38,16 @@ internal sealed class OpTabs
         {
             (string key, string title) = tabs[c];
             bar.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
-            var label = new TextBlock { Text = title, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
-            var mark = new TextBlock { Text = "●", FontSize = 9, Foreground = CamColors.PendingTextBrush, IsVisible = false, VerticalAlignment = VerticalAlignment.Center };
-            var inner = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, HorizontalAlignment = HorizontalAlignment.Center };
+            var label = new TextBlock { Text = title, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            // a marca fica no canto de cima, por cima do texto: o rótulo não perde largura (a aba tem ~66 px)
+            var mark = new TextBlock { Text = "●", FontSize = 8, Foreground = CamColors.PendingTextBrush, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 0, 1, 0) };
+            var inner = new Grid();
             inner.Children.Add(label);
             inner.Children.Add(mark);
             var button = new Button
             {
-                Content = inner, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center,
-                Background = Brushes.Transparent, CornerRadius = new CornerRadius(0), Padding = new Thickness(2, 6), MinHeight = 0,
+                Content = inner, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Background = Brushes.Transparent, CornerRadius = new CornerRadius(0), Padding = new Thickness(1, 6), MinHeight = 0,
                 BorderThickness = new Thickness(0, 0, 0, 2), Tag = key,
             };
             Avalonia.Automation.AutomationProperties.SetName(button, "Aba " + title);
