@@ -62,18 +62,13 @@
             <Button Grid.Row="1" x:Name="RemoveButton" Content="Remover" Padding="2,4" FontSize="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
             <Button Grid.Row="1" Grid.Column="1" x:Name="UndoButton" Content="Desfazer" Padding="2,4" FontSize="12" IsEnabled="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
           </Grid>
-          <ScrollViewer MaxHeight="56" HorizontalScrollBarVisibility="Disabled" AllowAutoHide="False">
-            <TextBlock x:Name="Errors" TextWrapping="Wrap" Foreground="{x:Static modules:CamColors.ErrorTextBrush}" FontSize="12" />
-          </ScrollViewer>
         </StackPanel>
         <TreeView x:Name="Tree" Margin="0,6,0,0" FontSize="12" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
       </DockPanel>
     </Border>
     <GridSplitter x:Name="TreeSplitter" Grid.Column="1" ResizeDirection="Columns" Background="{x:Static modules:CamColors.BorderBrush}" ToolTip.Tip="Arraste para mudar a largura da árvore. Duplo clique volta ao padrão." />
     <DockPanel Grid.Column="2">
-      <ScrollViewer x:Name="WarningsBox" DockPanel.Dock="Bottom" MaxHeight="44" Margin="10,0,10,4" HorizontalScrollBarVisibility="Disabled">
-        <TextBlock x:Name="Warnings" TextWrapping="Wrap" Foreground="{x:Static modules:CamColors.PendingBrush}" FontSize="12" />
-      </ScrollViewer>
+      <modules:AvisosConsole x:Name="AvisosBox" DockPanel.Dock="Bottom" Margin="10,0,10,4" />
       <!-- UI-05: linha do tempo das operações (só na aba Operações) -->
       <modules:CamTimeline x:Name="Timeline" DockPanel.Dock="Bottom" Margin="10,0,10,4" IsVisible="False" />
       <Grid>
