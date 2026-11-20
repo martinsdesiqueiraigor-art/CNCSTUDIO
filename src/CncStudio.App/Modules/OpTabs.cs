@@ -38,7 +38,7 @@ internal sealed class OpTabs
         {
             (string key, string title) = tabs[c];
             bar.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
-            var label = new TextBlock { Text = title, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            var label = new TextBlock { Text = title, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 5, 0) };
             // a marca fica no canto de cima, por cima do texto: o rótulo não perde largura (a aba tem ~66 px)
             var mark = new TextBlock { Text = "●", FontSize = 8, Foreground = CamColors.PendingTextBrush, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 0, 1, 0) };
             var inner = new Grid();
