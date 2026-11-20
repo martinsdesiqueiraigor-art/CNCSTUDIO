@@ -87,9 +87,6 @@ public sealed class MillJobSceneView : Grid
         _bar.Children.Add(_pathChip);
         _bar.Children.Add(_rapidsChip);
         _bar.Children.Add(_axesChip);
-        _bar.Children.Add(ViewButton("Iso", SceneView.Isometric, "Vista isométrica"));
-        _bar.Children.Add(ViewButton("Topo", SceneView.Top, "Vista de topo"));
-        _bar.Children.Add(ViewButton("Frente", SceneView.Front, "Vista de frente"));
 
         _stockChip.Flyout = Menu(
             ("Sólido", () => Set(_options with { Stock = StockDisplay.Solid }), () => _options.Stock == StockDisplay.Solid, null),
@@ -313,15 +310,6 @@ public sealed class MillJobSceneView : Grid
             }
         };
         return flyout;
-    }
-
-    private Button ViewButton(string text, SceneView view, string tip)
-    {
-        Button b = Chip();
-        b.Content = text;
-        ToolTip.SetTip(b, tip);
-        b.Click += (_, _) => _gl.Fit(view);
-        return b;
     }
 
     private static Button Chip() => new()
