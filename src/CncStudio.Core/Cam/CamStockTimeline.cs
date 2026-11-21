@@ -54,6 +54,12 @@ public sealed class CamStockState
     /// <summary>Percurso simulado da operação (null sem estado ou desligada).</summary>
     public ToolPath? Path { get; internal set; }
 
+    /// <summary>CAM-AR-01: "começar no material" desta operação (null quando ela não pede).</summary>
+    public StockStart? Start { get; internal set; }
+
+    /// <summary>CAM-AR-01: aviso Conferir de "começar no material" (ajustada ou mantida no topo digitado); null quando não pede.</summary>
+    public string? StartNote { get; internal set; }
+
     internal string? Key { get; set; }
 
     internal HeightMap.Snapshot? MapSnapshot { get; set; }
@@ -77,8 +83,9 @@ public sealed class CamStockTimeline
     private readonly ulong[]? _initialVoxels;
 
     private CamStockTimeline(IReadOnlyList<CamStockState> states, string? problem, HeightMap? map, VoxelStock? voxels, string stockKey,
-        Func<int, ToolProfile> profiles, double initialVolume)
+        Func<int, ToolProfile> profiles, double initialVolume, IReadOnlyList<JobOpResult>? items = null)
     {
+        Items = items ?? [];
         States = states;
         Problem = problem;
         Map = map;
@@ -89,6 +96,15 @@ public sealed class CamStockTimeline
         _initialMap = map?.TakeSnapshot();
         _initialVoxels = voxels?.TakeSnapshot();
     }
+
+    /// <summary>
+    /// CAM-AR-01: percurso de cada operação como foi simulado (já com "começar no material"); vazio quando não houve bruto. É o que o
+    /// <see cref="CamJobBuilder.Build"/> usa no programa quando alguma operação começa no material.
+    /// </summary>
+    public IReadOnlyList<JobOpResult> Items { get; }
+
+    /// <summary>CAM-AR-01: avisos Conferir de "começar no material", na ordem das operações.</summary>
+    public IReadOnlyList<string> StartNotes => [.. States.Select(s => s.StartNote).OfType<string>()];
 
     /// <summary>Um estado por operação do trabalho, na mesma ordem.</summary>
     public IReadOnlyList<CamStockState> States { get; }
@@ -183,18 +199,25 @@ public sealed class CamStockTimeline
         string stockKey = $"{(voxels ? "voxel" : "mapa")}|{maxCellsPerSide}|{solid}|{zero}";
 
         // perfil das ferramentas como o pacote do CAM leva ao Code (tipo, raio de canto, ângulo); sem banco, topo reto
-        Func<int, double, ToolProfile?>? package = CamHandoffCode.PackageProfiles(CamHandoff.Create(job, "", machine, bank));
+        CamHandoff handoff = CamHandoff.Create(job, "", machine, bank);
+        Func<int, double, ToolProfile?>? package = CamHandoffCode.PackageProfiles(handoff);
+        // CAM-AR-01: só confia no bruto simulado quando a forma de cada ferramenta é conhecida pelo banco (topo reto suposto
+        // tiraria material demais com fresa de ponta redonda: o bruto simulado ficaria mais baixo que o real)
+        HashSet<int> knownShape = [.. handoff.Tools.Where(t => t.Type is { } code && BankToolTypes.FromCode(code) is not null).Select(t => t.Number)];
+        var cutBy = new List<int>();
         Dialect dialect = job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc;
         MachineSettings settings = MachineSettings.Default with { Machine = MachineKind.Mill, PartFrame = RotaryPartFrame.From(machine) };
         var options = new PostOptions(job.Dialect, job.Name, InternalProgramNumber, InternalWorkOffset, job.Coolant, machine);
 
-        IReadOnlyList<JobOpResult> built = CamJobBuilder.BuildOperations(job, machine);
+        var built = new List<JobOpResult>(CamJobBuilder.BuildOperations(job, machine));
+        HeightMap.Snapshot? initialMap = map?.TakeSnapshot();
         var states = new List<CamStockState>(built.Count);
         double initialVolume = VolumeOf(map, stock);
         double volume = initialVolume;
         bool reuse = previous is not null && previous.StockKey == stockKey && previous.Problem is null;
         Func<int, double> lastDiameters = _ => ProgramAnalysis.DefaultToolDiameter;
         int? blockedBy = null;
+        (StockStart? Start, string? Note) startOf;
         for (int i = 0; i < built.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -222,6 +245,18 @@ public sealed class CamStockTimeline
                 continue;
             }
 
+            if (job.Operations[i].TopFromStock)
+            {
+                (item, StockStart? start, string? note) = StartInMaterial(job, machine, i, item, map, initialMap, states, knownShape, cutBy, zero);
+                built[i] = item;
+                startOf = (start, note);
+            }
+            else
+            {
+                startOf = (null, null);
+            }
+
+            cutBy.Add(job.Operations[i].Tool.Number);
             IReadOnlyList<CamOperation> placed = CamJobZero.Translate([item.Result!.Operation!], zero);
             string text = CamPost.Generate(placed, options);
             CamStockState? before = reuse && Same(previous!, i, text) ? previous!.States[i] : null;
@@ -230,7 +265,7 @@ public sealed class CamStockTimeline
                 var again = new CamStockState(i, CamStockStatus.Ready, null)
                 {
                     Key = text, MapSnapshot = before.MapSnapshot, VoxelSnapshot = before.VoxelSnapshot, Path = before.Path,
-                    RemovedVolume = before.RemovedVolume, Volume = before.Volume, Reused = true,
+                    RemovedVolume = before.RemovedVolume, Volume = before.Volume, Reused = true, Start = startOf.Start, StartNote = startOf.Note,
                 };
                 volume = before.Volume;
                 states.Add(again);
@@ -266,14 +301,55 @@ public sealed class CamStockTimeline
             states.Add(new CamStockState(i, CamStockStatus.Ready, null)
             {
                 Key = text, Path = path, MapSnapshot = map?.TakeSnapshot(), VoxelSnapshot = stock?.TakeSnapshot(),
-                RemovedVolume = Math.Max(0, volume - now), Volume = now, Elapsed = watch.Elapsed,
+                RemovedVolume = Math.Max(0, volume - now), Volume = now, Elapsed = watch.Elapsed, Start = startOf.Start, StartNote = startOf.Note,
             });
             volume = now;
         }
 
         Func<int, ToolProfile> drawProfiles = SimulationFactory.MillProfiles(null, lastDiameters, package);
-        var timeline = new CamStockTimeline(states, null, map, stock, stockKey, drawProfiles, initialVolume);
+        var timeline = new CamStockTimeline(states, null, map, stock, stockKey, drawProfiles, initialVolume, built);
         return timeline;
+    }
+
+    /// <summary>
+    /// CAM-AR-01: mede o material que sobrou na área da operação (bruto depois da última com estado) e gera de novo com as alturas
+    /// ajustadas. Qualquer dúvida (voxel, forma de ferramenta desconhecida, tipo que não usa, sem material) mantém o topo digitado.
+    /// </summary>
+    private static (JobOpResult Item, StockStart? Start, string? Note) StartInMaterial(CamJob job, MachineProfile? machine, int i, JobOpResult item,
+        HeightMap? map, HeightMap.Snapshot? initialMap, List<CamStockState> states, HashSet<int> knownShape, List<int> cutBy, Point3 zero)
+    {
+        CamOperationSpec spec = job.Operations[i];
+        if (!CamStockStart.Applies(spec.Kind))
+        {
+            return (item, null, CamStockStart.KeptNote(i, "só Faceamento, Contorno e Bolsão"));
+        }
+
+        if (map is null)
+        {
+            return (item, null, CamStockStart.KeptNote(i, "bruto em voxel: eixo rotativo ou cilindro deitado"));
+        }
+
+        foreach (int t in cutBy.Append(spec.Tool.Number))
+        {
+            if (!knownShape.Contains(t))
+            {
+                return (item, null, CamStockStart.KeptNote(i, $"forma da ferramenta T{t} desconhecida: escolha-a no banco"));
+            }
+        }
+
+        CamStockState? last = LastReady(states);
+        map.Restore(last?.MapSnapshot ?? initialMap!);
+        double? top = CamStockStart.MaterialTop(map, item.Result!.Operation!, zero, spec.Levels.SafeZ);
+        StockStart start = CamStockStart.Adjust(spec.Levels, top, CamStockStart.ClearanceFor(map)) with { FromOperation = last?.Index ?? -1 };
+        if (!start.Adjusted)
+        {
+            return start.Reason is { } why ? (item, start, CamStockStart.KeptNote(i, why)) : (item, start, null);
+        }
+
+        OperationResult again = CamJobBuilder.BuildOne(job, spec with { Levels = start.Levels }, machine);
+        return again.Ok
+            ? (new JobOpResult(i, false, again), start, CamStockStart.AdjustedNote(i, start))
+            : (item, start, CamStockStart.KeptNote(i, again.Error ?? "não gerou com as alturas novas"));
     }
 
     private static CamStockTimeline Empty(CamJob job, string problem, Func<int, ToolProfile> profiles)
