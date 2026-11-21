@@ -213,6 +213,11 @@ public partial class JobView
             return [];
         }
 
+        if (AutoLoops(i).Count > 0)
+        {
+            return []; // CAM-ILHAS-02: no Automático os laços coloridos mostram a face; o laranja por cima esconderia a borda aberta
+        }
+
         (IReadOnlyList<MeshFace> faces, _, _) = JobGeometry.Resolve(features, geo);
         return faces.SelectMany(f => f.Triangles);
     }
@@ -372,7 +377,7 @@ public partial class JobView
     /// <summary>Laços da operação escolhida para o 3D, cada um na cor do papel; o papel sob o mouse na árvore acende em branco.</summary>
     private IReadOnlyList<(IReadOnlyList<Point3> Points, uint Color)> SceneLoops() =>
         SelectedOp() is { } i
-            ? [.. AutoLoops(i).Select(l => (l.Points, _hoverLoop == l.Role ? 0xFFFFFFu : PocketLoopReport.ColorOf(l.Role)))]
+            ? [.. AutoLoops(i).Select(l => (l.Points, _hoverLoop == l.Role ? 0xFFFFFFu : l.Role == LoopRole.Ignored ? 0x4A5058u : PocketLoopReport.ColorOf(l.Role)))]
             : [];
 
     private void HoverLoop(LoopRole? role)
