@@ -426,6 +426,7 @@ public partial class JobView
 
         Snap();
         JobOpKind? kind = id switch { "bolsao" => JobOpKind.Pocket, "faceamento" => JobOpKind.Facing, "furacao" => JobOpKind.Drilling, _ => null };
+        int before = _job.Operations.Count;
         (IReadOnlyList<int> made, string? error) = kind is { } k
             ? CamJobFromGeometry.Add(_job, k, features,
                 k == JobOpKind.Drilling ? [.. _partSelection.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole)] : [face],
@@ -437,6 +438,8 @@ public partial class JobView
             Errors.Text = "• " + error;
             return;
         }
+
+        MarkNewOps(before);
 
         _partSelection.Clear();
         Refresh(op: index);
