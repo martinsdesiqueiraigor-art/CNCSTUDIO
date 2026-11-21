@@ -318,7 +318,7 @@ public partial class JobView
             int[] chosen = _partFeatures is { } f ? [.. _partSelection.SelectMany(i => f.Faces[i].Triangles).Concat(SelectedOpTriangles()).Concat(HoverParts().Triangles).Distinct()] : [];
             // arestas escolhidas (e as da operação escolhida na árvore) acendem em laranja
             Scene3D.SetPart(m.Placed, chosen, HighlightedEdges());
-            Scene3D.SetLoops(SceneLoops());
+            Scene3D.SetLoops([.. SceneLoops(), .. CompareFocusLoops()]);
         }
         else
         {

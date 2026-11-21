@@ -638,6 +638,7 @@ public partial class JobView : UserControl
         ToolBank? bank = ActiveBank;
         IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.Conflict(o, bank)).OfType<string>();
         AvisosBox.SetWarnings(_build.Warnings, _stockOn && _job.Operations.Count > 0 ? [.. conflicts, StockStepsCheck] : conflicts);
+        AvisosBox.SetDerivedErrors(CompareErrors());
     }
 
     private void Refresh(int? op = null, bool keep = false, bool props = true)

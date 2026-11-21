@@ -96,6 +96,13 @@ public partial class MainWindow
             _settings.CamStockSteps = on;
             _settings.Save();
         };
+        // CAM-STOCK-03b: peça × bruto (preferência local)
+        Cam.JobStockCompare = _settings.CamStockCompare;
+        Cam.SaveJobStockCompare = on =>
+        {
+            _settings.CamStockCompare = on;
+            _settings.Save();
+        };
         Cam.MachineProfilesSource = () => _settings.MachineProfiles;
         Cam.ActiveMachineSource = () => _settings.ActiveMachineProfile;
         Cam.SetActiveMachine = name =>

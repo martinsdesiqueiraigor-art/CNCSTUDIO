@@ -34,6 +34,8 @@
       <Border x:Name="BankSlot" DockPanel.Dock="Right" BorderBrush="{x:Static modules:CamColors.BorderBrush}" BorderThickness="1,0,0,0" Padding="8,0,0,0" Margin="6,0,0,0" />
       <!-- CAM-STOCK-02: bruto depois de cada operação (preferência do app, nunca no trabalho) -->
       <ToggleButton x:Name="StockStepsToggle" DockPanel.Dock="Right" IsChecked="True" Content="Bruto por operação: Ligado" Padding="10,3" MinHeight="26" FontSize="12" CornerRadius="13" VerticalAlignment="Center" Margin="6,0,0,0" />
+      <!-- CAM-STOCK-03b: peça × bruto (gouge e excesso), preferência do app -->
+      <ToggleButton x:Name="StockCompareToggle" DockPanel.Dock="Right" IsChecked="True" Content="Peça × bruto: Ligada" Padding="10,3" MinHeight="26" FontSize="12" CornerRadius="13" VerticalAlignment="Center" Margin="6,0,0,0" />
       <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <StackPanel x:Name="Palette" Orientation="Horizontal" Spacing="0" />
       </ScrollViewer>

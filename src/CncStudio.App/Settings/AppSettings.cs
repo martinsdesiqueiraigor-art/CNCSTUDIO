@@ -162,6 +162,9 @@ public sealed class AppSettings
     /// <summary>Bruto por operação no Trabalho fresa (CAM-STOCK-02): calcula e mostra o bruto depois de cada operação. Preferência local, fora do trabalho.</summary>
     public bool CamStockSteps { get; set; } = true;
 
+    /// <summary>CAM-STOCK-03b: comparar o bruto de cada operação com a peça STEP (gouge e excesso); só da tela, nunca do trabalho.</summary>
+    public bool CamStockCompare { get; set; } = true;
+
     /// <summary>Tema da interface: "Dark" ou "Light".</summary>
     public string Theme { get; set; } = "Dark";
 
