@@ -89,7 +89,7 @@ public class StepOpsGeometryTests
         Assert.True(op.Islands);
         Assert.Equal(2, job.Contours.Count); // contorno de fora + a ilha
         Assert.Equal(2, op.Geometry!.Owned.Count);
-        Assert.Equal(LoopFilter.All, op.Geometry.Loops);
+        Assert.Equal(LoopFilter.Auto, op.Geometry.Loops); // CAM-ILHAS-01: bolsão do 3D nasce no automático
         Assert.Equal(5, op.Levels.BottomZ, 6);
 
         Fill(job, 0, 5, 4);
@@ -133,7 +133,7 @@ public class StepOpsGeometryTests
         CamJobFromGeometry.Add(job, JobOpKind.Pocket, f, [Floor(f)], [], 10);
         Fill(job, 0, 5, 4);
         string json = CamJobJson.ToJson(job);
-        Assert.Contains("\"version\": 6", json);
+        Assert.Contains("\"version\": 8", json); // CAM-ILHAS-01: automático sai na versão 8
         JobLoadResult back = CamJobJson.FromJson(json);
         Assert.NotNull(back.Job);
         GeoSource geo = back.Job!.Operations[0].Geometry!;

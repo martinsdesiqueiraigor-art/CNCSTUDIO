@@ -202,7 +202,7 @@ public class CamJobTests
     public void Versao_mais_nova_ou_dado_estranho_sao_recusados()
     {
         string json = CamJobJson.ToJson(Sample());
-        JobLoadResult newer = CamJobJson.FromJson(json.Replace("\"version\": 1", "\"version\": 8"));
+        JobLoadResult newer = CamJobJson.FromJson(json.Replace("\"version\": 1", "\"version\": 9"));
         Assert.False(newer.Ok);
         Assert.Contains("mais nova", newer.Error);
 
