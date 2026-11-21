@@ -89,6 +89,13 @@ public partial class MainWindow
             _settings.CamView3D = text;
             _settings.Save();
         };
+        // CAM-STOCK-02: bruto por operação (preferência local)
+        Cam.JobStockSteps = _settings.CamStockSteps;
+        Cam.SaveJobStockSteps = on =>
+        {
+            _settings.CamStockSteps = on;
+            _settings.Save();
+        };
         Cam.MachineProfilesSource = () => _settings.MachineProfiles;
         Cam.ActiveMachineSource = () => _settings.ActiveMachineProfile;
         Cam.SetActiveMachine = name =>

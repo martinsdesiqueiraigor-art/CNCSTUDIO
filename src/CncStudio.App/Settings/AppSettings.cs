@@ -159,6 +159,9 @@ public sealed class AppSettings
     /// <summary>Chips do 3D do Trabalho fresa (texto de CamViewOptions; vazio = padrões). Preferência local, fora do trabalho.</summary>
     public string CamView3D { get; set; } = "";
 
+    /// <summary>Bruto por operação no Trabalho fresa (CAM-STOCK-02): calcula e mostra o bruto depois de cada operação. Preferência local, fora do trabalho.</summary>
+    public bool CamStockSteps { get; set; } = true;
+
     /// <summary>Tema da interface: "Dark" ou "Light".</summary>
     public string Theme { get; set; } = "Dark";
 

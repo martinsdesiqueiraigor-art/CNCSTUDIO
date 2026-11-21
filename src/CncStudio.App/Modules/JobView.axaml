@@ -32,6 +32,8 @@
     <!-- banco ativo (UX-04h B2) fixo à direita, fora da rolagem: sempre à vista em 1280×720 -->
     <DockPanel>
       <Border x:Name="BankSlot" DockPanel.Dock="Right" BorderBrush="{x:Static modules:CamColors.BorderBrush}" BorderThickness="1,0,0,0" Padding="8,0,0,0" Margin="6,0,0,0" />
+      <!-- CAM-STOCK-02: bruto depois de cada operação (preferência do app, nunca no trabalho) -->
+      <ToggleButton x:Name="StockStepsToggle" DockPanel.Dock="Right" IsChecked="True" Content="Bruto por operação: Ligado" Padding="10,3" MinHeight="26" FontSize="12" CornerRadius="13" VerticalAlignment="Center" Margin="6,0,0,0" />
       <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <StackPanel x:Name="Palette" Orientation="Horizontal" Spacing="0" />
       </ScrollViewer>
@@ -134,7 +136,10 @@
     <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="16">
       <TextBlock x:Name="StatusIncomplete" VerticalAlignment="Center" FontSize="12" />
       <TextBlock Grid.Column="1" Text="Fixação 1 de 1" VerticalAlignment="Center" FontSize="12" Foreground="{x:Static modules:CamColors.MutedBrush}" />
-      <TextBlock Grid.Column="2" x:Name="StatusProgram" VerticalAlignment="Center" FontSize="12" Foreground="{x:Static modules:CamColors.MutedBrush}" />
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
+        <TextBlock x:Name="StatusProgram" VerticalAlignment="Center" FontSize="12" Foreground="{x:Static modules:CamColors.MutedBrush}" />
+        <TextBlock x:Name="StatusStock" VerticalAlignment="Center" FontSize="12" Foreground="{x:Static modules:CamColors.MutedBrush}" />
+      </StackPanel>
       <TextBlock Grid.Column="3" x:Name="StatusMachine" VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="12" TextTrimming="CharacterEllipsis" />
       <TextBlock Grid.Column="4" Text="Controle:" VerticalAlignment="Center" FontSize="12" Foreground="{x:Static modules:CamColors.MutedBrush}" />
       <ComboBox Grid.Column="5" x:Name="DialectCombo" SelectedIndex="0" MinWidth="96" FontSize="12" MinHeight="24" Padding="8,1" ToolTip.Tip="Comando (dialeto do programa)">

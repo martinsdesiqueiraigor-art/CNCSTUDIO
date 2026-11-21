@@ -64,6 +64,25 @@ public sealed class MillJobSceneView : Grid
     private const string PartId = "peca-step";
 
     private int _partVersion = 1;
+
+    // CAM-STOCK-02: bruto depois de uma operação (malha do material, no referencial do programa); null = o bruto inteiro de antes
+    private IReadOnlyList<SceneObjectState>? _material;
+    private Point3 _materialZero;
+    private int _materialVersion = 1;
+
+    private readonly StackPanel _stepBar = new()
+    {
+        Orientation = Orientation.Horizontal,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Bottom,
+        Margin = new Thickness(8),
+        Spacing = 2,
+        IsVisible = false,
+    };
+
+    private readonly ToggleButton _whole = StepButton("Bruto inteiro", "Mostra o bruto antes de qualquer operação.");
+    private readonly ToggleButton _before = StepButton("Antes da operação", "Mostra o bruto antes da operação escolhida.");
+    private readonly ToggleButton _after = StepButton("Depois da operação", "Mostra o bruto depois da operação escolhida.");
     private bool _failed;
     private bool _syncing;
 
@@ -72,6 +91,26 @@ public sealed class MillJobSceneView : Grid
         Children.Add(_gl);
         Children.Add(_status);
         Children.Add(_bar);
+        _stepBar.Children.Add(_whole);
+        _stepBar.Children.Add(_before);
+        _stepBar.Children.Add(_after);
+        Children.Add(new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(8),
+            Padding = new Thickness(3),
+            CornerRadius = new CornerRadius(6),
+            Background = Brush.Parse("#e61b1d22"),
+            BorderBrush = Brush.Parse("#2c3037"),
+            BorderThickness = new Thickness(1),
+            Child = _stepBar,
+            [!IsVisibleProperty] = _stepBar[!IsVisibleProperty],
+        });
+        _whole.Click += (_, _) => PickStep(StockStep.Whole);
+        _before.Click += (_, _) => PickStep(StockStep.Before);
+        _after.Click += (_, _) => PickStep(StockStep.After);
+        SyncSteps();
         _gl.Failed += (_, message) =>
         {
             _failed = true;
@@ -118,6 +157,53 @@ public sealed class MillJobSceneView : Grid
 
     /// <summary>Avisa quando o usuário muda um chip (para guardar no config).</summary>
     public event EventHandler<CamViewOptions>? OptionsChanged;
+
+    /// <summary>Qual bruto a barra de baixo pede (CAM-STOCK-02): inteiro, antes ou depois da operação escolhida.</summary>
+    public StockStep Step { get; private set; } = StockStep.After;
+
+    /// <summary>A barra de baixo mudou o passo do bruto.</summary>
+    public event EventHandler<StockStep>? StepChanged;
+
+    /// <summary>Mostra ou esconde a barra Bruto inteiro, Antes e Depois (só com bruto por operação ligado e uma operação escolhida).</summary>
+    public bool StepBarVisible
+    {
+        get => _stepBar.IsVisible;
+        set => _stepBar.IsVisible = value && !_failed;
+    }
+
+    /// <summary>
+    /// Material do bruto depois de uma operação (CAM-STOCK-02), no referencial do programa; <paramref name="zero"/> o leva ao
+    /// referencial do desenho, como a trajetória. Null volta ao bruto inteiro de antes. Só mostra: simulação é verificação.
+    /// </summary>
+    public void SetMaterial(IReadOnlyList<SceneObjectState>? material, Point3 zero)
+    {
+        if (material is null && _material is null)
+        {
+            return;
+        }
+
+        _material = material;
+        _materialZero = zero;
+        _materialVersion++;
+        Rebuild();
+    }
+
+    /// <summary>Escolhe o passo do bruto por fora (botões Ver antes e Ver depois das propriedades).</summary>
+    public void ChooseStep(StockStep step) => PickStep(step);
+
+    private void PickStep(StockStep step)
+    {
+        Step = step;
+        SyncSteps();
+        StepChanged?.Invoke(this, step);
+    }
+
+    private void SyncSteps()
+    {
+        _whole.IsChecked = Step == StockStep.Whole;
+        _before.IsChecked = Step == StockStep.Before;
+        _after.IsChecked = Step == StockStep.After;
+    }
 
     /// <summary>Lê a trajetória do programa (segundo plano) e mostra bruto, peça e trajetória sem simular.</summary>
     public async void Render(string program, Dialect dialect, StockSolid? stock, IReadOnlyList<Contour> contours, Point3 zero = default)
@@ -212,6 +298,19 @@ public sealed class MillJobSceneView : Grid
         }
 
         SceneSnapshot scene = CamJobScene.BuildResolved(_stock, _contours, _path, _options, zero: _zero);
+        if (_material is { } material)
+        {
+            // CAM-STOCK-02: o material simulado no lugar do bloco inteiro (mesma posição: programa + zero)
+            var objects = scene.Objects.Where(o => o.Id != CamJobScene.StockId).ToList();
+            Point3 shift = new(_materialZero.X, _materialZero.Y, _materialZero.Z);
+            Bounds3 b = scene.Bounds;
+            foreach (SceneObjectState m in material)
+            {
+                objects.Add(m with { Id = "bruto-passo/" + m.Id, Version = _materialVersion, Offset = shift });
+            }
+
+            scene = scene with { Objects = objects, Bounds = b };
+        }
         if (_part is { TriangleCount: > 0 } part && _options.Part != PartDisplay.Hidden)
         {
             // peça STEP: opaca mesmo com o bruto transparente (papel de fixação só para a opacidade); faces escolhidas em laranja
@@ -323,6 +422,21 @@ public sealed class MillJobSceneView : Grid
         BorderThickness = new Thickness(1),
     };
 
+    private static ToggleButton StepButton(string text, string tip)
+    {
+        var t = new ToggleButton
+        {
+            Content = text,
+            Padding = new Thickness(10, 3),
+            MinHeight = 26,
+            FontSize = 11.5,
+            CornerRadius = new CornerRadius(4),
+            BorderThickness = new Thickness(0),
+        };
+        ToolTip.SetTip(t, tip);
+        return t;
+    }
+
     private static ToggleButton Toggle(string text, string tip)
     {
         var t = new ToggleButton
@@ -339,4 +453,17 @@ public sealed class MillJobSceneView : Grid
         ToolTip.SetShowOnDisabled(t, true);
         return t;
     }
+}
+
+/// <summary>Qual bruto mostrar com bruto por operação (CAM-STOCK-02).</summary>
+public enum StockStep
+{
+    /// <summary>Depois da operação escolhida (padrão).</summary>
+    After,
+
+    /// <summary>Antes da operação escolhida (depois da anterior com estado).</summary>
+    Before,
+
+    /// <summary>O bruto inteiro, antes de qualquer operação.</summary>
+    Whole,
 }
