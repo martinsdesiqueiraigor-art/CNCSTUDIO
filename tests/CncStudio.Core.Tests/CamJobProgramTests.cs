@@ -207,7 +207,7 @@ public class CamJobProgramTests
         Assert.True(v3.Ok, v3.Error);
         Assert.Null(v3.Job!.ProgramNumber);
         Assert.Equal(54, v3.Job.WorkOffset);
-        Assert.False(CamJobJson.FromJson(v1.Replace("\"version\": 1", "\"version\": 10")).Ok);
+        Assert.False(CamJobJson.FromJson(v1.Replace("\"version\": 1", "\"version\": 11")).Ok);
     }
 
     [Theory]

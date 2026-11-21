@@ -167,4 +167,7 @@ public static class JobGeometry
 
     /// <summary>CAM-AR-01: versão 9 só quando alguma operação começa no material; sem isso o arquivo sai como antes.</summary>
     public static bool NeedsVersion9(CamJob job) => job.Operations.Any(o => o.TopFromStock);
+
+    /// <summary>CAM-ADAPT-01: versão 10 só quando alguma operação usa o desbaste adaptativo.</summary>
+    public static bool NeedsVersion10(CamJob job) => job.Operations.Any(o => o.PocketParams?.Strategy == PocketStrategy.Adaptive);
 }

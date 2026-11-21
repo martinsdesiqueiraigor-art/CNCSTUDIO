@@ -102,6 +102,14 @@ public static partial class CamOperations
             return Pocket(boundary, tool, levels, p);
         }
 
+        if (p.Strategy == PocketStrategy.Adaptive)
+        {
+            string? error = tool.Validate() ?? levels.Validate() ?? PocketOptionsError(p, tool);
+            return error is not null ? Fail(error)
+                : !boundary.IsClosed || islands.Any(i => !i.IsClosed) ? Fail("O contorno ou uma ilha não está fechado.")
+                : AdaptivePocket(boundary, islands, tool, levels, p);
+        }
+
         return PocketLinesCore(boundary, islands, tool, levels, p, "Bolsão com ilhas");
     }
 
