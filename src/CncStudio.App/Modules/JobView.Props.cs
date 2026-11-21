@@ -79,6 +79,11 @@ public partial class JobView
         }
 
         tabList.Add(("estrategia", "Estratégia"));
+        if (_stockOn)
+        {
+            tabList.Add(("verificacao", "Verificação"));
+        }
+
         _opTabs = new OpTabs(tabList, _opTab, k => _opTab = k);
         PropsPanel.Children.Add(_opTabs.Root);
         void In(string key)
@@ -251,6 +256,12 @@ public partial class JobView
 
         _propsTarget = null;
         AddStockSection(i);
+        _compareTab = null;
+        if (_stockOn)
+        {
+            AddCompareTab(i, _opTabs.Panel("verificacao"));
+        }
+
         RefreshTabMarks(i);
     }
 

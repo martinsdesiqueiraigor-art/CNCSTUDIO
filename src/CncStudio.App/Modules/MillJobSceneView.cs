@@ -70,6 +70,11 @@ public sealed class MillJobSceneView : Grid
     private Point3 _materialZero;
     private int _materialVersion = 1;
 
+    // CAM-STOCK-03b: gouge e excesso sobre o material (malhas de cor, no referencial do programa); null = sem cores
+    private IReadOnlyList<SceneObjectState>? _compare;
+    private Point3 _compareZero;
+    private int _compareVersion = 1;
+
     private readonly StackPanel _stepBar = new()
     {
         Orientation = Orientation.Horizontal,
@@ -83,6 +88,7 @@ public sealed class MillJobSceneView : Grid
     private readonly ToggleButton _whole = StepButton("Bruto inteiro", "Mostra o bruto antes de qualquer operação.");
     private readonly ToggleButton _before = StepButton("Antes da operação", "Mostra o bruto antes da operação escolhida.");
     private readonly ToggleButton _after = StepButton("Depois da operação", "Mostra o bruto depois da operação escolhida.");
+    private readonly ToggleButton _compareChip = StepButton("Peça × bruto", "Pinta onde o bruto passou da peça (gouge, vermelho) e onde ainda sobra material (excesso, âmbar). Verificação indicativa, nunca garantia.");
     private bool _failed;
     private bool _syncing;
 
@@ -94,6 +100,15 @@ public sealed class MillJobSceneView : Grid
         _stepBar.Children.Add(_whole);
         _stepBar.Children.Add(_before);
         _stepBar.Children.Add(_after);
+        _stepBar.Children.Add(new Border { Width = 1, Margin = new Thickness(4, 3), Background = Brush.Parse("#3a3f47") });
+        _stepBar.Children.Add(_compareChip);
+        _compareChip.Click += (_, _) =>
+        {
+            if (!_syncing)
+            {
+                CompareToggled?.Invoke(this, _compareChip.IsChecked == true);
+            }
+        };
         Children.Add(new Border
         {
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -189,6 +204,38 @@ public sealed class MillJobSceneView : Grid
         _materialZero = zero;
         _materialVersion++;
         SyncChips();
+        Rebuild();
+    }
+
+    /// <summary>O chip "Peça × bruto" da barra foi ligado ou desligado.</summary>
+    public event EventHandler<bool>? CompareToggled;
+
+    /// <summary>Estado do chip "Peça × bruto" (sem avisar de volta) e se ele pode ser usado; <paramref name="why"/> é a dica quando não pode.</summary>
+    public void SyncCompareChip(bool on, bool enabled, string? why)
+    {
+        _syncing = true;
+        _compareChip.IsChecked = on && enabled;
+        _compareChip.IsEnabled = enabled;
+        ToolTip.SetTip(_compareChip, enabled
+            ? "Pinta onde o bruto passou da peça (gouge, vermelho) e onde ainda sobra material (excesso, âmbar). Verificação indicativa, nunca garantia."
+            : why);
+        _syncing = false;
+    }
+
+    /// <summary>
+    /// CAM-STOCK-03b: cores do gouge e do excesso sobre o material (malhas planas, no referencial do programa); <paramref name="zero"/>
+    /// as leva ao referencial do desenho, como o material. Null apaga. Só mostra.
+    /// </summary>
+    public void SetCompare(IReadOnlyList<SceneObjectState>? overlay, Point3 zero)
+    {
+        if (overlay is null && _compare is null)
+        {
+            return;
+        }
+
+        _compare = overlay;
+        _compareZero = zero;
+        _compareVersion++;
         Rebuild();
     }
 
@@ -355,6 +402,18 @@ public sealed class MillJobSceneView : Grid
 
             scene = scene with { Objects = objects, Bounds = b };
         }
+        if (_compare is { Count: > 0 } overlay && _material is not null)
+        {
+            var objects = scene.Objects.ToList();
+            Point3 shift = new(_compareZero.X, _compareZero.Y, _compareZero.Z);
+            foreach (SceneObjectState m in overlay)
+            {
+                objects.Add(m with { Id = "compara/" + m.Id, Version = _compareVersion, Offset = shift });
+            }
+
+            scene = scene with { Objects = objects };
+        }
+
         PartDisplay partMode = ShownPart;
         if (_part is { TriangleCount: > 0 } part && partMode != PartDisplay.Hidden)
         {

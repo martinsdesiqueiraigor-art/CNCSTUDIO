@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using CncStudio.Core.Cam;
+using CncStudio.Core.Cam3D;
 using CncStudio.Core.Scene;
 using CncStudio.Core.Simulation;
 using CncStudio.Core.Trajectory;
@@ -60,6 +61,7 @@ public partial class JobView
         };
         Scene3D.StepChanged += (_, _) => UpdateStockScene();
         SyncStockToggle();
+        InitCompare();
     }
 
     private void SyncStockToggle()
@@ -80,6 +82,7 @@ public partial class JobView
         if (!_stockOn || _job.Operations.Count == 0)
         {
             _stockTimeline = null;
+            ForgetCompare();
             _stockBusy = false;
             ShowStockStates();
             UpdateStockScene();
@@ -103,6 +106,7 @@ public partial class JobView
         catch (Exception e) when (e is not OutOfMemoryException)
         {
             _stockTimeline = null;
+            ForgetCompare();
             _stockBusy = false;
             ShowStockStates();
             UpdateStockScene();
@@ -112,6 +116,8 @@ public partial class JobView
         MachineProfile? machine = MachineSource?.Invoke();
         ToolBank? bank = ActiveBank;
         CamStockTimeline? previous = _stockTimeline;
+        // peça STEP na posição (a mesma do 3D); sem ela não há comparação
+        TriangleMesh? partMesh = _partMesh is { } pm && _job.PartStep?.Path == pm.Path ? pm.Placed : null;
         var cancel = new CancellationTokenSource();
         _stockCancel = cancel;
         _stockBusy = true;
@@ -119,14 +125,25 @@ public partial class JobView
         try
         {
             await Task.Delay(250, cancel.Token); // digitação seguida: espera parar
-            CamStockTimeline result = await Task.Run(
-                () => CamStockTimeline.Compute(copy, machine, bank, SimulationFactory.DesktopCells, previous, cancel.Token), cancel.Token);
+            (CamStockTimeline result, CamStockCompare? compare, IReadOnlyList<CamStockCompareSummary>? summary, string? problem) = await Task.Run(() =>
+            {
+                CamStockTimeline t = CamStockTimeline.Compute(copy, machine, bank, SimulationFactory.DesktopCells, previous, cancel.Token);
+                // CAM-STOCK-03b: peça × bruto no mesmo cálculo (rápido perto da simulação); o Summary mexe no material, por isso o lock
+                lock (t)
+                {
+                    CamStockCompare? c = CamStockCompare.Create(t, copy, partMesh, out string? why);
+                    return (t, c, c?.Summary(), why);
+                }
+            }, cancel.Token);
             if (version != _stockVersion)
             {
                 return;
             }
 
             _stockTimeline = result;
+            _compare = compare;
+            _compareSummary = summary;
+            _compareProblem = problem;
         }
         catch (OperationCanceledException)
         {
@@ -140,6 +157,7 @@ public partial class JobView
             }
 
             _stockTimeline = null; // sem bruto por operação: o resto da tela continua igual
+            ForgetCompare();
         }
 
         _stockBusy = false;
@@ -161,6 +179,11 @@ public partial class JobView
         }
 
         CamStockState s = _stockTimeline.States[index];
+        if (s.Status == CamStockStatus.Ready && CompareBadge(index) is { } verdict)
+        {
+            return verdict;
+        }
+
         return s.Status switch
         {
             CamStockStatus.Ready => ("bruto ✓", "ok", $"Bruto depois desta operação calculado.\nTirou {Cm3(s.RemovedVolume)}; sobra {Cm3(s.Volume)}."),
@@ -216,8 +239,10 @@ public partial class JobView
         }
 
         FillStockSection();
+        FillCompareTab();
         UpdateStockStatus();
         ShowWarnings();
+        SyncCompareToggle();
     }
 
     private void UpdateStockStatus()
@@ -335,32 +360,64 @@ public partial class JobView
         if (!on || timeline!.States[op!.Value].Status == CamStockStatus.NoState)
         {
             Scene3D.SetMaterial(null, default);
+            ClearCompareScene();
             return;
         }
 
         int index = Scene3D.Step switch { StockStep.Whole => -1, StockStep.Before => op.Value - 1, _ => op.Value };
+        CamStockCompare? compare = _compareOn ? _compare : null;
+        if (compare is not null && _compareView == CompareView.Final)
+        {
+            // fim do programa: o material e as cores são os da última operação com estado
+            index = timeline.States.Count - 1;
+        }
+
         if (index < 0 || !timeline.States.Take(index + 1).Any(s => s.Status == CamStockStatus.Ready))
         {
             // bruto inteiro: o sólido do bruto que o 3D já desenha (o instantâneo inicial do Core não serve: ver CAM-STOCK-02-volta)
             Scene3D.SetMaterial(null, default);
+            ClearCompareScene();
             return;
         }
 
         Core.Geometry.Point3 zero = CamJobZero.Position(_job) ?? default;
-        IReadOnlyList<SceneObjectState>? material = null;
+        IReadOnlyList<SceneObjectState>? material = null, overlay = null;
+        CamStockCompareResult? result = null;
         try
         {
-            material = await Task.Run(() => MaterialAfter(timeline, index));
+            (material, overlay, result) = await Task.Run(() => MaterialAndCompare(timeline, compare, index));
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
             material = null;
+            overlay = null;
+            result = null;
         }
 
         if (version == _stockSceneVersion)
         {
             Scene3D.SetMaterial(material, zero);
+            Scene3D.SetCompare(overlay, zero);
+            _compareShown = result;
+            FillCompareTab();
         }
+    }
+
+    private void ClearCompareScene()
+    {
+        Scene3D.SetCompare(null, default);
+        _compareShown = null;
+        FillCompareTab();
+    }
+
+    /// <summary>Esquece a comparação (sem bruto por operação, ou cálculo que falhou).</summary>
+    private void ForgetCompare()
+    {
+        _compare = null;
+        _compareSummary = null;
+        _compareProblem = null;
+        _compareShown = null;
+        _compareFocus = null;
     }
 
     /// <summary>Malha do material depois da operação <paramref name="index"/> (−1 = bruto inteiro). Um cálculo de cada vez por bruto.</summary>

@@ -152,6 +152,19 @@ public partial class CamView : UserControl
         set => JobPanel.SaveStockSteps = value;
     }
 
+    /// <summary>Chave "Peça × bruto" guardada nas preferências (CAM-STOCK-03b).</summary>
+    public bool JobStockCompare
+    {
+        set => JobPanel.StockCompare = value;
+    }
+
+    /// <summary>Guarda a chave "Peça × bruto".</summary>
+    public Action<bool>? SaveJobStockCompare
+    {
+        get => JobPanel.SaveStockCompare;
+        set => JobPanel.SaveStockCompare = value;
+    }
+
     /// <summary>Guarda as escolhas dos chips do 3D do Trabalho fresa.</summary>
     public Action<string>? SaveJobViewOptions
     {

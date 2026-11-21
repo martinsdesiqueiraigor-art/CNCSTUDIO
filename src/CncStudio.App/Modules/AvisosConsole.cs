@@ -23,6 +23,7 @@ public sealed class AvisosConsole : Border
     private readonly StackPanel _rows = new() { Spacing = 2 };
 
     private IReadOnlyList<string> _warnings = [];
+    private IReadOnlyList<string> _derived = [];
     private IReadOnlyList<string> _checks = [];
     private bool _open = true;
 
@@ -53,6 +54,19 @@ public sealed class AvisosConsole : Border
         Render();
     }
 
+    /// <summary>Erros calculados pela tela (CAM-STOCK-03b: gouge da peça × bruto); nível Erro, trocados a cada cálculo.</summary>
+    public void SetDerivedErrors(IEnumerable<string> errors)
+    {
+        List<string> next = [.. errors.Distinct()];
+        if (next.SequenceEqual(_derived))
+        {
+            return;
+        }
+
+        _derived = next;
+        Render();
+    }
+
     /// <summary>Quantas mensagens há agora, por nível.</summary>
     public int Count(AvisoNivel level) => Entries().Count(e => e.Level == level);
 
@@ -60,6 +74,7 @@ public sealed class AvisosConsole : Border
     {
         var all = new List<(AvisoNivel, string)>();
         all.AddRange(Messages.Entries);
+        all.AddRange(_derived.Select(w => (AvisoNivel.Erro, w)));
         all.AddRange(_warnings.Select(w => (AvisoNivel.Aviso, w)));
         all.AddRange(_checks.Select(w => (AvisoNivel.Conferir, w)));
         return all.OrderBy(e => (int)e.Item1);
