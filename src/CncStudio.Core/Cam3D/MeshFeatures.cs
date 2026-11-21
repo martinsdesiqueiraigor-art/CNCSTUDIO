@@ -50,6 +50,22 @@ public sealed record MeshFace(
     Point3? Axis = null,
     double Depth = 0);
 
+/// <summary>Para que lado vai a parede num laço da face de fundo (CAM-ILHAS-01).</summary>
+public enum LoopSide
+{
+    /// <summary>Parede sobe (material acima do fundo): ilha ou parede do bolsão.</summary>
+    Up,
+
+    /// <summary>Parede desce (nada acima do fundo): furo, borda aberta, chanfro ou escareado.</summary>
+    Down,
+
+    /// <summary>Parte sobe, parte desce.</summary>
+    Mixed,
+}
+
+/// <summary>Laço da borda de uma face de fundo com o lado da parede.</summary>
+public sealed record SidedLoop(IReadOnlyList<Point3> Points, LoopSide Side);
+
 /// <summary>Aresta viva (dobra forte ou borda aberta), uma cadeia de segmentos.</summary>
 public sealed record MeshEdge(
     int Id,
@@ -212,6 +228,112 @@ public sealed class MeshFeatures
     {
         var ids = new Dictionary<(long, long, long), int>();
         var points = new List<Point3>();
+        List<List<int>> rings = Rings(face, ids, points);
+        return [.. rings.Select(r => Simplify([.. r.Select(i => points[i])])).Where(l => l.Count >= 3).OrderByDescending(l => Math.Abs(AreaXY(l)))];
+    }
+
+    /// <summary>
+    /// Laços da borda de uma face plana de fundo com o lado de cada um (CAM-ILHAS-01): olha a região vizinha de cada aresta do laço.
+    /// Vizinha toda acima do fundo = parede que <see cref="LoopSide.Up"/> (ilha ou parede); toda abaixo = <see cref="LoopSide.Down"/>
+    /// (furo, borda, chanfro ou escareado); raio ou chanfro tangente entre os dois decide pelo lado do triângulo vizinho. Laço com os
+    /// dois lados é <see cref="LoopSide.Mixed"/>. O laço de maior área vem primeiro, como em <see cref="BoundaryLoops"/>.
+    /// </summary>
+    public IReadOnlyList<SidedLoop> ClassifiedLoops(MeshFace face, double tolerance = 0.01)
+    {
+        var ids = new Dictionary<(long, long, long), int>();
+        var points = new List<Point3>();
+        List<List<int>> rings = Rings(face, ids, points);
+
+        // triângulos de cada aresta na malha inteira (mesma solda dos laços)
+        var edgeTris = new Dictionary<(int, int), List<int>>();
+        var triIds = new int[_mesh.TriangleCount][];
+        for (int t = 0; t < _mesh.TriangleCount; t++)
+        {
+            (Point3 a, Point3 b, Point3 c) = _mesh.Triangle(t);
+            int[] v = [Weld(ids, points, a), Weld(ids, points, b), Weld(ids, points, c)];
+            triIds[t] = v;
+            for (int k = 0; k < 3; k++)
+            {
+                int p = v[k], q = v[(k + 1) % 3];
+                if (p == q)
+                {
+                    continue;
+                }
+
+                (int, int) key = p < q ? (p, q) : (q, p);
+                if (!edgeTris.TryGetValue(key, out List<int>? list))
+                {
+                    edgeTris[key] = list = [];
+                }
+
+                list.Add(t);
+            }
+        }
+
+        double zf = face.Center.Z;
+        var result = new List<SidedLoop>();
+        foreach (List<int> ring in rings)
+        {
+            bool up = false, down = false;
+            for (int k = 0; k < ring.Count; k++)
+            {
+                int p = ring[k], q = ring[(k + 1) % ring.Count];
+                if (!edgeTris.TryGetValue(p < q ? (p, q) : (q, p), out List<int>? tris))
+                {
+                    continue;
+                }
+
+                foreach (int t in tris)
+                {
+                    int region = _faceOfTriangle[t];
+                    if (region < 0 || region == face.Id)
+                    {
+                        continue;
+                    }
+
+                    Bounds3 box = Faces[region].Box;
+                    if (box.Min.Z >= zf - tolerance)
+                    {
+                        up = true;
+                    }
+                    else if (box.Max.Z <= zf + tolerance)
+                    {
+                        down = true;
+                    }
+                    else
+                    {
+                        // região que passa dos dois lados: decide pelo vértice do triângulo vizinho que não é da aresta
+                        int other = triIds[t].FirstOrDefault(v => v != p && v != q, p);
+                        double z = points[other].Z;
+                        if (z > zf + tolerance)
+                        {
+                            up = true;
+                        }
+                        else if (z < zf - tolerance)
+                        {
+                            down = true;
+                        }
+                    }
+                }
+            }
+
+            List<Point3> loop = Simplify([.. ring.Select(i => points[i])]);
+            if (loop.Count < 3)
+            {
+                continue;
+            }
+
+            // sem vizinha nenhuma (malha aberta): nada acima, conta como descendo
+            LoopSide side = up && down ? LoopSide.Mixed : up ? LoopSide.Up : LoopSide.Down;
+            result.Add(new SidedLoop(loop, side));
+        }
+
+        return [.. result.OrderByDescending(l => Math.Abs(AreaXY(l.Points)))];
+    }
+
+    /// <summary>Laços da borda de uma região como listas de vértices soldados, no sentido dos triângulos.</summary>
+    private List<List<int>> Rings(MeshFace face, Dictionary<(long, long, long), int> ids, List<Point3> points)
+    {
         var count = new Dictionary<(int, int), int>();
         var dir = new Dictionary<(int, int), (int, int)>();
         foreach (int t in face.Triangles)
@@ -248,7 +370,7 @@ public sealed class MeshFeatures
             }
         }
 
-        var loops = new List<List<Point3>>();
+        var rings = new List<List<int>>();
         foreach (int start in next.Keys.OrderBy(k => k).ToList())
         {
             while (next[start].Count > 0)
@@ -266,7 +388,7 @@ public sealed class MeshFeatures
                     outs.RemoveAt(0);
                     if (to == start)
                     {
-                        loops.Add(Simplify([.. ring.Select(i => points[i])]));
+                        rings.Add(ring);
                         break;
                     }
 
@@ -281,7 +403,7 @@ public sealed class MeshFeatures
             }
         }
 
-        return [.. loops.Where(l => l.Count >= 3).OrderByDescending(l => Math.Abs(AreaXY(l)))];
+        return rings;
     }
 
     private static double AreaXY(IReadOnlyList<Point3> l)
