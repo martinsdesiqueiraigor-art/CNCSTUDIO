@@ -47,7 +47,8 @@ public static class CamJobJson
     {
         // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
         // BANCO-01 (versão 5): operação com campo vazio é salva com a lista dos vazios (o app antigo não lê e não supõe o valor)
-        int version = JobGeometry.NeedsVersion8(job) ? 8
+        int version = JobGeometry.NeedsVersion9(job) ? 9
+            : JobGeometry.NeedsVersion8(job) ? 8
             : CamJobInfo.NeedsVersion7(job) ? 7
             : JobGeometry.NeedsVersion6(job) ? 6
             : job.Operations.Any(o => o.MissingFields.Count > 0) ? 5
@@ -368,6 +369,12 @@ public static class CamJobJson
             {
                 o["islands"] = true;
             }
+        }
+
+        // CAM-AR-01 (versão 9): só sai quando ligado; desligado, o texto do arquivo fica como antes
+        if (s.TopFromStock)
+        {
+            o["topFromStock"] = true;
         }
 
         if (s.Kind == JobOpKind.Facing)
@@ -737,6 +744,11 @@ public static class CamJobJson
             }
 
             spec = spec with { PocketParams = pocket, Islands = o["islands"] is not null && Bool(o, "islands") };
+        }
+
+        if (o["topFromStock"] is not null)
+        {
+            spec = spec with { TopFromStock = Bool(o, "topFromStock") };
         }
 
         if (o["facingStepOver"] is not null)

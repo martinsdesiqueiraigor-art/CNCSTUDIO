@@ -107,6 +107,13 @@ public sealed record CamOperationSpec(JobOpKind Kind, CamTool Tool, CamLevels Le
 
     public DrillSpec? Drill { get; init; }
 
+    /// <summary>
+    /// CAM-AR-01: topo a partir do material (como o "Stock top" do Fusion, mas com o bruto que sobrou das operações anteriores).
+    /// False = topo digitado, como sempre. Só vale para Faceamento, Contorno e Bolsão na grade de alturas (<see cref="CamStockStart"/>).
+    /// Campo opcional do arquivo (versão 9).
+    /// </summary>
+    public bool TopFromStock { get; init; }
+
     public WrapSpec? Wrap { get; init; }
 
     /// <summary>Leva a operação para uma face girada (não vale para o texto no cilindro, que já gira sozinho).</summary>
@@ -141,7 +148,7 @@ public sealed class CamJob
     /// (<see cref="CamJobStock.NeedsVersion2"/>, <see cref="CamJobProgram.NeedsVersion3"/>). Versão 4 quando tem peça STEP ou furação
     /// com lista de contornos (M3D, <see cref="CamJobPart.NeedsVersion4"/>).
     /// </summary>
-    public const int CurrentVersion = 8;
+    public const int CurrentVersion = 9;
 
     public string Name { get; set; } = "TRABALHO";
 
@@ -338,8 +345,11 @@ public static class CamJobBuilder
         return items;
     }
 
-    /// <summary>Gera o programa inteiro. Se alguma operação ligada falhar, não gera texto e devolve os erros.</summary>
-    public static JobBuild Build(CamJob job, MachineProfile? machine)
+    /// <summary>
+    /// Gera o programa inteiro. Se alguma operação ligada falhar, não gera texto e devolve os erros. <paramref name="bank"/>: banco da
+    /// fresa; só é usado quando alguma operação começa no material (CAM-AR-01), para saber a forma das ferramentas no bruto simulado.
+    /// </summary>
+    public static JobBuild Build(CamJob job, MachineProfile? machine, ToolBank? bank = null)
     {
         IReadOnlyList<string> structure = job.Validate();
         if (structure.Count > 0)
@@ -347,7 +357,7 @@ public static class CamJobBuilder
             return new JobBuild("", [], [], structure, []);
         }
 
-        IReadOnlyList<JobOpResult> items = BuildOperations(job, machine);
+        (IReadOnlyList<JobOpResult> items, IReadOnlyList<string> startNotes) = Sequence(job, machine, bank);
         var errors = items.Where(x => !x.Ok).Select(x => $"Operação {x.Index + 1}: {x.Error}").ToList();
         List<CamOperation> ops = items.Where(x => !x.Skipped && x.Ok).Select(x => x.Result!.Operation!).ToList();
         if (errors.Count == 0 && ops.Count == 0)
@@ -374,6 +384,7 @@ public static class CamJobBuilder
 
         var warnings = new List<string>(CamPost.Check(ops, machine));
         warnings.AddRange(ops.SelectMany(o => o.Warnings));
+        warnings.AddRange(startNotes);
         // valor de arquivo antigo fora da faixa ou da lista: gera como antes, só avisa
         warnings.AddRange(CamJobProgram.Warnings(job));
         // Siemens não escreve o número (sai só o nome): o valor passado não aparece no programa
@@ -385,7 +396,29 @@ public static class CamJobBuilder
         return new JobBuild(program, ops, items, errors, warnings);
     }
 
-    private static OperationResult BuildOne(CamJob job, CamOperationSpec s, MachineProfile? machine)
+    /// <summary>
+    /// CAM-AR-01: sem operação que comece no material, o caminho de sempre. Com alguma, as operações são geradas e simuladas em ordem
+    /// (<see cref="CamStockTimeline"/>), cada uma sobre o bruto da anterior já ajustada. Sem bruto por operação, gera pelo topo digitado e avisa.
+    /// </summary>
+    private static (IReadOnlyList<JobOpResult> Items, IReadOnlyList<string> Notes) Sequence(CamJob job, MachineProfile? machine, ToolBank? bank)
+    {
+        if (!job.Operations.Any(o => o.Enabled && o.TopFromStock))
+        {
+            return (BuildOperations(job, machine), []);
+        }
+
+        CamStockTimeline timeline = CamStockTimeline.Compute(job, machine, bank);
+        if (timeline.Problem is null && timeline.Items.Count == job.Operations.Count)
+        {
+            return (timeline.Items, timeline.StartNotes);
+        }
+
+        string why = (timeline.Problem ?? "sem bruto por operação").TrimEnd('.');
+        List<string> notes = [.. job.Operations.Select((o, i) => (o, i)).Where(x => x.o.Enabled && x.o.TopFromStock).Select(x => CamStockStart.KeptNote(x.i, why))];
+        return (BuildOperations(job, machine), notes);
+    }
+
+    internal static OperationResult BuildOne(CamJob job, CamOperationSpec s, MachineProfile? machine)
     {
         if (CamJobInfo.MissingError(s) is { } missing)
         {

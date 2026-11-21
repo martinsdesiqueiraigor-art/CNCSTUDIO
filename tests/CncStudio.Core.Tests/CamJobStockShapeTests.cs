@@ -216,10 +216,10 @@ public class CamJobStockShapeTests
     [Fact]
     public void Leitor_recusa_versao_maior_que_a_atual()
     {
-        string json = CamJobJson.ToJson(Job()).Replace("\"version\": 1", "\"version\": 9");
+        string json = CamJobJson.ToJson(Job()).Replace("\"version\": 1", "\"version\": 10");
         JobLoadResult r = CamJobJson.FromJson(json);
         Assert.False(r.Ok);
-        Assert.Contains("versão mais nova (9)", r.Error);
+        Assert.Contains("versão mais nova (10)", r.Error);
     }
 
     [Fact]

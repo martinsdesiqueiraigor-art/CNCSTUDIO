@@ -164,4 +164,7 @@ public static class JobGeometry
 
     /// <summary>Versão 8 (CAM-ILHAS-01): algum bolsão usa o filtro automático de laços. Sem ele, o arquivo sai como antes.</summary>
     public static bool NeedsVersion8(CamJob job) => job.Operations.Any(o => o.Geometry?.Loops == LoopFilter.Auto);
+
+    /// <summary>CAM-AR-01: versão 9 só quando alguma operação começa no material; sem isso o arquivo sai como antes.</summary>
+    public static bool NeedsVersion9(CamJob job) => job.Operations.Any(o => o.TopFromStock);
 }
