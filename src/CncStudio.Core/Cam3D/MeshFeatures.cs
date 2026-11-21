@@ -323,8 +323,8 @@ public sealed class MeshFeatures
                 continue;
             }
 
-            // sem vizinha nenhuma (malha aberta): nada acima, conta como descendo
-            LoopSide side = up && down ? LoopSide.Mixed : up ? LoopSide.Up : LoopSide.Down;
+            // sem vizinha nenhuma (malha aberta ou com vértice no meio da aresta): conta como subindo, o lado seguro (não corta parede)
+            LoopSide side = up && down ? LoopSide.Mixed : down ? LoopSide.Down : LoopSide.Up;
             result.Add(new SidedLoop(loop, side));
         }
 

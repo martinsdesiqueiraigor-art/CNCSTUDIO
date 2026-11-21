@@ -45,7 +45,7 @@ public class LoopSideTests
     /// Flange: placa 0..60 de topo Z=5 (borda que desce até Z=0), cubo 20..40 até Z=15 e furo 4..8 vazado.
     /// Topo em grade conforme (sem vértice no meio de aresta) para a solda dos laços.
     /// </summary>
-    private static TriangleMesh Flange(bool chamferHole = false)
+    public static TriangleMesh Flange(bool chamferHole = false)
     {
         var t = new List<(Point3, Point3, Point3)>();
         double[] g = [0, 10, 20, 40, 60];
@@ -101,6 +101,14 @@ public class LoopSideTests
 
         return new TriangleMesh(t);
     }
+
+    /// <summary>Malha deslocada em Z (para o topo da peça ficar em Z0, como o bruto bloco absoluto).</summary>
+    public static TriangleMesh Shift(TriangleMesh m, double dz) =>
+        new([.. Enumerable.Range(0, m.TriangleCount).Select(i =>
+        {
+            (Point3 a, Point3 b, Point3 c) = m.Triangle(i);
+            return (new Point3(a.X, a.Y, a.Z + dz), new Point3(b.X, b.Y, b.Z + dz), new Point3(c.X, c.Y, c.Z + dz));
+        })]);
 
     [Fact]
     public void Flange_cubo_sobe_furo_desce_e_borda_desce()
@@ -181,5 +189,14 @@ public class LoopSideTests
         {
             Assert.Equal(plain[i], sided[i].Points);
         }
+    }
+
+    [Fact]
+    public void Laco_sem_vizinha_fica_subindo_o_lado_seguro()
+    {
+        var t = new List<(Point3, Point3, Point3)>();
+        Quad(t, P(0, 0, 5), P(40, 0, 5), P(40, 40, 5), P(0, 40, 5));
+        MeshFeatures f = MeshFeatures.Analyze(new TriangleMesh(t));
+        Assert.Equal(LoopSide.Up, Assert.Single(f.ClassifiedLoops(Face(f, 5))).Side);
     }
 }
