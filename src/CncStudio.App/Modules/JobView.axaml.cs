@@ -88,6 +88,7 @@ public partial class JobView : UserControl
         ActualThemeVariantChanged += (_, _) => Refresh(keep: true, props: false);
         Tree.SelectionChanged += (_, _) =>
         {
+            _holePanelOpen = false;
             ShowTimes();
             UpdateStockScene();
             // linha de Geometria (só leitura): a seleção volta para a operação dona
@@ -525,6 +526,9 @@ public partial class JobView : UserControl
             case "salvar-trabalho":
                 await SaveJob();
                 return;
+            case HolesActionId:
+                OpenHolePanel();
+                return;
         }
 
         AddOperation(item);
@@ -542,7 +546,7 @@ public partial class JobView : UserControl
             string? why = StepReady && item.Kind is JobOpKind.Pocket or JobOpKind.Drilling or JobOpKind.Facing or JobOpKind.Contour && HasSelection
                 ? StepPaletteWhy(item)
                 : CamPalette.Unavailable(item, _job, target, _openChains);
-            CamShell.SetPaletteState(item, button, why);
+            CamShell.SetPaletteState(item, button, item.Id == HolesActionId ? HolesWhy() : why);
         }
     }
 

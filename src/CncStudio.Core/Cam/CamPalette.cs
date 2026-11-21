@@ -72,6 +72,8 @@ public static class CamPalette
         new("furacao", "Furação", true,
         [
             new("furacao", "Furação", "furo", JobOpKind.Drilling, ContourSide.Outside, "Fura os círculos do desenho (G81, G83 ou G73)."),
+            // CAM-FURO-01: ação (não cria operação sozinha); o painel abre à direita. Só vale com a peça STEP lida (a tela apaga o item sem ela)
+            CamPaletteItem.File("furacao-reconhecida", "Furação reconhecida…", "furo", "furacao-reconhecida", "Acha os furos da peça STEP, agrupa por diâmetro e cria a Furação dos grupos marcados."),
             CamPaletteItem.Later("macho", "Macho", "macho", "Rosca com macho nos furos."),
             CamPaletteItem.Later("mandrilhar", "Mandrilhar", "mandrilhar", "Mandrilhamento dos furos."),
         ]),

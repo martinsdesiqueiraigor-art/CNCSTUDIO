@@ -47,6 +47,7 @@ public partial class JobView
     {
         _partMesh = null;
         _partFeatures = null;
+        ForgetHoles();
         _partSelection.Clear();
         _partAnalysis++;
     }
@@ -290,6 +291,7 @@ public partial class JobView
         TriangleMesh placed = CamJobPart.Place(raw, part.Turns, part.TopAtZero);
         _partMesh = (path, raw, placed);
         _partFeatures = null;
+        ForgetHoles();
         _partSelection.Clear();
         _partEdges.Clear();
         int mine = ++_partAnalysis;
@@ -301,6 +303,7 @@ public partial class JobView
         }
 
         _partFeatures = features;
+        ReadHoles(features, placed);
         // STEP-OPS: operação cuja face não é achada neste STEP fica Incompleta até Reselecionar (salvar continua livre)
         int pending = CamJobFromGeometry.Reconcile(_job, features);
         Refresh(keep: true);
@@ -318,7 +321,7 @@ public partial class JobView
             int[] chosen = _partFeatures is { } f ? [.. _partSelection.SelectMany(i => f.Faces[i].Triangles).Concat(SelectedOpTriangles()).Concat(HoverParts().Triangles).Distinct()] : [];
             // arestas escolhidas (e as da operação escolhida na árvore) acendem em laranja
             Scene3D.SetPart(m.Placed, chosen, HighlightedEdges());
-            Scene3D.SetLoops([.. SceneLoops(), .. CompareFocusLoops()]);
+            Scene3D.SetLoops([.. SceneLoops(), .. CompareFocusLoops(), .. HoleLoops()]);
         }
         else
         {
