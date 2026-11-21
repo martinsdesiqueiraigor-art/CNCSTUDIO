@@ -220,4 +220,20 @@ public class CamIslandsAutoTests
         Assert.Null(CamJobBuilder.StockSection(job, -25, 6)); // abaixo do bruto
         Assert.Null(CamJobBuilder.StockSection(new CamJob { Name = "S" }, -5, 6)); // sem bruto
     }
+
+    [Fact]
+    public void Rapido_sobe_reto_antes_de_andar_para_nao_cruzar_a_ilha()
+    {
+        CamJob job = FlangePocket();
+        IReadOnlyList<ToolMove> moves = CamJobBuilder.Build(job, null).Operations[0].Moves;
+        for (int i = 1; i < moves.Count; i++)
+        {
+            ToolMove a = moves[i - 1], b = moves[i];
+            bool travels = Math.Abs(a.X - b.X) > 1e-9 || Math.Abs(a.Y - b.Y) > 1e-9;
+            if (b.Kind == MoveKind.Rapid && travels)
+            {
+                Assert.True(a.Z >= b.Z - 1e-9, $"rápido {i} anda e sobe junto: de Z{a.Z} para Z{b.Z}");
+            }
+        }
+    }
 }

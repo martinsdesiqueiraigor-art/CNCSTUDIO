@@ -26,6 +26,11 @@ Ramo: `ajuste-CAM-ILHAS-01` (base `origin/dev` em `d697084`). Tamanho M. **Só C
   - Sem o automático, o texto do arquivo sai igual ao de antes.
   - Arquivo antigo abre e gera igual.
 
+## Correção achada no teste do .exe (21/11, 04:00, liberada pelo Igor)
+- **Defeito (já existia no bolsão com ilhas):** ao trocar de passe, a fresa subia e andava num rápido só (ex.: `G0 X31.973 Z2.` saindo de Z−16) e cruzava a ilha na diagonal. No .exe do PR, a simulação mostrou entalhes no cubo da BOLTED_FLANGE. Na máquina seria colisão. O "Todos" fazia o mesmo.
+- **Correção (`PocketIslands.cs`):** todo rápido que sai do fundo para outro ponto agora sobe reto antes de andar. Só muda o G-code de bolsão com ilhas; nenhum dos 8 de referência tem ilha.
+- **Teste novo:** `Rapido_sobe_reto_antes_de_andar_para_nao_cruzar_a_ilha` (falhava antes da correção: rápido de Z−2,5 a Z2 andando).
+
 ## Decisões técnicas da execução
 - **Na dúvida, sobe.** Laço sem vizinha conhecida (malha aberta, ou vértice no meio da aresta) conta como subindo, que é o lado seguro: vira parede ou ilha e nunca é cortado.
 - **Misto e sem bruto saem como erro com a mensagem, não como "Incompleta".** Motivo: "Incompleta" hoje é só campo vazio ou inválido, e um campo falso daria um texto errado ("Falta …").
@@ -52,13 +57,14 @@ Ramo: `ajuste-CAM-ILHAS-01` (base `origin/dev` em `d697084`). Tamanho M. **Só C
     - versão 8 volta igual e gera o mesmo programa;
     - filtro antigo sem "border" e sem versão 8;
     - corte do bruto bloco.
-- Core: suíte inteira, **2117 verdes**, com `CamJobGoldenTests` (8 G-codes intactos).
+- Core: suíte inteira, **2118 verdes** (depois da correção do rápido), com `CamJobGoldenTests` (8 G-codes intactos).
 - App: build Release, **0 avisos e 0 erros**.
 
 ## O Igor testa no .exe
 1. Abrir a BOLTED_FLANGE com bruto cilindro e criar um **Bolsão novo** clicando na face do topo da flange (a que tem os furos).
-2. Gerar: o cubo do meio fica de pé, a fresa vai até fora da peça, e os furos dos parafusos não dão erro de "ilha perto demais".
-3. Um bolsão antigo (salvo antes, com Todos ou Só o de fora) gera igual a antes.
+2. Antes, remover o bolsão antigo (operação 2 do BOLTED_FLANGEigor), que usina tudo até Z−16. Usar o .exe do PR 214 (o da pasta Downloads é o antigo, do PR 213).
+3. Gerar: o cubo do meio fica de pé, sem entalhes na simulação, a fresa vai até fora da peça, e os furos dos parafusos não dão erro de "ilha perto demais".
+4. Um bolsão antigo (salvo antes, com Todos ou Só o de fora) gera igual a antes.
 
 ## Sem teste
 - Malha real de STEP no .exe (só malhas sintéticas).
