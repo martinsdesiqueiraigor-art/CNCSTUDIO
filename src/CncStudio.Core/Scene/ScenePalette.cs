@@ -92,7 +92,7 @@ public sealed class ScenePalette
     {
         SceneRole.Material => Stock,
         SceneRole.Section => Section,
-        SceneRole.Fixture => Fixture,
+        SceneRole.Fixture or SceneRole.Part => Fixture,
         SceneRole.FixtureJaw => FixtureJaw,
         SceneRole.Tool => Tool,
         SceneRole.Holder => Holder,
