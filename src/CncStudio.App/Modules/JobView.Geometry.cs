@@ -190,6 +190,7 @@ public partial class JobView
         }
 
         Snap();
+        int before = _job.Operations.Count;
         (IReadOnlyList<int> made, string? error) = CamJobFromGeometry.Add(_job, kind, _partFeatures!, SelectedFaces(), SelectedEdges(), PartTopZ, item.Side);
         if (error is not null)
         {
@@ -197,6 +198,7 @@ public partial class JobView
             return true;
         }
 
+        MarkNewOps(before);
         _partSelection.Clear();
         _partEdges.Clear();
         Refresh(op: made[0]);

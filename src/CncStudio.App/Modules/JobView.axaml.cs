@@ -573,6 +573,7 @@ public partial class JobView : UserControl
 
         Snap();
         _job.Operations.Add(ToolBankPick.EmptyTool(spec));
+        MarkNewOps(_job.Operations.Count - 1);
         Refresh(op: _job.Operations.Count - 1);
     }
 
@@ -641,7 +642,13 @@ public partial class JobView : UserControl
     {
         ToolBank? bank = ActiveBank;
         IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.Conflict(o, bank)).OfType<string>();
-        AvisosBox.SetWarnings(_build.Warnings, _stockOn && _job.Operations.Count > 0 ? [.. conflicts, StockStepsCheck] : conflicts);
+        // CAM-AR-01b: avisos de "começar no material" vão como Conferir
+        IEnumerable<string> start = _build.Warnings.Where(IsStartNote);
+        string stockCheck = UsesStockStart
+            ? "Bruto por operação: simulação é verificação, nunca garantia (resolução da grade). Operações em \"começar no material\" usam este bruto no G-code."
+            : StockStepsCheck;
+        IEnumerable<string> checks = _stockOn && _job.Operations.Count > 0 ? [.. conflicts, stockCheck] : conflicts;
+        AvisosBox.SetWarnings(_build.Warnings.Where(w => !IsStartNote(w)), [.. checks, .. start]);
         AvisosBox.SetDerivedErrors(CompareErrors());
     }
 
@@ -655,7 +662,7 @@ public partial class JobView : UserControl
             NameBox.Text = _job.Name;
             DialectCombo.SelectedIndex = _job.Dialect == CamDialect.Siemens ? 1 : 0;
             MachineProfile? machine = MachineSource?.Invoke();
-            _build = CamJobBuilder.Build(_job, machine);
+            _build = BuildNow(machine);
             _builtWith = DataStamp.OfMachine(machine);
             // peça, bruto e fixação: o item continua selecionado depois de refazer a árvore (o editor fica aberto)
             string? keepItem = keep && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "stock" or "part" or "fixture" or "zero" } kt ? kt.Kind : null;
@@ -677,16 +684,9 @@ public partial class JobView : UserControl
         }
 
         Errors.Text = ""; // os erros de geração ficam na barra inferior (clicáveis); aqui só os avisos ao abrir arquivo
-        ShowWarnings();
-        Output.Text = _build.Ok ? _build.Program : "";
+        ShowBuildOutput();
         StartTimes();
         StartStock();
-        bool gcode = _build.Ok && _build.Program.Length > 0;
-        int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
-        CodeTitle.ClearValue(Avalonia.Controls.TextBlock.ForegroundProperty);
-        CodeTitle.Text = gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
-        Bar.Update(PendingItems(), ready, gcode && ready > 0, gcode);
-        CopyButton.IsEnabled = gcode;
         UpdateStatus();
         if (props && _tab == 0)
         {
@@ -695,6 +695,23 @@ public partial class JobView : UserControl
 
         UpdatePreview();
         Update3D();
+    }
+
+    /// <summary>
+    /// Programa na aba Código NC, avisos, barra e Copiar. CAM-AR-01b: enquanto o bruto por operação não volta, o programa digitado
+    /// não aparece nem sai (Enviar e Copiar travados).
+    /// </summary>
+    private void ShowBuildOutput()
+    {
+        ShowWarnings();
+        bool gcode = !_startPending && _build.Ok && _build.Program.Length > 0;
+        Output.Text = gcode ? _build.Program : _startPending ? "(calculando o material: o programa sai quando o bruto por operação terminar)" : "";
+        int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
+        CodeTitle.ClearValue(Avalonia.Controls.TextBlock.ForegroundProperty);
+        CodeTitle.Text = _startPending ? StartPendingTitle
+            : gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
+        Bar.Update(PendingItems(), ready, gcode && ready > 0, gcode);
+        CopyButton.IsEnabled = gcode;
     }
 
     /// <summary>
@@ -756,6 +773,14 @@ public partial class JobView : UserControl
     /// </summary>
     public bool CheckFresh()
     {
+        if (_startPending)
+        {
+            // CAM-AR-01b: programa ainda sem o material das operações anteriores: não sai
+            CopyButton.IsEnabled = false;
+            CodeTitle.Text = StartPendingTitle;
+            return true;
+        }
+
         if (DataStamp.StaleMessage(_builtWith, DataStamp.OfMachine(MachineSource?.Invoke())) is not { } stale)
         {
             return false;

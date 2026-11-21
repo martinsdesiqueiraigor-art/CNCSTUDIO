@@ -103,6 +103,13 @@ public partial class MainWindow
             _settings.CamStockCompare = on;
             _settings.Save();
         };
+        // CAM-AR-01b: operações novas começam no material (preferência local)
+        Cam.JobNewOpsFromStock = _settings.CamNewOpsFromStock;
+        Cam.SaveJobNewOpsFromStock = on =>
+        {
+            _settings.CamNewOpsFromStock = on;
+            _settings.Save();
+        };
         Cam.MachineProfilesSource = () => _settings.MachineProfiles;
         Cam.ActiveMachineSource = () => _settings.ActiveMachineProfile;
         Cam.SetActiveMachine = name =>

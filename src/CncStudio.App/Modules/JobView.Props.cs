@@ -157,6 +157,9 @@ public partial class JobView
                 Num(i, "Z fundo", "mm", s.Levels.BottomZ, (x, v) => x with { Levels = x.Levels with { BottomZ = v } });
                 Num(i, "Passe em Z", "mm", s.Levels.StepDown, (x, v) => x with { Levels = x.Levels with { StepDown = v } });
             }
+
+            // CAM-AR-01b: topo a partir do material (Fusion: Top Height from Stock top)
+            StartSection(i, s);
         }
 
         In("estrategia");

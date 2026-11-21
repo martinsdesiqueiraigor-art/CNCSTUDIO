@@ -204,4 +204,25 @@ public class CamStockStartTests(ITestOutputHelper output)
         Assert.False(back.Job.Operations[0].TopFromStock);
         Assert.Equal(on, CamJobJson.ToJson(back.Job));
     }
+
+    [Fact]
+    public void Programa_do_calculo_fora_da_tela_igual_ao_gerar()
+    {
+        // CAM-AR-01b: a tela usa o bruto por operação já calculado; o programa tem de ser o mesmo do Gerar em sequência
+        CamJob job = FacingThenPocket(true);
+        JobBuild direct = CamJobBuilder.Build(job, null, Flat());
+        JobBuild from = CamJobBuilder.BuildFrom(job, null, CamStockTimeline.Compute(job, null, Flat()));
+        Assert.True(from.Ok, string.Join("; ", from.Errors));
+        Assert.Equal(direct.Program, from.Program);
+        Assert.Equal(direct.Warnings, from.Warnings);
+
+        // sem o cálculo: topo digitado e aviso
+        JobBuild none = CamJobBuilder.BuildFrom(job, null, null);
+        Assert.Equal(CamJobBuilder.Build(FacingThenPocket(false), null).Program, none.Program);
+        Assert.Contains(none.Warnings, w => w.Contains("começar no material não aplicado"));
+
+        // sem operação no material: igual ao Build de sempre
+        CamJob plain = FacingThenPocket(false);
+        Assert.Equal(CamJobBuilder.Build(plain, null).Program, CamJobBuilder.BuildFrom(plain, null, null).Program);
+    }
 }

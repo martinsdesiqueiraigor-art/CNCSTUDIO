@@ -165,6 +165,9 @@ public sealed class AppSettings
     /// <summary>CAM-STOCK-03b: comparar o bruto de cada operação com a peça STEP (gouge e excesso); só da tela, nunca do trabalho.</summary>
     public bool CamStockCompare { get; set; } = true;
 
+    /// <summary>CAM-AR-01b: operações novas nascem com "Topo a partir de: Material". Preferência local; nasce desligada.</summary>
+    public bool CamNewOpsFromStock { get; set; }
+
     /// <summary>Tema da interface: "Dark" ou "Light".</summary>
     public string Theme { get; set; } = "Dark";
 

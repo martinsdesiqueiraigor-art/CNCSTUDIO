@@ -61,6 +61,7 @@ public partial class JobView
         };
         Scene3D.StepChanged += (_, _) => UpdateStockScene();
         SyncStockToggle();
+        InitStart();
         InitCompare();
     }
 
@@ -79,7 +80,7 @@ public partial class JobView
         int version = ++_stockVersion;
         _stockCancel?.Cancel();
         _stockCancel = null;
-        if (!_stockOn || _job.Operations.Count == 0)
+        if ((!_stockOn && !UsesStockStart) || _job.Operations.Count == 0)
         {
             _stockTimeline = null;
             ForgetCompare();
@@ -108,6 +109,7 @@ public partial class JobView
             _stockTimeline = null;
             ForgetCompare();
             _stockBusy = false;
+            ApplyStartBuild();
             ShowStockStates();
             UpdateStockScene();
             return;
@@ -161,6 +163,8 @@ public partial class JobView
         }
 
         _stockBusy = false;
+        // CAM-AR-01b: o programa sai do bruto calculado (ou do digitado, com aviso, quando o cálculo falhou)
+        ApplyStartBuild();
         ShowStockStates();
         UpdateStockScene();
     }
@@ -207,9 +211,13 @@ public partial class JobView
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        Grid.SetColumn(chip, 1);
-        Grid.SetRow(chip, 1);
-        row.Children.Add(chip);
+        // CAM-AR-01b: selo "parte em Z…" ao lado, na mesma célula
+        var cell = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+        cell.Children.Add(MakeStartChip(index));
+        cell.Children.Add(chip);
+        Grid.SetColumn(cell, 1);
+        Grid.SetRow(cell, 1);
+        row.Children.Add(cell);
         _stockChips[index] = chip;
         PaintStockChip(index, chip);
     }
@@ -240,6 +248,8 @@ public partial class JobView
 
         FillStockSection();
         FillCompareTab();
+        PaintStartChips();
+        FillStartSection();
         UpdateStockStatus();
         ShowWarnings();
         SyncCompareToggle();
