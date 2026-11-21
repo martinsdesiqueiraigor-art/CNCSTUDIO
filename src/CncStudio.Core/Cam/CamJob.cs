@@ -357,7 +357,29 @@ public static class CamJobBuilder
             return new JobBuild("", [], [], structure, []);
         }
 
-        (IReadOnlyList<JobOpResult> items, IReadOnlyList<string> startNotes) = Sequence(job, machine, bank);
+        return Assemble(job, machine, Sequence(job, machine, bank));
+    }
+
+    /// <summary>
+    /// CAM-AR-01: o programa a partir de um bruto por operação já calculado fora da tela (o mesmo trabalho, sem mudança depois do
+    /// cálculo), sem simular de novo. <paramref name="timeline"/> null ou sem bruto: gera pelo topo digitado e avisa nas operações
+    /// que começam no material. Sem nenhuma, é igual ao <see cref="Build"/>.
+    /// </summary>
+    public static JobBuild BuildFrom(CamJob job, MachineProfile? machine, CamStockTimeline? timeline)
+    {
+        IReadOnlyList<string> structure = job.Validate();
+        if (structure.Count > 0)
+        {
+            return new JobBuild("", [], [], structure, []);
+        }
+
+        return !job.Operations.Any(o => o.Enabled && o.TopFromStock) ? Assemble(job, machine, (BuildOperations(job, machine), []))
+            : Assemble(job, machine, FromTimeline(job, machine, timeline));
+    }
+
+    private static JobBuild Assemble(CamJob job, MachineProfile? machine, (IReadOnlyList<JobOpResult> Items, IReadOnlyList<string> Notes) built)
+    {
+        (IReadOnlyList<JobOpResult> items, IReadOnlyList<string> startNotes) = built;
         var errors = items.Where(x => !x.Ok).Select(x => $"Operação {x.Index + 1}: {x.Error}").ToList();
         List<CamOperation> ops = items.Where(x => !x.Skipped && x.Ok).Select(x => x.Result!.Operation!).ToList();
         if (errors.Count == 0 && ops.Count == 0)
@@ -407,13 +429,17 @@ public static class CamJobBuilder
             return (BuildOperations(job, machine), []);
         }
 
-        CamStockTimeline timeline = CamStockTimeline.Compute(job, machine, bank);
-        if (timeline.Problem is null && timeline.Items.Count == job.Operations.Count)
+        return FromTimeline(job, machine, CamStockTimeline.Compute(job, machine, bank));
+    }
+
+    private static (IReadOnlyList<JobOpResult> Items, IReadOnlyList<string> Notes) FromTimeline(CamJob job, MachineProfile? machine, CamStockTimeline? timeline)
+    {
+        if (timeline is { Problem: null } && timeline.Items.Count == job.Operations.Count)
         {
             return (timeline.Items, timeline.StartNotes);
         }
 
-        string why = (timeline.Problem ?? "sem bruto por operação").TrimEnd('.');
+        string why = (timeline?.Problem ?? "sem bruto por operação").TrimEnd('.');
         List<string> notes = [.. job.Operations.Select((o, i) => (o, i)).Where(x => x.o.Enabled && x.o.TopFromStock).Select(x => CamStockStart.KeptNote(x.i, why))];
         return (BuildOperations(job, machine), notes);
     }

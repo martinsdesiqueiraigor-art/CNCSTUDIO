@@ -35,6 +35,8 @@
       <!-- CAM-STOCK-02: bruto depois de cada operação (preferência do app, nunca no trabalho) -->
       <ToggleButton x:Name="StockStepsToggle" DockPanel.Dock="Right" IsChecked="True" Content="Bruto por operação: Ligado" Padding="10,3" MinHeight="26" FontSize="12" CornerRadius="13" VerticalAlignment="Center" Margin="6,0,0,0" />
       <!-- CAM-STOCK-03b: peça × bruto (gouge e excesso), preferência do app -->
+      <!-- CAM-AR-01b: operações novas começam no material (preferência do app, nunca no trabalho) -->
+      <ToggleButton x:Name="NewOpsStockToggle" DockPanel.Dock="Right" IsChecked="False" Content="Novas no material: Desligado" Padding="10,3" MinHeight="26" FontSize="12" CornerRadius="13" VerticalAlignment="Center" Margin="6,0,0,0" />
       <ToggleButton x:Name="StockCompareToggle" DockPanel.Dock="Right" IsChecked="True" Content="Peça × bruto: Ligada" Padding="10,3" MinHeight="26" FontSize="12" CornerRadius="13" VerticalAlignment="Center" Margin="6,0,0,0" />
       <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <StackPanel x:Name="Palette" Orientation="Horizontal" Spacing="0" />
