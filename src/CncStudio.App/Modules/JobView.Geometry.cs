@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Media;
 using CncStudio.Core.Assist;
 using CncStudio.Core.Cam;
 using CncStudio.Core.Cam3D;
@@ -89,6 +90,30 @@ public partial class JobView
         foreach (GeoRef r in geo.Refs)
         {
             node.Items.Add(Line(JobGeometry.Describe(r), geo with { Refs = [r] }, lost.Contains(r)));
+        }
+
+        // CAM-ILHAS-02: no Automático, uma linha por papel ("1 ilha", "8 furos ignorados", "borda aberta") na cor do 3D
+        foreach (IGrouping<LoopRole, LoopItem> g in AutoLoops(opIndex).GroupBy(l => l.Role).OrderBy(g => g.Key switch { LoopRole.Island => 0, LoopRole.Ignored => 1, LoopRole.OpenBorder or LoopRole.ClosedBorder => 2, _ => 3 }))
+        {
+            int n = g.Count();
+            string text = g.Key switch
+            {
+                LoopRole.Island => n == 1 ? "1 ilha" : $"{n} ilhas",
+                LoopRole.Ignored => n == 1 ? "1 furo ignorado" : $"{n} furos ignorados",
+                LoopRole.OpenBorder => "borda aberta",
+                LoopRole.ClosedBorder => "bolsão fechado",
+                _ => n == 1 ? "1 laço misto" : $"{n} laços mistos",
+            };
+            Grid row = TreeRow(text, null, LoopSwatch(g.Key), null, "Passe o mouse para acender no 3D");
+            if (row.Children.OfType<TextBlock>().FirstOrDefault() is { } label)
+            {
+                label.Foreground = LoopBrush(g.Key);
+            }
+
+            LoopRole role = g.Key;
+            row.PointerEntered += (_, _) => HoverLoop(role);
+            row.PointerExited += (_, _) => HoverLoop(null);
+            node.Items.Add(UiKit.StateItem(row, new TreeTag("geo", opIndex)));
         }
 
         node.IsExpanded = _geoExpanded.Contains(opIndex);
@@ -188,6 +213,11 @@ public partial class JobView
             return [];
         }
 
+        if (AutoLoops(i).Count > 0)
+        {
+            return []; // CAM-ILHAS-02: no Automático os laços coloridos mostram a face; o laranja por cima esconderia a borda aberta
+        }
+
         (IReadOnlyList<MeshFace> faces, _, _) = JobGeometry.Resolve(features, geo);
         return faces.SelectMany(f => f.Triangles);
     }
@@ -245,8 +275,13 @@ public partial class JobView
             if (s.Kind == JobOpKind.Pocket)
             {
                 PropsPanel.Children.Add(Choices(
+                    Choice("Automático", geo.Loops == LoopFilter.Auto, () => ChangeGeometry(i, geo.Refs, LoopFilter.Auto), "Como os outros CAMs: o que sobe vira ilha, furo fica de fora e a borda que desce vai até o bruto."),
                     Choice("Todos", geo.Loops == LoopFilter.All, () => ChangeGeometry(i, geo.Refs, LoopFilter.All), "Contorno de fora e as ilhas (e furos) dentro da face."),
                     Choice("Só o de fora", geo.Loops == LoopFilter.Outer, () => ChangeGeometry(i, geo.Refs, LoopFilter.Outer), "Esvazia tudo, sem deixar ilhas.")));
+                if (geo.Loops == LoopFilter.Auto)
+                {
+                    LoopListSection(AutoLoops(i));
+                }
             }
             else
             {
@@ -315,5 +350,93 @@ public partial class JobView
         Refresh(op: i);
         ShowPartInScene();
         Errors.Text = "• Geometria da operação trocada. " + CamJobPart.MeshContourNote;
+    }
+
+    // CAM-ILHAS-02: o que o bolsão automático faz com cada laço (resumo, lista, linhas na árvore e cores no 3D)
+    private (MeshFeatures? Features, GeoSource? Geo, IReadOnlyList<LoopItem> Items) _loopCache = (null, null, []);
+    private LoopRole? _hoverLoop;
+
+    /// <summary>Laços do bolsão automático da operação <paramref name="i"/> (vazio se não for bolsão automático ou sem peça lida).</summary>
+    private IReadOnlyList<LoopItem> AutoLoops(int i)
+    {
+        if (_partFeatures is not { } features || i < 0 || i >= _job.Operations.Count
+            || _job.Operations[i] is not { Kind: JobOpKind.Pocket, Geometry: { Loops: LoopFilter.Auto } geo })
+        {
+            return [];
+        }
+
+        if (!ReferenceEquals(_loopCache.Features, features) || _loopCache.Geo != geo)
+        {
+            (IReadOnlyList<MeshFace> faces, _, _) = JobGeometry.Resolve(features, geo);
+            _loopCache = (features, geo, PocketLoopReport.Describe(features, faces));
+        }
+
+        return _loopCache.Items;
+    }
+
+    /// <summary>Laços da operação escolhida para o 3D, cada um na cor do papel; o papel sob o mouse na árvore acende em branco.</summary>
+    private IReadOnlyList<(IReadOnlyList<Point3> Points, uint Color)> SceneLoops() =>
+        SelectedOp() is { } i
+            ? [.. AutoLoops(i).Select(l => (l.Points, _hoverLoop == l.Role ? 0xFFFFFFu : l.Role == LoopRole.Ignored ? 0x4A5058u : PocketLoopReport.ColorOf(l.Role)))]
+            : [];
+
+    private void HoverLoop(LoopRole? role)
+    {
+        _hoverLoop = role;
+        ShowPartInScene();
+    }
+
+    private static IBrush LoopBrush(LoopRole role) => new SolidColorBrush(Color.FromUInt32(0xFF000000 | PocketLoopReport.ColorOf(role)));
+
+    /// <summary>Traço curto na cor do papel (cheio na ilha; dividido no ignorado e na borda aberta, como na imagem aprovada).</summary>
+    private static Control LoopSwatch(LoopRole role)
+    {
+        IBrush brush = LoopBrush(role);
+        bool dashed = role is LoopRole.Ignored or LoopRole.OpenBorder;
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Width = 14 };
+        if (dashed)
+        {
+            panel.Children.Add(new Border { Width = 6, Height = 3, Background = brush });
+            panel.Children.Add(new Border { Width = 6, Height = 3, Background = brush });
+        }
+        else
+        {
+            panel.Children.Add(new Border { Width = 14, Height = 3, Background = brush });
+        }
+
+        return panel;
+    }
+
+    /// <summary>Resumo e lista dos laços na aba Estratégia (só no filtro Automático).</summary>
+    private void LoopListSection(IReadOnlyList<LoopItem> items)
+    {
+        if (items.Count == 0)
+        {
+            PropsPanel.Children.Add(Note("Mostre a peça no 3D (lê o STEP) para ver o que o Automático faz com cada laço."));
+            return;
+        }
+
+        string summary = PocketLoopReport.Summary(items);
+        string detail = items.Any(l => l.Role == LoopRole.OpenBorder)
+            ? "A borda vai até o bruto + raio da fresa + 1 mm."
+            : items.Any(l => l.Role == LoopRole.Mixed) ? "Limite misto: escolha Todos ou Só o de fora." : "A fresa fica dentro da parede de fora.";
+        PropsPanel.Children.Add(UiKit.StatusNote(summary + ". " + detail, items.Any(l => l.Role == LoopRole.Mixed) ? "bad" : "info"));
+        foreach (LoopGroup g in PocketLoopReport.Group(items))
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 2, 0, 0), Background = Brushes.Transparent };
+            var effect = new TextBlock { Text = g.Effect, FontSize = 11, Foreground = LoopBrush(g.Role), VerticalAlignment = VerticalAlignment.Center };
+            DockPanel.SetDock(effect, Dock.Right);
+            row.Children.Add(effect);
+            Control sw = LoopSwatch(g.Role);
+            sw.Margin = new Thickness(0, 0, 8, 0);
+            DockPanel.SetDock(sw, Dock.Left);
+            row.Children.Add(sw);
+            row.Children.Add(new TextBlock { Text = g.Name, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
+            LoopRole role = g.Role;
+            row.PointerEntered += (_, _) => HoverLoop(role);
+            row.PointerExited += (_, _) => HoverLoop(null);
+            ToolTip.SetTip(row, "Passe o mouse para acender no 3D.");
+            PropsPanel.Children.Add(row);
+        }
     }
 }

@@ -41,4 +41,7 @@ public enum SceneRole
 
     /// <summary>Arestas da peça escolhidas para uma operação (Trabalho fresa com peça STEP): linha laranja por cima de tudo.</summary>
     Highlight,
+
+    /// <summary>Peça pronta (STEP) no Trabalho fresa: sólida, transparente sobre o material ou quase invisível (aramado). Opacidade em <see cref="SceneSnapshot.PartOpacity"/>.</summary>
+    Part,
 }

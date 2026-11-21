@@ -23,7 +23,7 @@ public sealed record SceneSnapshot(IReadOnlyList<SceneObjectState> Objects, IRea
     public float[] PartMatrix { get; init; } = SimulationScene.IdentityMatrix;
 
     /// <summary>Papéis que giram junto com a mesa.</summary>
-    public static bool RotatesWithTable(SceneRole role) => role is SceneRole.Material or SceneRole.Section or SceneRole.Fixture or SceneRole.FixtureJaw
+    public static bool RotatesWithTable(SceneRole role) => role is SceneRole.Material or SceneRole.Section or SceneRole.Fixture or SceneRole.FixtureJaw or SceneRole.Part
         or SceneRole.FeedPath or SceneRole.RapidPath or SceneRole.RapidInMaterial or SceneRole.CurrentPath;
 
     /// <summary>
@@ -33,7 +33,15 @@ public sealed record SceneSnapshot(IReadOnlyList<SceneObjectState> Objects, IRea
     public float MaterialOpacity { get; init; } = 1f;
 
     /// <summary>Opacidade com que a tela desenha um papel (1 para tudo que não é material).</summary>
-    public float OpacityOf(SceneRole role) => role is SceneRole.Material or SceneRole.Section ? MaterialOpacity : 1f;
+    public float OpacityOf(SceneRole role) => role switch
+    {
+        SceneRole.Material or SceneRole.Section => MaterialOpacity,
+        SceneRole.Part => PartOpacity,
+        _ => 1f,
+    };
+
+    /// <summary>Opacidade da peça pronta (<see cref="SceneRole.Part"/>), CAM-ILHAS-02: 1 = sólida; menor deixa ver o material por baixo.</summary>
+    public float PartOpacity { get; init; } = 1f;
 }
 
 /// <summary>Uma malha da cena com o papel dela e um deslocamento (a ferramenta anda; o resto fica parado).</summary>

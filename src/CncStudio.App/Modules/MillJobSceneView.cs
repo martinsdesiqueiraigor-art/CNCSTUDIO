@@ -131,9 +131,12 @@ public sealed class MillJobSceneView : Grid
             ("Sólido", () => Set(_options with { Stock = StockDisplay.Solid }), () => _options.Stock == StockDisplay.Solid, null),
             ("Transparente", () => Set(_options with { Stock = StockDisplay.Transparent }), () => _options.Stock == StockDisplay.Transparent, null),
             ("Oculto", () => Set(_options with { Stock = StockDisplay.Hidden }), () => _options.Stock == StockDisplay.Hidden, null));
+        // CAM-ILHAS-02: com peça STEP, Sólida e Transparente valem; só com contornos 2D ficam apagadas com a dica
+        Func<string?> noSolid = () => _part is null ? CamViewOptions.MissingPartHeight : null;
         _partChip.Flyout = Menu(
-            ("Sólida", () => Set(_options with { Part = PartDisplay.Solid }), () => _options.Part == PartDisplay.Solid, CamViewOptions.MissingPartHeight),
-            ("Aramado", () => Set(_options with { Part = PartDisplay.Wireframe }), () => _options.EffectivePart(hasSolidPart: false) == PartDisplay.Wireframe, null),
+            ("Sólida", () => Set(_options with { Part = PartDisplay.Solid }), () => ShownPart == PartDisplay.Solid, noSolid),
+            ("Transparente", () => Set(_options with { Part = PartDisplay.Transparent }), () => ShownPart == PartDisplay.Transparent, noSolid),
+            ("Aramado", () => Set(_options with { Part = PartDisplay.Wireframe }), () => ShownPart == PartDisplay.Wireframe, null),
             ("Oculta", () => Set(_options with { Part = PartDisplay.Hidden }), () => _options.Part == PartDisplay.Hidden, null));
 
         _edgesChip.IsCheckedChanged += (_, _) => FromToggle(o => o with { Edges = _edgesChip.IsChecked == true });
@@ -185,6 +188,7 @@ public sealed class MillJobSceneView : Grid
         _material = material;
         _materialZero = zero;
         _materialVersion++;
+        SyncChips();
         Rebuild();
     }
 
@@ -282,6 +286,7 @@ public sealed class MillJobSceneView : Grid
         bool newPart = part is not null && !ReferenceEquals(part, _part);
         _part = part;
         _selected = [.. selectedTriangles];
+        SyncChips();
         Rebuild();
         if (newPart)
         {
@@ -289,6 +294,45 @@ public sealed class MillJobSceneView : Grid
             Dispatcher.UIThread.Post(() => _gl.Fit(SceneView.Isometric), DispatcherPriority.Background);
         }
     }
+
+    private (float[] Positions, uint Color)[] _loops = [];
+
+    /// <summary>
+    /// CAM-ILHAS-02: laços da face do bolsão automático, cada um na cor do papel (ilha, ignorado, borda aberta, misto).
+    /// Linhas por cima de tudo; vazio apaga. Só mostra.
+    /// </summary>
+    public void SetLoops(IReadOnlyList<(IReadOnlyList<Point3> Points, uint Color)> loops)
+    {
+        _loops = [.. loops.GroupBy(l => l.Color).Select(g =>
+        {
+            var segs = new List<float>();
+            foreach ((IReadOnlyList<Point3> pts, uint _) in g)
+            {
+                for (int k = 0; k < pts.Count; k++)
+                {
+                    Point3 a = pts[k], b = pts[(k + 1) % pts.Count];
+                    // um fio acima da face, para não sumir dentro dela
+                    segs.AddRange([(float)a.X, (float)a.Y, (float)(a.Z + 0.05), (float)b.X, (float)b.Y, (float)(b.Z + 0.05)]);
+                }
+            }
+
+            return (segs.ToArray(), g.Key);
+        })];
+        Rebuild();
+    }
+
+    /// <summary>Modo da peça na tela: com o bruto de uma operação na tela, a peça sólida vira transparente para não esconder o material.</summary>
+    private PartDisplay ShownPart
+    {
+        get
+        {
+            PartDisplay mode = _options.EffectivePart(hasSolidPart: _part is not null);
+            return mode == PartDisplay.Solid && _material is not null && _part is not null ? PartDisplay.Transparent : mode;
+        }
+    }
+
+    /// <summary>Opacidade da peça transparente e do aramado da peça STEP (as arestas continuam desenhadas).</summary>
+    private const float PartTransparentOpacity = 0.3f, PartWireOpacity = 0.06f;
 
     private void Rebuild()
     {
@@ -298,7 +342,7 @@ public sealed class MillJobSceneView : Grid
         }
 
         SceneSnapshot scene = CamJobScene.BuildResolved(_stock, _contours, _path, _options, zero: _zero);
-        if (_material is { } material)
+        if (_material is { } material && _options.Stock != StockDisplay.Hidden)
         {
             // CAM-STOCK-02: o material simulado no lugar do bloco inteiro (mesma posição: programa + zero)
             var objects = scene.Objects.Where(o => o.Id != CamJobScene.StockId).ToList();
@@ -311,26 +355,39 @@ public sealed class MillJobSceneView : Grid
 
             scene = scene with { Objects = objects, Bounds = b };
         }
-        if (_part is { TriangleCount: > 0 } part && _options.Part != PartDisplay.Hidden)
+        PartDisplay partMode = ShownPart;
+        if (_part is { TriangleCount: > 0 } part && partMode != PartDisplay.Hidden)
         {
-            // peça STEP: opaca mesmo com o bruto transparente (papel de fixação só para a opacidade); faces escolhidas em laranja
+            // peça STEP: sólida (papel de fixação, opaca mesmo com o bruto transparente), transparente sobre o material ou quase
+            // invisível no aramado (papel peça, CAM-ILHAS-02); faces escolhidas em laranja, sempre opacas
+            SceneRole role = partMode == PartDisplay.Solid ? SceneRole.Fixture : SceneRole.Part;
             var objects = scene.Objects.ToList();
             if (_selected.Length == 0)
             {
-                objects.Add(new SceneObjectState(PartId, SceneRole.Fixture, part.ToSolidMesh(), _partVersion, Point3.Origin, true));
+                objects.Add(new SceneObjectState(PartId, role, part.ToSolidMesh(), _partVersion, Point3.Origin, true));
             }
             else
             {
-                objects.Add(new SceneObjectState(PartId, SceneRole.Fixture, part.Subset(_selected, invert: true).ToSolidMesh(), _partVersion, Point3.Origin, true));
+                objects.Add(new SceneObjectState(PartId, role, part.Subset(_selected, invert: true).ToSolidMesh(), _partVersion, Point3.Origin, true));
                 objects.Add(new SceneObjectState(PartId + "/selecao", SceneRole.Fixture, part.Subset(_selected).ToSolidMesh(0xFF9F1C), _partVersion, Point3.Origin, true));
             }
 
             Bounds3 b = scene.Bounds.Include(part.Bounds.Min).Include(part.Bounds.Max);
-            scene = scene with { Objects = objects, Bounds = b };
+            scene = scene with
+            {
+                Objects = objects,
+                Bounds = b,
+                PartOpacity = partMode == PartDisplay.Wireframe ? PartWireOpacity : PartTransparentOpacity,
+            };
             if (_edgeLines.Length > 0)
             {
                 scene = scene with { Lines = [.. scene.Lines, new SceneLinesState(SceneRole.Highlight, _edgeLines, 0xFF9F1C)] };
             }
+        }
+
+        if (_loops.Length > 0)
+        {
+            scene = scene with { Lines = [.. scene.Lines, .. _loops.Select(l => new SceneLinesState(SceneRole.Highlight, l.Positions, l.Color))] };
         }
 
         _partVersion++;
@@ -368,9 +425,8 @@ public sealed class MillJobSceneView : Grid
     {
         _syncing = true;
         _stockChip.Content = "Bruto: " + _options.Stock switch { StockDisplay.Solid => "Sólido", StockDisplay.Hidden => "Oculto", _ => "Transparente" } + " ▾";
-        // a peça sólida ainda não existe (falta a altura): mostra o que está na tela
-        PartDisplay shown = _options.EffectivePart(hasSolidPart: false);
-        _partChip.Content = "Peça: " + shown switch { PartDisplay.Solid => "Sólida", PartDisplay.Hidden => "Oculta", _ => "Aramado" } + " ▾";
+        // mostra o que está na tela: sem peça STEP não há sólido (os contornos 2D viram aramado)
+        _partChip.Content = "Peça: " + ShownPart switch { PartDisplay.Solid => "Sólida", PartDisplay.Hidden => "Oculta", PartDisplay.Transparent => "Transparente", _ => "Aramado" } + " ▾";
         _edgesChip.IsChecked = _options.Edges;
         _pathChip.IsChecked = _options.Path;
         _rapidsChip.IsChecked = _options.Rapids;
@@ -380,31 +436,28 @@ public sealed class MillJobSceneView : Grid
         _syncing = false;
     }
 
-    private MenuFlyout Menu(params (string Text, Action Pick, Func<bool> Current, string? DisabledTip)[] items)
+    private static MenuFlyout Menu(params (string Text, Action Pick, Func<bool> Current, Func<string?>? DisabledTip)[] items)
     {
         var flyout = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedLeft };
-        var entries = new List<(MenuItem Item, Func<bool> Current, string Text)>();
-        foreach ((string text, Action pick, Func<bool> current, string? disabledTip) in items)
+        var entries = new List<(MenuItem Item, Func<bool> Current, string Text, Func<string?>? DisabledTip)>();
+        foreach ((string text, Action pick, Func<bool> current, Func<string?>? disabledTip) in items)
         {
             var item = new MenuItem { Header = text, FontSize = 13 };
-            if (disabledTip is not null)
-            {
-                // fica apagado com a dica do porquê
-                item.IsEnabled = false;
-                item.Header = text + " (contornos do DXF: em breve)";
-                ToolTip.SetTip(item, disabledTip);
-                ToolTip.SetShowOnDisabled(item, true);
-            }
-
             item.Click += (_, _) => pick();
-            entries.Add((item, current, text));
+            entries.Add((item, current, text, disabledTip));
             flyout.Items.Add(item);
         }
 
         flyout.Opening += (_, _) =>
         {
-            foreach ((MenuItem item, Func<bool> current, string _) in entries)
+            foreach ((MenuItem item, Func<bool> current, string text, Func<string?>? disabledTip) in entries)
             {
+                // apagado com a dica do porquê enquanto não dá (ex.: peça sólida sem STEP)
+                string? why = disabledTip?.Invoke();
+                item.IsEnabled = why is null;
+                item.Header = why is null ? text : text + " (contornos do DXF: em breve)";
+                ToolTip.SetTip(item, why);
+                ToolTip.SetShowOnDisabled(item, why is not null);
                 item.Icon = current() && item.IsEnabled ? new TextBlock { Text = "✓", FontSize = 13 } : null;
             }
         };
