@@ -31,6 +31,7 @@ public partial class JobView
 
     private void BuildProps()
     {
+        _stockSection = null;
         PropsPanel.Children.Clear();
         _opTabs = null;
         _fieldBoxes.Clear();
@@ -249,6 +250,7 @@ public partial class JobView
         }
 
         _propsTarget = null;
+        AddStockSection(i);
         RefreshTabMarks(i);
     }
 

@@ -33,6 +33,7 @@ public partial class JobView : UserControl
         Cube.Pick = view => Scene3D.Fit(view); // cubo de vistas: usa as vistas que a cena já tem
         // chips do 3D: cada mudança vai para o config do app
         Scene3D.OptionsChanged += (_, o) => SaveViewOptions?.Invoke(o.ToText());
+        InitStock();
         // M3D-2: clique numa face da peça STEP no 3D
         Scene3D.SceneClicked += OnPartClicked;
         TabStrip = BuildTabs();
@@ -88,6 +89,7 @@ public partial class JobView : UserControl
         Tree.SelectionChanged += (_, _) =>
         {
             ShowTimes();
+            UpdateStockScene();
             // linha de Geometria (só leitura): a seleção volta para a operação dona
             if (!_busy && (Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "geo" } geoTag)
             {
@@ -635,7 +637,7 @@ public partial class JobView : UserControl
     {
         ToolBank? bank = ActiveBank;
         IEnumerable<string> conflicts = _job.Operations.Where(o => o.Enabled).Select(o => ToolBankPick.Conflict(o, bank)).OfType<string>();
-        AvisosBox.SetWarnings(_build.Warnings, conflicts);
+        AvisosBox.SetWarnings(_build.Warnings, _stockOn && _job.Operations.Count > 0 ? [.. conflicts, StockStepsCheck] : conflicts);
     }
 
     private void Refresh(int? op = null, bool keep = false, bool props = true)
@@ -673,6 +675,7 @@ public partial class JobView : UserControl
         ShowWarnings();
         Output.Text = _build.Ok ? _build.Program : "";
         StartTimes();
+        StartStock();
         bool gcode = _build.Ok && _build.Program.Length > 0;
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
         CodeTitle.ClearValue(Avalonia.Controls.TextBlock.ForegroundProperty);
@@ -905,6 +908,8 @@ public partial class JobView : UserControl
                 CamJobZero.Position(_job) ?? default);
             ShowPartInScene();
         }
+
+        UpdateStockScene();
     }
 
     /// <summary>Seleciona o contorno na árvore (o clique na vista 2D); a vista e as propriedades acompanham.</summary>
@@ -949,6 +954,7 @@ public partial class JobView : UserControl
     private void BuildTree(int? selectOp, int? selectContour)
     {
         _timeLabels.Clear();
+        _stockChips.Clear();
         _hoverGeometry = null; // as linhas antigas somem: o mouse não está mais sobre nenhuma
         Tree.Items.Clear();
         TreeViewItem? select = null;
@@ -1069,6 +1075,7 @@ public partial class JobView : UserControl
 
         Grid row = TreeRow(CamJobInfo.OpTitle(i, spec), ("neutral", " "), lead, eye, tip);
         KeepTimeLabel(i, row);
+        AddStockChip(i, row);
         row.Opacity = spec.Enabled ? 1 : 0.55;
         TreeViewItem opItem = UiKit.StateItem(row, new TreeTag("op", i));
         if (GeometryNode(i, spec) is { } geometry)

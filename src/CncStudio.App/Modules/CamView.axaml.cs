@@ -139,6 +139,19 @@ public partial class CamView : UserControl
         set => JobPanel.ViewOptions = value;
     }
 
+    /// <summary>Chave "Bruto por operação" guardada nas preferências (CAM-STOCK-02).</summary>
+    public bool JobStockSteps
+    {
+        set => JobPanel.StockSteps = value;
+    }
+
+    /// <summary>Guarda a chave "Bruto por operação".</summary>
+    public Action<bool>? SaveJobStockSteps
+    {
+        get => JobPanel.SaveStockSteps;
+        set => JobPanel.SaveStockSteps = value;
+    }
+
     /// <summary>Guarda as escolhas dos chips do 3D do Trabalho fresa.</summary>
     public Action<string>? SaveJobViewOptions
     {
