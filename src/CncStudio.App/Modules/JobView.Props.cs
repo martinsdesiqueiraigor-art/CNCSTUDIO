@@ -36,6 +36,12 @@ public partial class JobView
         _opTabs = null;
         _fieldBoxes.Clear();
         _fixtureKind = null;
+        if (_holePanelOpen && _holeReport is not null)
+        {
+            HolePanel();
+            return;
+        }
+
         if ((Tree.SelectedItem as TreeViewItem)?.Tag is TreeTag { Kind: "part" })
         {
             PartProps();
