@@ -36,6 +36,12 @@ public enum PocketStrategy
 
     /// <summary>Espiral contínua de dentro para fora, terminando numa volta na parede.</summary>
     Spiral,
+
+    /// <summary>
+    /// CAM-ADAPT-01: desbaste adaptativo (Fusion 2D Adaptive): largura de corte nunca acima da carga ótima, caminho suave,
+    /// ligações por baixo e volta na parede no fim de cada nível. Na tela é a operação "Desbaste adaptativo".
+    /// </summary>
+    Adaptive,
 }
 
 public static partial class CamOperations
@@ -45,6 +51,11 @@ public static partial class CamOperations
     /// <summary>Confere os números das escolhas novas do bolsão. Null = bom.</summary>
     internal static string? PocketOptionsError(PocketParams p, CamTool tool)
     {
+        if (p.Strategy == PocketStrategy.Adaptive && AdaptiveError(p, tool) is { } adaptive)
+        {
+            return adaptive;
+        }
+
         switch (p.Entry)
         {
             case PocketEntry.Ramp when !(p.RampAngle > 0 && p.RampAngle < 90):

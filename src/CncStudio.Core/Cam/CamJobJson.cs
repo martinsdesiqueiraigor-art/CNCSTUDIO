@@ -47,7 +47,8 @@ public static class CamJobJson
     {
         // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
         // BANCO-01 (versão 5): operação com campo vazio é salva com a lista dos vazios (o app antigo não lê e não supõe o valor)
-        int version = JobGeometry.NeedsVersion9(job) ? 9
+        int version = JobGeometry.NeedsVersion10(job) ? 10
+            : JobGeometry.NeedsVersion9(job) ? 9
             : JobGeometry.NeedsVersion8(job) ? 8
             : CamJobInfo.NeedsVersion7(job) ? 7
             : JobGeometry.NeedsVersion6(job) ? 6
@@ -362,6 +363,15 @@ public static class CamJobJson
                 pocketNode["rampAngle"] = p.RampAngle;
                 pocketNode["helixDiameter"] = p.HelixDiameter;
                 pocketNode["helixPitch"] = p.HelixPitch;
+            }
+
+            // CAM-ADAPT-01 (versão 10): só no desbaste adaptativo
+            if (p.Strategy == PocketStrategy.Adaptive)
+            {
+                pocketNode["optimalLoad"] = p.OptimalLoad;
+                pocketNode["minRadius"] = p.MinRadius;
+                pocketNode["bothWays"] = p.BothWays;
+                pocketNode["floorAllowance"] = p.FloorAllowance;
             }
 
             o["pocketParams"] = pocketNode;
@@ -740,6 +750,17 @@ public static class CamJobJson
                     RampAngle = Num(p, "rampAngle"),
                     HelixDiameter = Num(p, "helixDiameter"),
                     HelixPitch = Num(p, "helixPitch"),
+                };
+            }
+
+            if (p["optimalLoad"] is not null)
+            {
+                pocket = pocket with
+                {
+                    OptimalLoad = Num(p, "optimalLoad"),
+                    MinRadius = Num(p, "minRadius"),
+                    BothWays = Bool(p, "bothWays"),
+                    FloorAllowance = Num(p, "floorAllowance"),
                 };
             }
 

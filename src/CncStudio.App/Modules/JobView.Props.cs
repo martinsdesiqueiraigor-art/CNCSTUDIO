@@ -197,7 +197,7 @@ public partial class JobView
                     Num(i, CamJobInfo.HelixPitchField, "mm", p.HelixPitch, (x, v) => x with { PocketParams = x.PocketParams! with { HelixPitch = v } });
                 }
 
-                Pick(i, "Estratégia", ["Anéis de fora para dentro", "Zigue-zague", "Anéis de dentro para fora", "Espiral"], (int)p.Strategy, (x, n) => x with { PocketParams = x.PocketParams! with { Strategy = (PocketStrategy)n } }, rebuild: true);
+                Pick(i, "Estratégia", ["Anéis de fora para dentro", "Zigue-zague", "Anéis de dentro para fora", "Espiral", "Adaptativo"], (int)p.Strategy, (x, n) => x with { PocketParams = x.PocketParams! with { Strategy = (PocketStrategy)n } }, rebuild: true);
                 break;
             case JobOpKind.Facing:
                 Section("Faceamento");

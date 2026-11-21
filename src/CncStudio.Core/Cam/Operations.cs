@@ -42,6 +42,21 @@ public sealed record PocketParams(double StepOverPercent = 60, double FinishAllo
     /// </summary>
     public Point2? PreDrillPoint { get; init; }
 
+    /// <summary>
+    /// CAM-ADAPT-01 (estratégia <see cref="PocketStrategy.Adaptive"/>): carga ótima, a largura de corte máxima em mm (Fusion: Optimal
+    /// load). Digitada; 0 = vazio (a operação não gera).
+    /// </summary>
+    public double OptimalLoad { get; init; }
+
+    /// <summary>CAM-ADAPT-01: raio mínimo da trajetória em mm (0 = sem mínimo). Vale a partir da fatia b.</summary>
+    public double MinRadius { get; init; }
+
+    /// <summary>CAM-ADAPT-01: corta nos dois sentidos (concordante e discordante). Vale a partir da fatia b.</summary>
+    public bool BothWays { get; init; }
+
+    /// <summary>CAM-ADAPT-01: sobremetal no fundo, em mm (o da parede é <see cref="FinishAllowance"/>).</summary>
+    public double FloorAllowance { get; init; }
+
     /// <summary>Alguma escolha nova (entrada ou estratégia): o arquivo precisa da versão 7.</summary>
     public bool UsesOptions => Entry != PocketEntry.Default || Strategy != PocketStrategy.Rings;
 }
@@ -360,6 +375,11 @@ public static partial class CamOperations
         if (error is not null)
         {
             return Fail(error);
+        }
+
+        if (p.Strategy == PocketStrategy.Adaptive)
+        {
+            return AdaptivePocket(boundary, [], tool, levels, p);
         }
 
         if (p.Strategy == PocketStrategy.ZigZag)
