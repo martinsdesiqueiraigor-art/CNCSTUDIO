@@ -47,13 +47,17 @@ Ramo: `ajuste-CAM-STOCK-02` (base `origin/dev` em `5784336`). Tamanho M. **Só A
 - **3D não conferido na tela virtual:** o OpenGL não desenha nada no Xvfb deste ambiente (nem o bloco de antes). Conferi por código que a malha do material cai na posição do bruto, com o zero no canto e no meio (`fresa-zero-g55-canto` e `fresa-bloco-siemens`). Foi um teste temporário, apagado depois.
 - Tempo: os selos já estavam prontos no primeiro print, cerca de 5 s depois de abrir o trabalho. O cálculo em si, medido na CAM-STOCK-01, é de cerca de 2 s para 20 operações.
 
+## Testado no .exe pelo Claude (computer use, PR 213, BOLTED_FLANGE, 20/11, 22:28)
+- Bruto cilindro Ø120 × 28 com 1 bolsão do 3D: selo "bruto ✓"; **Depois** mostra o cilindro com o bolsão cortado; **Antes** e **Bruto inteiro** mostram o cilindro inteiro.
+- Chave desligada: volta o 3D de antes, sem barra, selo e aviso. Ligada de novo: recalcula e o bolsão volta.
+- O 3D no Windows funciona (no Xvfb não desenhava).
+
 ## O Igor testa no .exe
 1. Abrir um trabalho de fresa com bloco: os selos passam de "calculando…" a "bruto ✓".
 2. Ligar o 3D e clicar em Faceamento, depois em Contorno: topo plano, depois o degrau. Testar Antes, Depois e Bruto inteiro.
 3. Apagar um campo de uma operação do meio: ela fica "sem estado" (amarelo) e as seguintes também (cinza). Desligar a chave: volta o 3D de antes.
 
 ## Sem teste
-- O 3D no Windows (só por código).
 - Peça STEP junto com o material.
 - Voxels na tela (3+2 e texto no cilindro).
 - 125%.
