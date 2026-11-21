@@ -339,7 +339,7 @@ public class CamJobZeroTests
     public void Leitor_recusa_versao_maior_e_abre_v3_com_e_sem_zero()
     {
         string json = CamJobJson.ToJson(Job(new JobZero(ZeroPoint.Center, ZeroLevel.Top)));
-        Assert.False(CamJobJson.FromJson(json.Replace("\"version\": 3", "\"version\": 8")).Ok);
+        Assert.False(CamJobJson.FromJson(json.Replace("\"version\": 3", "\"version\": 9")).Ok);
         Assert.Equal(new JobZero(ZeroPoint.Center, ZeroLevel.Top), CamJobJson.FromJson(json).Job!.Zero);
         string noZero = CamJobJson.ToJson(Job(null));
         JobLoadResult empty = CamJobJson.FromJson(noZero);

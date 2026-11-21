@@ -141,7 +141,7 @@ public sealed class CamJob
     /// (<see cref="CamJobStock.NeedsVersion2"/>, <see cref="CamJobProgram.NeedsVersion3"/>). Versão 4 quando tem peça STEP ou furação
     /// com lista de contornos (M3D, <see cref="CamJobPart.NeedsVersion4"/>).
     /// </summary>
-    public const int CurrentVersion = 7;
+    public const int CurrentVersion = 8;
 
     public string Name { get; set; } = "TRABALHO";
 
@@ -448,6 +448,71 @@ public static class CamJobBuilder
         return RotaryIndexing.PlaceTilted(op, machine, new TiltedFace(face.Angle, face.Angle2, face.AxisToFace));
     }
 
+    /// <summary>Folga além do bruto na borda aberta (mm), somada ao raio da ferramenta: a fresa passa toda para fora do material.</summary>
+    public const double OpenBorderClearance = 1;
+
+    public const string MixedBorderError = "Limite misto (parte sobe, parte desce): ainda não suportado; escolha Todos ou Só o de fora.";
+
+    public const string OpenBorderStockError = "Borda aberta precisa de bruto bloco, cilindro ou tubo.";
+
+    /// <summary>
+    /// Bolsão do filtro automático (CAM-ILHAS-01): ilhas = os contornos da operação depois do de fora (só os que sobem; outros
+    /// contornos do trabalho não entram). Borda aberta: o limite vira o corte do bruto na altura do fundo, aumentado do raio + folga.
+    /// </summary>
+    private static OperationResult AutoPocket(CamJob job, CamOperationSpec s, Contour part, GeoSource geo)
+    {
+        if (geo.Border == PocketBorder.Mixed)
+        {
+            return new OperationResult(null, MixedBorderError);
+        }
+
+        List<Contour> islands = [.. geo.Owned.Skip(1).Where(i => i >= 0 && i < job.Contours.Count).Select(i => job.Contours[i])];
+        Contour boundary = part;
+        if (geo.Border == PocketBorder.Open)
+        {
+            if (StockSection(job, s.Levels.BottomZ, (s.Tool.Diameter / 2) + OpenBorderClearance) is not { } section)
+            {
+                return new OperationResult(null, OpenBorderStockError);
+            }
+
+            boundary = section;
+        }
+
+        PocketParams pocket = s.PocketParams!.Entry == PocketEntry.PreDrill ? s.PocketParams with { PreDrillPoint = FirstPreDrill(job, s, boundary) } : s.PocketParams!;
+        return islands.Count > 0
+            ? CamOperations.PocketWithIslands(boundary, islands, s.Tool, s.Levels, pocket)
+            : CamOperations.Pocket(boundary, s.Tool, s.Levels, pocket);
+    }
+
+    /// <summary>
+    /// Corte do bruto na altura <paramref name="z"/>, aumentado de <paramref name="grow"/>: bloco = retângulo; cilindro ou tubo em pé = círculo
+    /// externo; deitado = retângulo da corda. Null sem bruto completo, com bruto STEP ou com a altura fora do bruto.
+    /// </summary>
+    public static Contour? StockSection(CamJob job, double z, double grow)
+    {
+        if (CamJobStock.Check(job).Solid is not { } b || b.Kind == StockSolidKind.Step || z < b.MinZ - 1e-6 || z > b.MaxZ + 1e-6)
+        {
+            return null;
+        }
+
+        if (b.Kind == StockSolidKind.Box)
+        {
+            return Contour.Rectangle(b.MinX - grow, b.MinY - grow, b.SizeX + (2 * grow), b.SizeY + (2 * grow));
+        }
+
+        double r = b.Diameter / 2;
+        double cx = (b.MinX + b.MaxX) / 2, cy = (b.MinY + b.MaxY) / 2, cz = (b.MinZ + b.MaxZ) / 2;
+        if (b.Axis == StockAxis.Z)
+        {
+            return Contour.Circle(new Point2(cx, cy), r + grow);
+        }
+
+        double half = Math.Sqrt(Math.Max(0, (r * r) - ((z - cz) * (z - cz))));
+        return b.Axis == StockAxis.X
+            ? Contour.Rectangle(b.MinX - grow, cy - half - grow, b.SizeX + (2 * grow), (2 * half) + (2 * grow))
+            : Contour.Rectangle(cx - half - grow, b.MinY - grow, (2 * half) + (2 * grow), b.SizeY + (2 * grow));
+    }
+
     private static OperationResult Plain(CamJob job, CamOperationSpec s)
     {
         Contour? part = s.ContourIndex >= 0 && s.ContourIndex < job.Contours.Count ? job.Contours[s.ContourIndex] : null;
@@ -456,6 +521,11 @@ public static class CamJobBuilder
             case JobOpKind.Contour:
                 return CamOperations.Contour(part!, s.Tool, s.Levels, s.ContourParams!);
             case JobOpKind.Pocket:
+                if (s.Geometry is { Loops: LoopFilter.Auto } auto)
+                {
+                    return AutoPocket(job, s, part!, auto);
+                }
+
                 PocketParams pocket = s.PocketParams!.Entry == PocketEntry.PreDrill ? s.PocketParams with { PreDrillPoint = FirstPreDrill(job, s, part!) } : s.PocketParams!;
                 return s.Islands
                     ? CamOperations.PocketWithIslands(part!, CamOperations.FindIslands(part!, job.Contours), s.Tool, s.Levels, pocket)

@@ -47,7 +47,8 @@ public static class CamJobJson
     {
         // versão 1 enquanto nada do UX-04f nem do UX-04g é usado: o arquivo sai com o mesmo texto de antes
         // BANCO-01 (versão 5): operação com campo vazio é salva com a lista dos vazios (o app antigo não lê e não supõe o valor)
-        int version = CamJobInfo.NeedsVersion7(job) ? 7
+        int version = JobGeometry.NeedsVersion8(job) ? 8
+            : CamJobInfo.NeedsVersion7(job) ? 7
             : JobGeometry.NeedsVersion6(job) ? 6
             : job.Operations.Any(o => o.MissingFields.Count > 0) ? 5
             : CamJobPart.NeedsVersion4(job) ? 4
@@ -648,7 +649,7 @@ public static class CamJobJson
     private static JsonObject GeometryToJson(GeoSource g)
     {
         static JsonArray P(Geometry.Point3 p) => new(p.X, p.Y, p.Z);
-        return new JsonObject
+        var o = new JsonObject
         {
             ["loops"] = g.Loops.ToString(),
             ["owned"] = new JsonArray([.. g.Owned.Select(i => (JsonNode)i)]),
@@ -661,6 +662,12 @@ public static class CamJobJson
                 ["size"] = r.Size,
             })]),
         };
+        if (g.Loops == LoopFilter.Auto)
+        {
+            o["border"] = g.Border.ToString(); // versão 8
+        }
+
+        return o;
     }
 
     private static GeoSource GeometryFrom(JsonObject g)
@@ -687,7 +694,8 @@ public static class CamJobJson
             owned.Add(n is JsonValue v && v.TryGetValue(out int i) ? i : throw new FormatException("Geometria da operação inválida no arquivo."));
         }
 
-        return new GeoSource(refs, Enum<LoopFilter>(Str(g, "loops"), "filtro de laços"), owned);
+        PocketBorder border = g["border"] is JsonValue b ? Enum<PocketBorder>(b.GetValue<string>(), "borda do bolsão") : PocketBorder.Closed;
+        return new GeoSource(refs, Enum<LoopFilter>(Str(g, "loops"), "filtro de laços"), owned) { Border = border };
     }
 
     private static CamOperationSpec OpFrom(JsonObject o)

@@ -378,8 +378,9 @@ public static class CamJobFromGeometry
 
     private static int AddPocket(CamJob job, MeshFeatures features, MeshFace face, double modelTopZ)
     {
-        var geo = new GeoSource([JobGeometry.Of(face)], LoopFilter.All, []);
-        (List<Contour> contours, bool islands) = PocketContours(features, face, LoopFilter.All);
+        // CAM-ILHAS-01: o bolsão do 3D nasce no filtro automático (como os CAMs de mercado: ilha só onde a parede sobe)
+        (List<Contour> contours, bool islands, PocketBorder border) = PocketContours(features, face, LoopFilter.Auto);
+        var geo = new GeoSource([JobGeometry.Of(face)], LoopFilter.Auto, []) { Border = border };
         List<int> owned = AppendOwned(job, [], contours);
         CamOperationSpec spec = ToolBankPick.EmptyTool(CamJobInfo.NewOperation(JobOpKind.Pocket, ContourSide.Outside, owned[0]));
         spec = spec with
@@ -393,8 +394,21 @@ public static class CamJobFromGeometry
         return job.Operations.Count - 1;
     }
 
-    private static (List<Contour> Contours, bool Islands) PocketContours(MeshFeatures features, MeshFace face, LoopFilter filter)
+    /// <summary>
+    /// Contornos do bolsão: o de fora primeiro e, depois, as ilhas. Todos = todo laço de dentro vira ilha; Só o de fora = nenhuma;
+    /// Automático = só os laços de dentro cuja parede sobe (furo e escareado ficam de fora) e a borda de fora diz se o bolsão é aberto.
+    /// </summary>
+    private static (List<Contour> Contours, bool Islands, PocketBorder Border) PocketContours(MeshFeatures features, MeshFace face, LoopFilter filter)
     {
+        if (filter == LoopFilter.Auto)
+        {
+            IReadOnlyList<SidedLoop> sided = features.ClassifiedLoops(face);
+            var list = new List<Contour> { CamJobPart.Polygon(sided[0].Points) };
+            list.AddRange(sided.Skip(1).Where(l => l.Side == LoopSide.Up).Select(l => CamJobPart.Polygon(l.Points)));
+            PocketBorder border = sided[0].Side switch { LoopSide.Up => PocketBorder.Closed, LoopSide.Down => PocketBorder.Open, _ => PocketBorder.Mixed };
+            return (list, list.Count > 1, border);
+        }
+
         (IReadOnlyList<Point3> outer, IReadOnlyList<IReadOnlyList<Point3>> inner) = SplitLoops(features.BoundaryLoops(face));
         var contours = new List<Contour> { CamJobPart.Polygon(outer) };
         bool islands = filter == LoopFilter.All && inner.Count > 0;
@@ -403,7 +417,7 @@ public static class CamJobFromGeometry
             contours.AddRange(inner.Select(CamJobPart.Polygon));
         }
 
-        return (contours, islands);
+        return (contours, islands, PocketBorder.Closed);
     }
 
     private static (int Index, string? Error) AddDrilling(CamJob job, IReadOnlyList<MeshFace> holes)
@@ -503,13 +517,13 @@ public static class CamJobFromGeometry
                     return why;
                 }
 
-                (List<Contour> contours, bool islands) = PocketContours(features, faces[0], loops);
+                (List<Contour> contours, bool islands, PocketBorder border) = PocketContours(features, faces[0], loops);
                 List<int> owned = AppendOwned(job, old.Owned, contours, index);
                 job.Operations[index] = spec with
                 {
                     ContourIndex = owned[0],
                     Islands = islands,
-                    Geometry = new GeoSource([JobGeometry.Of(faces[0])], loops, owned),
+                    Geometry = new GeoSource([JobGeometry.Of(faces[0])], loops, owned) { Border = border },
                 };
                 return null;
             case JobOpKind.Contour:
@@ -524,7 +538,7 @@ public static class CamJobFromGeometry
                         return "O contorno usa uma face ou arestas de um mesmo laço. Para outro laço, crie outra operação.";
                     }
 
-                    List<ContourPiece> pieces = ContourPieces(features, faces, edges, cp.Side, loops == LoopFilter.All ? LoopFilter.Outer : loops, out string? cwhy);
+                    List<ContourPiece> pieces = ContourPieces(features, faces, edges, cp.Side, loops is LoopFilter.All or LoopFilter.Auto ? LoopFilter.Outer : loops, out string? cwhy);
                     if (cwhy is not null)
                     {
                         return cwhy;

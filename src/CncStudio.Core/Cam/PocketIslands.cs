@@ -304,7 +304,33 @@ public static partial class CamOperations
         }
 
         moves.Add(Rapid(moves[^1].XY, levels.SafeZ));
+        moves = RetractBeforeTravel(moves);
         warnings.Add(islands.Count > 0 ? "Bolsão com ilhas: confira na simulação antes de cortar." : "Bolsão em zigue-zague: confira na simulação antes de cortar.");
         return new OperationResult(new CamOperation(name, tool, moves, null, warnings), null);
+    }
+
+    /// <summary>
+    /// CAM-ILHAS-01: rápido que sai do fundo para outro ponto sobe reto antes de andar. Num rápido só (subir e andar juntos)
+    /// a fresa cruza a ilha na diagonal: na máquina é colisão.
+    /// </summary>
+    private static List<ToolMove> RetractBeforeTravel(List<ToolMove> moves)
+    {
+        var result = new List<ToolMove>(moves.Count + 16);
+        foreach (ToolMove m in moves)
+        {
+            if (m.Kind == MoveKind.Rapid && result.Count > 0)
+            {
+                ToolMove last = result[^1];
+                bool travels = Math.Abs(last.X - m.X) > 1e-9 || Math.Abs(last.Y - m.Y) > 1e-9;
+                if (travels && last.Z < m.Z - 1e-9)
+                {
+                    result.Add(Rapid(last.XY, m.Z));
+                }
+            }
+
+            result.Add(m);
+        }
+
+        return result;
     }
 }

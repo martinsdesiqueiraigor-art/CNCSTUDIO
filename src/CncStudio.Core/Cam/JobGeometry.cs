@@ -6,8 +6,14 @@ namespace CncStudio.Core.Cam;
 /// <summary>Tipo do que a operação escolheu no 3D.</summary>
 public enum GeoKind { Face, Edge }
 
-/// <summary>Quais laços de uma face entram no contorno (filtro de laços, como nos outros CAMs).</summary>
-public enum LoopFilter { All, Outer, Inner }
+/// <summary>
+/// Quais laços de uma face entram no contorno (filtro de laços, como nos outros CAMs). <see cref="Auto"/> (CAM-ILHAS-01, só bolsão):
+/// laço de dentro cuja parede sobe vira ilha, o que desce (furo, escareado) fica de fora, e o de fora que desce é borda aberta.
+/// </summary>
+public enum LoopFilter { All, Outer, Inner, Auto }
+
+/// <summary>Borda de fora do bolsão no filtro <see cref="LoopFilter.Auto"/>: parede que sobe (fechada), que desce (aberta) ou as duas.</summary>
+public enum PocketBorder { Closed, Open, Mixed }
 
 /// <summary>
 /// Impressão digital de uma face ou aresta escolhida no 3D (STEP-OPS S0): tipo, centro, direção (normal da face; zero na aresta sem
@@ -20,7 +26,11 @@ public sealed record GeoRef(GeoKind Kind, string Shape, Point3 Center, Point3 Di
 /// De onde a operação tirou a geometria (faces e arestas do 3D, o filtro de laços e os contornos do trabalho que são dela). Campo
 /// opcional da operação; só existe em operação criada a partir do STEP. Arquivo com isso sai na versão 6.
 /// </summary>
-public sealed record GeoSource(IReadOnlyList<GeoRef> Refs, LoopFilter Loops, IReadOnlyList<int> Owned);
+public sealed record GeoSource(IReadOnlyList<GeoRef> Refs, LoopFilter Loops, IReadOnlyList<int> Owned)
+{
+    /// <summary>Borda de fora (só no filtro <see cref="LoopFilter.Auto"/>; nos outros fica fechada, como antes).</summary>
+    public PocketBorder Border { get; init; } = PocketBorder.Closed;
+}
 
 /// <summary>Regras da geometria guardada: criar a impressão, achar de novo, dizer o que não bateu.</summary>
 public static class JobGeometry
@@ -151,4 +161,7 @@ public static class JobGeometry
 
     /// <summary>Arquivo precisa da versão 6: alguma operação guarda a geometria do 3D.</summary>
     public static bool NeedsVersion6(CamJob job) => job.Operations.Any(o => o.Geometry is not null);
+
+    /// <summary>Versão 8 (CAM-ILHAS-01): algum bolsão usa o filtro automático de laços. Sem ele, o arquivo sai como antes.</summary>
+    public static bool NeedsVersion8(CamJob job) => job.Operations.Any(o => o.Geometry?.Loops == LoopFilter.Auto);
 }
