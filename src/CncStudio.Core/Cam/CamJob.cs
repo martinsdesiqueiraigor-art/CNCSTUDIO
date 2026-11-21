@@ -535,6 +535,13 @@ public static class CamJobBuilder
             }
 
             boundary = section;
+            if (s.PocketParams!.Strategy == PocketStrategy.Adaptive && StockSection(job, s.Levels.BottomZ, 0) is { } stock
+                && StockSection(job, s.Levels.BottomZ, (2 * s.Tool.Diameter) + OpenBorderClearance) is { } room)
+            {
+                // CAM-ADAPT-01b: o adaptativo entra por fora; precisa de espaço livre em volta do bruto
+                boundary = room;
+                s = s with { PocketParams = s.PocketParams with { AdaptiveStock = stock } };
+            }
         }
 
         PocketParams pocket = s.PocketParams!.Entry == PocketEntry.PreDrill ? s.PocketParams with { PreDrillPoint = FirstPreDrill(job, s, boundary) } : s.PocketParams!;

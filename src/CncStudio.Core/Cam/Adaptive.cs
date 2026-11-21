@@ -27,14 +27,14 @@ public static partial class CamOperations
             return "Raio mínimo e sobremetais não podem ser negativos.";
         }
 
-        return p.Entry is PocketEntry.Helix or PocketEntry.PreDrill
+        return p.Entry is PocketEntry.Helix or PocketEntry.PreDrill || p.AdaptiveStock is not null
             ? null
             : "O desbaste adaptativo entra em hélice ou pré-furo: escolha a entrada.";
     }
 
     private static OperationResult AdaptivePocket(Contour boundary, IReadOnlyList<Contour> islands, CamTool tool, CamLevels levels, PocketParams p)
     {
-        if (p.Entry == PocketEntry.Helix && p.HelixPitch <= 0)
+        if (p.Entry == PocketEntry.Helix && p.HelixPitch <= 0 && p.AdaptiveStock is null)
         {
             return Fail("O passo da hélice precisa ser maior que zero.");
         }
@@ -47,7 +47,7 @@ public static partial class CamOperations
 
         Contour outer = boundary.IsCounterClockwise ? boundary : boundary.Reversed();
         List<Contour> holes = [.. islands.Select(i => i.IsCounterClockwise ? i : i.Reversed())];
-        var grid = AdaptiveGrid.Build(outer, holes, tool.Radius, p.FinishAllowance, p.OptimalLoad);
+        var grid = AdaptiveGrid.Build(outer, holes, tool.Radius, p.FinishAllowance, p.OptimalLoad, p.AdaptiveStock);
         if (grid.AllowedCount == 0)
         {
             return Fail("O bolsão não comporta a ferramenta (com o sobremetal).");
@@ -92,7 +92,8 @@ public static partial class CamOperations
         double d = tool.Radius + p.FinishAllowance;
         var loops = new List<Contour>();
         OffsetResult wall = outer.OffsetOutside(-d);
-        if (wall.Ok)
+        // borda aberta: o contorno de fora é só espaço livre em volta do bruto, sem parede para acabar
+        if (wall.Ok && p.AdaptiveStock is null)
         {
             loops.Add(wall.Contour!);
         }
@@ -150,6 +151,8 @@ public static partial class CamOperations
         private Point2 _pos;
         private double _heading;
         private bool _usedPreDrill;
+        private int _links;
+
 
         public string? Run()
         {
@@ -178,7 +181,12 @@ public static partial class CamOperations
                     path.Add(_pos);
                 }
 
-                if (TryStep(out Point2 next) || TryReverse(out next))
+                // concordante para a frente, depois para trás; só então (sem "os dois sentidos") um passo discordante
+                // ordem: suave (raio mínimo, preferência) antes de fechar a curva; sem "os dois sentidos", concordante antes de discordante
+                bool climb = TryStep(out Point2 next, false, true) || TryStep(out next, false, false) || TryReverse(out next, false);
+                // sem saída concordante: um passo discordante curto (ponta de faixa) em vez de uma ligação; o teste mede a parte concordante
+                bool conventional = !climb && !p.BothWays && (TryStep(out next, true, true) || TryStep(out next, true, false) || TryReverse(out next, true));
+                if (climb || conventional)
                 {
                     Cut(_pos, next);
                     _heading = Math.Atan2(next.Y - _pos.Y, next.X - _pos.X);
@@ -188,7 +196,11 @@ public static partial class CamOperations
                 }
 
                 Flush(path);
-                DropSlivers();
+                if (++_links % 32 == 0)
+                {
+                    DropSlivers();
+                }
+
                 if (!AnyUncut())
                 {
                     break;
@@ -223,6 +235,23 @@ public static partial class CamOperations
         private string? Enter()
         {
             Retract();
+
+            // borda aberta: desce no ar fora do bruto, no ponto livre mais perto do material, e entra de lado
+            if (p.AdaptiveStock is not null && grid.OpenEntry(_real, _uncut, _r) is { } outside)
+            {
+                StartAt(outside);
+                moves.Add(Rapid(outside, levels.ClearanceZ));
+                moves.Add(Feed(outside, z, tool.FeedZ));
+                _pos = outside;
+                _heading = HeadingAlongMaterial(outside);
+                return null;
+            }
+
+            if (p.AdaptiveStock is not null && p.Entry != PocketEntry.Helix && p.Entry != PocketEntry.PreDrill)
+            {
+                return "Desbaste adaptativo: uma região do bolsão não se alcança por fora do bruto. Informe a hélice (Ø e passo) para entrar nela.";
+            }
+
             if (p.Entry == PocketEntry.PreDrill && !_usedPreDrill && p.PreDrillPoint is { } hole && grid.IsAllowed(hole) && grid.HasMaterialNear(_uncut, hole, _r))
             {
                 _usedPreDrill = true;
@@ -241,6 +270,11 @@ public static partial class CamOperations
                 return p.PreDrillPoint is null
                     ? "Pré-furo: nenhuma Furação anterior cai dentro do bolsão. O desbaste adaptativo não entra sem pré-furo ou hélice."
                     : "Pré-furo: há outra região do bolsão sem furo. Informe também a hélice (Ø e passo) para entrar nela.";
+            }
+
+            if (p.HelixDiameter <= tool.Diameter || p.HelixPitch <= 0)
+            {
+                return "Desbaste adaptativo: falta a hélice (Ø maior que a ferramenta e passo) para entrar numa região do bolsão.";
             }
 
             double rp = (p.HelixDiameter - tool.Diameter) / 2;
@@ -328,7 +362,7 @@ public static partial class CamOperations
         }
 
         // ---- passo: direção de largura mais perto da carga sem passar (concordante: preferir a da direita)
-        private bool TryStep(out Point2 next)
+        private bool TryStep(out Point2 next, bool anySide, bool smooth = false)
         {
             next = default;
             int n = (2 * AngleCount) + 1;
@@ -337,23 +371,42 @@ public static partial class CamOperations
             Span<bool> valid = stackalloc bool[n];
             Span<int> area = stackalloc int[n];
             Span<int> work = stackalloc int[n];
+            Span<int> left = stackalloc int[n];
+            // raio mínimo (preferência, não garantia): primeiro só direções dentro da curva desse raio; sem nenhuma, o passo livre
+            double maxTurn = p.MinRadius > 0 && smooth ? 2 * Math.Asin(Math.Min(1, _step / (2 * p.MinRadius))) : double.MaxValue;
             for (int k = 0; k < n; k++)
             {
                 double a = _heading + ((k - AngleCount) * AngleStep);
                 qx[k] = _pos.X + (_step * Math.Cos(a));
                 qy[k] = _pos.Y + (_step * Math.Sin(a));
                 var q = new Point2(qx[k], qy[k]);
-                valid[k] = grid.IsAllowed(q) && grid.IsAllowed(new Point2((_pos.X + q.X) / 2, (_pos.Y + q.Y) / 2));
+                valid[k] = Math.Abs((k - AngleCount) * AngleStep) <= maxTurn + 1e-9
+                    && grid.IsAllowed(q) && grid.IsAllowed(new Point2((_pos.X + q.X) / 2, (_pos.Y + q.Y) / 2));
             }
 
-            grid.CountNew(_real, _uncut, _pos, _r, _step, _heading, AngleStep, AngleCount, area, work);
+            grid.CountNew(_real, _uncut, _pos, _r, _step, _heading, AngleStep, AngleCount, area, work, left);
             double cellArea = grid.Cell * grid.Cell;
             double target = _load * 0.85;
+            // só concordante (sem "os dois sentidos"): primeiro só as direções com o material novo à direita; sem nenhuma, a ligação
+            // por baixo procura outro ponto. Com os dois sentidos, vale qualquer lado.
+            int best = Pick(n, valid, area, work, left, cellArea, target, climbOnly: !p.BothWays && !anySide);
+
+            if (best < 0)
+            {
+                return false;
+            }
+
+            next = new Point2(qx[best], qy[best]);
+            return true;
+        }
+
+        private int Pick(int n, Span<bool> valid, Span<int> area, Span<int> work, Span<int> left, double cellArea, double target, bool climbOnly)
+        {
             int best = -1;
             double bestWidth = 0;
             for (int k = 0; k < n; k++)
             {
-                if (!valid[k] || work[k] < 1)
+                if (!valid[k] || work[k] < 1 || (climbOnly && left[k] > 0.3 * area[k]))
                 {
                     continue;
                 }
@@ -372,21 +425,16 @@ public static partial class CamOperations
                 }
             }
 
-            if (best < 0)
-            {
-                return false;
-            }
-
-            next = new Point2(qx[best], qy[best]);
-            return true;
+            return best;
         }
 
         // sem saída para a frente: olha para trás (volta pelo mesmo lado, como na ponta de uma faixa junto da parede)
-        private bool TryReverse(out Point2 next)
+        private bool TryReverse(out Point2 next, bool anySide)
         {
+
             double keep = _heading;
             _heading += Math.PI;
-            if (TryStep(out next))
+            if (TryStep(out next, anySide))
             {
                 return true;
             }
@@ -481,7 +529,7 @@ internal sealed class AdaptiveGrid
     /// <paramref name="load"/>: a faixa junto da parede (até ~60% da carga) fica para a volta na parede, que a tira com largura menor
     /// que a carga; o adaptativo limpa o miolo.
     /// </summary>
-    public static AdaptiveGrid Build(Contour outer, List<Contour> islands, double radius, double allowance, double load)
+    public static AdaptiveGrid Build(Contour outer, List<Contour> islands, double radius, double allowance, double load, Contour? stock = null)
     {
         (double minX, double minY, double maxX, double maxY) = outer.BoundsXY();
         double size = Math.Max(maxX - minX, maxY - minY);
@@ -508,15 +556,28 @@ internal sealed class AdaptiveGrid
         }
 
         float[] toAllowed = Distance(allowed, cols, rows, cell, feature: true);
+        bool[] material = region;
+        if (stock is not null)
+        {
+            // borda aberta: material só dentro do bruto
+            var inside = new bool[cols * rows];
+            Fill(inside, (stock.IsCounterClockwise ? stock : stock.Reversed()).Sample(cell / 8), ox, oy, cols, rows, cell, true);
+            material = new bool[cols * rows];
+            for (int k = 0; k < material.Length; k++)
+            {
+                material[k] = region[k] && inside[k];
+            }
+        }
+
         var toCut = new bool[cols * rows];
         for (int k = 0; k < toCut.Length; k++)
         {
             // margem de uma célula: o que fica na borda do alcance é da volta na parede (nunca uma tira solta impossível de pegar)
-            toCut[k] = region[k] && toAllowed[k] <= radius - cell;
+            toCut[k] = material[k] && toAllowed[k] <= radius - cell;
         }
 
         List<List<Point2>> walls = [outer.Sample(0.005), .. islands.Select(i => i.Sample(0.005))];
-        return new AdaptiveGrid(ox, oy, cols, rows, cell, allowed, region, toCut, clearance, walls, need);
+        return new AdaptiveGrid(ox, oy, cols, rows, cell, allowed, material, toCut, clearance, walls, need);
     }
 
     public bool[] FreshMaterial() => (bool[])_toCut.Clone();
@@ -585,11 +646,12 @@ internal sealed class AdaptiveGrid
     /// novo. Só as células do anel entre r e r + passo podem entrar; cada uma cobre um intervalo contínuo de ângulos (soma por diferenças).
     /// </summary>
     public void CountNew(bool[] uncut, bool[] pending, Point2 from, double radius, double step, double heading, double angleStep, int count,
-        Span<int> area, Span<int> work)
+        Span<int> area, Span<int> work, Span<int> left)
     {
         int n = area.Length;
         Span<int> da = stackalloc int[n + 1];
         Span<int> dw = stackalloc int[n + 1];
+        Span<int> dl = stackalloc int[n + 1];
         double reach = radius + step;
         int c0 = Math.Max(0, (int)Math.Floor((from.X - reach - OriginX) / Cell)), c1 = Math.Min(Columns - 1, (int)Math.Floor((from.X + reach - OriginX) / Cell));
         int r0 = Math.Max(0, (int)Math.Floor((from.Y - reach - OriginY) / Cell)), r1 = Math.Min(Rows - 1, (int)Math.Floor((from.Y + reach - OriginY) / Cell));
@@ -632,6 +694,14 @@ internal sealed class AdaptiveGrid
 
                 da[lo]++;
                 da[hi + 1]--;
+
+                // candidatos com ângulo menor que o da célula a deixam à esquerda do avanço
+                int leftHi = Math.Min(hi, (int)Math.Ceiling(kc) - 1);
+                if (leftHi >= lo)
+                {
+                    dl[lo]++;
+                    dl[leftHi + 1]--;
+                }
                 if (pending[row + c])
                 {
                     dw[lo]++;
@@ -640,13 +710,15 @@ internal sealed class AdaptiveGrid
             }
         }
 
-        int sa = 0, sw = 0;
+        int sa = 0, sw = 0, sl = 0;
         for (int k = 0; k < n; k++)
         {
             sa += da[k];
             sw += dw[k];
+            sl += dl[k];
             area[k] = sa;
             work[k] = sw;
+            left[k] = sl;
         }
     }
 
@@ -830,6 +902,33 @@ internal sealed class AdaptiveGrid
         });
         double len = Math.Sqrt((sx * sx) + (sy * sy));
         return n == 0 || len < 1e-12 ? new Point2(1, 0) : new Point2(sx / len, sy / len);
+    }
+
+    /// <summary>
+    /// CAM-ADAPT-01b, borda aberta: ponto permitido onde a ferramenta fica toda no ar (longe do material) e que está mais perto do
+    /// material que ainda falta. Null = nenhum.
+    /// </summary>
+    public Point2? OpenEntry(bool[] real, bool[] pending, double radius)
+    {
+        if (Array.IndexOf(pending, true) < 0)
+        {
+            return null;
+        }
+
+        float[] toReal = Distance(real, Columns, Rows, Cell, feature: true);
+        float[] toPending = Distance(pending, Columns, Rows, Cell, feature: true);
+        int best = -1;
+        float bestDistance = float.MaxValue;
+        for (int k = 0; k < _allowed.Length; k++)
+        {
+            if (_allowed[k] && toReal[k] > radius + Cell && toPending[k] < bestDistance)
+            {
+                best = k;
+                bestDistance = toPending[k];
+            }
+        }
+
+        return best < 0 ? null : new Point2(Cx(best % Columns), Cy(best / Columns));
     }
 
     /// <summary>Centro para a hélice: dentro do material, com espaço para o círculo da hélice. O mais folgado. Null = não cabe.</summary>
