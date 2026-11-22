@@ -157,6 +157,99 @@ public class AdaptiveTests(ITestOutputHelper output)
         Assert.True(CamJobBuilder.Build(back.Job, null).Operations.Count > 0);
     }
 
+    // ---- CAM-ADAPT-01b
+
+    [Fact]
+    public void Borda_aberta_entra_por_fora_e_nao_corta_ar()
+    {
+        // área em volta de um ressalto: bruto 80 × 50, ressalto Ø20 no meio, espaço livre em volta do bruto
+        Contour stock = Contour.Rectangle(0, 0, 80, 50);
+        Contour room = Contour.Rectangle(-25, -25, 130, 100);
+        List<Contour> boss = [Contour.Circle(new Point2(40, 25), 10)];
+        PocketParams open = Params(PocketEntry.Default) with { AdaptiveStock = stock, HelixDiameter = 0, HelixPitch = 0 };
+        OperationResult r = CamOperations.PocketWithIslands(room, boss, Tool, Levels, open);
+        Assert.True(r.Ok, r.Error);
+        IReadOnlyList<ToolMove> m = r.Operation!.Moves;
+
+        // a primeira descida para o corte fica fora do bruto, com a ferramenta toda no ar
+        ToolMove first = m.First(x => x.Kind == MoveKind.Feed && x.Z < 0);
+        double outside = Math.Max(Math.Max(-first.X, first.X - 80), Math.Max(-first.Y, first.Y - 50));
+        Assert.True(outside > Tool.Radius, $"entrou a {outside:0.##} mm do bruto");
+        Assert.DoesNotContain(m, x => x.Kind is MoveKind.ArcCcw or MoveKind.ArcCw && x.Z < 0 && x.Z > -3.9 + 1e-9);
+
+        // largura medida só no material do bruto; nunca encosta no ressalto
+        double worst = new Sim(stock, boss, 0.05).WorstWidth(m, Tool.Radius, Levels.ClearanceZ, out int n);
+        output.WriteLine($"aberta: pior largura {worst:0.###} em {n} trechos, {m.Count} movimentos");
+        Assert.True(worst <= (Load * 1.1) + 0.1, $"largura {worst:0.###}");
+        double nearBoss = m.Where(x => x.Kind != MoveKind.Rapid && x.Z < 0).Min(x => x.XY.DistanceTo(new Point2(40, 25))) - 10;
+        Assert.True(nearBoss >= Tool.Radius + Allowance - 0.01, $"perto do ressalto: {nearBoss:0.###}");
+
+        // não corta ar à toa: bem menos movimento que tratando o espaço livre como material
+        OperationResult closed = CamOperations.PocketWithIslands(room, boss, Tool, Levels, Params());
+        Assert.True(closed.Ok, closed.Error);
+        output.WriteLine($"aberta {PathLength(m):0} mm × fechada {PathLength(closed.Operation!.Moves):0} mm");
+        Assert.True(PathLength(m) < 0.6 * PathLength(closed.Operation.Moves));
+    }
+
+    [Fact]
+    public void Raio_minimo_e_preferencia_e_nao_piora()
+    {
+        (int joints, int sharp) Sharp(PocketParams pp)
+        {
+            OperationResult r = Run("retangulo", pp);
+            Assert.True(r.Ok, r.Error);
+            IReadOnlyList<ToolMove> m = r.Operation!.Moves;
+            // só juntas entre dois trechos que cortam material (ligações e volta na parede ficam de fora)
+            bool[] cuts = new Sim(Contour.Rectangle(0, 0, 80, 50), [], 0.1).CutsPerMove(m, Tool.Radius, Levels.ClearanceZ);
+            int joints = 0, sharp = 0;
+            for (int k = 2; k < m.Count; k++)
+            {
+                ToolMove a = m[k - 2], b = m[k - 1], c = m[k];
+                if (!cuts[k - 1] || !cuts[k] || b.Kind != MoveKind.Feed || c.Kind != MoveKind.Feed || a.Kind == MoveKind.Rapid)
+                {
+                    continue;
+                }
+
+                double l1 = a.XY.DistanceTo(b.XY), l2 = b.XY.DistanceTo(c.XY);
+                if (l1 < 0.3 || l2 < 0.3)
+                {
+                    continue;
+                }
+
+                double turn = Math.Abs(Math.IEEERemainder(Math.Atan2(c.Y - b.Y, c.X - b.X) - Math.Atan2(b.Y - a.Y, b.X - a.X), 2 * Math.PI));
+                joints++;
+                sharp += turn > (2 * Math.Asin(Math.Min(1, (l1 + l2) / 2 / 8)) * 1.3) + 0.05 ? 1 : 0;
+            }
+
+            return (joints, sharp);
+        }
+
+        (int j0, int s0) = Sharp(Params());
+        (int j4, int s4) = Sharp(Params() with { MinRadius = 4 });
+        output.WriteLine($"sem raio mínimo: {s0} de {j0} juntas fechadas; raio 4: {s4} de {j4}");
+        // raio mínimo é preferência nesta fatia (a carga manda): só não pode piorar; a garantia fica pendente (ver a Volta)
+        Assert.True(j4 > 50);
+        Assert.True(s4 <= s0, $"raio mínimo piorou: {s4} × {s0}");
+    }
+
+    [Fact]
+    public void Concordante_sem_os_dois_sentidos_e_os_dois_com_ele()
+    {
+        OperationResult climb = Run("retangulo");
+        OperationResult both = Run("retangulo", Params() with { BothWays = true });
+        Assert.True(climb.Ok && both.Ok, climb.Error ?? both.Error);
+        var sim = new Sim(Contour.Rectangle(0, 0, 80, 50), [], 0.05);
+        double right = sim.RightShare(climb.Operation!.Moves, Tool.Radius, Levels.ClearanceZ);
+        double rightBoth = new Sim(Contour.Rectangle(0, 0, 80, 50), [], 0.05).RightShare(both.Operation!.Moves, Tool.Radius, Levels.ClearanceZ);
+        output.WriteLine($"material à direita: concordante {right:P1}, dois sentidos {rightBoth:P1}");
+        Assert.True(right >= 0.75, $"só {right:P1} do corte concordante");
+        Assert.True(right >= rightBoth - 0.01, "sem os dois sentidos tem de ser ao menos tão concordante quanto com eles");
+        double worst = new Sim(Contour.Rectangle(0, 0, 80, 50), [], 0.05).WorstWidth(both.Operation.Moves, Tool.Radius, Levels.ClearanceZ, out _);
+        Assert.True(worst <= (Load * 1.1) + 0.1, $"largura {worst:0.###}");
+    }
+
+    private static double PathLength(IReadOnlyList<ToolMove> m) => m.Zip(m.Skip(1)).Where(t => t.Second.Kind != MoveKind.Rapid).Sum(t => t.First.XY.DistanceTo(t.Second.XY));
+
     /// <summary>Simulação 2D independente do motor: grade fina do material da área.</summary>
     private sealed class Sim
     {
@@ -273,6 +366,89 @@ public class AdaptiveTests(ITestOutputHelper output)
             }
 
             return worst;
+        }
+
+        /// <summary>Para cada movimento, se ele tira material (simulando em ordem).</summary>
+        public bool[] CutsPerMove(IReadOnlyList<ToolMove> moves, double radius, double clearanceZ)
+        {
+            var cuts = new bool[moves.Count];
+            for (int i = 1; i < moves.Count; i++)
+            {
+                if (moves[i].Kind != MoveKind.Rapid && moves[i].Z < clearanceZ - 1e-9)
+                {
+                    cuts[i] = Sweep(moves[i - 1], moves[i], radius) > 0;
+                }
+            }
+
+            return cuts;
+        }
+
+        /// <summary>Parte do material cortado (nos trechos planos) que fica à direita do avanço: concordante com o fuso horário.</summary>
+        public double RightShare(IReadOnlyList<ToolMove> moves, double radius, double clearanceZ)
+        {
+            double rightArea = 0, total = 0;
+            for (int i = 1; i < moves.Count; i++)
+            {
+                ToolMove a = moves[i - 1], b = moves[i];
+                if (b.Kind == MoveKind.Rapid || b.Z >= clearanceZ - 1e-9)
+                {
+                    continue;
+                }
+
+                if (Math.Abs(a.Z - b.Z) > 1e-9 || a.Z >= clearanceZ - 1e-9)
+                {
+                    Sweep(a, b, radius);
+                    continue;
+                }
+
+                List<Point2> pts = [.. Points(a, b)];
+                for (int k = 1; k < pts.Count; k++)
+                {
+                    (int r, int l) = SweepSides(pts[k - 1], pts[k], radius);
+                    rightArea += r;
+                    total += r + l;
+                }
+            }
+
+            return total == 0 ? 0 : rightArea / total;
+        }
+
+        private (int Right, int Left) SweepSides(Point2 p, Point2 q, double radius)
+        {
+            int right = 0, left = 0;
+            double dx = q.X - p.X, dy = q.Y - p.Y;
+            int n = Math.Max(1, (int)Math.Ceiling(p.DistanceTo(q) / (_h * 0.5)));
+            for (int t = 1; t <= n; t++)
+            {
+                var c0 = new Point2(p.X + (dx * t / n), p.Y + (dy * t / n));
+                int ca = Math.Max(0, (int)((c0.X - radius - _ox) / _h)), cb = Math.Min(_cols - 1, (int)((c0.X + radius - _ox) / _h));
+                int ra = Math.Max(0, (int)((c0.Y - radius - _oy) / _h)), rb = Math.Min(_rows - 1, (int)((c0.Y + radius - _oy) / _h));
+                for (int r = ra; r <= rb; r++)
+                {
+                    double ey = _oy + ((r + 0.5) * _h) - c0.Y;
+                    for (int c = ca; c <= cb; c++)
+                    {
+                        int k = (r * _cols) + c;
+                        double ex = _ox + ((c + 0.5) * _h) - c0.X;
+                        if (!_material[k] || (ex * ex) + (ey * ey) > radius * radius)
+                        {
+                            continue;
+                        }
+
+                        _material[k] = false;
+                        if ((dx * ey) - (dy * ex) < 0)
+                        {
+                            right++;
+                        }
+                        else
+                        {
+                            left++;
+                        }
+                    }
+                }
+            }
+
+            return (right, left);
         }
 
         public double MinWallDistance(IReadOnlyList<ToolMove> moves, double clearanceZ)

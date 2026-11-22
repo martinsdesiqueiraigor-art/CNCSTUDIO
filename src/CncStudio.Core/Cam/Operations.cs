@@ -43,6 +43,12 @@ public sealed record PocketParams(double StepOverPercent = 60, double FinishAllo
     public Point2? PreDrillPoint { get; init; }
 
     /// <summary>
+    /// CAM-ADAPT-01b: no desbaste adaptativo com borda aberta, o corte do bruto na altura (onde há material de verdade). Calculado
+    /// pelo trabalho, como <see cref="PreDrillPoint"/>; não vai para o arquivo. Null = o contorno é parede de verdade.
+    /// </summary>
+    public Contour? AdaptiveStock { get; init; }
+
+    /// <summary>
     /// CAM-ADAPT-01 (estratégia <see cref="PocketStrategy.Adaptive"/>): carga ótima, a largura de corte máxima em mm (Fusion: Optimal
     /// load). Digitada; 0 = vazio (a operação não gera).
     /// </summary>
