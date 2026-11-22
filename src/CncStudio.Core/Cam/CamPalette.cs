@@ -66,6 +66,8 @@ public static class CamPalette
             new("contorno-dentro", "Contorno dentro", "contorno-dentro", JobOpKind.Contour, ContourSide.Inside, "Contorno por dentro: a ferramenta passa do lado de dentro da linha."),
             new("contorno-linha", "Sobre a linha", "contorno-linha", JobOpKind.Contour, ContourSide.OnLine, "Contorno sobre a linha: o centro da ferramenta segue o desenho."),
             new("bolsao", "Bolsão", "bolsao", JobOpKind.Pocket, ContourSide.Outside, "Esvazia a área dentro do contorno (com ilhas, se houver)."),
+            // CAM-ADAPT-01c: o Bolsão com a estratégia adaptativa, como operação própria (Fusion: 2D Adaptive Clearing)
+            new(AdaptiveId, "Desbaste adaptativo", "bolsao", JobOpKind.Pocket, ContourSide.Outside, "Desbasta com largura de corte pequena e constante (carga ótima), caminho suave e passes em Z fundos."),
             new("chanfro", "Chanfro", "chanfro", JobOpKind.Chamfer, ContourSide.Outside, "Chanfro na aresta do contorno com fresa em V (ângulo, largura e profundidade digitados)."),
             CamPaletteItem.Later("ranhura", "Ranhura", "ranhura", "Ranhura com a largura da ferramenta."),
         ]),
@@ -89,8 +91,14 @@ public static class CamPalette
         ]),
     ];
 
-    /// <summary>Botões que criam operação (sem ação de arquivo nem "em breve").</summary>
-    public static IEnumerable<CamPaletteItem> OperationItems(CamPaletteGroup g) => g.Items.Where(i => i.Kind is not null);
+    /// <summary>
+    /// Botões que criam operação, um por tipo (sem ação de arquivo, "em breve" nem variante de um tipo que já tem botão:
+    /// o Desbaste adaptativo é o Bolsão com estratégia Adaptativo, ver <see cref="Variants"/>).
+    /// </summary>
+    public static IEnumerable<CamPaletteItem> OperationItems(CamPaletteGroup g) => g.Items.Where(i => i.Kind is not null && !Variants.Contains(i.Id));
+
+    /// <summary>CAM-ADAPT-01c: botões que criam um tipo já existente com outra predefinição.</summary>
+    public static IReadOnlyList<string> Variants { get; } = [AdaptiveId];
 
     /// <summary>Grupos que aparecem na tela.</summary>
     public static IEnumerable<CamPaletteGroup> VisibleGroups => Groups.Where(g => g.Visible);
@@ -236,6 +244,26 @@ public static class CamPalette
         item.LatheKind is { } kind ? LatheJobInfo.NewBlank(kind, item.Internal, tool, stock) : null;
 
     /// <summary>Operação nova do botão (a mesma de <see cref="CamJobInfo.NewOperation"/>); null para item sem operação no Trabalho.</summary>
-    public static CamOperationSpec? NewOperation(CamPaletteItem item, int targetContour, CamTool? tool = null) =>
-        item.Kind is { } kind ? CamJobInfo.NewOperation(kind, item.Side, kind is JobOpKind.Drilling or JobOpKind.WrapText ? -1 : targetContour, tool) : null;
+    public static CamOperationSpec? NewOperation(CamPaletteItem item, int targetContour, CamTool? tool = null)
+    {
+        CamOperationSpec? s = item.Kind is { } kind ? CamJobInfo.NewOperation(kind, item.Side, kind is JobOpKind.Drilling or JobOpKind.WrapText ? -1 : targetContour, tool) : null;
+        return s is not null && item.Id == AdaptiveId ? AsAdaptive(s) : s;
+    }
+
+    /// <summary>Id do item "Desbaste adaptativo" da faixa.</summary>
+    public const string AdaptiveId = "desbaste-adaptativo";
+
+    /// <summary>
+    /// CAM-ADAPT-01c: o Bolsão vira desbaste adaptativo com entrada em hélice; carga ótima e hélice nascem vazias (nada suposto).
+    /// </summary>
+    public static CamOperationSpec AsAdaptive(CamOperationSpec s)
+    {
+        CamOperationSpec a = s with { PocketParams = (s.PocketParams ?? new PocketParams(60, 0)) with { Strategy = PocketStrategy.Adaptive, Entry = PocketEntry.Helix } };
+        foreach (string f in new[] { CamJobInfo.AdaptiveLoadField, CamJobInfo.HelixDiameterField, CamJobInfo.HelixPitchField })
+        {
+            a = CamJobInfo.SetMissing(a, f, true);
+        }
+
+        return a;
+    }
 }

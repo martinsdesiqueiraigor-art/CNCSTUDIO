@@ -31,7 +31,7 @@ public static class CamJobInfo
             ContourSide.OnLine => "Contorno sobre a linha",
             _ => "Contorno por fora",
         },
-        JobOpKind.Pocket => "Bolsão",
+        JobOpKind.Pocket => s.PocketParams?.Strategy == PocketStrategy.Adaptive ? "Desbaste adaptativo" : "Bolsão",
         JobOpKind.Facing => "Faceamento",
         JobOpKind.Drilling => "Furação",
         JobOpKind.Chamfer => "Chanfro",
@@ -163,6 +163,7 @@ public static class CamJobInfo
     public const string RampAngleField = "Ângulo da rampa";
     public const string HelixDiameterField = "Ø da hélice";
     public const string HelixPitchField = "Passo da hélice";
+    public const string AdaptiveLoadField = "Carga ótima";
     public const string TipAngleField = "Ângulo da ponta";
     public const string ChamferWidthField = "Largura do chanfro";
     public const string ChamferDepthField = "Profundidade do chanfro";
@@ -202,12 +203,38 @@ public static class CamJobInfo
     public static bool Counts(CamOperationSpec s, string field) => field switch
     {
         RampAngleField => s.PocketParams?.Entry == PocketEntry.Ramp,
-        HelixDiameterField or HelixPitchField => s.PocketParams?.Entry == PocketEntry.Helix,
+        // CAM-ADAPT-01c: no adaptativo com borda aberta a entrada é por fora; a hélice só conta com parede fechada
+        HelixDiameterField or HelixPitchField => s.PocketParams?.Entry == PocketEntry.Helix
+            && !(s.PocketParams.Strategy == PocketStrategy.Adaptive && s.Geometry?.Border == PocketBorder.Open),
+        AdaptiveLoadField => s.PocketParams?.Strategy == PocketStrategy.Adaptive,
         PeckField when s.Kind == JobOpKind.Drilling => s.Drill?.Cycle is DrillCycleKind.Peck or DrillCycleKind.ChipBreak,
         DwellField when s.Kind == JobOpKind.Drilling => s.Drill?.Cycle == DrillCycleKind.Dwell, // no mandrilhar a pausa é opcional (0 = G85)
         _ when IsFaceField(field) => FaceFields(s.Face).Contains(field),
         _ => true,
     };
+
+    /// <summary>
+    /// CAM-ADAPT-01c: passe em Z do desbaste adaptativo contra o comprimento de corte da ferramenta no banco. Passe maior que o
+    /// comprimento = erro; sem o comprimento (ou a ferramenta fora do banco) = Conferir. Nada nas outras operações.
+    /// </summary>
+    public static (string? Error, string? Check) AdaptiveDepth(int index, CamOperationSpec s, ToolBank? bank)
+    {
+        if (!s.Enabled || s.PocketParams?.Strategy != PocketStrategy.Adaptive || s.Levels.StepDown <= 0)
+        {
+            return (null, null);
+        }
+
+        string who = $"Operação {index + 1} (Desbaste adaptativo)";
+        BankTool? t = bank?.Tools.FirstOrDefault(b => b.Number == s.Tool.Number);
+        if (t?.CuttingLength is not { } length || length <= 0)
+        {
+            return (null, $"{who}: a T{s.Tool.Number} não tem comprimento de corte no banco. Conferir: o passe em Z de {s.Levels.StepDown:0.###} mm precisa caber no corte da fresa.");
+        }
+
+        return s.Levels.StepDown > length + 1e-9
+            ? ($"{who}: passe em Z de {s.Levels.StepDown:0.###} mm é maior que o comprimento de corte da T{s.Tool.Number} ({length:0.###} mm). Diminua o passe ou troque a fresa.", null)
+            : (null, null);
+    }
 
     /// <summary>Texto do campo com valor inválido ("T inválido: use inteiro ≥ 1").</summary>
     public static string InvalidMessage(string field) => field == ToolNumberField ? "T inválido: use inteiro ≥ 1" : $"{field} inválido";
