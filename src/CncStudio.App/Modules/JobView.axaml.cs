@@ -720,7 +720,9 @@ public partial class JobView : UserControl
         CodeTitle.Text = _startPending ? StartPendingTitle
             : blocked ? "Código CNC: não gerado (passe em Z maior que o corte da fresa; veja o console)"
             : gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
-        Bar.Update(PendingItems(), ready, gcode && ready > 0, gcode);
+        // CAM-ADAPT-01c (achado no .exe): o erro de passe em Z também tira o "Pronto para gerar" da barra
+        List<JobBarItem> items = [.. AdaptiveDepths().Select(d => d.Error).OfType<string>().Select(e => new JobBarItem("bad", e, () => { })), .. PendingItems()];
+        Bar.Update(items, ready, gcode && ready > 0, gcode);
         CopyButton.IsEnabled = gcode;
     }
 

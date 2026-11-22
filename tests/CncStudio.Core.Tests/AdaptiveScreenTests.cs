@@ -76,6 +76,17 @@ public class AdaptiveScreenTests
     }
 
     [Fact]
+    public void OpenBorderWithHelixEntryNeedsNoHelixValues()
+    {
+        // achado no .exe: o item da paleta nasce em hélice; com borda aberta a hélice vazia não pode travar o Gerar
+        Contour stock = Contour.Rectangle(0, 0, 80, 50);
+        Contour room = Contour.Rectangle(-25, -25, 130, 100);
+        var p = new PocketParams(60, 0.3) { Strategy = PocketStrategy.Adaptive, Entry = PocketEntry.Helix, OptimalLoad = 1, AdaptiveStock = stock };
+        OperationResult r = CamOperations.PocketWithIslands(room, [Contour.Circle(new Point2(40, 25), 10)], new CamTool(1, 10, 3000, 1000, 300), new CamLevels(20, 2, 0, -4, 4), p);
+        Assert.True(r.Ok, r.Error);
+    }
+
+    [Fact]
     public void OtherOperationsAreNotChecked()
     {
         CamOperationSpec ring = Adaptive(50) with { PocketParams = Adaptive(50).PocketParams! with { Strategy = PocketStrategy.Rings } };

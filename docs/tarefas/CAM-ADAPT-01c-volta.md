@@ -27,16 +27,23 @@
   - quando o trabalho não pode ser copiado para o cálculo do bruto (campo inválido), o selo mostra "sem estado" com o motivo, em vez de "calculando…" sem fim (`JobView.Stock.cs`).
 - Conferido no App (Xvfb) com uma cópia desse trabalho (`testes-step\BOLTED_FLANGE-adapt.casillas-job`, salva por mim): ● na aba, operações 1–7 com bruto ✓; com carga 1 e hélice Ø8 × 1, a operação gera (≈7 min) e fica com bruto ✓.
 
+## Segundo teste no .exe (21/11, 22:35)
+- **Funcionou:** a troca para Adaptativo na operação 7 (Ø24) mostrou ●, "Não dá para gerar", e com carga 1 e hélice Ø8 × 1 gerou (bruto ✓, 17 min no total). Passe em Z 22 com a T1 do banco (corte 20 mm): erro no console, código não gerado, Copiar e Enviar desligados. Pela face Z−16 do STEP: Desbaste adaptativo criado, com Automático (1 ilha, 6 furos ignorados, borda aberta).
+- **Dois defeitos achados e corrigidos (commit seguinte):**
+  - com borda aberta, a hélice vazia dava erro ("O diâmetro da hélice precisa ser maior…") e travava o Gerar. A conferência geral da hélice agora pula o adaptativo com borda aberta. A hélice só é pedida se uma região precisar dela, como já era no motor (`PocketOptions.cs`).
+  - com o erro de passe em Z, a barra ainda dizia "Pronto para gerar". Agora o erro entra na barra e tira o "Pronto".
+
 ## Testes
-- Novo `AdaptiveScreenTests` (6):
+- Novo `AdaptiveScreenTests` (7):
   - o item da paleta cria o adaptativo com carga em falta;
   - passe maior que o corte → erro;
   - passe igual → limpo;
   - sem comprimento, T fora do banco ou sem banco → Conferir;
   - bolsão comum e operação desligada não são conferidos;
-  - trocar a estratégia para Adaptativo força hélice e marca os campos vazios (correção acima).
+  - trocar a estratégia para Adaptativo força hélice e marca os campos vazios (correção acima);
+  - borda aberta com entrada em hélice e hélice vazia gera.
 - **Nenhum teste existente alterado.** O arquivo segue na versão 10.
-- Core completo: **2183 verdes**, 8 G-codes intactos. A solução compila sem avisos.
+- Core completo: **2184 verdes**, 8 G-codes intactos. A solução compila sem avisos.
 - Tela conferida em 1280 × 720 (Xvfb):
   - aba Estratégia com a seção;
   - carga vazia → ● na aba, erro "Falta Carga ótima" e operação vermelha;
@@ -45,4 +52,4 @@
 ## O que o Igor confere no .exe
 1. Operações ▾ → Desbaste adaptativo num bolsão do BOLTED_FLANGE: digitar carga, hélice e passe; gerar; simular.
 2. Pôr comprimento de corte na fresa do banco menor que o passe em Z: o código não sai, com erro no console.
-3. Borda aberta (face de fora): entra por fora, sem pedir hélice.
+3. Borda aberta (face Z−16): gera sem pedir hélice e entra por fora.
