@@ -648,8 +648,10 @@ public partial class JobView : UserControl
             ? "Bruto por operação: simulação é verificação, nunca garantia (resolução da grade). Operações em \"começar no material\" usam este bruto no G-code."
             : StockStepsCheck;
         IEnumerable<string> checks = _stockOn && _job.Operations.Count > 0 ? [.. conflicts, stockCheck] : conflicts;
-        AvisosBox.SetWarnings(_build.Warnings.Where(w => !IsStartNote(w)), [.. checks, .. start]);
-        AvisosBox.SetDerivedErrors(CompareErrors());
+        // CAM-ADAPT-01c: passe em Z × comprimento de corte da fresa no banco (erro trava o programa; sem o dado, Conferir)
+        List<(string? Error, string? Check)> depth = AdaptiveDepths();
+        AvisosBox.SetWarnings(_build.Warnings.Where(w => !IsStartNote(w)), [.. checks, .. start, .. depth.Select(d => d.Check).OfType<string>()]);
+        AvisosBox.SetDerivedErrors([.. CompareErrors(), .. depth.Select(d => d.Error).OfType<string>()]);
     }
 
     private void Refresh(int? op = null, bool keep = false, bool props = true)
@@ -701,16 +703,26 @@ public partial class JobView : UserControl
     /// Programa na aba Código NC, avisos, barra e Copiar. CAM-AR-01b: enquanto o bruto por operação não volta, o programa digitado
     /// não aparece nem sai (Enviar e Copiar travados).
     /// </summary>
+    private List<(string? Error, string? Check)> AdaptiveDepths() =>
+        [.. _job.Operations.Select((o, k) => CamJobInfo.AdaptiveDepth(k, o, ActiveBank))];
+
+    /// <summary>CAM-ADAPT-01c: algum desbaste adaptativo com passe em Z maior que o corte da fresa: o programa não sai.</summary>
+    private bool DepthBlocked => AdaptiveDepths().Any(d => d.Error is not null);
+
     private void ShowBuildOutput()
     {
         ShowWarnings();
-        bool gcode = !_startPending && _build.Ok && _build.Program.Length > 0;
+        bool blocked = DepthBlocked;
+        bool gcode = !_startPending && !blocked && _build.Ok && _build.Program.Length > 0;
         Output.Text = gcode ? _build.Program : _startPending ? "(calculando o material: o programa sai quando o bruto por operação terminar)" : "";
         int ready = _build.Items.Count(x => !x.Skipped && x.Ok);
         CodeTitle.ClearValue(Avalonia.Controls.TextBlock.ForegroundProperty);
         CodeTitle.Text = _startPending ? StartPendingTitle
+            : blocked ? "Código CNC: não gerado (passe em Z maior que o corte da fresa; veja o console)"
             : gcode ? $"Código CNC ({(_job.Dialect == CamDialect.Siemens ? "Siemens" : "Fanuc")}) · gerado a partir de {ready} operaç{(ready == 1 ? "ão" : "ões")}" : "Código CNC: não gerado";
-        Bar.Update(PendingItems(), ready, gcode && ready > 0, gcode);
+        // CAM-ADAPT-01c (achado no .exe): o erro de passe em Z também tira o "Pronto para gerar" da barra
+        List<JobBarItem> items = [.. AdaptiveDepths().Select(d => d.Error).OfType<string>().Select(e => new JobBarItem("bad", e, () => { })), .. PendingItems()];
+        Bar.Update(items, ready, gcode && ready > 0, gcode);
         CopyButton.IsEnabled = gcode;
     }
 
@@ -773,6 +785,13 @@ public partial class JobView : UserControl
     /// </summary>
     public bool CheckFresh()
     {
+        if (DepthBlocked)
+        {
+            CopyButton.IsEnabled = false;
+            CodeTitle.Text = "Código CNC: não gerado (passe em Z maior que o corte da fresa; veja o console)";
+            return true;
+        }
+
         if (_startPending)
         {
             // CAM-AR-01b: programa ainda sem o material das operações anteriores: não sai

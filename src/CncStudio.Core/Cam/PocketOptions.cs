@@ -56,6 +56,12 @@ public static partial class CamOperations
             return adaptive;
         }
 
+        if (p.Strategy == PocketStrategy.Adaptive && p.AdaptiveStock is not null)
+        {
+            // CAM-ADAPT-01c (achado no .exe): borda aberta entra por fora; a hélice só é conferida se uma região precisar dela
+            return null;
+        }
+
         switch (p.Entry)
         {
             case PocketEntry.Ramp when !(p.RampAngle > 0 && p.RampAngle < 90):

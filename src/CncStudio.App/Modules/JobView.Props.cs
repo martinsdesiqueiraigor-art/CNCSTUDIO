@@ -182,6 +182,32 @@ public partial class JobView
                 Num(i, CamJobInfo.ChamferLeadField, "mm", ch.LeadRadius, (x, v) => x with { Chamfer = x.Chamfer! with { LeadRadius = v } });
                 PropsPanel.Children.Add(new TextBlock { Text = "O Ø da ferramenta é o Ø da fresa em V. A profundidade é da ponta, abaixo do topo. Considera ponta afiada: ponta plana deixa o chanfro menor que o digitado.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
                 break;
+            case JobOpKind.Pocket when s.PocketParams is { Strategy: PocketStrategy.Adaptive } ap:
+                // CAM-ADAPT-01c: desbaste adaptativo (Fusion 2D Adaptive: Optimal load, Minimum cutting radius, Stock to leave, Both ways)
+                Section("Desbaste adaptativo");
+                Num(i, CamJobInfo.AdaptiveLoadField, "mm", ap.OptimalLoad, (x, v) => x with { PocketParams = x.PocketParams! with { OptimalLoad = v } },
+                    check: v => v <= 0 ? "A carga ótima precisa ser maior que zero." : s.Tool.Diameter > 0 && v > (s.Tool.Diameter / 2) + 1e-9 ? "A carga ótima vai até 50% do Ø da ferramenta." : null);
+                PropsPanel.Children.Add(new TextBlock { Text = "Largura de corte máxima. O passe em Z é o das Alturas (passes iguais); com carga pequena ele pode ser fundo, até o comprimento de corte da fresa.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                Num(i, "Sobremetal na parede", "mm", ap.FinishAllowance, (x, v) => x with { PocketParams = x.PocketParams! with { FinishAllowance = v } });
+                Num(i, "Sobremetal no fundo", "mm", ap.FloorAllowance, (x, v) => x with { PocketParams = x.PocketParams! with { FloorAllowance = v } });
+                Num(i, "Raio mínimo (preferência)", "mm", ap.MinRadius, (x, v) => x with { PocketParams = x.PocketParams! with { MinRadius = v } });
+                Check(i, "Os dois sentidos (concordante e discordante)", ap.BothWays, (x, v) => x with { PocketParams = x.PocketParams! with { BothWays = v } });
+                PropsPanel.Children.Add(new TextBlock { Text = "O raio mínimo é preferência: a carga ótima vale primeiro. Sem os dois sentidos, o corte prefere o concordante.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                Check(i, "Contornar ilhas (contornos do desenho dentro deste)", s.Islands, (x, v) => x with { Islands = v });
+                if (s.Geometry?.Border == PocketBorder.Open)
+                {
+                    PropsPanel.Children.Add(new TextBlock { Text = "Borda aberta: entra por fora do bruto, sem hélice. A hélice só vale para uma região que não se alcança por fora.", Opacity = 0.65, FontSize = 11, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                }
+
+                Pick(i, "Entrada", ["Hélice", "Pré-furo (Furação anterior)"], ap.Entry == PocketEntry.PreDrill ? 1 : 0, (x, n) => x with { PocketParams = x.PocketParams! with { Entry = n == 1 ? PocketEntry.PreDrill : PocketEntry.Helix } }, rebuild: true);
+                if (ap.Entry != PocketEntry.PreDrill)
+                {
+                    Num(i, CamJobInfo.HelixDiameterField, "mm", ap.HelixDiameter, (x, v) => x with { PocketParams = x.PocketParams! with { HelixDiameter = v } });
+                    Num(i, CamJobInfo.HelixPitchField, "mm", ap.HelixPitch, (x, v) => x with { PocketParams = x.PocketParams! with { HelixPitch = v } });
+                }
+
+                Pick(i, "Estratégia", ["Anéis de fora para dentro", "Zigue-zague", "Anéis de dentro para fora", "Espiral", "Adaptativo"], (int)ap.Strategy, (x, n) => CamPalette.WithStrategy(x, (PocketStrategy)n), rebuild: true);
+                break;
             case JobOpKind.Pocket when s.PocketParams is { } p:
                 Section("Bolsão");
                 Num(i, "Passo lateral", "% Ø", p.StepOverPercent, (x, v) => x with { PocketParams = x.PocketParams! with { StepOverPercent = v } });
@@ -200,7 +226,7 @@ public partial class JobView
                     Num(i, CamJobInfo.HelixPitchField, "mm", p.HelixPitch, (x, v) => x with { PocketParams = x.PocketParams! with { HelixPitch = v } });
                 }
 
-                Pick(i, "Estratégia", ["Anéis de fora para dentro", "Zigue-zague", "Anéis de dentro para fora", "Espiral", "Adaptativo"], (int)p.Strategy, (x, n) => x with { PocketParams = x.PocketParams! with { Strategy = (PocketStrategy)n } }, rebuild: true);
+                Pick(i, "Estratégia", ["Anéis de fora para dentro", "Zigue-zague", "Anéis de dentro para fora", "Espiral", "Adaptativo"], (int)p.Strategy, (x, n) => CamPalette.WithStrategy(x, (PocketStrategy)n), rebuild: true);
                 break;
             case JobOpKind.Facing:
                 Section("Faceamento");

@@ -198,6 +198,15 @@ public partial class JobView
             return true;
         }
 
+        if (item.Id == CamPalette.AdaptiveId)
+        {
+            // CAM-ADAPT-01c: o Bolsão criado da seleção vira desbaste adaptativo
+            foreach (int k in made)
+            {
+                _job.Operations[k] = CamPalette.AsAdaptive(_job.Operations[k]);
+            }
+        }
+
         MarkNewOps(before);
         _partSelection.Clear();
         _partEdges.Clear();

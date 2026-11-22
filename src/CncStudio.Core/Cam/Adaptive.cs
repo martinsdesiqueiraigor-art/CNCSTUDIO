@@ -81,7 +81,7 @@ public static partial class CamOperations
             return Fail($"Desbaste adaptativo: {bad} ponto(s) da trajetória chegariam perto demais da parede ou de uma ilha. Erro interno: avise o suporte.");
         }
 
-        warnings.Add("Desbaste adaptativo: simule antes de rodar e confira o comprimento de corte da ferramenta para o passe em Z.");
+        warnings.Add("Desbaste adaptativo: simule antes de rodar (o passe em Z é conferido com o comprimento de corte da fresa no banco).");
         return new OperationResult(new CamOperation("Desbaste adaptativo", tool, moves, null, warnings), null);
     }
 
