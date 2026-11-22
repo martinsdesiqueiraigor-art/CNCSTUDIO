@@ -31,8 +31,61 @@ public sealed record FaceMenu(string Header, IReadOnlyList<FaceMenuItem> All)
 /// condições de <see cref="FaceDrilling"/> e <see cref="FacePocket"/> (furo vertical; fundo plano para cima, abaixo do topo,
 /// com um contorno só). Faceamento, contornos e bolsão com ilhas saem no Trabalho fresa (STEP-OPS), não desta aba; texto no cilindro não sai do 3D; varredura e desbaste usam o modelo inteiro.
 /// </summary>
+/// <summary>
+/// CAM-FACE-02: linha do menu da face no Trabalho fresa. <paramref name="Adaptive"/> = Bolsão convertido em desbaste adaptativo.
+/// Se serve ou não (e o porquê) é do <see cref="CamJobFromGeometry.Unavailable"/>, na hora do clique.
+/// </summary>
+public sealed record JobFaceItem(string Id, string Label, JobOpKind Kind, ContourSide Side, bool Adaptive = false);
+
 public static class FaceMenuRules
 {
+    /// <summary>
+    /// CAM-FACE-02: menu da face no Trabalho fresa (como os CAMs de mercado). Fundo plano: Faceamento, Bolsão e Desbaste adaptativo.
+    /// Furo: Furação e Contorno por dentro. Pino e parede reta: Contorno por fora e por dentro (o lado errado fica apagado com o motivo).
+    /// Parede inclinada: Chanfro e Contorno pela base (em degraus). A aba Modelo 3D continua com <see cref="For(MeshFeatures, MeshFace, double)"/>.
+    /// </summary>
+    public static (string Header, IReadOnlyList<JobFaceItem> Items) ForJob(MeshFeatures features, MeshFace face, double modelTopZ)
+    {
+        if (face.Kind == FaceKind.Plane && face.Normal.Z >= 0.99)
+        {
+            return (Header(face, modelTopZ),
+            [
+                new("faceamento", "Faceamento", JobOpKind.Facing, ContourSide.Outside),
+                new("bolsao", "Bolsão", JobOpKind.Pocket, ContourSide.Outside),
+                new(CamPalette.AdaptiveId, "Desbaste adaptativo", JobOpKind.Pocket, ContourSide.Outside, Adaptive: true),
+            ]);
+        }
+
+        (WallContour? wall, _) = WallSection.Of(features, face);
+        string z = $"Z {F(face.Box.Max.Z)} → {F(face.Box.Min.Z)}";
+        if (wall is { Inclined: true } w)
+        {
+            string side = w.Side == ContourSide.Outside ? "por fora" : "por dentro";
+            return ($"Parede inclinada · {z} · ≈{F(w.ChamferTipAngle / 2)}° da vertical",
+            [
+                new("chanfro", "Chanfro", JobOpKind.Chamfer, w.Side),
+                new(w.Side == ContourSide.Outside ? "contorno-fora" : "contorno-dentro", $"Contorno pela base ({side}, em degraus)", JobOpKind.Contour, w.Side),
+            ]);
+        }
+
+        string header = face.Kind switch
+        {
+            FaceKind.Boss => $"Parede de pino Ø {F(face.Diameter)} mm · {z}",
+            FaceKind.Hole => $"Parede de furo Ø {F(face.Diameter)} mm · {z}",
+            _ when wall is not null => $"Parede reta · {z}",
+            _ => Header(face, modelTopZ),
+        };
+        var items = new List<JobFaceItem>();
+        if (face.Kind == FaceKind.Hole)
+        {
+            items.Add(new("furacao", "Furação", JobOpKind.Drilling, ContourSide.Inside));
+        }
+
+        items.Add(new("contorno-fora", "Contorno por fora", JobOpKind.Contour, ContourSide.Outside));
+        items.Add(new("contorno-dentro", "Contorno por dentro", JobOpKind.Contour, ContourSide.Inside));
+        return (header, items);
+    }
+
     /// <summary>Folga (mm) para dizer que uma face plana está no topo do modelo.</summary>
     public const double TopTolerance = 0.01;
 
