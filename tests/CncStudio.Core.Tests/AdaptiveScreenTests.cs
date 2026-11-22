@@ -55,6 +55,27 @@ public class AdaptiveScreenTests
     }
 
     [Fact]
+    public void SwitchingToAdaptiveForcesHelixAndMarksEmptyFields()
+    {
+        // achado no .exe: Bolsão com entrada Padrão trocado para Adaptativo ficava com a entrada escondida e o cálculo travava
+        CamOperationSpec rings = Adaptive(3) with { PocketParams = new PocketParams(60, 0.1) { Entry = PocketEntry.Default } };
+        CamOperationSpec a = CamPalette.WithStrategy(rings, PocketStrategy.Adaptive);
+        Assert.Equal(PocketStrategy.Adaptive, a.PocketParams!.Strategy);
+        Assert.Equal(PocketEntry.Helix, a.PocketParams.Entry);
+        Assert.Contains(CamJobInfo.AdaptiveLoadField, a.MissingFields);
+        Assert.Contains(CamJobInfo.HelixDiameterField, a.MissingFields);
+
+        // valores já digitados e pré-furo ficam
+        CamOperationSpec typed = Adaptive(3) with { PocketParams = Adaptive(3).PocketParams! with { Strategy = PocketStrategy.Rings, Entry = PocketEntry.PreDrill } };
+        CamOperationSpec b = CamPalette.WithStrategy(typed, PocketStrategy.Adaptive);
+        Assert.Equal(PocketEntry.PreDrill, b.PocketParams!.Entry);
+        Assert.Empty(b.MissingFields);
+
+        // sair do adaptativo tira a marca da carga
+        Assert.DoesNotContain(CamJobInfo.AdaptiveLoadField, CamPalette.WithStrategy(a, PocketStrategy.Rings).MissingFields);
+    }
+
+    [Fact]
     public void OtherOperationsAreNotChecked()
     {
         CamOperationSpec ring = Adaptive(50) with { PocketParams = Adaptive(50).PocketParams! with { Strategy = PocketStrategy.Rings } };

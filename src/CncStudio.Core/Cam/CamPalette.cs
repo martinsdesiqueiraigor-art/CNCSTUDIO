@@ -254,16 +254,41 @@ public static class CamPalette
     public const string AdaptiveId = "desbaste-adaptativo";
 
     /// <summary>
-    /// CAM-ADAPT-01c: o Bolsão vira desbaste adaptativo com entrada em hélice; carga ótima e hélice nascem vazias (nada suposto).
+    /// CAM-ADAPT-01c: o Bolsão vira desbaste adaptativo. Entrada: pré-furo fica; qualquer outra vira hélice (o adaptativo só entra
+    /// assim). Carga ótima e hélice sem valor ficam vazias (●, nada suposto); valor já digitado fica.
     /// </summary>
     public static CamOperationSpec AsAdaptive(CamOperationSpec s)
     {
-        CamOperationSpec a = s with { PocketParams = (s.PocketParams ?? new PocketParams(60, 0)) with { Strategy = PocketStrategy.Adaptive, Entry = PocketEntry.Helix } };
-        foreach (string f in new[] { CamJobInfo.AdaptiveLoadField, CamJobInfo.HelixDiameterField, CamJobInfo.HelixPitchField })
+        PocketParams p = s.PocketParams ?? new PocketParams(60, 0);
+        PocketEntry entry = p.Entry == PocketEntry.PreDrill ? PocketEntry.PreDrill : PocketEntry.Helix;
+        CamOperationSpec a = s with { PocketParams = p with { Strategy = PocketStrategy.Adaptive, Entry = entry } };
+        (string Field, double Value)[] fields =
+        [
+            (CamJobInfo.AdaptiveLoadField, p.OptimalLoad), (CamJobInfo.HelixDiameterField, p.HelixDiameter), (CamJobInfo.HelixPitchField, p.HelixPitch),
+        ];
+        foreach ((string f, double v) in fields)
         {
-            a = CamJobInfo.SetMissing(a, f, true);
+            if (v <= 0)
+            {
+                a = CamJobInfo.SetMissing(a, f, true);
+            }
         }
 
         return a;
+    }
+
+    /// <summary>
+    /// CAM-ADAPT-01c: troca a estratégia do Bolsão. Entrar no Adaptativo passa por <see cref="AsAdaptive"/> (antes, a entrada
+    /// "Padrão" ficava escondida e o cálculo travava); sair dele tira a marca da carga ótima.
+    /// </summary>
+    public static CamOperationSpec WithStrategy(CamOperationSpec s, PocketStrategy strategy)
+    {
+        PocketParams p = s.PocketParams ?? new PocketParams(60, 0);
+        if (strategy == PocketStrategy.Adaptive)
+        {
+            return p.Strategy == PocketStrategy.Adaptive ? s : AsAdaptive(s);
+        }
+
+        return CamJobInfo.SetMissing(s with { PocketParams = p with { Strategy = strategy } }, CamJobInfo.AdaptiveLoadField, false);
     }
 }

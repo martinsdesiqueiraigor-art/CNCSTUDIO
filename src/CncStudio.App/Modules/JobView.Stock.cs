@@ -25,6 +25,9 @@ public partial class JobView
     private int _stockVersion;
     private int _stockSceneVersion;
     private bool _stockBusy;
+
+    /// <summary>CAM-ADAPT-01c: por que o bruto por operação não pôde ser calculado (trabalho com campo inválido); null = sem problema.</summary>
+    private string? _stockProblem;
     private bool _stockOn = true;
     private readonly Dictionary<int, Border> _stockChips = [];
     private StackPanel? _stockSection;
@@ -107,6 +110,7 @@ public partial class JobView
         catch (Exception e) when (e is not OutOfMemoryException)
         {
             _stockTimeline = null;
+            _stockProblem = e.Message; // antes ficava "calculando…" para sempre
             ForgetCompare();
             _stockBusy = false;
             ApplyStartBuild();
@@ -120,6 +124,7 @@ public partial class JobView
         CamStockTimeline? previous = _stockTimeline;
         // peça STEP na posição (a mesma do 3D); sem ela não há comparação
         TriangleMesh? partMesh = _partMesh is { } pm && _job.PartStep?.Path == pm.Path ? pm.Placed : null;
+        _stockProblem = null;
         var cancel = new CancellationTokenSource();
         _stockCancel = cancel;
         _stockBusy = true;
@@ -175,6 +180,11 @@ public partial class JobView
         if (!_stockOn || index >= _job.Operations.Count || !_job.Operations[index].Enabled)
         {
             return null;
+        }
+
+        if (!_stockBusy && _stockProblem is { } why)
+        {
+            return ("sem estado", "pending", "Bruto por operação não calculado: " + why);
         }
 
         if (_stockBusy || _stockTimeline is null || index >= _stockTimeline.States.Count)
@@ -260,6 +270,12 @@ public partial class JobView
         if (!_stockOn || _job.Operations.Count == 0)
         {
             StatusStock.Text = "";
+            return;
+        }
+
+        if (!_stockBusy && _stockProblem is not null)
+        {
+            StatusStock.Text = "Bruto por operação: não calculado (veja a operação)";
             return;
         }
 

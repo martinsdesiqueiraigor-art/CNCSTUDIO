@@ -20,15 +20,23 @@
 ## Diferenças do plano
 - `CamPalette.OperationItems` deixou de listar variantes (lista `Variants`). Assim o teste antigo "um botão por tipo" segue igual. O Desbaste adaptativo é variante do Bolsão. Só os testes usam esse método.
 
+## Correção depois do teste no .exe (21/11, 21:50)
+- **Defeito:** num Bolsão com entrada "Padrão", trocar a estratégia para Adaptativo deixava a entrada "Padrão" escondida (a lista mostrava "Hélice"). O bruto por operação ficava em "calculando…" para sempre em todas as operações, e o Gerar travava sem erro no console. Visto no BOLTED_FLANGE do Assist (operação Bolsão Ø24 duplicada).
+- **Correção:**
+  - trocar para Adaptativo passa por `CamPalette.WithStrategy`: a entrada vira hélice (pré-furo fica), e carga e hélice sem valor ficam vazias (●). Valores já digitados ficam. Sair do Adaptativo tira a marca da carga.
+  - quando o trabalho não pode ser copiado para o cálculo do bruto (campo inválido), o selo mostra "sem estado" com o motivo, em vez de "calculando…" sem fim (`JobView.Stock.cs`).
+- Conferido no App (Xvfb) com uma cópia desse trabalho (`testes-step\BOLTED_FLANGE-adapt.casillas-job`, salva por mim): ● na aba, operações 1–7 com bruto ✓; com carga 1 e hélice Ø8 × 1, a operação gera (≈7 min) e fica com bruto ✓.
+
 ## Testes
-- Novo `AdaptiveScreenTests` (5):
+- Novo `AdaptiveScreenTests` (6):
   - o item da paleta cria o adaptativo com carga em falta;
   - passe maior que o corte → erro;
   - passe igual → limpo;
   - sem comprimento, T fora do banco ou sem banco → Conferir;
-  - bolsão comum e operação desligada não são conferidos.
+  - bolsão comum e operação desligada não são conferidos;
+  - trocar a estratégia para Adaptativo força hélice e marca os campos vazios (correção acima).
 - **Nenhum teste existente alterado.** O arquivo segue na versão 10.
-- Core completo: **2182 verdes**, 8 G-codes intactos. A solução compila sem avisos.
+- Core completo: **2183 verdes**, 8 G-codes intactos. A solução compila sem avisos.
 - Tela conferida em 1280 × 720 (Xvfb):
   - aba Estratégia com a seção;
   - carga vazia → ● na aba, erro "Falta Carga ótima" e operação vermelha;
