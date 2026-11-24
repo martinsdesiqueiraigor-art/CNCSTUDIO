@@ -115,7 +115,8 @@ public class CamStockCompareTests(Xunit.Abstractions.ITestOutputHelper output)
         CamStockCompareResult r = Run(map, new TriangleMesh(Top(10, 10, 20, 20, -4)));
         Assert.Equal(10 * 10, r.CountedCells);
         Assert.True(r.HasGouge);
-        Assert.Equal(10 * 10 * 6, r.GougeVolume, 3);
+        // CAM-ACHADOS-01: a borda de uma célula ao lado de célula sem peça é tolerância lateral (como em toda parede): só o miolo 8 × 8
+        Assert.Equal(8 * 8 * 6, r.GougeVolume, 3);
     }
 
     [Fact]
@@ -191,7 +192,8 @@ public class CamStockCompareTests(Xunit.Abstractions.ITestOutputHelper output)
     [Fact]
     public void Contorno_por_fora_que_entra_na_flange_de_100_da_gouge_na_borda()
     {
-        // o defeito do arquivo de teste do BOLTED_FLANGE: contorno por fora até Z−16 que corta a borda da flange Ø100 (aqui, contorno Ø88; sem banco a simulação usa a fresa padrão Ø10, então a parede do corte fica em r ≈ 49)
+        // o defeito do arquivo de teste do BOLTED_FLANGE: contorno por fora até Z−16 que corta a borda da flange Ø100 (aqui, contorno Ø88;
+        // CAM-ACHADOS-01: a simulação usa o Ø20 da operação, então a parede do corte fica em r = 44, uma célula a menos de tolerância)
         var job = new CamJob { Name = "FLANGE", ProgramNumber = 1001, WorkOffset = 54, Zero = JobZero.Legacy };
         job.SetStock(new JobStock(0, 0, 120, 120, 28), null);
         job.Contours.Add(CamJobPart.Circle(new Point2(60, 60), 44));
@@ -226,7 +228,7 @@ public class CamStockCompareTests(Xunit.Abstractions.ITestOutputHelper output)
         Assert.InRange(g.MaxDepth, 5.5, 6.5);
         Assert.InRange(g.MinX, 9.5, 12);
         Assert.InRange(g.MaxX, 108, 110.5);
-        Assert.InRange(r.GougeVolume, 1000, Math.PI * ((50 * 50) - (44 * 44)) * 6);
+        Assert.InRange(r.GougeVolume, 1000, Math.PI * ((50 * 50) - (43.5 * 43.5)) * 6);
         Assert.Equal(CamStockVerdict.Gouge, Assert.Single(c.Summary()).Verdict);
     }
 

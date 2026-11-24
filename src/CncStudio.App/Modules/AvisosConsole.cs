@@ -172,7 +172,7 @@ public sealed class AvisosConsole : Border
         internal static AvisoNivel Classify(string line)
         {
             string[] check = ["descarta", "ficaram Incompletas", "não foram achadas", "não desenha bruto", "O desenho já tem", "não é a mesma peça", "Preencha antes"];
-            string[] info = ["Lendo ", "lido em", "Operação criada", "Trabalho novo", "Trabalho de torno novo", "Programa enviado", "trocada", "escolhida(s)", "Clique nas faces", "Abra o DXF do perfil"];
+            string[] info = ["Lendo ", "lido em", "Operação criada", "criada(s)", "Trabalho novo", "Trabalho de torno novo", "Programa enviado", "trocada", "escolhida(s)", "Clique nas faces", "Abra o DXF do perfil"];
             if (check.Any(k => line.Contains(k, StringComparison.OrdinalIgnoreCase)))
                 return AvisoNivel.Conferir;
             if (info.Any(k => line.Contains(k, StringComparison.OrdinalIgnoreCase)))
