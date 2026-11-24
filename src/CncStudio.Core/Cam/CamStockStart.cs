@@ -91,6 +91,19 @@ public static class CamStockStart
         (s.FromOperation < 0 ? "inicial" : $"da operação {s.FromOperation + 1}") +
         $" (altura de avanço Z{s.Levels.ClearanceZ:0.###}, passes em Z {s.PassesBefore} → {s.PassesAfter}). O G-code muda: confira na simulação.";
 
+    /// <summary>
+    /// CAM-ACHADOS-01: motivo quando o material está acima do topo digitado (nunca sobe acima dele, então nada muda): o primeiro passe
+    /// tira também o que estiver acima. Null quando o material está no topo digitado (nada a dizer) ou quando houve ajuste.
+    /// </summary>
+    public static string? AboveReason(CamLevels typed, StockStart s)
+    {
+        ArgumentNullException.ThrowIfNull(typed);
+        ArgumentNullException.ThrowIfNull(s);
+        return !s.Adjusted && s.MaterialTop is { } top && top > typed.TopZ + 1e-6
+            ? $"material em Z{top:0.###} nesta área, acima do topo digitado Z{typed.TopZ:0.###}; o topo nunca sobe acima do digitado e o 1º passe tira também o excesso"
+            : null;
+    }
+
     /// <summary>Texto do aviso Conferir de uma operação que pediu "começar no material" e gera pelo topo digitado.</summary>
     public static string KeptNote(int index, string reason) =>
         $"Operação {index + 1}: começar no material não aplicado ({reason}); gera pelo topo digitado. Conferir.";

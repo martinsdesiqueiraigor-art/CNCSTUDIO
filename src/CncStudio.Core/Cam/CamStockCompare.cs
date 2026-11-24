@@ -276,7 +276,7 @@ public sealed class CamStockCompare
 
     /// <summary>
     /// Compara o material da grade com as alturas da peça. Gouge: o bruto está abaixo da peça (menos a tolerância) em toda a
-    /// vizinhança 3×3 (só contam as células com peça); excesso: está acima dela (mais a tolerância) em toda a vizinhança. A tolerância é o tamanho da célula,
+    /// vizinhança 3×3 (célula sem peça conta como o fundo); excesso: está acima dela (mais a tolerância) em toda a vizinhança. A tolerância é o tamanho da célula,
     /// salvo se informada.
     /// </summary>
     public static CamStockCompareResult Compare(HeightMap material, float[] partHeights, double? tolerance = null)
@@ -326,7 +326,9 @@ public sealed class CamStockCompare
                 }
 
                 total++;
-                // vizinhança 3×3: o piso mais baixo e o topo mais alto da peça; célula sem peça não baixa o piso (borda da silhueta)
+                // vizinhança 3×3: o piso mais baixo e o topo mais alto da peça. CAM-ACHADOS-01: célula sem peça (furo vazado, borda da
+                // silhueta) também baixa o piso até o fundo: a malha facetada do STEP fecha um pouco o furo (cordas dentro do círculo) e a
+                // broca do mesmo Ø dava gouge falso no anel da parede; a tolerância lateral de uma célula vale ali como em toda parede
                 double pMin = double.MaxValue, pMax = double.MinValue;
                 for (int dr = -1; dr <= 1; dr++)
                 {
@@ -340,16 +342,8 @@ public sealed class CamStockCompare
 
                         int nk = (rr * cols) + cc;
                         pMax = Math.Max(pMax, p[nk]);
-                        if (present[nk])
-                        {
-                            pMin = Math.Min(pMin, p[nk]);
-                        }
+                        pMin = Math.Min(pMin, p[nk]);
                     }
-                }
-
-                if (pMin == double.MaxValue)
-                {
-                    pMin = bottom; // sem peça por perto: nada abaixo do fundo do bruto
                 }
 
                 if (present[k] && m[k] < pMin - tol)

@@ -138,7 +138,10 @@ public partial class JobView
             return ($"Z{StartFmt(s.Levels.TopZ)} mat.", "ok", "Parte em Z" + StartFmt(s.Levels.TopZ) + " (começar no material).\n" + (st.StartNote ?? ""));
         }
 
-        return ("digitado", "pending", st?.StartNote ?? "Começar no material não aplicado: gera pelo topo digitado.");
+        // CAM-ACHADOS-01: material no topo digitado não é pendência (nada a ajustar)
+        return st is { Start: { Adjusted: false, Reason: null }, StartNote: null }
+            ? ("digitado", "neutral", OnTypedTopNote)
+            : ("digitado", "pending", st?.StartNote ?? "Começar no material não aplicado: gera pelo topo digitado.");
     }
 
     /// <summary>Selo "parte em Z…" (fica ao lado do selo do bruto, na segunda linha da operação).</summary>
@@ -236,7 +239,9 @@ public partial class JobView
         }
         else
         {
-            panel.Children.Add(UiKit.StatusNote(st?.StartNote ?? "Começar no material não aplicado: gera pelo topo digitado.", "pending"));
+            panel.Children.Add(st is { Start: { Adjusted: false, Reason: null }, StartNote: null }
+                ? UiKit.StatusNote(OnTypedTopNote, "neutral")
+                : UiKit.StatusNote(st?.StartNote ?? "Começar no material não aplicado: gera pelo topo digitado.", "pending"));
         }
 
         panel.Children.Add(UiKit.StatusNote("Isto muda o G-code. Verificação, nunca garantia: o bruto é o simulado e deve ser igual ao da máquina.", "pending"));
@@ -256,6 +261,8 @@ public partial class JobView
         g.Children.Add(v);
         panel.Children.Add(g);
     }
+
+    private const string OnTypedTopNote = "O material já está no topo digitado nesta área: nada a ajustar.";
 
     private static TextBlock StartNoteText(string text) => new() { Text = text, Opacity = 0.65, FontSize = 11, TextWrapping = TextWrapping.Wrap };
 

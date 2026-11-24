@@ -222,7 +222,10 @@ public sealed class CamStockTimeline
         HashSet<int> knownShape = [.. handoff.Tools.Where(t => t.Type is { } code && BankToolTypes.FromCode(code) is not null).Select(t => t.Number)];
         var cutBy = new List<int>();
         Dialect dialect = job.Dialect == CamDialect.Siemens ? Dialect.Siemens : Dialect.Fanuc;
-        MachineSettings settings = MachineSettings.Default with { Machine = MachineKind.Mill, PartFrame = RotaryPartFrame.From(machine) };
+        // CAM-ACHADOS-01: o Ø de cada T é o da operação (como o pacote leva ao Code), não o do comentário da troca; sem isso uma
+        // broca cujo nome não traz "D9" virava a fresa padrão Ø10 no bruto e a peça × bruto acusava gouge falso no furo
+        MachineSettings settings = CamHandoffCode.ApplyDiameters(
+            MachineSettings.Default with { Machine = MachineKind.Mill, PartFrame = RotaryPartFrame.From(machine) }, handoff);
         var options = new PostOptions(job.Dialect, job.Name, InternalProgramNumber, InternalWorkOffset, job.Coolant, machine);
 
         var built = new List<JobOpResult>(CamJobBuilder.BuildOperations(job, machine));
@@ -364,7 +367,10 @@ public sealed class CamStockTimeline
         StockStart start = CamStockStart.Adjust(spec.Levels, top, CamStockStart.ClearanceFor(map)) with { FromOperation = last?.Index ?? -1 };
         if (!start.Adjusted)
         {
-            return start.Reason is { } why ? (item, start, CamStockStart.KeptNote(i, why)) : (item, start, null);
+            // CAM-ACHADOS-01: material acima do topo digitado também diz o motivo (antes ficava sem texto e a tela dizia só "não aplicado")
+            return start.Reason is { } why ? (item, start, CamStockStart.KeptNote(i, why))
+                : CamStockStart.AboveReason(spec.Levels, start) is { } above ? (item, start, CamStockStart.KeptNote(i, above))
+                : (item, start, null);
         }
 
         OperationResult again = CamJobBuilder.BuildOne(job, spec with { Levels = start.Levels }, machine);
