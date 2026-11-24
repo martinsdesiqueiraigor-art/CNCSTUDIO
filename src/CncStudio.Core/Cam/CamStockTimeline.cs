@@ -60,6 +60,19 @@ public sealed class CamStockState
     /// <summary>CAM-AR-01: aviso Conferir de "começar no material" (ajustada ou mantida no topo digitado); null quando não pede.</summary>
     public string? StartNote { get; internal set; }
 
+    /// <summary>
+    /// CAM-RAPIDO-01: rápidos (G0) desta operação que tiram material do bruto que sobrou das anteriores (a mesma conta do simulador
+    /// do Code). Zero = nenhum. Colisão provável na máquina: ordem das operações ou alturas a conferir.
+    /// </summary>
+    public int RapidHits { get; internal set; }
+
+    /// <summary>CAM-RAPIDO-01: ponto final do primeiro rápido no material, em coordenadas do programa (null sem rápido no material).</summary>
+    public Point3? RapidPoint { get; internal set; }
+
+    /// <summary>CAM-RAPIDO-01: texto do Erro do console (null sem rápido no material).</summary>
+    public string? RapidNote => RapidHits == 0 || RapidPoint is not { } p ? null
+        : $"Operação {Index + 1}: {RapidHits} {(RapidHits == 1 ? "rápido (G0) entra" : "rápidos (G0) entram")} no material que as operações anteriores ainda não tiraram (ex.: X{p.X:0.###} Y{p.Y:0.###} Z{p.Z:0.###}). Colisão provável: confira a ordem das operações ou as alturas (verificação, nunca garantia).";
+
     internal string? Key { get; set; }
 
     internal HeightMap.Snapshot? MapSnapshot { get; set; }
@@ -105,6 +118,9 @@ public sealed class CamStockTimeline
 
     /// <summary>CAM-AR-01: avisos Conferir de "começar no material", na ordem das operações.</summary>
     public IReadOnlyList<string> StartNotes => [.. States.Select(s => s.StartNote).OfType<string>()];
+
+    /// <summary>CAM-RAPIDO-01: Erros de rápido no material, um por operação.</summary>
+    public IReadOnlyList<string> RapidNotes => [.. States.Select(s => s.RapidNote).OfType<string>()];
 
     /// <summary>Um estado por operação do trabalho, na mesma ordem.</summary>
     public IReadOnlyList<CamStockState> States { get; }
@@ -266,6 +282,7 @@ public sealed class CamStockTimeline
                 {
                     Key = text, MapSnapshot = before.MapSnapshot, VoxelSnapshot = before.VoxelSnapshot, Path = before.Path,
                     RemovedVolume = before.RemovedVolume, Volume = before.Volume, Reused = true, Start = startOf.Start, StartNote = startOf.Note,
+                    RapidHits = before.RapidHits, RapidPoint = before.RapidPoint,
                 };
                 volume = before.Volume;
                 states.Add(again);
@@ -298,10 +315,14 @@ public sealed class CamStockTimeline
 
             simulation.RunToEnd();
             double now = VolumeOf(map, stock);
+            IReadOnlyList<int> rapids = simulation.RapidCollisions;
+            Point3? rapidPoint = rapids.Count > 0 && rapids[0] < path.Moves.Count
+                ? path.Moves[rapids[0]].End : null;
             states.Add(new CamStockState(i, CamStockStatus.Ready, null)
             {
                 Key = text, Path = path, MapSnapshot = map?.TakeSnapshot(), VoxelSnapshot = stock?.TakeSnapshot(),
                 RemovedVolume = Math.Max(0, volume - now), Volume = now, Elapsed = watch.Elapsed, Start = startOf.Start, StartNote = startOf.Note,
+                RapidHits = rapids.Count, RapidPoint = rapidPoint,
             });
             volume = now;
         }
