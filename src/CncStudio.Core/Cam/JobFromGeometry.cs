@@ -73,9 +73,52 @@ public static class CamJobFromGeometry
             case JobOpKind.Drilling:
                 (int index, string? error) = AddDrilling(job, faces);
                 return (index < 0 ? [] : [index], error);
+            case JobOpKind.Chamfer:
+                {
+                    // CAM-FACE-02: chanfro pela parede inclinada (largura e ângulo da ponta lidos; profundidade e entrada vazias)
+                    if (ChamferWall(features, faces) is { Why: { } chamferWhy })
+                    {
+                        return ([], chamferWhy);
+                    }
+
+                    WallContour wall = ChamferWall(features, faces).Wall!;
+                    List<int> owned = AppendOwned(job, [], [wall.Contour]);
+                    CamOperationSpec spec = ToolBankPick.EmptyTool(CamJobInfo.NewOperation(JobOpKind.Chamfer, wall.Side, owned[0]));
+                    spec = spec with
+                    {
+                        Label = "Chanfro da parede",
+                        Geometry = new GeoSource([JobGeometry.Of(faces[0])], LoopFilter.Outer, owned),
+                        Levels = CamJobPart.AboveTop(spec.Levels, wall.TopZ) with { BottomZ = wall.BottomZ },
+                        Chamfer = spec.Chamfer! with { Width = wall.ChamferWidth, TipAngle = wall.ChamferTipAngle },
+                    };
+                    spec = CamJobInfo.SetFieldState(spec, CamJobInfo.ChamferWidthField, false, false);
+                    spec = CamJobInfo.SetFieldState(spec, CamJobInfo.TipAngleField, false, false);
+                    job.Operations.Add(spec);
+                    return ([job.Operations.Count - 1], null);
+                }
+
             default:
                 return ([], CamPalette.SoonMessage);
         }
+    }
+
+    /// <summary>CAM-FACE-02: a parede inclinada única da seleção que vira chanfro (ou o motivo de não virar).</summary>
+    private static (WallContour? Wall, string? Why) ChamferWall(MeshFeatures features, IReadOnlyList<MeshFace> faces)
+    {
+        if (faces.Count != 1)
+        {
+            return (null, "Escolha no 3D uma face inclinada (a do chanfro).");
+        }
+
+        (WallContour? wall, string? why) = WallSection.Of(features, faces[0]);
+        if (wall is null)
+        {
+            return (null, why);
+        }
+
+        return wall.Inclined && wall.ChamferTipAngle is > 0 and < 180
+            ? (wall, null)
+            : (null, "Chanfro pede uma face inclinada; esta parede é reta (use Contorno).");
     }
 
     /// <summary>
@@ -103,6 +146,8 @@ public static class CamJobFromGeometry
                 return faces.Select(f => PocketError(features, f, modelTopZ)).FirstOrDefault(w => w is not null);
             case JobOpKind.Facing:
                 return faces.Count == 0 ? "Selecione no 3D a face a aplainar." : faces.Select(f => FacingError(features, f)).FirstOrDefault(w => w is not null);
+            case JobOpKind.Chamfer:
+                return ChamferWall(features, faces).Why;
             case JobOpKind.Drilling:
                 if (faces.Count == 0)
                 {
@@ -132,7 +177,11 @@ public static class CamJobFromGeometry
     }
 
     /// <summary>Um contorno lido da seleção, com a impressão do que o originou (face ou aresta).</summary>
-    private sealed record ContourPiece(Contour Contour, IReadOnlyList<GeoRef> Refs, LoopFilter Loops);
+    private sealed record ContourPiece(Contour Contour, IReadOnlyList<GeoRef> Refs, LoopFilter Loops)
+    {
+        /// <summary>CAM-FACE-02: veio de uma parede clicada (alturas lidas da malha).</summary>
+        public WallContour? Wall { get; init; }
+    }
 
     /// <summary>
     /// Contornos da seleção: aresta = uma peça; face plana para cima = o laço de fora (filtro Externo/Todos) e/ou os de dentro (Internos/Todos).
@@ -166,7 +215,29 @@ public static class CamJobFromGeometry
 
         foreach (MeshFace f in faces)
         {
-            if (f.Kind != FaceKind.Plane || f.Normal.Z < 0.99)
+            if (!(f.Kind == FaceKind.Plane && Math.Abs(f.Normal.Z) >= 0.99))
+            {
+                // CAM-FACE-02: parede (pino, furo, parede reta ou inclinada) = a seção horizontal dela, com o lado do material
+                (WallContour? wall, string? wallWhy) = WallSection.Of(features, f);
+                if (wall is null)
+                {
+                    why = wallWhy;
+                    return [];
+                }
+
+                if (side != ContourSide.OnLine && side != wall.Side)
+                {
+                    why = wall.Side == ContourSide.Outside
+                        ? "O material fica dentro desta parede (pino ou ressalto): o contorno é por fora."
+                        : "O material fica fora desta parede (furo ou rebaixo): o contorno é por dentro.";
+                    return [];
+                }
+
+                pieces.Add(new ContourPiece(wall.Contour, [JobGeometry.Of(f)], LoopFilter.Outer) { Wall = wall });
+                continue;
+            }
+
+            if (f.Normal.Z < 0.99)
             {
                 why = "Escolha uma face plana horizontal voltada para cima (ou as arestas dela).";
                 return [];
@@ -315,7 +386,14 @@ public static class CamJobFromGeometry
             Label = "Contorno do 3D",
             Geometry = new GeoSource(piece.Refs, piece.Loops, owned),
         };
-        spec = CamJobInfo.SetMissing(spec, CamJobPart.BottomField, true);
+        spec = piece.Wall is { } wall
+            ? spec with
+            {
+                // CAM-FACE-02: alturas da parede clicada (como o fundo do bolsão do 3D); a inclinada sai em degraus pela base
+                Label = wall.Inclined ? "Contorno pela base" : "Contorno da parede",
+                Levels = CamJobPart.AboveTop(spec.Levels, wall.TopZ) with { BottomZ = wall.BottomZ },
+            }
+            : CamJobInfo.SetMissing(spec, CamJobPart.BottomField, true);
         job.Operations.Add(spec);
         return job.Operations.Count - 1;
     }
@@ -588,6 +666,24 @@ public static class CamJobFromGeometry
                     Geometry = new GeoSource([.. faces.Select(JobGeometry.Of)], loops, ownedHoles),
                 };
                 return null;
+            case JobOpKind.Chamfer:
+                {
+                    // CAM-FACE-02: trocar a face inclinada do chanfro (só a aresta muda; largura e ângulo digitados ficam)
+                    (WallContour? wall, string? cwhy) = ChamferWall(features, faces);
+                    if (wall is null || edges.Count > 0)
+                    {
+                        return cwhy ?? "O chanfro usa uma face inclinada.";
+                    }
+
+                    List<int> ownedChamfer = AppendOwned(job, old.Owned, [wall.Contour], index);
+                    job.Operations[index] = spec with
+                    {
+                        ContourIndex = ownedChamfer[0],
+                        Geometry = new GeoSource([JobGeometry.Of(faces[0])], LoopFilter.Outer, ownedChamfer),
+                    };
+                    return null;
+                }
+
             default:
                 return CamPalette.SoonMessage;
         }

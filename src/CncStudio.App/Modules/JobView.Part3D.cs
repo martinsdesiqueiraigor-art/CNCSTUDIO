@@ -377,73 +377,79 @@ public partial class JobView
 
         if (face is not null && _partSelection.Contains(face.Id))
         {
-            ShowPartMenu(FaceMenuRules.For(features, face, m.Placed.Bounds.Max.Z), face);
+            ShowPartMenu(features, face);
         }
     }
 
-    /// <summary>Menu da face: só o que serve e o que é do tipo da seleção (apagado, com o motivo).</summary>
-    private void ShowPartMenu(FaceMenu menu, MeshFace face)
+    /// <summary>
+    /// Menu da face (CAM-FACE-02, como os CAMs de mercado): fundo plano = Faceamento, Bolsão e Desbaste adaptativo; furo = Furação e
+    /// Contorno por dentro; pino e parede reta = Contorno; parede inclinada = Chanfro e Contorno pela base. O que não serve fica
+    /// apagado, com o motivo do Core.
+    /// </summary>
+    private void ShowPartMenu(MeshFeatures features, MeshFace face)
     {
+        (string header, IReadOnlyList<JobFaceItem> items) = FaceMenuRules.ForJob(features, face, PartTopZ);
         var flyout = new MenuFlyout();
-        flyout.Items.Add(new MenuItem { Header = menu.Header, IsEnabled = false });
-        foreach (FaceMenuItem item in menu.Short)
+        flyout.Items.Add(new MenuItem { Header = header, IsEnabled = false });
+        foreach (JobFaceItem item in items)
         {
-            // STEP-OPS S1: o menu do Core ainda diz "faceamento não sai do 3D" (aba Modelo 3D); no Trabalho sai pela geometria da face
-            // S3: o bolsão com ilhas também sai (as ilhas vão para o motor de ilhas do Trabalho)
-            JobOpKind? geoKind = item.Item.Id switch { "faceamento" => JobOpKind.Facing, "bolsao" => JobOpKind.Pocket, _ => null };
-            bool facing = geoKind is not null && _partFeatures is not null;
-            string? facingWhy = facing ? CamJobFromGeometry.Unavailable(geoKind!.Value, _partFeatures!, [face], [], PartTopZ) : null;
-            bool fits = facing ? facingWhy is null : item.Fits;
-            string? why = facing ? facingWhy : item.Unavailable;
-            var mi = new MenuItem { Header = item.Item.Name, IsEnabled = fits };
-            if (!fits)
+            IReadOnlyList<MeshFace> faces = item.Kind == JobOpKind.Drilling
+                ? [.. _partSelection.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole)]
+                : [face];
+            string? why = CamJobFromGeometry.Unavailable(item.Kind, features, faces, [], PartTopZ, item.Side);
+            var mi = new MenuItem { Header = why is null ? item.Label : item.Label + " — " + why, IsEnabled = why is null };
+            if (why is not null)
             {
                 ToolTip.SetTip(mi, why);
                 ToolTip.SetShowOnDisabled(mi, true);
-                mi.Header = item.Item.Name + " — " + why;
             }
 
-            string id = item.Item.Id;
-            mi.Click += (_, _) => AddFromFace(id, face);
+            mi.Click += (_, _) => AddFromFace(item, face);
             flyout.Items.Add(mi);
-        }
-
-        if (menu.Short.Count == 0)
-        {
-            flyout.Items.Add(new MenuItem { Header = "Nada sai desta face ainda (contorno pela aresta vem depois).", IsEnabled = false });
         }
 
         flyout.ShowAt(Scene3D, showAtPointer: true);
     }
 
-    /// <summary>Cria a operação escolhida no menu: bolsão da face ou furação dos furos escolhidos.</summary>
-    private void AddFromFace(string id, MeshFace face)
+    /// <summary>Cria a operação escolhida no menu da face (CAM-FACE-02: também contorno, chanfro e desbaste adaptativo).</summary>
+    private void AddFromFace(JobFaceItem item, MeshFace face)
     {
-        if (_partFeatures is not { } features || _partMesh is not { } m)
+        if (_partFeatures is not { } features)
         {
             return;
         }
 
         Snap();
-        JobOpKind? kind = id switch { "bolsao" => JobOpKind.Pocket, "faceamento" => JobOpKind.Facing, "furacao" => JobOpKind.Drilling, _ => null };
         int before = _job.Operations.Count;
-        (IReadOnlyList<int> made, string? error) = kind is { } k
-            ? CamJobFromGeometry.Add(_job, k, features,
-                k == JobOpKind.Drilling ? [.. _partSelection.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole)] : [face],
-                [], m.Placed.Bounds.Max.Z)
-            : ([], CamPalette.SoonMessage);
-        int index = made.Count > 0 ? made[0] : -1;
+        IReadOnlyList<MeshFace> faces = item.Kind == JobOpKind.Drilling
+            ? [.. _partSelection.Select(i => features.Faces[i]).Where(f => f.Kind == FaceKind.Hole)]
+            : [face];
+        (IReadOnlyList<int> made, string? error) = CamJobFromGeometry.Add(_job, item.Kind, features, faces, [], PartTopZ, item.Side);
         if (error is not null)
         {
             Errors.Text = "• " + error;
             return;
         }
 
-        MarkNewOps(before);
+        if (item.Adaptive)
+        {
+            foreach (int k in made)
+            {
+                _job.Operations[k] = CamPalette.AsAdaptive(_job.Operations[k]);
+            }
+        }
 
+        MarkNewOps(before);
         _partSelection.Clear();
-        Refresh(op: index);
+        Refresh(op: made.Count > 0 ? made[0] : -1);
         ShowPartInScene();
-        Errors.Text = "• Operação criada na árvore. Digite T, Ø, rotação, avanços e o Z do fundo (a malha mostra o fundo só como referência). " + CamJobPart.MeshContourNote;
+        string note = item.Kind switch
+        {
+            JobOpKind.Contour when _job.Operations[made[0]].Label == "Contorno pela base" =>
+                "Contorno pela base da parede inclinada: sai em degraus de Z e deixa a escada de material (Conferir no peça × bruto). ",
+            JobOpKind.Contour or JobOpKind.Chamfer => "Topo e fundo lidos da parede no 3D: confira. ",
+            _ => "",
+        };
+        Errors.Text = "• Operação criada na árvore. " + note + "Digite T, Ø, rotação e avanços. " + CamJobPart.MeshContourNote;
     }
 }

@@ -105,6 +105,9 @@ public sealed class MeshFeatures
 
     public IReadOnlyList<MeshFace> Faces { get; }
 
+    /// <summary>CAM-FACE-02: a malha lida (para cortar seções horizontais na parede clicada).</summary>
+    public TriangleMesh Mesh => _mesh;
+
     public IReadOnlyList<MeshEdge> Edges { get; }
 
     /// <summary>Região de cada triângulo (−1 se o triângulo é degenerado).</summary>
