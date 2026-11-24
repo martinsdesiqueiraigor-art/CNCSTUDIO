@@ -651,7 +651,9 @@ public partial class JobView : UserControl
         // CAM-ADAPT-01c: passe em Z × comprimento de corte da fresa no banco (erro trava o programa; sem o dado, Conferir)
         List<(string? Error, string? Check)> depth = AdaptiveDepths();
         AvisosBox.SetWarnings(_build.Warnings.Where(w => !IsStartNote(w)), [.. checks, .. start, .. depth.Select(d => d.Check).OfType<string>()]);
-        AvisosBox.SetDerivedErrors([.. CompareErrors(), .. depth.Select(d => d.Error).OfType<string>()]);
+        // CAM-RAPIDO-01: rápido (G0) no material que as operações anteriores deixaram (Erro, sem travar, como o gouge)
+        IReadOnlyList<string> rapids = _stockOn && !_stockBusy && _stockTimeline is { } tl ? tl.RapidNotes : [];
+        AvisosBox.SetDerivedErrors([.. CompareErrors(), .. rapids, .. depth.Select(d => d.Error).OfType<string>()]);
     }
 
     private void Refresh(int? op = null, bool keep = false, bool props = true)
